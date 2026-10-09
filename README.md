@@ -40,4 +40,4 @@ powershell -ExecutionPolicy Bypass -File tools/check.ps1 -ExportWindows
 2. 检查并确认提案中的范围、需求场景和待定问题，再使用 `$openspec-apply-change` 实现。
 3. 每完成一个功能，运行 `powershell -ExecutionPolicy Bypass -File tools/check.ps1`，确认验收结果后使用 `$openspec-archive-change` 归档。
 
-OpenSpec CLI 可用 `npm install -g @fission-ai/openspec@latest` 安装；项目中的 `.codex/skills/` 是供 Codex 使用的集成文件。
+OpenSpec CLI 可用 `npm install -g @fission-ai/openspec@latest` 安装；项目中的 `.agents/skills/` 是供 Codex 使用的集成文件。升级 CLI 后，在项目根目录运行 `openspec update` 同步它们。
