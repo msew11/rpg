@@ -1,0 +1,5 @@
+interface:
+  display_name: "Git Dispatch"
+  short_description: "解析 git-dispatch 后的 worktree 与提交元数据并本地提交"
+  default_prompt: "Use $git-dispatch to start feature work on a named or free git worktree."
+  brand_color: "#F05133"

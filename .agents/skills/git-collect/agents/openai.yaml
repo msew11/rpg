@@ -1,0 +1,5 @@
+interface:
+  display_name: "Git Collect"
+  short_description: "Cherry-pick a busy worktree branch onto the main worktree"
+  default_prompt: "Use `$git-collect` with a busy satellite worktree name to cherry-pick its development commits onto the main worktree and switch that worktree back to its default branch."
+  brand_color: "#F05133"
