@@ -5,5 +5,7 @@
 - 开始修改前确认当前 Git 状态；保留用户已有改动。每完成一个功能，运行 `powershell -ExecutionPolicy Bypass -File tools/check.ps1`，再交付可运行结果、检查结果及尚存限制。
 - 遇到需要新增游戏设计决策的任务，先从用户需求中确认目标与验收标准。代码和资源只应实现已确定的功能。
 - 每个新目标使用 OpenSpec 记录为独立 change。先确认目标、范围和可验证的验收场景，再编写设计与任务并实现；完成检查后归档 change。未确认的玩法、美术和故事决定保持待定。
+- 开始新 change 前阅读当前分支已有的项目方向、架构、路线图文档和相关 `openspec/specs/`。文档中的未来目标不视为已实现能力；以代码及当前 specs 核对实现状态。
+- change 若改变当前分支的产品方向、模块边界或阶段顺序，应同步更新相关文档，并在完成时核对文档、代码和 specs 一致。未定事项保持待定。
 - 不提交 `.godot/` 缓存和 `build/` 导出文件。功能完成后提供清晰的 Git 提交，便于回滚。
 - 所有新 Git 提交遵循约定式提交（Conventional Commits）：标题格式为 `<type>[(<scope>)][!]: <description>`，其中范围和 `!` 可选，例如 `feat(combat): add turn order`、`fix: correct scene loading`、`docs: clarify setup steps`。常用类型包括 `feat`、`fix`、`docs`、`refactor`、`test`、`chore`；有破坏性变更时在类型或范围后加 `!`，并在正文脚注写明 `BREAKING CHANGE: <说明>`。
