@@ -4,6 +4,8 @@ Godot 4.7.2 / GDScript 项目，首个目标平台为 Windows 桌面。目前只
 
 `main` 保存不限定具体玩法的项目框架；`develop` 用于游戏方向与功能开发。当前可运行能力以代码和 `openspec/specs/` 为准。
 
+项目方向见 [游戏愿景](docs/game-vision.md)，设计边界见 [架构文档](docs/architecture.md)，阶段顺序见 [开发路线](docs/roadmap.md)。这三份文档记录目标和建议；具体内容由 `develop` 分支维护。
+
 ## 本机准备
 
 安装 Godot 4.7.2。检查脚本会优先使用 `GODOT_BIN` 环境变量，其次查找 PATH 中的 Godot，最后查找本机已安装的 Godot 4.7.2 控制台程序。
