@@ -1,6 +1,6 @@
-# 2D RPG 项目
+# Godot 2D 项目框架
 
-Godot 4.7.2 / GDScript 项目，首个目标平台为 Windows 桌面。目前只有一个可运行的启动场景，玩法和美术方向将在后续功能需求中确定。
+本项目使用 Godot 4.7.2、GDScript 和 2D 场景，以 `scenes/main.tscn` 为启动入口，首个验收平台为 Windows 桌面。当前提供可运行的启动场景。
 
 `main` 保存不限定具体玩法的项目框架；`develop` 用于游戏方向与功能开发。当前可运行能力以代码和 `openspec/specs/` 为准。
 
