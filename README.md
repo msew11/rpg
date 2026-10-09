@@ -31,3 +31,13 @@ powershell -ExecutionPolicy Bypass -File tools/check.ps1 -ExportWindows
 ```
 
 该命令也会启动导出的程序并确认正常退出。导出文件写入 `build/`，不提交到 Git。每个功能的开发和交付约定见 `AGENTS.md`。
+
+## 用 OpenSpec 记录目标
+
+本项目已初始化 OpenSpec 的 Codex 集成。每个目标对应 `openspec/changes/` 中的一项 change；完成并归档后，确认的需求会进入 `openspec/specs/`。尚未确定的游戏设计不写成既定要求。
+
+1. 描述一个具体目标及其验收标准，使用 Codex 的 `$openspec-propose` 创建提案与任务。若命令尚未出现，重启 Codex 后再试；也可以先运行 `openspec new change <目标名>` 建立记录。
+2. 检查并确认提案中的范围、需求场景和待定问题，再使用 `$openspec-apply-change` 实现。
+3. 每完成一个功能，运行 `powershell -ExecutionPolicy Bypass -File tools/check.ps1`，确认验收结果后使用 `$openspec-archive-change` 归档。
+
+OpenSpec CLI 可用 `npm install -g @fission-ai/openspec@latest` 安装；项目中的 `.codex/skills/` 是供 Codex 使用的集成文件。
