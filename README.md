@@ -4,7 +4,7 @@
 
 `main` 保存不限定具体玩法的项目框架；`develop` 用于游戏方向与功能开发。当前可运行能力以代码和 `openspec/specs/` 为准。
 
-项目方向见 [游戏愿景](docs/game-vision.md)，设计边界见 [架构文档](docs/architecture.md)，阶段顺序见 [开发路线](docs/roadmap.md)。这三份文档记录目标和建议；具体内容由 `develop` 分支维护。
+游戏愿景、架构和路线文档只在 `develop` 分支维护；`main` 不包含这三份文档。
 
 ## 本机准备
 
