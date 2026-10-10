@@ -1,10 +1,10 @@
 # Godot 2D 项目框架
 
-本项目使用 Godot 4.7.2、GDScript 和 2D 场景，以 `scenes/main.tscn` 为启动入口，首个验收平台为 Windows 桌面。当前提供可运行的等轴移动和连续区块原型。
+本项目使用 Godot 4.7.2、GDScript 和 2D 场景，以 `scenes/main.tscn` 为启动入口，首个验收平台为 Windows 桌面。当前提供可运行的启动场景。
 
 `main` 保存不限定具体玩法的项目框架；`develop` 用于游戏方向与功能开发。当前可运行能力以代码和 `openspec/specs/` 为准。
 
-项目方向见 [游戏愿景](docs/game-vision.md)，设计边界见 [架构文档](docs/architecture.md)，阶段顺序见 [开发路线](docs/roadmap.md)。这三份文档记录目标和建议；具体内容由 `develop` 分支维护。
+游戏愿景、架构和路线文档只在 `develop` 分支维护；`main` 不包含这三份文档。
 
 ## 本机准备
 
@@ -26,15 +26,6 @@ powershell -ExecutionPolicy Bypass -File tools/check.ps1
 
 脚本会检查 Godot 版本，执行无界面资源导入与主场景启动。也可以在 Godot 编辑器中打开 `project.godot`，按 F6 运行当前场景或按 F5 运行项目。
 
-原型中使用 WASD 或方向键沿屏幕八方向移动。移动系统检查可运行：
-
-```powershell
-godot --headless --path . --script tests/movement_test.gd
-godot --headless --path . --script tests/view_test.gd
-```
-
-连续区块原型使用手工配置的 4 × 4 个区块，每个区块 12 × 12 格。加载范围为玩家所在区块周围的 3 × 3 区块。有限世界的两侧相接，玩家位置与镜头连续前进；草地和泥地素材来自 Kenney Isometric Roads（CC0），这里只用于测试。视口左上角的雷达将等轴区块网格铺满可见范围：黄色四边框及顶部 CHUNK 坐标标明当前区块，蓝色表示已加载区块，灰色表示未加载区块，粉色表示回环接缝；可见区块标注规范坐标，玩家点和朝向箭头固定在中心，区块网格随移动平移。按空格切换脚下的一格地块；走远再返回，或走满一次回环，改动在本次运行中保留。左上角 Debug 面板可分别切换边缘线和雷达显示；F3 也能切换发光边缘线，默认关闭。面板在雷达隐藏后仍可操作，Windows 导出版本同样可用。按 M 打开或关闭完整 4 × 4 测试世界地图；地图显示地块内容与玩家位置，可按住鼠标左键拖动。此原型不提供退出后的存档。
-
 ## Windows 导出
 
 安装与 Godot 4.7.2 匹配的 Export Templates 后，在编辑器中选用 `Windows Desktop` 预设，或在根目录运行：
@@ -43,7 +34,9 @@ godot --headless --path . --script tests/view_test.gd
 powershell -ExecutionPolicy Bypass -File tools/check.ps1 -ExportWindows
 ```
 
-该命令也会启动导出的程序并确认正常退出。导出文件写入 `build/`，不提交到 Git。每个功能的开发和交付约定见 `AGENTS.md`。
+该命令也会启动导出的程序并确认正常退出。Windows 预设会把 PCK 嵌入 `build/windows/rpg.exe`，复制这个 exe 即可运行。导出文件写入 `build/`，不提交到 Git。
+
+在 Rider 中打开项目后，可从右上角的运行配置列表选择 **Export Windows single EXE**，点击运行。该共享配置执行上面的检查与导出命令；需要 Rider 的 Shell Script 插件（通常随 Rider 安装）。每个功能的开发和交付约定见 `AGENTS.md`。
 
 ## 用 OpenSpec 记录目标
 
