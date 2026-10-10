@@ -1,5 +1,5 @@
 ## 提供世界地块、行走区块与回环区块之间的坐标转换。
-class_name ChunkCoordinates
+class_name UtilChunkCoordinates
 extends RefCounted
 
 

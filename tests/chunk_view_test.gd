@@ -41,7 +41,7 @@ func run_test() -> void:
 	assert(main.ground.displayed_tile_type(Vector2i(30, 1)) == -1)
 	main.session.world.set_player_facing(main.session.player_id, Vector2i(1, 0))
 	assert(main.radar.facing_vector() == Vector2.RIGHT)
-	_move_to(main, Vector2(6, 6) + IsometricProjection.to_world(Vector2.RIGHT))
+	_move_to(main, Vector2(6, 6) + UtilIsometricProjection.to_world(Vector2.RIGHT))
 	assert(main.radar.chunk_corners(Vector2i(0, 0))[0].x < initial_corner.x)
 	assert(is_equal_approx(main.radar.chunk_corners(Vector2i(0, 0))[0].y, initial_corner.y - ChunkRadar.CHUNK_AXIS_PIXELS))
 	_move_to(main, Vector2(11.9, 1))
@@ -49,7 +49,7 @@ func run_test() -> void:
 	_move_to(main, Vector2(12.1, 1))
 	assert(main.radar.chunk_corners(Vector2i(1, 0))[0].x < before_border.x)
 	assert(is_equal_approx(main.radar.chunk_corners(Vector2i(1, 0))[0].x, before_border.x - 0.2 / 12.0 * ChunkRadar.CHUNK_AXIS_PIXELS))
-	assert(main.ground.displayed_tile_type(Vector2i(1, 1)) == main.chunk_world.tile_type(Vector2i(1, 1)))
+	assert(main.ground.displayed_tile_type(Vector2i(1, 1)) == main.session.world.tile_type(Vector2i(1, 1)))
 	assert(not main.ground.debug_edges_enabled())
 	assert(main.radar.edge_hint_text() == "F3 BORDERS: OFF")
 	var debug_key := InputEventKey.new()
@@ -71,7 +71,7 @@ func run_test() -> void:
 	assert(main.radar.chunk_outline_color(Vector2i(-1, -1)) == ChunkRadar.CURRENT_COLOR)
 	assert(Geometry2D.is_point_in_polygon(main.radar.player_marker_position(), main.radar.chunk_corners(Vector2i(-1, -1))))
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
-	assert(main.ground.displayed_tile_type(Vector2i(-1, -1)) == main.chunk_world.tile_type(Vector2i(-1, -1)))
+	assert(main.ground.displayed_tile_type(Vector2i(-1, -1)) == main.session.world.tile_type(Vector2i(-1, -1)))
 	assert(main.ground.displayed_tile_type(Vector2i(25, 25)) == -1)
 	main._unhandled_key_input(debug_key)
 	assert(not main.ground.debug_edges_enabled())
@@ -91,8 +91,8 @@ func run_test() -> void:
 	_move_to(main, Vector2(48.1, 1))
 	assert(is_equal_approx(main.radar.chunk_corners(Vector2i(4, 0))[0].x, before_wrap.x - 0.2 / 12.0 * ChunkRadar.CHUNK_AXIS_PIXELS))
 	_move_to(main, Vector2(49, 1))
-	assert(main.ground.displayed_tile_type(Vector2i(49, 1)) == main.chunk_world.tile_type(Vector2i(1, 1)))
-	assert(main.camera.position == IsometricProjection.to_screen(Vector2(49, 1)))
+	assert(main.ground.displayed_tile_type(Vector2i(49, 1)) == main.session.world.tile_type(Vector2i(1, 1)))
+	assert(main.camera.position == UtilIsometricProjection.to_screen(Vector2(49, 1)))
 	assert(main.radar.position == Vector2(16, 88))
 	var map_key := InputEventKey.new()
 	map_key.keycode = KEY_M
@@ -133,10 +133,10 @@ func run_test() -> void:
 ## 移动测试玩家并核对加载范围与视图位置。
 func _move_to(main: Node2D, position: Vector2) -> void:
 	main.session.world.set_player_position(main.session.player_id, position)
-	main.chunk_world.load_around(position)
+	main.session.world.step(0.0)
 	main._sync_view()
 	assert(_loaded_count(main) == 9)
-	assert(main.player_view.position == IsometricProjection.to_screen(position))
+	assert(main.player_view.position == UtilIsometricProjection.to_screen(position))
 
 
 ## 读取当前加载的行走区块数量。

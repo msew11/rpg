@@ -1,5 +1,5 @@
 ## 转换逻辑世界坐标与等轴屏幕坐标。
-class_name IsometricProjection
+class_name UtilIsometricProjection
 extends RefCounted
 
 const TILE_HALF_WIDTH := 50.0

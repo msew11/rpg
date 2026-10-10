@@ -10,12 +10,13 @@ var ecs := EcsWorld.new()
 var world_entity_id: int
 
 
-## 创建世界实体及其组件，并注册移动系统。
+## 创建世界实体及其组件，并按顺序注册移动与区块加载系统。
 func _init() -> void:
 	world_entity_id = ecs.create_entity()
 	ecs.add_component(world_entity_id, WorldChunksComponent.new())
 	ecs.add_component(world_entity_id, WorldDebugComponent.new())
 	ecs.add_system(MovementSystem.new())
+	ecs.add_system(ChunkLoadingSystem.new())
 
 
 ## 创建具有位置、意图、速度与朝向的玩家实体。
@@ -25,6 +26,7 @@ func create_player(position: Vector2, speed: float) -> int:
 	ecs.add_component(entity_id, MovementIntentComponent.new())
 	ecs.add_component(entity_id, MoveSpeedComponent.new(speed))
 	ecs.add_component(entity_id, FacingComponent.new())
+	ecs.add_component(entity_id, LocalPlayerComponent.new())
 	player_changed.emit(entity_id)
 	return entity_id
 
@@ -32,9 +34,12 @@ func create_player(position: Vector2, speed: float) -> int:
 ## 推进 ECS，并在玩家位置或朝向变化时通知视图。
 func step(delta: float) -> void:
 	var previous: Dictionary = {}
+	var previous_loaded := chunks().loaded.duplicate()
 	for entity_id in ecs.query([PositionComponent, FacingComponent]):
 		previous[entity_id] = [player_position(entity_id), player_facing(entity_id)]
 	ecs.step(delta)
+	if chunks().loaded != previous_loaded:
+		chunks_changed.emit()
 	for entity_id in previous:
 		if player_position(entity_id) != previous[entity_id][0] or player_facing(entity_id) != previous[entity_id][1]:
 			player_changed.emit(entity_id)
@@ -77,6 +82,38 @@ func set_player_position(entity_id: int, value: Vector2) -> void:
 	player_changed.emit(entity_id)
 
 
+## 读取指定地块在规范区块中的当前类型。
+func tile_type(tile: Vector2i) -> int:
+	var chunk_size := chunks().chunk_size
+	var raw := UtilChunkCoordinates.raw_chunk(tile, chunk_size)
+	var canonical := UtilChunkCoordinates.canonical_chunk(raw, chunks().world_size)
+	var local := UtilChunkCoordinates.local_tile(tile, chunk_size)
+	return chunks().tiles_for(canonical)[local.y * chunk_size.x + local.x]
+
+
+## 切换指定世界位置的测试地块类型。
+func toggle_tile(world_position: Vector2) -> void:
+	var tile := UtilChunkCoordinates.tile_at(world_position)
+	var chunk_size := chunks().chunk_size
+	var raw := UtilChunkCoordinates.raw_chunk(tile, chunk_size)
+	var canonical := UtilChunkCoordinates.canonical_chunk(raw, chunks().world_size)
+	var local := UtilChunkCoordinates.local_tile(tile, chunk_size)
+	var tiles := chunks().tiles_for(canonical)
+	var index := local.y * chunk_size.x + local.x
+	tiles[index] = 1 - tiles[index]
+	set_chunk_tiles(canonical, tiles)
+
+
+## 将固定测试目录一次写入世界实体的区块组件。
+func initialize_test_chunks(catalog: TestChunkCatalog) -> void:
+	chunks().chunk_size = catalog.chunk_size
+	chunks().world_size = catalog.world_size
+	for y in range(catalog.world_size.y):
+		for x in range(catalog.world_size.x):
+			set_chunk_tiles(Vector2i(x, y), catalog.tiles_for(Vector2i(x, y)))
+	step(0.0)
+
+
 ## 设置玩家朝向，并在有效变化时通知视图。
 func set_player_facing(entity_id: int, value: Vector2i) -> void:
 	var facing := ecs.get_component(entity_id, FacingComponent) as FacingComponent
@@ -84,14 +121,6 @@ func set_player_facing(entity_id: int, value: Vector2i) -> void:
 		return
 	facing.value = value
 	player_changed.emit(entity_id)
-
-
-## 更新已加载的行走区块范围。
-func set_loaded_chunks(value: Array[Vector2i]) -> void:
-	if chunks().loaded == value:
-		return
-	chunks().loaded = value.duplicate()
-	chunks_changed.emit()
 
 
 ## 保存一个规范区块的地块，并通知依赖它的视图。

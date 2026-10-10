@@ -18,7 +18,7 @@ func run_test() -> void:
 	main.session.set_player_direction(Vector2i(1, -1))
 	main.session.step(1.0)
 	main._sync_view()
-	var expected_position := IsometricProjection.to_screen(main.session.player_position())
+	var expected_position := UtilIsometricProjection.to_screen(main.session.player_position())
 	assert(main.player_view.position == expected_position)
 	assert(main.camera.position == expected_position)
 	var original_view: Node2D = main.player_view

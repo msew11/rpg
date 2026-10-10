@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3]
 
-[ext_resource type="Script" path="res://scripts/view/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/view/chunk_ground.gd" id="2_ground"]
 [ext_resource type="Script" path="res://scripts/view/chunk_radar.gd" id="3_radar"]
 [ext_resource type="Script" path="res://scripts/view/debug_panel.gd" id="4_debug"]

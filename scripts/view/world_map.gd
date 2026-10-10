@@ -2,7 +2,7 @@
 class_name WorldMap
 extends Control
 
-const CHUNK_AXIS_PIXELS := WorldMapSystem.CHUNK_AXIS_PIXELS
+const CHUNK_AXIS_PIXELS := UtilWorldMapProjection.CHUNK_AXIS_PIXELS
 const GRASS_COLOR := Color(0.35, 0.56, 0.31)
 const DIRT_COLOR := Color(0.68, 0.52, 0.35)
 const LOADED_COLOR := Color(0.48, 0.78, 0.84)
@@ -11,17 +11,14 @@ const WRAP_COLOR := Color(0.95, 0.45, 0.95)
 
 var source: WorldState
 var player_id: int
-var map_system: WorldMapSystem
 var pan_offset := Vector2.ZERO
 var _dragging := false
 
 
-## 绑定玩家与地图 System，并订阅世界变化。
+## 绑定玩家状态，并订阅世界变化。
 func bind(world: WorldState, entity_id: int) -> void:
 	source = world
 	player_id = entity_id
-	map_system = WorldMapSystem.new(source, player_id)
-	source.ecs.add_system(map_system)
 	source.player_changed.connect(_on_player_changed)
 	source.chunks_changed.connect(_on_chunks_changed)
 	queue_redraw()
@@ -35,7 +32,6 @@ func _on_player_changed(entity_id: int) -> void:
 
 ## 在区块数据或加载范围变化时刷新地图。
 func _on_chunks_changed() -> void:
-	map_system.refresh()
 	queue_redraw()
 
 
@@ -53,27 +49,23 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 	elif event is InputEventMouseMotion and _dragging:
 		pan_offset += event.relative
-		map_system.pan_offset = pan_offset
 		queue_redraw()
 		accept_event()
 
 
 ## 将世界位置映射到可平移的地图坐标。
 func _map_point(world_position: Vector2) -> Vector2:
-	map_system.map_size = size
-	return map_system.map_point(world_position)
+	return UtilWorldMapProjection.map_point(source, size, pan_offset, world_position)
 
 
 ## 计算规范区块在地图上的四个顶点。
 func chunk_corners(canonical: Vector2i) -> PackedVector2Array:
-	map_system.map_size = size
-	return map_system.chunk_corners(canonical)
+	return UtilWorldMapProjection.chunk_corners(source, size, pan_offset, canonical)
 
 
 ## 将玩家位置回环到有限地图后定位标记。
 func player_marker_position() -> Vector2:
-	map_system.map_size = size
-	return map_system.player_marker_position()
+	return UtilWorldMapProjection.player_marker_position(source, player_id, size, pan_offset)
 
 
 ## 绘制全部测试地块、区块轮廓和玩家标记。
@@ -81,10 +73,9 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.09), true)
 	if source == null:
 		return
-	map_system.map_size = size
 	var chunk_size := source.chunks().chunk_size
 	var world_size := source.chunks().world_size
-	var player_id_chunk := map_system.current_chunk()
+	var player_id_chunk := UtilWorldMapProjection.current_chunk(source, player_id)
 	var font := ThemeDB.fallback_font
 	draw_string(font, Vector2(24, 36), "WORLD MAP  ·  M close  ·  Left drag to pan", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
 	for y in range(world_size.y):
@@ -93,7 +84,7 @@ func _draw() -> void:
 			if not source.chunks().has_chunk(canonical):
 				continue
 			var tiles := source.chunks().tiles_for(canonical)
-			var origin := ChunkCoordinates.tile_origin(canonical, chunk_size)
+			var origin := UtilChunkCoordinates.tile_origin(canonical, chunk_size)
 			for local_y in range(chunk_size.y):
 				for local_x in range(chunk_size.x):
 					var tile := Vector2(origin + Vector2i(local_x, local_y))
@@ -108,7 +99,7 @@ func _draw() -> void:
 		for y in range(world_size.y):
 			for x in range(world_size.x):
 				var canonical := Vector2i(x, y)
-				if canonical == player_id_chunk or not source.chunks().has_chunk(canonical) or map_system.is_loaded(canonical) != draw_loaded:
+				if canonical == player_id_chunk or not source.chunks().has_chunk(canonical) or UtilWorldMapProjection.is_loaded(source, canonical) != draw_loaded:
 					continue
 				var outline := chunk_corners(canonical)
 				outline.append(outline[0])

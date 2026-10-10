@@ -2,9 +2,9 @@
 class_name ChunkRadar
 extends Control
 
-const GRID_VIEW := RadarSystem.GRID_VIEW
-const RADAR_CENTER := RadarSystem.RADAR_CENTER
-const CHUNK_AXIS_PIXELS := RadarSystem.CHUNK_AXIS_PIXELS
+const GRID_VIEW := UtilRadarProjection.GRID_VIEW
+const RADAR_CENTER := UtilRadarProjection.RADAR_CENTER
+const CHUNK_AXIS_PIXELS := UtilRadarProjection.CHUNK_AXIS_PIXELS
 const LOADED_COLOR := Color(0.48, 0.78, 0.84)
 const UNLOADED_COLOR := Color(0.42, 0.45, 0.48)
 const CURRENT_COLOR := Color(1.0, 0.82, 0.25)
@@ -12,15 +12,12 @@ const WRAP_COLOR := Color(0.95, 0.45, 0.95)
 
 var source: WorldState
 var player_id: int
-var radar_system: RadarSystem
 
 
-## 绑定玩家与雷达 System，并同步初始可见状态。
+## 绑定玩家状态与变化通知，并同步初始可见状态。
 func bind(world: WorldState, entity_id: int) -> void:
 	source = world
 	player_id = entity_id
-	radar_system = RadarSystem.new(source, player_id)
-	source.ecs.add_system(radar_system)
 	source.player_changed.connect(_on_player_changed)
 	source.chunks_changed.connect(_on_chunks_changed)
 	source.debug_changed.connect(_on_debug_changed)
@@ -31,13 +28,11 @@ func bind(world: WorldState, entity_id: int) -> void:
 ## 在玩家状态变化时刷新雷达。
 func _on_player_changed(entity_id: int) -> void:
 	if entity_id == player_id:
-		radar_system.refresh()
 		queue_redraw()
 
 
 ## 在加载范围变化时刷新雷达。
 func _on_chunks_changed() -> void:
-	radar_system.refresh()
 	queue_redraw()
 
 
@@ -54,22 +49,22 @@ func edge_hint_text() -> String:
 
 ## 返回固定在雷达中心的玩家标记位置。
 func player_marker_position() -> Vector2:
-	return radar_system.player_marker_position()
+	return UtilRadarProjection.player_marker_position()
 
 
 ## 读取玩家朝向并转为雷达方向向量。
 func facing_vector() -> Vector2:
-	return radar_system.facing_vector()
+	return UtilRadarProjection.facing_vector(source, player_id)
 
 
 ## 计算行走区块在雷达上的四个顶点。
 func chunk_corners(raw: Vector2i) -> PackedVector2Array:
-	return radar_system.chunk_corners(raw)
+	return UtilRadarProjection.chunk_corners(source, player_id, raw)
 
 
 ## 按当前、已加载或未加载状态选择轮廓颜色。
 func chunk_outline_color(raw: Vector2i) -> Color:
-	match radar_system.chunk_state(raw):
+	match UtilRadarProjection.chunk_state(source, player_id, raw):
 		2:
 			return CURRENT_COLOR
 		1:
@@ -80,27 +75,27 @@ func chunk_outline_color(raw: Vector2i) -> Color:
 
 ## 判断区块东侧是否为世界回环接缝。
 func wrap_east(raw: Vector2i) -> bool:
-	return radar_system.wrap_east(raw)
+	return UtilRadarProjection.wrap_east(source, raw)
 
 
 ## 判断区块南侧是否为世界回环接缝。
 func wrap_south(raw: Vector2i) -> bool:
-	return radar_system.wrap_south(raw)
+	return UtilRadarProjection.wrap_south(source, raw)
 
 
 ## 避开玩家标记安排当前区块坐标标签。
 func current_label_position() -> Vector2:
-	return radar_system.current_label_position()
+	return UtilRadarProjection.current_label_position(source, player_id)
 
 
 ## 找出与雷达视窗相交的行走区块。
 func visible_chunks() -> Array[Vector2i]:
-	return radar_system.visible_chunks()
+	return UtilRadarProjection.visible_chunks(source, player_id)
 
 
 ## 返回行走区块对应的规范坐标标签。
 func chunk_label(raw: Vector2i) -> String:
-	return radar_system.chunk_label(raw)
+	return UtilRadarProjection.chunk_label(source, raw)
 
 
 ## 绘制区块网格、状态轮廓、接缝和玩家标记。
@@ -109,21 +104,21 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), panel_color, true)
 	if source == null or source.chunks().loaded.is_empty():
 		return
-	var player_raw := radar_system.current_raw_chunk()
+	var player_raw := UtilRadarProjection.current_raw_chunk(source, player_id)
 	var font := ThemeDB.fallback_font
-	var current_id := radar_system.current_canonical_chunk()
+	var current_id := UtilRadarProjection.current_canonical_chunk(source, player_id)
 	draw_rect(GRID_VIEW, Color(0.06, 0.11, 0.14), true)
 	var visible_raw := visible_chunks()
 	for raw: Vector2i in visible_raw:
 		var corners := chunk_corners(raw)
-		var state := radar_system.chunk_state(raw)
+		var state := UtilRadarProjection.chunk_state(source, player_id, raw)
 		var current := state == 2
 		var is_loaded := state == 1
 		draw_colored_polygon(corners, Color(0.16, 0.28, 0.32, 0.95) if current else Color(0.08, 0.15, 0.19, 0.85) if is_loaded else Color(0.08, 0.10, 0.11, 0.85))
 	# 填充后再画边框，已加载区块最后绘制以保持共用边为蓝色。
 	for draw_loaded in [false, true]:
 		for raw: Vector2i in visible_raw:
-			if raw == player_raw or (radar_system.chunk_state(raw) == 1) != draw_loaded:
+			if raw == player_raw or (UtilRadarProjection.chunk_state(source, player_id, raw) == 1) != draw_loaded:
 				continue
 			var corners := chunk_corners(raw)
 			var outline := PackedVector2Array(corners)
@@ -133,7 +128,7 @@ func _draw() -> void:
 		if raw == player_raw:
 			continue
 		var corners := chunk_corners(raw)
-		var is_loaded := radar_system.chunk_state(raw) == 1
+		var is_loaded := UtilRadarProjection.chunk_state(source, player_id, raw) == 1
 		var label_position := (corners[0] + corners[2]) * 0.5 + Vector2(-12, 4)
 		if GRID_VIEW.has_point(label_position):
 			draw_string(font, label_position, chunk_label(raw), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.86, 0.94, 0.94) if is_loaded else Color(0.66, 0.70, 0.71))

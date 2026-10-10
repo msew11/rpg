@@ -27,7 +27,7 @@ func _draw() -> void:
 
 ## 将逻辑朝向转换为屏幕上的箭头方向。
 func facing_screen_direction() -> Vector2:
-	return IsometricProjection.to_screen(IsometricProjection.movement_direction(facing)).normalized()
+	return UtilIsometricProjection.to_screen(UtilIsometricProjection.movement_direction(facing)).normalized()
 
 
 ## 在脚部绘制压扁的角色阴影。

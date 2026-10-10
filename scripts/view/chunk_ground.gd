@@ -37,18 +37,18 @@ func displayed_tile_type(tile_coord: Vector2i) -> int:
 		return -1
 	var chunk_size := source.chunks().chunk_size
 	var world_size := source.chunks().world_size
-	var raw := ChunkCoordinates.raw_chunk(tile_coord, chunk_size)
+	var raw := UtilChunkCoordinates.raw_chunk(tile_coord, chunk_size)
 	var loaded := source.chunks().loaded
 	if not loaded.has(raw):
 		return -1
-	var canonical := ChunkCoordinates.canonical_chunk(raw, world_size)
+	var canonical := UtilChunkCoordinates.canonical_chunk(raw, world_size)
 	var tiles := source.chunks().tiles_for(canonical)
 	return _tile_type(tile_coord, tiles, chunk_size)
 
 
 ## 从区块数组读取指定地块的类型。
 func _tile_type(tile_coord: Vector2i, tiles: PackedByteArray, chunk_size: Vector2i) -> int:
-	var local := ChunkCoordinates.local_tile(tile_coord, chunk_size)
+	var local := UtilChunkCoordinates.local_tile(tile_coord, chunk_size)
 	return tiles[local.y * chunk_size.x + local.x]
 
 
@@ -69,22 +69,22 @@ func _draw() -> void:
 		min_raw.y = mini(min_raw.y, raw.y)
 		max_raw.x = maxi(max_raw.x, raw.x)
 		max_raw.y = maxi(max_raw.y, raw.y)
-		var canonical := ChunkCoordinates.canonical_chunk(raw, world_size)
+		var canonical := UtilChunkCoordinates.canonical_chunk(raw, world_size)
 		by_raw[raw] = source.chunks().tiles_for(canonical)
-	var min_tile := ChunkCoordinates.tile_origin(min_raw, chunk_size)
-	var max_tile := ChunkCoordinates.tile_origin(max_raw + Vector2i.ONE, chunk_size) - Vector2i.ONE
+	var min_tile := UtilChunkCoordinates.tile_origin(min_raw, chunk_size)
+	var max_tile := UtilChunkCoordinates.tile_origin(max_raw + Vector2i.ONE, chunk_size) - Vector2i.ONE
 	for row in range(min_tile.x + min_tile.y, max_tile.x + max_tile.y + 1):
 		for x in range(min_tile.x, max_tile.x + 1):
 			var y := row - x
 			if y < min_tile.y or y > max_tile.y:
 				continue
 			var tile_coord := Vector2i(x, y)
-			var raw := ChunkCoordinates.raw_chunk(tile_coord, chunk_size)
+			var raw := UtilChunkCoordinates.raw_chunk(tile_coord, chunk_size)
 			if not by_raw.has(raw):
 				continue
 			var tiles: PackedByteArray = by_raw[raw]
 			var tile_texture: Texture2D = DIRT if _tile_type(tile_coord, tiles, chunk_size) == 1 else GRASS
-			draw_texture(tile_texture, IsometricProjection.to_screen(Vector2(tile_coord)) - Vector2(50, 25))
+			draw_texture(tile_texture, UtilIsometricProjection.to_screen(Vector2(tile_coord)) - Vector2(50, 25))
 	if debug_edges_enabled():
 		for raw: Vector2i in loaded:
 			_draw_chunk_edge(raw, chunk_size)
@@ -92,13 +92,13 @@ func _draw() -> void:
 
 ## 沿区块四边绘制发光调试轮廓。
 func _draw_chunk_edge(raw: Vector2i, chunk_size: Vector2i) -> void:
-	var origin := Vector2(ChunkCoordinates.tile_origin(raw, chunk_size)) - Vector2(0.5, 0.5)
+	var origin := Vector2(UtilChunkCoordinates.tile_origin(raw, chunk_size)) - Vector2(0.5, 0.5)
 	var corners := PackedVector2Array([
-		IsometricProjection.to_screen(origin),
-		IsometricProjection.to_screen(origin + Vector2(chunk_size.x, 0)),
-		IsometricProjection.to_screen(origin + Vector2(chunk_size)),
-		IsometricProjection.to_screen(origin + Vector2(0, chunk_size.y)),
-		IsometricProjection.to_screen(origin)
+		UtilIsometricProjection.to_screen(origin),
+		UtilIsometricProjection.to_screen(origin + Vector2(chunk_size.x, 0)),
+		UtilIsometricProjection.to_screen(origin + Vector2(chunk_size)),
+		UtilIsometricProjection.to_screen(origin + Vector2(0, chunk_size.y)),
+		UtilIsometricProjection.to_screen(origin)
 	])
 	draw_polyline(corners, Color(0.1, 1.0, 0.95, 0.12), 16.0, true)
 	draw_polyline(corners, Color(0.1, 1.0, 0.95, 0.28), 8.0, true)

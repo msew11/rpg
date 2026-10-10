@@ -10,8 +10,6 @@ const PLAYER_VIEW := preload("res://scenes/player_view.tscn")
 @onready var world_map: WorldMap = $RadarLayer/WorldMap
 
 var session := LocalSession.new()
-var catalog := TestChunkCatalog.new()
-var chunk_world := ChunkWorld.new(session.world, catalog)
 var player_view: Node2D
 
 
@@ -21,7 +19,6 @@ func _ready() -> void:
 	radar.bind(session.world, session.player_id)
 	debug_panel.bind(session.world)
 	world_map.bind(session.world, session.player_id)
-	chunk_world.load_around(session.player_position())
 	rebuild_player_view()
 	_sync_view()
 
@@ -32,7 +29,6 @@ func _physics_process(delta: float) -> void:
 		return
 	session.set_player_direction(MovementInput.from_keyboard())
 	session.step(delta)
-	chunk_world.load_around(session.player_position())
 	_sync_view()
 
 
@@ -41,13 +37,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if event.keycode == KEY_M:
-		if not world_map.visible:
-			chunk_world.ensure_all_chunks()
 		world_map.toggle_open()
 	elif world_map.visible:
 		return
 	elif event.keycode == KEY_SPACE:
-		chunk_world.toggle_tile(session.player_position())
+		session.world.toggle_tile(session.player_position())
 	elif event.keycode == KEY_F3:
 		session.world.set_debug_edges(not session.world.debug().edges)
 
@@ -66,6 +60,6 @@ func _sync_view() -> void:
 	if not is_instance_valid(player_view):
 		return
 	var position := session.player_position()
-	player_view.position = IsometricProjection.to_screen(position)
+	player_view.position = UtilIsometricProjection.to_screen(position)
 	player_view.facing = session.player_facing()
 	camera.position = player_view.position
