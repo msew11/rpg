@@ -12,3 +12,5 @@
 - `develop` 上的 change 若改变产品方向、模块边界或阶段顺序，须在同一次交付中更新相应长期文档；完成时核对文档与代码、specs 一致，并更新路线图状态。未定事项先标为待定，不由 agent 擅自定案。
 - 不提交 `.godot/` 缓存和 `build/` 导出文件。功能完成后提供清晰的 Git 提交，便于回滚。
 - 所有新 Git 提交遵循约定式提交（Conventional Commits）：标题格式为 `<type>[(<scope>)][!]: <description>`，其中范围和 `!` 可选，例如 `feat(combat): add turn order`、`fix: correct scene loading`、`docs: clarify setup steps`。常用类型包括 `feat`、`fix`、`docs`、`refactor`、`test`、`chore`；有破坏性变更时在类型或范围后加 `!`，并在正文脚注写明 `BREAKING CHANGE: <说明>`。
+
+<!-- Branch ownership protection test: this change must be rejected. -->
