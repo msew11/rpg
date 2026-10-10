@@ -5,8 +5,8 @@ func _initialize() -> void:
 	var session := LocalSession.new()
 	var player_id := session.player_id
 	assert(player_id > 0)
-	assert(session.world.positions[player_id] == Vector2.ZERO)
-	assert(session.world.positions[player_id] is Vector2)
+	assert(session.world.read_value(WorldState.position_key(player_id)) == Vector2.ZERO)
+	assert(session.world.read_value(WorldState.position_key(player_id)) is Vector2)
 
 	var directions := [
 		Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1),
@@ -48,7 +48,7 @@ func _initialize() -> void:
 	var view_b := Node2D.new()
 	view_b.position = IsometricProjection.to_screen(session.player_position())
 	assert(session.player_id == player_id)
-	assert(view_b.position == IsometricProjection.to_screen(session.world.positions[player_id]))
+	assert(view_b.position == IsometricProjection.to_screen(session.world.read_value(WorldState.position_key(player_id))))
 	view_b.free()
 
 	print("movement_test passed")

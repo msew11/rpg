@@ -1,6 +1,6 @@
 # Godot 2D 项目框架
 
-本项目使用 Godot 4.7.2、GDScript 和 2D 场景，以 `scenes/main.tscn` 为启动入口，首个验收平台为 Windows 桌面。当前提供可运行的等轴移动原型。
+本项目使用 Godot 4.7.2、GDScript 和 2D 场景，以 `scenes/main.tscn` 为启动入口，首个验收平台为 Windows 桌面。当前提供可运行的等轴移动和连续区块原型。
 
 `main` 保存不限定具体玩法的项目框架；`develop` 用于游戏方向与功能开发。当前可运行能力以代码和 `openspec/specs/` 为准。
 
@@ -32,6 +32,8 @@ powershell -ExecutionPolicy Bypass -File tools/check.ps1
 godot --headless --path . --script tests/movement_test.gd
 godot --headless --path . --script tests/view_test.gd
 ```
+
+连续区块原型使用手工配置的 4 × 4 个区块，每个区块 12 × 12 格。加载范围为玩家所在区块周围的 3 × 3 区块。有限世界的两侧相接，玩家位置与镜头连续前进；草地和泥地素材来自 Kenney Isometric Roads（CC0），这里只用于测试。按空格切换脚下的一格地块；走远再返回，或走满一次回环，改动在本次运行中保留。调试构建中按 F3 显示或隐藏当前加载区块的发光边缘；发布构建不显示该覆盖层。此原型不提供退出后的存档。
 
 ## Windows 导出
 

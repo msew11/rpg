@@ -12,7 +12,7 @@ func _init() -> void:
 
 
 func set_player_direction(screen_direction: Vector2i) -> void:
-	world.move_intents[player_id] = screen_direction
+	world.write_value(WorldState.intent_key(player_id), screen_direction)
 
 
 func step(delta: float) -> void:
@@ -20,8 +20,8 @@ func step(delta: float) -> void:
 
 
 func player_position() -> Vector2:
-	return world.positions[player_id]
+	return world.read_value(WorldState.position_key(player_id))
 
 
 func player_facing() -> Vector2i:
-	return world.facings[player_id]
+	return world.read_value(WorldState.facing_key(player_id))
