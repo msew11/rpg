@@ -1,6 +1,8 @@
+## 验证测试区块目录的尺寸和图案读取。
 extends SceneTree
 
 
+## 检查目录布局与样例地块并退出。
 func _initialize() -> void:
 	var catalog := TestChunkCatalog.new()
 	assert(catalog.chunk_size == Vector2i(12, 12))

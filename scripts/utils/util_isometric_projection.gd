@@ -1,10 +1,12 @@
-class_name IsometricProjection
+## 转换逻辑世界坐标与等轴屏幕坐标。
+class_name UtilIsometricProjection
 extends RefCounted
 
 const TILE_HALF_WIDTH := 50.0
 const TILE_HALF_HEIGHT := 25.0
 
 
+## 将世界位置投影到屏幕坐标。
 static func to_screen(world_position: Vector2) -> Vector2:
 	return Vector2(
 		(world_position.x - world_position.y) * TILE_HALF_WIDTH,
@@ -12,6 +14,7 @@ static func to_screen(world_position: Vector2) -> Vector2:
 	)
 
 
+## 将屏幕坐标反算为世界位置。
 static func to_world(screen_position: Vector2) -> Vector2:
 	return Vector2(
 		0.5 * (screen_position.x / TILE_HALF_WIDTH + screen_position.y / TILE_HALF_HEIGHT),
@@ -19,6 +22,7 @@ static func to_world(screen_position: Vector2) -> Vector2:
 	)
 
 
+## 把屏幕方向输入转换为等速的世界移动方向。
 static func movement_direction(screen_input: Vector2i) -> Vector2:
 	var tile_aligned_input := Vector2(
 		screen_input.x * TILE_HALF_WIDTH,

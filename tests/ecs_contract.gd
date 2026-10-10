@@ -1,16 +1,21 @@
+## 验证 ECS 实体、组件、查询与系统调度契约。
 extends SceneTree
 
+## 提供测试用的位置组件。
 class Position extends EcsComponent:
 	var x: float
 
+	## 设置测试位置值。
 	func _init(value: float = 0.0) -> void:
 		x = value
 
 
+## 提供测试用的速度组件。
 class Velocity extends EcsComponent:
 	var x: float = 1.0
 
 
+## 记录系统调用并触发调度期间的注册变化。
 class RecordingSystem extends EcsSystem:
 	var name_tag: String
 	var calls: Array[String]
@@ -20,10 +25,12 @@ class RecordingSystem extends EcsSystem:
 	var system_to_add: EcsSystem
 	var system_to_remove: EcsSystem
 
+	## 设置系统标记与调用日志。
 	func _init(tag: String, log: Array[String]) -> void:
 		name_tag = tag
 		calls = log
 
+	## 记录系统调用并验证调度上下文。
 	func update(world: EcsWorld, delta: float) -> void:
 		calls.append(name_tag)
 		assert(world.get_instance_id() == expected_world_id)
@@ -37,6 +44,7 @@ class RecordingSystem extends EcsSystem:
 var _failures: Array[String] = []
 
 
+## 执行 ECS 契约断言并汇总结果。
 func _initialize() -> void:
 	var world := EcsWorld.new()
 	var first := world.create_entity()
@@ -121,6 +129,7 @@ func _initialize() -> void:
 		quit(1)
 
 
+## 记录未通过的 ECS 断言。
 func _check(condition: bool, description: String) -> void:
 	if not condition:
 		_failures.append(description)

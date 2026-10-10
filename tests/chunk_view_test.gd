@@ -1,12 +1,15 @@
+## 验证区块地面、雷达和完整地图的显示交互。
 extends SceneTree
 
 const MAIN := preload("res://scenes/main.tscn")
 
 
+## 延后执行需挂入场景树的视图测试。
 func _initialize() -> void:
 	call_deferred("run_test")
 
 
+## 构建主场景并验证区块显示和地图交互。
 func run_test() -> void:
 	var main := MAIN.instantiate()
 	root.add_child(main)
@@ -36,9 +39,9 @@ func run_test() -> void:
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
 	assert(main.radar.chunk_corners(Vector2i(0, 0))[0] == initial_corner - Vector2(0, ChunkRadar.CHUNK_AXIS_PIXELS))
 	assert(main.ground.displayed_tile_type(Vector2i(30, 1)) == -1)
-	main.session.world.write_value(WorldState.facing_key(main.session.player_id), Vector2i(1, 0))
+	main.session.world.set_player_facing(main.session.player_id, Vector2i(1, 0))
 	assert(main.radar.facing_vector() == Vector2.RIGHT)
-	_move_to(main, Vector2(6, 6) + IsometricProjection.to_world(Vector2.RIGHT))
+	_move_to(main, Vector2(6, 6) + UtilIsometricProjection.to_world(Vector2.RIGHT))
 	assert(main.radar.chunk_corners(Vector2i(0, 0))[0].x < initial_corner.x)
 	assert(is_equal_approx(main.radar.chunk_corners(Vector2i(0, 0))[0].y, initial_corner.y - ChunkRadar.CHUNK_AXIS_PIXELS))
 	_move_to(main, Vector2(11.9, 1))
@@ -46,7 +49,7 @@ func run_test() -> void:
 	_move_to(main, Vector2(12.1, 1))
 	assert(main.radar.chunk_corners(Vector2i(1, 0))[0].x < before_border.x)
 	assert(is_equal_approx(main.radar.chunk_corners(Vector2i(1, 0))[0].x, before_border.x - 0.2 / 12.0 * ChunkRadar.CHUNK_AXIS_PIXELS))
-	assert(main.ground.displayed_tile_type(Vector2i(1, 1)) == main.chunk_world.tile_type(Vector2i(1, 1)))
+	assert(main.ground.displayed_tile_type(Vector2i(1, 1)) == main.session.world.tile_type(Vector2i(1, 1)))
 	assert(not main.ground.debug_edges_enabled())
 	assert(main.radar.edge_hint_text() == "F3 BORDERS: OFF")
 	var debug_key := InputEventKey.new()
@@ -68,7 +71,7 @@ func run_test() -> void:
 	assert(main.radar.chunk_outline_color(Vector2i(-1, -1)) == ChunkRadar.CURRENT_COLOR)
 	assert(Geometry2D.is_point_in_polygon(main.radar.player_marker_position(), main.radar.chunk_corners(Vector2i(-1, -1))))
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
-	assert(main.ground.displayed_tile_type(Vector2i(-1, -1)) == main.chunk_world.tile_type(Vector2i(-1, -1)))
+	assert(main.ground.displayed_tile_type(Vector2i(-1, -1)) == main.session.world.tile_type(Vector2i(-1, -1)))
 	assert(main.ground.displayed_tile_type(Vector2i(25, 25)) == -1)
 	main._unhandled_key_input(debug_key)
 	assert(not main.ground.debug_edges_enabled())
@@ -88,8 +91,8 @@ func run_test() -> void:
 	_move_to(main, Vector2(48.1, 1))
 	assert(is_equal_approx(main.radar.chunk_corners(Vector2i(4, 0))[0].x, before_wrap.x - 0.2 / 12.0 * ChunkRadar.CHUNK_AXIS_PIXELS))
 	_move_to(main, Vector2(49, 1))
-	assert(main.ground.displayed_tile_type(Vector2i(49, 1)) == main.chunk_world.tile_type(Vector2i(1, 1)))
-	assert(main.camera.position == IsometricProjection.to_screen(Vector2(49, 1)))
+	assert(main.ground.displayed_tile_type(Vector2i(49, 1)) == main.session.world.tile_type(Vector2i(1, 1)))
+	assert(main.camera.position == UtilIsometricProjection.to_screen(Vector2(49, 1)))
 	assert(main.radar.position == Vector2(16, 88))
 	var map_key := InputEventKey.new()
 	map_key.keycode = KEY_M
@@ -99,7 +102,7 @@ func run_test() -> void:
 	assert(main.world_map.size.x > 0 and main.world_map.size.y > 0)
 	for y in range(4):
 		for x in range(4):
-			assert(main.session.world.has_value(WorldState.chunk_key(Vector2i(x, y))))
+			assert(main.session.world.chunks().has_chunk(Vector2i(x, y)))
 	assert(main.world_map.chunk_corners(Vector2i(0, 0)).size() == 4)
 	assert(main.world_map.player_marker_position() == main.world_map._map_point(Vector2(1, 1)))
 	var before_pan: Vector2 = main.world_map.chunk_corners(Vector2i(0, 0))[0]
@@ -127,23 +130,26 @@ func run_test() -> void:
 	quit()
 
 
+## 移动测试玩家并核对加载范围与视图位置。
 func _move_to(main: Node2D, position: Vector2) -> void:
-	main.session.world.write_value(WorldState.position_key(main.session.player_id), position)
-	main.chunk_world.load_around(position)
+	main.session.world.set_player_position(main.session.player_id, position)
+	main.session.world.step(0.0)
 	main._sync_view()
 	assert(_loaded_count(main) == 9)
-	assert(main.player_view.position == IsometricProjection.to_screen(position))
+	assert(main.player_view.position == UtilIsometricProjection.to_screen(position))
 
 
+## 读取当前加载的行走区块数量。
 func _loaded_count(main: Node2D) -> int:
-	var loaded: Array = main.session.world.read_value(ChunkWorld.LOADED_KEY)
+	var loaded: Array[Vector2i] = main.session.world.chunks().loaded
 	return loaded.size()
 
 
+## 检查雷达可见区块覆盖其视窗采样点。
 func _assert_radar_coverage(main: Node2D) -> void:
 	var radar: ChunkRadar = main.radar
 	var visible := radar.visible_chunks()
-	var chunk_size: Vector2i = main.session.world.read_value(WorldState.CHUNK_SIZE_KEY)
+	var chunk_size: Vector2i = main.session.world.chunks().chunk_size
 	var player_chunk_position: Vector2 = main.session.player_position() / Vector2(chunk_size)
 	for screen_y in range(45, 307, 32):
 		for screen_x in range(23, 285, 32):

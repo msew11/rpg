@@ -1,12 +1,14 @@
+## 验证八方向移动、速度与视图重建后的状态。
 extends SceneTree
 
 
+## 运行玩家移动和输入方向断言并退出。
 func _initialize() -> void:
 	var session := LocalSession.new()
 	var player_id := session.player_id
 	assert(player_id > 0)
-	assert(session.world.read_value(WorldState.position_key(player_id)) == Vector2.ZERO)
-	assert(session.world.read_value(WorldState.position_key(player_id)) is Vector2)
+	assert(session.world.player_position(player_id) == Vector2.ZERO)
+	assert(session.world.ecs.get_component(player_id, PositionComponent) is PositionComponent)
 
 	var directions := [
 		Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1),
@@ -17,11 +19,11 @@ func _initialize() -> void:
 		var test_session := LocalSession.new()
 		test_session.set_player_direction(direction)
 		test_session.step(1.0 / 60.0)
-		var screen_delta := IsometricProjection.to_screen(test_session.player_position())
+		var screen_delta := UtilIsometricProjection.to_screen(test_session.player_position())
 		assert(sign(screen_delta.x) == sign(direction.x))
 		assert(sign(screen_delta.y) == sign(direction.y))
 		if direction.x != 0 and direction.y != 0:
-			assert(absf(absf(screen_delta.y / screen_delta.x) - IsometricProjection.TILE_HALF_HEIGHT / IsometricProjection.TILE_HALF_WIDTH) < 0.0001)
+			assert(absf(absf(screen_delta.y / screen_delta.x) - UtilIsometricProjection.TILE_HALF_HEIGHT / UtilIsometricProjection.TILE_HALF_WIDTH) < 0.0001)
 		elif direction.x == 0:
 			assert(absf(screen_delta.x) < 0.0001)
 		else:
@@ -47,14 +49,14 @@ func _initialize() -> void:
 	assert(diagonal.player_position() == stopped_position)
 	assert(diagonal.player_facing() == Vector2i(1, -1))
 
-	# Recreating a view does not create or reset its world entity.
+	# 重建视图不创建或重置对应的世界实体。
 	var view_a := Node2D.new()
-	view_a.position = IsometricProjection.to_screen(session.player_position())
+	view_a.position = UtilIsometricProjection.to_screen(session.player_position())
 	view_a.free()
 	var view_b := Node2D.new()
-	view_b.position = IsometricProjection.to_screen(session.player_position())
+	view_b.position = UtilIsometricProjection.to_screen(session.player_position())
 	assert(session.player_id == player_id)
-	assert(view_b.position == IsometricProjection.to_screen(session.world.read_value(WorldState.position_key(player_id))))
+	assert(view_b.position == UtilIsometricProjection.to_screen(session.world.player_position(player_id)))
 	view_b.free()
 
 	print("movement_test passed")
