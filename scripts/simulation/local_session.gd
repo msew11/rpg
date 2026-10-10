@@ -16,7 +16,7 @@ func set_player_direction(screen_direction: Vector2i) -> void:
 
 
 func step(delta: float) -> void:
-	MovementSystem.step(world, delta)
+	world.step(delta)
 
 
 func player_position() -> Vector2:
