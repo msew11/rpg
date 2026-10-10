@@ -24,8 +24,15 @@ func run_test() -> void:
 	assert(main.radar.wrap_east(Vector2i(-1, 0)))
 	assert(main.radar.wrap_south(Vector2i(0, 3)))
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
+	assert(main.radar.visible_chunks().size() > 25)
+	_assert_radar_coverage(main)
+	assert(main.radar.visible_chunks().has(Vector2i(4, 0)))
+	assert(main.radar.chunk_outline_color(Vector2i(4, 0)) == ChunkRadar.UNLOADED_COLOR)
+	assert(main.radar.chunk_label(Vector2i(4, 0)) == "0,0")
+	assert(main.radar.chunk_label(Vector2i(-1, -1)) == "3,3")
 	var initial_corner: Vector2 = main.radar.chunk_corners(Vector2i(0, 0))[0]
 	_move_to(main, Vector2(6, 6))
+	_assert_radar_coverage(main)
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
 	assert(main.radar.chunk_corners(Vector2i(0, 0))[0] == initial_corner - Vector2(0, ChunkRadar.CHUNK_AXIS_PIXELS))
 	assert(main.ground.displayed_tile_type(Vector2i(30, 1)) == -1)
@@ -54,6 +61,10 @@ func run_test() -> void:
 	main.debug_panel.radar_button.button_pressed = true
 	assert(main.radar.visible)
 	_move_to(main, Vector2(-1, -1))
+	_assert_radar_coverage(main)
+	assert(main.radar.visible_chunks().size() > 25)
+	assert(main.radar.visible_chunks().has(Vector2i(-5, -1)))
+	assert(main.radar.chunk_label(Vector2i(-5, -1)) == "3,3")
 	assert(main.radar.chunk_outline_color(Vector2i(-1, -1)) == ChunkRadar.CURRENT_COLOR)
 	assert(Geometry2D.is_point_in_polygon(main.radar.player_marker_position(), main.radar.chunk_corners(Vector2i(-1, -1))))
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
@@ -68,6 +79,7 @@ func run_test() -> void:
 	main.debug_panel.borders_button.button_pressed = false
 	assert(not main.ground.debug_edges_enabled())
 	_move_to(main, Vector2(49, 1))
+	_assert_radar_coverage(main)
 	assert(main.radar.chunk_outline_color(Vector2i(4, 0)) == ChunkRadar.CURRENT_COLOR)
 	assert(Geometry2D.is_point_in_polygon(main.radar.player_marker_position(), main.radar.chunk_corners(Vector2i(4, 0))))
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
@@ -126,3 +138,15 @@ func _move_to(main: Node2D, position: Vector2) -> void:
 func _loaded_count(main: Node2D) -> int:
 	var loaded: Array = main.session.world.read_value(ChunkWorld.LOADED_KEY)
 	return loaded.size()
+
+
+func _assert_radar_coverage(main: Node2D) -> void:
+	var radar: ChunkRadar = main.radar
+	var visible := radar.visible_chunks()
+	var chunk_size: Vector2i = main.session.world.read_value(WorldState.CHUNK_SIZE_KEY)
+	var player_chunk_position: Vector2 = main.session.player_position() / Vector2(chunk_size)
+	for screen_y in range(45, 307, 32):
+		for screen_x in range(23, 285, 32):
+			var offset := (Vector2(screen_x, screen_y) - ChunkRadar.RADAR_CENTER) / ChunkRadar.CHUNK_AXIS_PIXELS
+			var chunk_position := player_chunk_position + Vector2((offset.x + offset.y) * 0.5, (offset.y - offset.x) * 0.5)
+			assert(visible.has(Vector2i(floori(chunk_position.x), floori(chunk_position.y))))

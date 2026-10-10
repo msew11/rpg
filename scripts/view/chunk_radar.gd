@@ -84,6 +84,37 @@ func current_label_position() -> Vector2:
 	return center + Vector2(-12, 14 if below else -4)
 
 
+func visible_chunks() -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
+		return result
+	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
+	var position: Vector2 = source.read_value(WorldState.position_key(player_id)) / Vector2(chunk_size)
+	var min_chunk := Vector2(INF, INF)
+	var max_chunk := Vector2(-INF, -INF)
+	for screen_point in [GRID_VIEW.position, Vector2(GRID_VIEW.end.x, GRID_VIEW.position.y), GRID_VIEW.end, Vector2(GRID_VIEW.position.x, GRID_VIEW.end.y)]:
+		var offset: Vector2 = (screen_point - RADAR_CENTER) / CHUNK_AXIS_PIXELS
+		var chunk_point := position + Vector2((offset.x + offset.y) * 0.5, (offset.y - offset.x) * 0.5)
+		min_chunk = min_chunk.min(chunk_point)
+		max_chunk = max_chunk.max(chunk_point)
+	for y in range(floori(min_chunk.y) - 1, ceili(max_chunk.y) + 1):
+		for x in range(floori(min_chunk.x) - 1, ceili(max_chunk.x) + 1):
+			var raw := Vector2i(x, y)
+			var corners := chunk_corners(raw)
+			var bounds := Rect2(corners[0], Vector2.ZERO)
+			for corner in corners:
+				bounds = bounds.expand(corner)
+			if bounds.intersects(GRID_VIEW):
+				result.append(raw)
+	return result
+
+
+func chunk_label(raw: Vector2i) -> String:
+	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
+	var canonical := ChunkCoordinates.canonical_chunk(raw, world_size)
+	return "%d,%d" % [canonical.x, canonical.y]
+
+
 func _radar_point(world_position: Vector2) -> Vector2:
 	var player_position: Vector2 = source.read_value(WorldState.position_key(player_id))
 	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
@@ -92,7 +123,8 @@ func _radar_point(world_position: Vector2) -> Vector2:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.08, 0.11, 0.9), true)
+	var panel_color := Color(0.04, 0.08, 0.11, 0.9)
+	draw_rect(Rect2(Vector2.ZERO, size), panel_color, true)
 	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
 		return
 	var loaded: Array = source.read_value(WorldState.LOADED_CHUNKS_KEY)
@@ -104,12 +136,8 @@ func _draw() -> void:
 	var player_raw := ChunkCoordinates.raw_chunk(ChunkCoordinates.tile_at(position), chunk_size)
 	var font := ThemeDB.fallback_font
 	var current_id := ChunkCoordinates.canonical_chunk(player_raw, world_size)
-	draw_string(font, Vector2(16, 25), "CHUNK %d,%d" % [current_id.x, current_id.y], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, CURRENT_COLOR)
 	draw_rect(GRID_VIEW, Color(0.06, 0.11, 0.14), true)
-	var visible_raw: Array[Vector2i] = []
-	for y in range(player_raw.y - 2, player_raw.y + 3):
-		for x in range(player_raw.x - 2, player_raw.x + 3):
-			visible_raw.append(Vector2i(x, y))
+	var visible_raw := visible_chunks()
 	for raw: Vector2i in visible_raw:
 		var corners := chunk_corners(raw)
 		var current := raw == player_raw
@@ -119,11 +147,14 @@ func _draw() -> void:
 		outline.append(corners[0])
 		if not current:
 			draw_polyline(outline, chunk_outline_color(raw), 2.0, true)
-		if not current:
-			var canonical := ChunkCoordinates.canonical_chunk(raw, world_size)
-			var label_position := (corners[0] + corners[2]) * 0.5 + Vector2(-12, 4)
-			if is_loaded and GRID_VIEW.has_point(label_position):
-				draw_string(font, label_position, "%d,%d" % [canonical.x, canonical.y], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.86, 0.94, 0.94))
+	for raw: Vector2i in visible_raw:
+		if raw == player_raw:
+			continue
+		var corners := chunk_corners(raw)
+		var is_loaded := loaded.has(raw)
+		var label_position := (corners[0] + corners[2]) * 0.5 + Vector2(-12, 4)
+		if GRID_VIEW.has_point(label_position):
+			draw_string(font, label_position, chunk_label(raw), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.86, 0.94, 0.94) if is_loaded else Color(0.66, 0.70, 0.71))
 	for raw: Vector2i in visible_raw:
 		var corners := chunk_corners(raw)
 		if wrap_east(raw):
@@ -135,6 +166,13 @@ func _draw() -> void:
 	current_outline.append(current_corners[0])
 	draw_polyline(current_outline, CURRENT_COLOR, 3.0, true)
 	draw_string(font, current_label_position(), "%d,%d" % [current_id.x, current_id.y], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, CURRENT_COLOR)
+	# Keep the expanded grid inside the radar window before drawing fixed UI elements.
+	var mask_color := Color(panel_color.r, panel_color.g, panel_color.b)
+	draw_rect(Rect2(0, 0, size.x, GRID_VIEW.position.y), mask_color, true)
+	draw_rect(Rect2(0, GRID_VIEW.end.y, size.x, size.y - GRID_VIEW.end.y), mask_color, true)
+	draw_rect(Rect2(0, GRID_VIEW.position.y, GRID_VIEW.position.x, GRID_VIEW.size.y), mask_color, true)
+	draw_rect(Rect2(GRID_VIEW.end.x, GRID_VIEW.position.y, size.x - GRID_VIEW.end.x, GRID_VIEW.size.y), mask_color, true)
+	draw_string(font, Vector2(16, 25), "CHUNK %d,%d" % [current_id.x, current_id.y], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, CURRENT_COLOR)
 	var marker := player_marker_position()
 	var direction := facing_vector()
 	var tip := marker + direction * 19.0
