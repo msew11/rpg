@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/view/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/view/chunk_ground.gd" id="2_ground"]
+[ext_resource type="Script" path="res://scripts/view/chunk_radar.gd" id="3_radar"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -11,3 +12,13 @@ script = ExtResource("2_ground")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 zoom = Vector2(1.4, 1.4)
+
+[node name="RadarLayer" type="CanvasLayer" parent="."]
+
+[node name="ChunkRadar" type="Control" parent="RadarLayer"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 256.0
+offset_bottom = 296.0
+mouse_filter = 2
+script = ExtResource("3_radar")

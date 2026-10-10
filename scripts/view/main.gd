@@ -4,6 +4,7 @@ const PLAYER_VIEW := preload("res://scenes/player_view.tscn")
 
 @onready var camera: Camera2D = $Camera2D
 @onready var ground: ChunkGround = $ChunkGround
+@onready var radar: ChunkRadar = $RadarLayer/ChunkRadar
 
 var session := LocalSession.new()
 var catalog := TestChunkCatalog.new()
@@ -13,6 +14,7 @@ var player_view: Node2D
 
 func _ready() -> void:
 	ground.bind(session.world)
+	radar.bind(session.world, session.player_id)
 	chunk_world.load_around(session.player_position())
 	rebuild_player_view()
 	_sync_view()
