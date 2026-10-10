@@ -4,7 +4,7 @@
 
 ## 当前实现
 
-Godot 4.7.2 项目以 `scenes/main.tscn` 为入口，入口脚本 `scripts/main.gd` 和本地会话 `scripts/local_session.gd` 位于脚本根目录。`scripts/core/` 提供无节点 ECS 框架；`scripts/world/` 持有 `WorldState`、类型组件及无状态更新系统。`MovementSystem` 在固定物理步中更新玩家位置和朝向，随后 `ChunkLoadingSystem` 根据玩家位置更新附近 3 × 3 行走区块。世界实体上的 `WorldChunksComponent` 保存尺寸、全部规范区块地块数据和当前显示范围，`WorldDebugComponent` 保存调试开关。固定测试目录在初始化时写入全部 4 × 4 个规范区块。顶层 `scripts/utils/` 提供无状态静态坐标与画面几何计算；`scripts/view/` 的 Godot 节点负责绘制与交互。手工测试区块使用 Kenney Isometric Roads 的 CC0 资源。
+Godot 4.7.2 项目以 `scenes/main.tscn` 为入口，入口脚本 `scripts/main.gd`、本地会话 `scripts/local_session.gd` 和测试内容读取器 `scripts/test_chunk_catalog.gd` 位于脚本根目录。`scripts/core/` 提供无节点 ECS 框架；`scripts/world/` 持有 `WorldState`、类型组件及无状态更新系统。`MovementSystem` 在固定物理步中更新玩家位置和朝向，随后 `ChunkLoadingSystem` 根据玩家位置更新附近 3 × 3 行走区块。世界实体上的 `WorldChunksComponent` 保存尺寸、全部规范区块地块数据和当前显示范围，`WorldDebugComponent` 保存调试开关。固定测试目录在初始化时写入全部 4 × 4 个规范区块。顶层 `scripts/utils/` 提供无状态静态坐标与画面几何计算；`scripts/view/` 的 Godot 节点负责绘制与交互。手工测试区块使用 Kenney Isometric Roads 的 CC0 资源。
 
 ## 已确认的约束
 
