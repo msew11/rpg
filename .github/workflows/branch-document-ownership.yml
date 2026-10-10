@@ -23,13 +23,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          forbidden=$(git ls-tree --name-only HEAD -- \
-            docs/architecture.md docs/game-vision.md docs/roadmap.md)
-          if [[ -n "$forbidden" ]]; then
-            echo 'Development documents must be absent from main:' >&2
-            echo "$forbidden" >&2
-            exit 1
-          fi
+          for path in docs/architecture.md docs/game-vision.md docs/roadmap.md; do
+            entry=$(git ls-tree HEAD -- "$path")
+            if [[ -z "$entry" ]]; then
+              echo "Development document must exist as an empty file on main: $path" >&2
+              exit 1
+            fi
+            read -r mode type object tracked_path <<< "$entry"
+            if [[ "$mode" != '100644' || "$type" != 'blob' || "$(git cat-file -s "$object")" -ne 0 ]]; then
+              echo "Development document must be an empty regular file on main: $path" >&2
+              exit 1
+            fi
+          done
 
       - name: Check develop shared documents
         if: >-
