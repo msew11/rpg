@@ -143,10 +143,15 @@ func _draw() -> void:
 		var current := raw == player_raw
 		var is_loaded := loaded.has(raw)
 		draw_colored_polygon(corners, Color(0.16, 0.28, 0.32, 0.95) if current else Color(0.08, 0.15, 0.19, 0.85) if is_loaded else Color(0.08, 0.10, 0.11, 0.85))
-		var outline := PackedVector2Array(corners)
-		outline.append(corners[0])
-		if not current:
-			draw_polyline(outline, chunk_outline_color(raw), 2.0, true)
+	# Draw borders after every fill. Loaded borders go last so shared edges stay blue.
+	for draw_loaded in [false, true]:
+		for raw: Vector2i in visible_raw:
+			if raw == player_raw or loaded.has(raw) != draw_loaded:
+				continue
+			var corners := chunk_corners(raw)
+			var outline := PackedVector2Array(corners)
+			outline.append(corners[0])
+			draw_polyline(outline, LOADED_COLOR if draw_loaded else UNLOADED_COLOR, 2.0, true)
 	for raw: Vector2i in visible_raw:
 		if raw == player_raw:
 			continue

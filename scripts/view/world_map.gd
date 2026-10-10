@@ -79,6 +79,11 @@ func _draw() -> void:
 	var player_raw := ChunkCoordinates.raw_chunk(ChunkCoordinates.tile_at(position), chunk_size)
 	var player_id_chunk := ChunkCoordinates.canonical_chunk(player_raw, world_size)
 	var font := ThemeDB.fallback_font
+	var loaded_ids: Array[Vector2i] = []
+	for raw: Vector2i in loaded:
+		var canonical := ChunkCoordinates.canonical_chunk(raw, world_size)
+		if not loaded_ids.has(canonical):
+			loaded_ids.append(canonical)
 	draw_string(font, Vector2(24, 36), "WORLD MAP  ·  M close  ·  Left drag to pan", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
 	for y in range(world_size.y):
 		for x in range(world_size.x):
@@ -97,16 +102,23 @@ func _draw() -> void:
 					])
 					var kind: int = tiles[local_y * chunk_size.x + local_x]
 					draw_colored_polygon(corners, DIRT_COLOR if kind == 1 else GRASS_COLOR)
-			var outline := chunk_corners(canonical)
-			outline.append(outline[0])
-			var is_loaded := false
-			for raw: Vector2i in loaded:
-				if ChunkCoordinates.canonical_chunk(raw, world_size) == canonical:
-					is_loaded = true
-					break
-			if canonical != player_id_chunk:
-				draw_polyline(outline, LOADED_COLOR if is_loaded else Color(0.35, 0.4, 0.42), 2.0, true)
-			var center := (outline[0] + outline[2]) * 0.5
+	# Draw all borders after all tile fills, with loaded borders above gray ones.
+	for draw_loaded in [false, true]:
+		for y in range(world_size.y):
+			for x in range(world_size.x):
+				var canonical := Vector2i(x, y)
+				if canonical == player_id_chunk or not source.has_value(WorldState.chunk_key(canonical)) or loaded_ids.has(canonical) != draw_loaded:
+					continue
+				var outline := chunk_corners(canonical)
+				outline.append(outline[0])
+				draw_polyline(outline, LOADED_COLOR if draw_loaded else Color(0.35, 0.4, 0.42), 2.0, true)
+	for y in range(world_size.y):
+		for x in range(world_size.x):
+			var canonical := Vector2i(x, y)
+			if not source.has_value(WorldState.chunk_key(canonical)):
+				continue
+			var corners := chunk_corners(canonical)
+			var center := (corners[0] + corners[2]) * 0.5
 			draw_string(font, center + Vector2(-14, 5), "%d,%d" % [x, y], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 	var outer := PackedVector2Array([
 		_map_point(Vector2.ZERO),

@@ -37,6 +37,7 @@ offset_left = 16.0
 offset_top = 88.0
 offset_right = 320.0
 offset_bottom = 472.0
+clip_contents = true
 mouse_filter = 2
 script = ExtResource("3_radar")
 
