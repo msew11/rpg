@@ -1,6 +1,8 @@
+## 验证八方向移动、速度与视图重建后的状态。
 extends SceneTree
 
 
+## 运行玩家移动和输入方向断言并退出。
 func _initialize() -> void:
 	var session := LocalSession.new()
 	var player_id := session.player_id
@@ -47,7 +49,7 @@ func _initialize() -> void:
 	assert(diagonal.player_position() == stopped_position)
 	assert(diagonal.player_facing() == Vector2i(1, -1))
 
-	# Recreating a view does not create or reset its world entity.
+	# 重建视图不创建或重置对应的世界实体。
 	var view_a := Node2D.new()
 	view_a.position = IsometricProjection.to_screen(session.player_position())
 	view_a.free()

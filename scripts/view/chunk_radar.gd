@@ -1,3 +1,4 @@
+## 绘制以玩家为中心的区块雷达与回环提示。
 class_name ChunkRadar
 extends Control
 
@@ -13,6 +14,7 @@ var source: DataSource
 var player_id: int
 
 
+## 绑定玩家和数据源，并同步初始可见状态。
 func bind(data_source: DataSource, entity_id: int) -> void:
 	source = data_source
 	player_id = entity_id
@@ -21,6 +23,7 @@ func bind(data_source: DataSource, entity_id: int) -> void:
 	queue_redraw()
 
 
+## 根据调试设置和玩家状态刷新雷达。
 func _on_value_changed(key: StringName, _value: Variant) -> void:
 	if key == WorldState.DEBUG_RADAR_KEY:
 		visible = source.read_value(WorldState.DEBUG_RADAR_KEY) == true
@@ -28,19 +31,23 @@ func _on_value_changed(key: StringName, _value: Variant) -> void:
 		queue_redraw()
 
 
+## 返回区块边缘快捷键的状态提示。
 func edge_hint_text() -> String:
 	return "F3 BORDERS: ON" if source != null and source.read_value(WorldState.DEBUG_EDGES_KEY) == true else "F3 BORDERS: OFF"
 
 
+## 返回固定在雷达中心的玩家标记位置。
 func player_marker_position() -> Vector2:
 	return RADAR_CENTER
 
 
+## 读取玩家朝向并转为雷达方向向量。
 func facing_vector() -> Vector2:
 	var facing: Vector2i = source.read_value(WorldState.facing_key(player_id))
 	return Vector2(facing).normalized()
 
 
+## 计算行走区块在雷达上的四个顶点。
 func chunk_corners(raw: Vector2i) -> PackedVector2Array:
 	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
 		return PackedVector2Array()
@@ -54,6 +61,7 @@ func chunk_corners(raw: Vector2i) -> PackedVector2Array:
 	])
 
 
+## 按当前、已加载或未加载状态选择轮廓颜色。
 func chunk_outline_color(raw: Vector2i) -> Color:
 	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
 	var position: Vector2 = source.read_value(WorldState.position_key(player_id))
@@ -64,16 +72,19 @@ func chunk_outline_color(raw: Vector2i) -> Color:
 	return LOADED_COLOR if loaded.has(raw) else UNLOADED_COLOR
 
 
+## 判断区块东侧是否为世界回环接缝。
 func wrap_east(raw: Vector2i) -> bool:
 	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
 	return posmod(raw.x + 1, world_size.x) == 0
 
 
+## 判断区块南侧是否为世界回环接缝。
 func wrap_south(raw: Vector2i) -> bool:
 	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
 	return posmod(raw.y + 1, world_size.y) == 0
 
 
+## 避开玩家标记安排当前区块坐标标签。
 func current_label_position() -> Vector2:
 	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
 	var position: Vector2 = source.read_value(WorldState.position_key(player_id))
@@ -84,6 +95,7 @@ func current_label_position() -> Vector2:
 	return center + Vector2(-12, 14 if below else -4)
 
 
+## 找出与雷达视窗相交的行走区块。
 func visible_chunks() -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
@@ -109,12 +121,14 @@ func visible_chunks() -> Array[Vector2i]:
 	return result
 
 
+## 返回行走区块对应的规范坐标标签。
 func chunk_label(raw: Vector2i) -> String:
 	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
 	var canonical := ChunkCoordinates.canonical_chunk(raw, world_size)
 	return "%d,%d" % [canonical.x, canonical.y]
 
 
+## 将世界位置映射为相对玩家的雷达坐标。
 func _radar_point(world_position: Vector2) -> Vector2:
 	var player_position: Vector2 = source.read_value(WorldState.position_key(player_id))
 	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
@@ -122,6 +136,7 @@ func _radar_point(world_position: Vector2) -> Vector2:
 	return RADAR_CENTER + Vector2(relative.x - relative.y, relative.x + relative.y) * CHUNK_AXIS_PIXELS
 
 
+## 绘制区块网格、状态轮廓、接缝和玩家标记。
 func _draw() -> void:
 	var panel_color := Color(0.04, 0.08, 0.11, 0.9)
 	draw_rect(Rect2(Vector2.ZERO, size), panel_color, true)
@@ -143,7 +158,7 @@ func _draw() -> void:
 		var current := raw == player_raw
 		var is_loaded := loaded.has(raw)
 		draw_colored_polygon(corners, Color(0.16, 0.28, 0.32, 0.95) if current else Color(0.08, 0.15, 0.19, 0.85) if is_loaded else Color(0.08, 0.10, 0.11, 0.85))
-	# Draw borders after every fill. Loaded borders go last so shared edges stay blue.
+	# 填充后再画边框，已加载区块最后绘制以保持共用边为蓝色。
 	for draw_loaded in [false, true]:
 		for raw: Vector2i in visible_raw:
 			if raw == player_raw or loaded.has(raw) != draw_loaded:
@@ -171,7 +186,7 @@ func _draw() -> void:
 	current_outline.append(current_corners[0])
 	draw_polyline(current_outline, CURRENT_COLOR, 3.0, true)
 	draw_string(font, current_label_position(), "%d,%d" % [current_id.x, current_id.y], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, CURRENT_COLOR)
-	# Keep the expanded grid inside the radar window before drawing fixed UI elements.
+	# 绘制固定界面元素前，遮住雷达视窗外扩展的网格。
 	var mask_color := Color(panel_color.r, panel_color.g, panel_color.b)
 	draw_rect(Rect2(0, 0, size.x, GRID_VIEW.position.y), mask_color, true)
 	draw_rect(Rect2(0, GRID_VIEW.end.y, size.x, size.y - GRID_VIEW.end.y), mask_color, true)
@@ -192,6 +207,7 @@ func _draw() -> void:
 	draw_string(font, Vector2(16, 364), "GRAY unloaded  PINK loop", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.8, 0.9, 0.92))
 
 
+## 在区块边外侧绘制回环接缝标记。
 func _draw_wrap_line(a: Vector2, b: Vector2, corners: PackedVector2Array) -> void:
 	var center := (corners[0] + corners[2]) * 0.5
 	var outward := ((a + b) * 0.5 - center).normalized() * 5.0

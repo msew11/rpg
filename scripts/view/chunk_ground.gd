@@ -1,3 +1,4 @@
+## 根据已加载区块数据绘制等轴地面和调试边缘。
 class_name ChunkGround
 extends Node2D
 
@@ -7,21 +8,25 @@ const DIRT := preload("res://assets/kenney_isometric_roads/dirt.png")
 var source: DataSource
 
 
+## 绑定世界数据并订阅影响地面的变化。
 func bind(data_source: DataSource) -> void:
 	source = data_source
 	source.value_changed.connect(_on_value_changed)
 	queue_redraw()
 
 
+## 在区块或边缘设置变化时请求重绘。
 func _on_value_changed(key: StringName, _value: Variant) -> void:
 	if key == WorldState.LOADED_CHUNKS_KEY or key == WorldState.DEBUG_EDGES_KEY or String(key).begins_with("chunk/"):
 		queue_redraw()
 
 
+## 读取区块调试边缘的显示状态。
 func debug_edges_enabled() -> bool:
 	return source != null and source.read_value(WorldState.DEBUG_EDGES_KEY) == true
 
 
+## 读取当前加载范围内的地块类型。
 func displayed_tile_type(tile_coord: Vector2i) -> int:
 	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
 		return -1
@@ -36,11 +41,13 @@ func displayed_tile_type(tile_coord: Vector2i) -> int:
 	return _tile_type(tile_coord, tiles, chunk_size)
 
 
+## 从区块数组读取指定地块的类型。
 func _tile_type(tile_coord: Vector2i, tiles: PackedByteArray, chunk_size: Vector2i) -> int:
 	var local := ChunkCoordinates.local_tile(tile_coord, chunk_size)
 	return tiles[local.y * chunk_size.x + local.x]
 
 
+## 绘制已加载地块及可选的区块边缘。
 func _draw() -> void:
 	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
 		return
@@ -78,6 +85,7 @@ func _draw() -> void:
 			_draw_chunk_edge(raw, chunk_size)
 
 
+## 沿区块四边绘制发光调试轮廓。
 func _draw_chunk_edge(raw: Vector2i, chunk_size: Vector2i) -> void:
 	var origin := Vector2(ChunkCoordinates.tile_origin(raw, chunk_size)) - Vector2(0.5, 0.5)
 	var corners := PackedVector2Array([

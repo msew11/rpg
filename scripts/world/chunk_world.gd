@@ -1,3 +1,4 @@
+## 管理玩家附近的测试区块及其运行期地块状态。
 class_name ChunkWorld
 extends RefCounted
 
@@ -10,6 +11,7 @@ var _last_raw_chunk := Vector2i.ZERO
 var _loaded_once := false
 
 
+## 绑定数据源与测试目录，并公布世界尺寸。
 func _init(data_source: WorldState, test_catalog: TestChunkCatalog) -> void:
 	source = data_source
 	catalog = test_catalog
@@ -17,6 +19,7 @@ func _init(data_source: WorldState, test_catalog: TestChunkCatalog) -> void:
 	source.write_value(WorldState.WORLD_SIZE_KEY, catalog.world_size)
 
 
+## 按玩家位置更新附近的行走区块显示范围。
 func load_around(world_position: Vector2) -> void:
 	var tile := ChunkCoordinates.tile_at(world_position)
 	var center := ChunkCoordinates.raw_chunk(tile, catalog.chunk_size)
@@ -33,18 +36,21 @@ func load_around(world_position: Vector2) -> void:
 	source.write_value(LOADED_KEY, loaded)
 
 
+## 首次访问规范区块时载入其测试地块。
 func ensure_chunk(canonical_id: Vector2i) -> void:
 	var key := WorldState.chunk_key(canonical_id)
 	if not source.has_value(key):
 		source.write_value(key, catalog.tiles_for(canonical_id))
 
 
+## 为完整地图准备全部规范区块数据。
 func ensure_all_chunks() -> void:
 	for y in range(catalog.world_size.y):
 		for x in range(catalog.world_size.x):
 			ensure_chunk(Vector2i(x, y))
 
 
+## 读取指定世界地块的当前类型。
 func tile_type(tile: Vector2i) -> int:
 	var raw := ChunkCoordinates.raw_chunk(tile, catalog.chunk_size)
 	var canonical := ChunkCoordinates.canonical_chunk(raw, catalog.world_size)
@@ -54,6 +60,7 @@ func tile_type(tile: Vector2i) -> int:
 	return tiles[local.y * catalog.chunk_size.x + local.x]
 
 
+## 切换玩家所在地块的类型并保存到数据源。
 func toggle_tile(world_position: Vector2) -> void:
 	var tile := ChunkCoordinates.tile_at(world_position)
 	var raw := ChunkCoordinates.raw_chunk(tile, catalog.chunk_size)

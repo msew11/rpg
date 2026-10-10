@@ -1,3 +1,4 @@
+## 验证数据源的缺失值、更新与通知契约。
 extends SceneTree
 
 const MemoryDataSource = preload("res://tests/doubles/memory_data_source.gd")
@@ -5,6 +6,7 @@ const MemoryDataSource = preload("res://tests/doubles/memory_data_source.gd")
 var _failures: Array[String] = []
 
 
+## 执行数据访问契约断言并汇总结果。
 func _initialize() -> void:
 	var source: DataSource = MemoryDataSource.new()
 	var events: Array[Array] = []
@@ -36,6 +38,7 @@ func _initialize() -> void:
 		quit(1)
 
 
+## 记录未通过的数据访问断言。
 func _check(condition: bool, description: String) -> void:
 	if not condition:
 		_failures.append(description)

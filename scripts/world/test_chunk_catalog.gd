@@ -1,3 +1,4 @@
+## 从手工测试地图读取区块布局与地块图案。
 class_name TestChunkCatalog
 extends RefCounted
 
@@ -9,6 +10,7 @@ var _layout: Array
 var _patterns: Dictionary
 
 
+## 加载并校验测试地图的尺寸、布局和图案。
 func _init() -> void:
 	var parsed: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SOURCE_PATH))
 	chunk_size = Vector2i(parsed["chunk_size"][0], parsed["chunk_size"][1])
@@ -26,6 +28,7 @@ func _init() -> void:
 			assert(row.length() == chunk_size.x)
 
 
+## 生成指定规范区块的地块类型数组。
 func tiles_for(canonical_id: Vector2i) -> PackedByteArray:
 	assert(canonical_id.x >= 0 and canonical_id.x < world_size.x)
 	assert(canonical_id.y >= 0 and canonical_id.y < world_size.y)

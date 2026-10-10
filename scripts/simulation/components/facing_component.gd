@@ -1,3 +1,4 @@
+## 保存实体最后一次非零移动朝向。
 class_name FacingComponent
 extends EcsComponent
 

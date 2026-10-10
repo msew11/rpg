@@ -1,6 +1,8 @@
+## 验证区块加载、回环和运行期地块状态。
 extends SceneTree
 
 
+## 运行区块世界行为断言并退出。
 func _initialize() -> void:
 	var source := WorldState.new()
 	var catalog := TestChunkCatalog.new()

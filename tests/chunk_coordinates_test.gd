@@ -1,6 +1,8 @@
+## 验证负坐标、区块回环与区块内坐标转换。
 extends SceneTree
 
 
+## 运行区块坐标边界断言并退出。
 func _initialize() -> void:
 	var chunk_size := Vector2i(12, 12)
 	var world_size := Vector2i(4, 4)

@@ -1,3 +1,4 @@
+## 显示完整测试世界、玩家位置和区块状态。
 class_name WorldMap
 extends Control
 
@@ -14,6 +15,7 @@ var pan_offset := Vector2.ZERO
 var _dragging := false
 
 
+## 绑定玩家与数据源并订阅地图变化。
 func bind(data_source: DataSource, entity_id: int) -> void:
 	source = data_source
 	player_id = entity_id
@@ -21,17 +23,20 @@ func bind(data_source: DataSource, entity_id: int) -> void:
 	queue_redraw()
 
 
+## 在地图数据或玩家位置变化时请求重绘。
 func _on_value_changed(key: StringName, _value: Variant) -> void:
 	if key == WorldState.LOADED_CHUNKS_KEY or key == WorldState.position_key(player_id) or String(key).begins_with("chunk/"):
 		queue_redraw()
 
 
+## 切换地图显示并结束当前拖动。
 func toggle_open() -> void:
 	visible = not visible
 	_dragging = false
 	queue_redraw()
 
 
+## 处理左键拖动以平移地图视图。
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_dragging = event.pressed
@@ -42,6 +47,7 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 
 
+## 将世界位置映射到可平移的地图坐标。
 func _map_point(world_position: Vector2) -> Vector2:
 	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
 	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
@@ -49,6 +55,7 @@ func _map_point(world_position: Vector2) -> Vector2:
 	return size / 2.0 + pan_offset + Vector2(relative.x - relative.y, relative.x + relative.y) * CHUNK_AXIS_PIXELS
 
 
+## 计算规范区块在地图上的四个顶点。
 func chunk_corners(canonical: Vector2i) -> PackedVector2Array:
 	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
 	var origin := Vector2(ChunkCoordinates.tile_origin(canonical, chunk_size))
@@ -60,6 +67,7 @@ func chunk_corners(canonical: Vector2i) -> PackedVector2Array:
 	])
 
 
+## 将玩家位置回环到有限地图后定位标记。
 func player_marker_position() -> Vector2:
 	var position: Vector2 = source.read_value(WorldState.position_key(player_id))
 	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
@@ -68,6 +76,7 @@ func player_marker_position() -> Vector2:
 	return _map_point(Vector2(fposmod(position.x, period.x), fposmod(position.y, period.y)))
 
 
+## 绘制全部测试地块、区块轮廓和玩家标记。
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.09), true)
 	if source == null:
@@ -102,7 +111,7 @@ func _draw() -> void:
 					])
 					var kind: int = tiles[local_y * chunk_size.x + local_x]
 					draw_colored_polygon(corners, DIRT_COLOR if kind == 1 else GRASS_COLOR)
-	# Draw all borders after all tile fills, with loaded borders above gray ones.
+	# 填充地块后统一绘制边框，让已加载区块的蓝色边框盖过灰色边框。
 	for draw_loaded in [false, true]:
 		for y in range(world_size.y):
 			for x in range(world_size.x):

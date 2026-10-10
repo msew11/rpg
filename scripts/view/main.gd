@@ -1,3 +1,4 @@
+## 协调本地会话、区块、输入、玩家视图和镜头。
 extends Node2D
 
 const PLAYER_VIEW := preload("res://scenes/player_view.tscn")
@@ -14,6 +15,7 @@ var chunk_world := ChunkWorld.new(session.world, catalog)
 var player_view: Node2D
 
 
+## 初始化调试状态与视图绑定，并加载玩家附近区块。
 func _ready() -> void:
 	session.world.write_value(WorldState.DEBUG_EDGES_KEY, false)
 	session.world.write_value(WorldState.DEBUG_RADAR_KEY, true)
@@ -26,6 +28,7 @@ func _ready() -> void:
 	_sync_view()
 
 
+## 采集移动输入、推进模拟并同步画面。
 func _physics_process(delta: float) -> void:
 	if world_map.visible:
 		return
@@ -35,6 +38,7 @@ func _physics_process(delta: float) -> void:
 	_sync_view()
 
 
+## 处理地图、地块切换和边缘显示快捷键。
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
@@ -50,6 +54,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		session.world.write_value(WorldState.DEBUG_EDGES_KEY, not session.world.read_value(WorldState.DEBUG_EDGES_KEY))
 
 
+## 重建玩家显示节点并恢复当前世界状态。
 func rebuild_player_view() -> void:
 	if is_instance_valid(player_view):
 		player_view.queue_free()
@@ -58,6 +63,7 @@ func rebuild_player_view() -> void:
 	_sync_view()
 
 
+## 从玩家实体状态更新角色位置、朝向与镜头。
 func _sync_view() -> void:
 	if not is_instance_valid(player_view):
 		return

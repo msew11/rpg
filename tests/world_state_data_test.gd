@@ -1,6 +1,8 @@
+## 验证世界状态的数据键映射、通知与副本隔离。
 extends SceneTree
 
 
+## 运行世界状态数据访问断言并退出。
 func _initialize() -> void:
 	var world := WorldState.new()
 	var changes: Array = []

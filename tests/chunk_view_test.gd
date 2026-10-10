@@ -1,12 +1,15 @@
+## 验证区块地面、雷达和完整地图的显示交互。
 extends SceneTree
 
 const MAIN := preload("res://scenes/main.tscn")
 
 
+## 延后执行需挂入场景树的视图测试。
 func _initialize() -> void:
 	call_deferred("run_test")
 
 
+## 构建主场景并验证区块显示和地图交互。
 func run_test() -> void:
 	var main := MAIN.instantiate()
 	root.add_child(main)
@@ -127,6 +130,7 @@ func run_test() -> void:
 	quit()
 
 
+## 移动测试玩家并核对加载范围与视图位置。
 func _move_to(main: Node2D, position: Vector2) -> void:
 	main.session.world.write_value(WorldState.position_key(main.session.player_id), position)
 	main.chunk_world.load_around(position)
@@ -135,11 +139,13 @@ func _move_to(main: Node2D, position: Vector2) -> void:
 	assert(main.player_view.position == IsometricProjection.to_screen(position))
 
 
+## 读取当前加载的行走区块数量。
 func _loaded_count(main: Node2D) -> int:
 	var loaded: Array = main.session.world.read_value(ChunkWorld.LOADED_KEY)
 	return loaded.size()
 
 
+## 检查雷达可见区块覆盖其视窗采样点。
 func _assert_radar_coverage(main: Node2D) -> void:
 	var radar: ChunkRadar = main.radar
 	var visible := radar.visible_chunks()
