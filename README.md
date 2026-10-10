@@ -34,7 +34,9 @@ powershell -ExecutionPolicy Bypass -File tools/check.ps1
 powershell -ExecutionPolicy Bypass -File tools/check.ps1 -ExportWindows
 ```
 
-该命令也会启动导出的程序并确认正常退出。导出文件写入 `build/`，不提交到 Git。每个功能的开发和交付约定见 `AGENTS.md`。
+该命令也会启动导出的程序并确认正常退出。Windows 预设会把 PCK 嵌入 `build/windows/rpg.exe`，复制这个 exe 即可运行。导出文件写入 `build/`，不提交到 Git。
+
+在 Rider 中打开项目后，可从右上角的运行配置列表选择 **Export Windows single EXE**，点击运行。该共享配置执行上面的检查与导出命令；需要 Rider 的 Shell Script 插件（通常随 Rider 安装）。每个功能的开发和交付约定见 `AGENTS.md`。
 
 ## 用 OpenSpec 记录目标
 
