@@ -43,6 +43,7 @@ Invoke-GodotCheck 'main scene' @('--headless', '--path', $projectPath, '--quit-a
 Invoke-GodotCheck 'movement behavior' @('--headless', '--path', $projectPath, '--script', 'tests/movement_test.gd')
 Invoke-GodotCheck 'view rebuilding' @('--headless', '--path', $projectPath, '--script', 'tests/view_test.gd')
 Invoke-GodotCheck 'data source contract' @('--headless', '--path', $projectPath, '--script', 'res://tests/data_source_contract.gd')
+Invoke-GodotCheck 'ECS contract' @('--headless', '--path', $projectPath, '--script', 'res://tests/ecs_contract.gd')
 Invoke-GodotCheck 'chunk coordinates' @('--headless', '--path', $projectPath, '--script', 'res://tests/chunk_coordinates_test.gd')
 Invoke-GodotCheck 'manual chunk catalog' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_catalog_test.gd')
 Invoke-GodotCheck 'world state data' @('--headless', '--path', $projectPath, '--script', 'res://tests/world_state_data_test.gd')
