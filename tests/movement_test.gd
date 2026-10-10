@@ -20,6 +20,12 @@ func _initialize() -> void:
 		var screen_delta := IsometricProjection.to_screen(test_session.player_position())
 		assert(sign(screen_delta.x) == sign(direction.x))
 		assert(sign(screen_delta.y) == sign(direction.y))
+		if direction.x != 0 and direction.y != 0:
+			assert(absf(absf(screen_delta.y / screen_delta.x) - IsometricProjection.TILE_HALF_HEIGHT / IsometricProjection.TILE_HALF_WIDTH) < 0.0001)
+		elif direction.x == 0:
+			assert(absf(screen_delta.x) < 0.0001)
+		else:
+			assert(absf(screen_delta.y) < 0.0001)
 		assert(test_session.player_facing() == direction)
 
 	assert(MovementInput.from_axes(true, true, false, false) == Vector2i.ZERO)

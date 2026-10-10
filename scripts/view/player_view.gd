@@ -11,7 +11,7 @@ func _draw() -> void:
 	draw_ellipse_shadow()
 	draw_rect(Rect2(-9, -29, 18, 25), Color("26374f"))
 	draw_circle(Vector2(0, -30), 10, Color("eac091"))
-	var direction := Vector2(facing).normalized()
+	var direction := facing_screen_direction()
 	var arrow_start := Vector2(0, -19)
 	var arrow_end := arrow_start + direction * 23.0
 	draw_line(arrow_start, arrow_end, Color("fff3a6"), 4.0, true)
@@ -21,6 +21,10 @@ func _draw() -> void:
 		arrow_end - direction * 4.0 + side,
 		arrow_end - direction * 4.0 - side
 	]), Color("fff3a6"))
+
+
+func facing_screen_direction() -> Vector2:
+	return IsometricProjection.to_screen(IsometricProjection.movement_direction(facing)).normalized()
 
 
 func draw_ellipse_shadow() -> void:

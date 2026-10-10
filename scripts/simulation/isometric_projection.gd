@@ -17,3 +17,11 @@ static func to_world(screen_position: Vector2) -> Vector2:
 		0.5 * (screen_position.x / TILE_HALF_WIDTH + screen_position.y / TILE_HALF_HEIGHT),
 		0.5 * (screen_position.y / TILE_HALF_HEIGHT - screen_position.x / TILE_HALF_WIDTH)
 	)
+
+
+static func movement_direction(screen_input: Vector2i) -> Vector2:
+	var tile_aligned_input := Vector2(
+		screen_input.x * TILE_HALF_WIDTH,
+		screen_input.y * TILE_HALF_HEIGHT
+	)
+	return to_world(tile_aligned_input).normalized()
