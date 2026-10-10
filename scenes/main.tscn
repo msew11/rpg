@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/view/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/view/chunk_ground.gd" id="2_ground"]
 [ext_resource type="Script" path="res://scripts/view/chunk_radar.gd" id="3_radar"]
 [ext_resource type="Script" path="res://scripts/view/debug_panel.gd" id="4_debug"]
+[ext_resource type="Script" path="res://scripts/view/world_map.gd" id="5_map"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -34,7 +35,18 @@ text = "Show radar"
 [node name="ChunkRadar" type="Control" parent="RadarLayer"]
 offset_left = 16.0
 offset_top = 88.0
-offset_right = 256.0
-offset_bottom = 386.0
+offset_right = 320.0
+offset_bottom = 472.0
 mouse_filter = 2
 script = ExtResource("3_radar")
+
+[node name="WorldMap" type="Control" parent="RadarLayer"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("5_map")

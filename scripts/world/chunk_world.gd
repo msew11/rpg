@@ -39,6 +39,12 @@ func ensure_chunk(canonical_id: Vector2i) -> void:
 		source.write_value(key, catalog.tiles_for(canonical_id))
 
 
+func ensure_all_chunks() -> void:
+	for y in range(catalog.world_size.y):
+		for x in range(catalog.world_size.x):
+			ensure_chunk(Vector2i(x, y))
+
+
 func tile_type(tile: Vector2i) -> int:
 	var raw := ChunkCoordinates.raw_chunk(tile, catalog.chunk_size)
 	var canonical := ChunkCoordinates.canonical_chunk(raw, catalog.world_size)

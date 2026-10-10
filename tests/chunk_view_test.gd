@@ -18,6 +18,11 @@ func run_test() -> void:
 	assert(main.debug_panel.radar_button.button_pressed)
 	assert(main.radar.visible)
 	assert(main.radar.chunk_corners(Vector2i(0, 0)).size() == 4)
+	assert(main.radar.chunk_outline_color(Vector2i(0, 0)) == ChunkRadar.CURRENT_COLOR)
+	assert(main.radar.chunk_outline_color(Vector2i(1, 0)) == ChunkRadar.LOADED_COLOR)
+	assert(main.radar.chunk_outline_color(Vector2i(2, 0)) == ChunkRadar.UNLOADED_COLOR)
+	assert(main.radar.wrap_east(Vector2i(-1, 0)))
+	assert(main.radar.wrap_south(Vector2i(0, 3)))
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
 	var initial_corner: Vector2 = main.radar.chunk_corners(Vector2i(0, 0))[0]
 	_move_to(main, Vector2(6, 6))
@@ -49,6 +54,7 @@ func run_test() -> void:
 	main.debug_panel.radar_button.button_pressed = true
 	assert(main.radar.visible)
 	_move_to(main, Vector2(-1, -1))
+	assert(main.radar.chunk_outline_color(Vector2i(-1, -1)) == ChunkRadar.CURRENT_COLOR)
 	assert(Geometry2D.is_point_in_polygon(main.radar.player_marker_position(), main.radar.chunk_corners(Vector2i(-1, -1))))
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
 	assert(main.ground.displayed_tile_type(Vector2i(-1, -1)) == main.chunk_world.tile_type(Vector2i(-1, -1)))
@@ -62,6 +68,7 @@ func run_test() -> void:
 	main.debug_panel.borders_button.button_pressed = false
 	assert(not main.ground.debug_edges_enabled())
 	_move_to(main, Vector2(49, 1))
+	assert(main.radar.chunk_outline_color(Vector2i(4, 0)) == ChunkRadar.CURRENT_COLOR)
 	assert(Geometry2D.is_point_in_polygon(main.radar.player_marker_position(), main.radar.chunk_corners(Vector2i(4, 0))))
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
 	_move_to(main, Vector2(47.9, 1))
@@ -72,6 +79,36 @@ func run_test() -> void:
 	assert(main.ground.displayed_tile_type(Vector2i(49, 1)) == main.chunk_world.tile_type(Vector2i(1, 1)))
 	assert(main.camera.position == IsometricProjection.to_screen(Vector2(49, 1)))
 	assert(main.radar.position == Vector2(16, 88))
+	var map_key := InputEventKey.new()
+	map_key.keycode = KEY_M
+	map_key.pressed = true
+	main._unhandled_key_input(map_key)
+	assert(main.world_map.visible)
+	assert(main.world_map.size.x > 0 and main.world_map.size.y > 0)
+	for y in range(4):
+		for x in range(4):
+			assert(main.session.world.has_value(WorldState.chunk_key(Vector2i(x, y))))
+	assert(main.world_map.chunk_corners(Vector2i(0, 0)).size() == 4)
+	assert(main.world_map.player_marker_position() == main.world_map._map_point(Vector2(1, 1)))
+	var before_pan: Vector2 = main.world_map.chunk_corners(Vector2i(0, 0))[0]
+	var before_position: Vector2 = main.session.player_position()
+	var mouse_down := InputEventMouseButton.new()
+	mouse_down.button_index = MOUSE_BUTTON_LEFT
+	mouse_down.pressed = true
+	main.world_map._gui_input(mouse_down)
+	var drag := InputEventMouseMotion.new()
+	drag.relative = Vector2(23, -11)
+	main.world_map._gui_input(drag)
+	assert(main.world_map.chunk_corners(Vector2i(0, 0))[0] == before_pan + drag.relative)
+	assert(main.session.player_position() == before_position)
+	var mouse_up := InputEventMouseButton.new()
+	mouse_up.button_index = MOUSE_BUTTON_LEFT
+	mouse_up.pressed = false
+	main.world_map._gui_input(mouse_up)
+	main.world_map._gui_input(drag)
+	assert(main.world_map.chunk_corners(Vector2i(0, 0))[0] == before_pan + drag.relative)
+	main._unhandled_key_input(map_key)
+	assert(not main.world_map.visible)
 	assert(main.get_parent() == root)
 	main.free()
 	print("chunk_view_test passed")
