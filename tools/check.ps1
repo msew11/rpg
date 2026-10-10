@@ -42,6 +42,7 @@ Invoke-GodotCheck 'project import' @('--headless', '--path', $projectPath, '--ed
 Invoke-GodotCheck 'main scene' @('--headless', '--path', $projectPath, '--quit-after', '2')
 Invoke-GodotCheck 'movement behavior' @('--headless', '--path', $projectPath, '--script', 'tests/movement_test.gd')
 Invoke-GodotCheck 'view rebuilding' @('--headless', '--path', $projectPath, '--script', 'tests/view_test.gd')
+Invoke-GodotCheck 'data source contract' @('--headless', '--path', $projectPath, '--script', 'res://tests/data_source_contract.gd')
 
 if ($ExportWindows) {
     $exportPath = Join-Path $projectPath 'build\windows\rpg.exe'
