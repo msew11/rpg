@@ -3,6 +3,7 @@
 - 分支文档归属：`main` 维护 `AGENTS.md` 和 `README.md`。这两个文件只在 `main` 修改；`develop` 通过合并 `main` 获取更新，不写入玩法、原型或开发进度细节，合并后保持与 `main` 内容一致。
 - `develop` 独立维护 `docs/architecture.md`、`docs/game-vision.md`、`docs/roadmap.md`。`main` 不新增或修改这三个文件，也不在合并时带入它们；合并 `main` 到 `develop` 时保留 `develop` 的版本。玩法、原型和阶段进度写在开发分支的这些文档、相应 specs 或功能文档中。
 - `scripts/core/` 由 `main` 维护；`develop` 通过合并 `main` 获取其更新，不直接新增、修改或删除目录内文件，并保持目录内容与最新 `main` 一致。
+- 远程 `main` 和 `develop` 禁止直接推送。更新任一分支时，从目标分支创建其他工作分支，在工作分支提交并推送，然后创建以目标分支为目标的 PR，通过 PR 合并。从 `main` 同步到 `develop` 也须通过以 `develop` 为目标的 PR。
 - 使用 Godot 4.7.2、GDScript 和 2D 场景开发。Windows 桌面是首个验收平台。
 - 以 `scenes/main.tscn` 为启动入口。按功能组织新增场景、脚本和资源；不要在准备阶段擅自确定玩法、美术风格或故事设定。
 - 开始修改前确认当前 Git 状态；保留用户已有改动。每完成一个功能，运行 `powershell -ExecutionPolicy Bypass -File tools/check.ps1`，再交付可运行结果、检查结果及尚存限制。
