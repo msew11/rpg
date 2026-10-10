@@ -9,7 +9,9 @@ const DEBUG_EDGES_KEY := &"debug/chunk_edges"
 const DEBUG_RADAR_KEY := &"debug/radar"
 
 var ecs := EcsWorld.new()
+## 保存未映射到 ECS 组件的具名数据，如区块和调试状态。
 var _values: Dictionary = {}
+## 将玩家状态键映射到实体 ID 和组件类型。
 var _entity_fields: Dictionary = {}
 
 
