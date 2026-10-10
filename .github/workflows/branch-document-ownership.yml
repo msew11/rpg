@@ -45,3 +45,8 @@ jobs:
             git diff --stat origin/main HEAD -- AGENTS.md README.md >&2
             exit 1
           fi
+          if ! git diff --quiet origin/main HEAD -- scripts/core/; then
+            echo 'scripts/core/ on develop must match the latest main.' >&2
+            git diff --stat origin/main HEAD -- scripts/core/ >&2
+            exit 1
+          fi
