@@ -1,6 +1,6 @@
 # Godot 2D 项目框架
 
-本项目使用 Godot 4.7.2、GDScript 和 2D 场景，以 `scenes/main.tscn` 为启动入口，首个验收平台为 Windows 桌面。当前提供可运行的启动场景。
+本项目使用 Godot 4.7.2、GDScript 和 2D 场景，以 `scenes/main.tscn` 为启动入口，首个验收平台为 Windows 桌面。当前提供可运行的等轴移动原型。
 
 `main` 保存不限定具体玩法的项目框架；`develop` 用于游戏方向与功能开发。当前可运行能力以代码和 `openspec/specs/` 为准。
 
@@ -25,6 +25,13 @@ powershell -ExecutionPolicy Bypass -File tools/check.ps1
 ```
 
 脚本会检查 Godot 版本，执行无界面资源导入与主场景启动。也可以在 Godot 编辑器中打开 `project.godot`，按 F6 运行当前场景或按 F5 运行项目。
+
+原型中使用 WASD 或方向键沿屏幕八方向移动。移动系统检查可运行：
+
+```powershell
+godot --headless --path . --script tests/movement_test.gd
+godot --headless --path . --script tests/view_test.gd
+```
 
 ## Windows 导出
 

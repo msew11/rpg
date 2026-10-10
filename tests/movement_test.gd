@@ -1,0 +1,55 @@
+extends SceneTree
+
+
+func _initialize() -> void:
+	var session := LocalSession.new()
+	var player_id := session.player_id
+	assert(player_id > 0)
+	assert(session.world.positions[player_id] == Vector2.ZERO)
+	assert(session.world.positions[player_id] is Vector2)
+
+	var directions := [
+		Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1),
+		Vector2i(-1, 0), Vector2i(1, 0),
+		Vector2i(-1, 1), Vector2i(0, 1), Vector2i(1, 1)
+	]
+	for direction in directions:
+		var test_session := LocalSession.new()
+		test_session.set_player_direction(direction)
+		test_session.step(1.0 / 60.0)
+		var screen_delta := IsometricProjection.to_screen(test_session.player_position())
+		assert(sign(screen_delta.x) == sign(direction.x))
+		assert(sign(screen_delta.y) == sign(direction.y))
+		assert(test_session.player_facing() == direction)
+
+	assert(MovementInput.from_axes(true, true, false, false) == Vector2i.ZERO)
+	assert(MovementInput.from_axes(false, false, true, true) == Vector2i.ZERO)
+	assert(MovementInput.from_axes(false, true, true, false) == Vector2i(1, -1))
+
+	var single := LocalSession.new()
+	var diagonal := LocalSession.new()
+	for frame in range(600):
+		single.set_player_direction(Vector2i(0, -1))
+		diagonal.set_player_direction(Vector2i(1, -1))
+		single.step(1.0 / 60.0)
+		diagonal.step(1.0 / 60.0)
+	assert(abs(single.player_position().length() - diagonal.player_position().length()) < 0.001)
+
+	diagonal.set_player_direction(Vector2i.ZERO)
+	var stopped_position := diagonal.player_position()
+	diagonal.step(1.0 / 60.0)
+	assert(diagonal.player_position() == stopped_position)
+	assert(diagonal.player_facing() == Vector2i(1, -1))
+
+	# Recreating a view does not create or reset its world entity.
+	var view_a := Node2D.new()
+	view_a.position = IsometricProjection.to_screen(session.player_position())
+	view_a.free()
+	var view_b := Node2D.new()
+	view_b.position = IsometricProjection.to_screen(session.player_position())
+	assert(session.player_id == player_id)
+	assert(view_b.position == IsometricProjection.to_screen(session.world.positions[player_id]))
+	view_b.free()
+
+	print("movement_test passed")
+	quit()
