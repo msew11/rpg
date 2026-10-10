@@ -39,7 +39,7 @@ func run_test() -> void:
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
 	assert(main.radar.chunk_corners(Vector2i(0, 0))[0] == initial_corner - Vector2(0, ChunkRadar.CHUNK_AXIS_PIXELS))
 	assert(main.ground.displayed_tile_type(Vector2i(30, 1)) == -1)
-	main.session.world.write_value(WorldState.facing_key(main.session.player_id), Vector2i(1, 0))
+	main.session.world.set_player_facing(main.session.player_id, Vector2i(1, 0))
 	assert(main.radar.facing_vector() == Vector2.RIGHT)
 	_move_to(main, Vector2(6, 6) + IsometricProjection.to_world(Vector2.RIGHT))
 	assert(main.radar.chunk_corners(Vector2i(0, 0))[0].x < initial_corner.x)
@@ -102,7 +102,7 @@ func run_test() -> void:
 	assert(main.world_map.size.x > 0 and main.world_map.size.y > 0)
 	for y in range(4):
 		for x in range(4):
-			assert(main.session.world.has_value(WorldState.chunk_key(Vector2i(x, y))))
+			assert(main.session.world.chunks().has_chunk(Vector2i(x, y)))
 	assert(main.world_map.chunk_corners(Vector2i(0, 0)).size() == 4)
 	assert(main.world_map.player_marker_position() == main.world_map._map_point(Vector2(1, 1)))
 	var before_pan: Vector2 = main.world_map.chunk_corners(Vector2i(0, 0))[0]
@@ -132,7 +132,7 @@ func run_test() -> void:
 
 ## 移动测试玩家并核对加载范围与视图位置。
 func _move_to(main: Node2D, position: Vector2) -> void:
-	main.session.world.write_value(WorldState.position_key(main.session.player_id), position)
+	main.session.world.set_player_position(main.session.player_id, position)
 	main.chunk_world.load_around(position)
 	main._sync_view()
 	assert(_loaded_count(main) == 9)
@@ -141,7 +141,7 @@ func _move_to(main: Node2D, position: Vector2) -> void:
 
 ## 读取当前加载的行走区块数量。
 func _loaded_count(main: Node2D) -> int:
-	var loaded: Array = main.session.world.read_value(ChunkWorld.LOADED_KEY)
+	var loaded: Array[Vector2i] = main.session.world.chunks().loaded
 	return loaded.size()
 
 
@@ -149,7 +149,7 @@ func _loaded_count(main: Node2D) -> int:
 func _assert_radar_coverage(main: Node2D) -> void:
 	var radar: ChunkRadar = main.radar
 	var visible := radar.visible_chunks()
-	var chunk_size: Vector2i = main.session.world.read_value(WorldState.CHUNK_SIZE_KEY)
+	var chunk_size: Vector2i = main.session.world.chunks().chunk_size
 	var player_chunk_position: Vector2 = main.session.player_position() / Vector2(chunk_size)
 	for screen_y in range(45, 307, 32):
 		for screen_x in range(23, 285, 32):

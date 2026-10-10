@@ -2,7 +2,6 @@
 class_name ChunkWorld
 extends RefCounted
 
-const LOADED_KEY := WorldState.LOADED_CHUNKS_KEY
 const LOAD_RADIUS := 1
 
 var source: WorldState
@@ -11,12 +10,12 @@ var _last_raw_chunk := Vector2i.ZERO
 var _loaded_once := false
 
 
-## 绑定数据源与测试目录，并公布世界尺寸。
-func _init(data_source: WorldState, test_catalog: TestChunkCatalog) -> void:
-	source = data_source
+## 绑定世界实体与测试目录，并设置区块尺寸。
+func _init(world: WorldState, test_catalog: TestChunkCatalog) -> void:
+	source = world
 	catalog = test_catalog
-	source.write_value(WorldState.CHUNK_SIZE_KEY, catalog.chunk_size)
-	source.write_value(WorldState.WORLD_SIZE_KEY, catalog.world_size)
+	source.chunks().chunk_size = catalog.chunk_size
+	source.chunks().world_size = catalog.world_size
 
 
 ## 按玩家位置更新附近的行走区块显示范围。
@@ -33,14 +32,13 @@ func load_around(world_position: Vector2) -> void:
 			var raw := Vector2i(x, y)
 			ensure_chunk(ChunkCoordinates.canonical_chunk(raw, catalog.world_size))
 			loaded.append(raw)
-	source.write_value(LOADED_KEY, loaded)
+	source.set_loaded_chunks(loaded)
 
 
 ## 首次访问规范区块时载入其测试地块。
 func ensure_chunk(canonical_id: Vector2i) -> void:
-	var key := WorldState.chunk_key(canonical_id)
-	if not source.has_value(key):
-		source.write_value(key, catalog.tiles_for(canonical_id))
+	if not source.chunks().has_chunk(canonical_id):
+		source.set_chunk_tiles(canonical_id, catalog.tiles_for(canonical_id))
 
 
 ## 为完整地图准备全部规范区块数据。
@@ -55,20 +53,19 @@ func tile_type(tile: Vector2i) -> int:
 	var raw := ChunkCoordinates.raw_chunk(tile, catalog.chunk_size)
 	var canonical := ChunkCoordinates.canonical_chunk(raw, catalog.world_size)
 	ensure_chunk(canonical)
-	var tiles: PackedByteArray = source.read_value(WorldState.chunk_key(canonical))
+	var tiles := source.chunks().tiles_for(canonical)
 	var local := ChunkCoordinates.local_tile(tile, catalog.chunk_size)
 	return tiles[local.y * catalog.chunk_size.x + local.x]
 
 
-## 切换玩家所在地块的类型并保存到数据源。
+## 切换玩家所在地块的类型并保存到世界实体。
 func toggle_tile(world_position: Vector2) -> void:
 	var tile := ChunkCoordinates.tile_at(world_position)
 	var raw := ChunkCoordinates.raw_chunk(tile, catalog.chunk_size)
 	var canonical := ChunkCoordinates.canonical_chunk(raw, catalog.world_size)
 	ensure_chunk(canonical)
-	var key := WorldState.chunk_key(canonical)
-	var tiles: PackedByteArray = source.read_value(key)
+	var tiles := source.chunks().tiles_for(canonical)
 	var local := ChunkCoordinates.local_tile(tile, catalog.chunk_size)
 	var index := local.y * catalog.chunk_size.x + local.x
 	tiles[index] = 1 - tiles[index]
-	source.write_value(key, tiles)
+	source.set_chunk_tiles(canonical, tiles)

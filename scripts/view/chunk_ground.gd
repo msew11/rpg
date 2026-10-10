@@ -5,39 +5,44 @@ extends Node2D
 const GRASS := preload("res://assets/kenney_isometric_roads/grass.png")
 const DIRT := preload("res://assets/kenney_isometric_roads/dirt.png")
 
-var source: DataSource
+var source: WorldState
 
 
 ## 绑定世界数据并订阅影响地面的变化。
-func bind(data_source: DataSource) -> void:
-	source = data_source
-	source.value_changed.connect(_on_value_changed)
+func bind(world: WorldState) -> void:
+	source = world
+	source.chunks_changed.connect(_on_chunks_changed)
+	source.debug_changed.connect(_on_debug_changed)
 	queue_redraw()
 
 
-## 在区块或边缘设置变化时请求重绘。
-func _on_value_changed(key: StringName, _value: Variant) -> void:
-	if key == WorldState.LOADED_CHUNKS_KEY or key == WorldState.DEBUG_EDGES_KEY or String(key).begins_with("chunk/"):
-		queue_redraw()
+## 在区块数据或加载范围变化时请求重绘。
+func _on_chunks_changed() -> void:
+	queue_redraw()
+
+
+## 在区块边缘开关变化时请求重绘。
+func _on_debug_changed() -> void:
+	queue_redraw()
 
 
 ## 读取区块调试边缘的显示状态。
 func debug_edges_enabled() -> bool:
-	return source != null and source.read_value(WorldState.DEBUG_EDGES_KEY) == true
+	return source != null and source.debug().edges
 
 
 ## 读取当前加载范围内的地块类型。
 func displayed_tile_type(tile_coord: Vector2i) -> int:
-	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
+	if source == null or source.chunks().loaded.is_empty():
 		return -1
-	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
-	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
+	var chunk_size := source.chunks().chunk_size
+	var world_size := source.chunks().world_size
 	var raw := ChunkCoordinates.raw_chunk(tile_coord, chunk_size)
-	var loaded: Array = source.read_value(WorldState.LOADED_CHUNKS_KEY)
+	var loaded := source.chunks().loaded
 	if not loaded.has(raw):
 		return -1
 	var canonical := ChunkCoordinates.canonical_chunk(raw, world_size)
-	var tiles: PackedByteArray = source.read_value(WorldState.chunk_key(canonical))
+	var tiles := source.chunks().tiles_for(canonical)
 	return _tile_type(tile_coord, tiles, chunk_size)
 
 
@@ -49,11 +54,11 @@ func _tile_type(tile_coord: Vector2i, tiles: PackedByteArray, chunk_size: Vector
 
 ## 绘制已加载地块及可选的区块边缘。
 func _draw() -> void:
-	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
+	if source == null or source.chunks().loaded.is_empty():
 		return
-	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
-	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
-	var loaded: Array = source.read_value(WorldState.LOADED_CHUNKS_KEY)
+	var chunk_size := source.chunks().chunk_size
+	var world_size := source.chunks().world_size
+	var loaded := source.chunks().loaded
 	if loaded.is_empty():
 		return
 	var by_raw: Dictionary = {}
@@ -65,7 +70,7 @@ func _draw() -> void:
 		max_raw.x = maxi(max_raw.x, raw.x)
 		max_raw.y = maxi(max_raw.y, raw.y)
 		var canonical := ChunkCoordinates.canonical_chunk(raw, world_size)
-		by_raw[raw] = source.read_value(WorldState.chunk_key(canonical))
+		by_raw[raw] = source.chunks().tiles_for(canonical)
 	var min_tile := ChunkCoordinates.tile_origin(min_raw, chunk_size)
 	var max_tile := ChunkCoordinates.tile_origin(max_raw + Vector2i.ONE, chunk_size) - Vector2i.ONE
 	for row in range(min_tile.x + min_tile.y, max_tile.x + max_tile.y + 1):

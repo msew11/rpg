@@ -2,166 +2,128 @@
 class_name ChunkRadar
 extends Control
 
-const GRID_VIEW := Rect2(16, 38, 272, 272)
-const RADAR_CENTER := Vector2(152, 174)
-const CHUNK_AXIS_PIXELS := 26.0
+const GRID_VIEW := RadarSystem.GRID_VIEW
+const RADAR_CENTER := RadarSystem.RADAR_CENTER
+const CHUNK_AXIS_PIXELS := RadarSystem.CHUNK_AXIS_PIXELS
 const LOADED_COLOR := Color(0.48, 0.78, 0.84)
 const UNLOADED_COLOR := Color(0.42, 0.45, 0.48)
 const CURRENT_COLOR := Color(1.0, 0.82, 0.25)
 const WRAP_COLOR := Color(0.95, 0.45, 0.95)
 
-var source: DataSource
+var source: WorldState
 var player_id: int
+var radar_system: RadarSystem
 
 
-## 绑定玩家和数据源，并同步初始可见状态。
-func bind(data_source: DataSource, entity_id: int) -> void:
-	source = data_source
+## 绑定玩家与雷达 System，并同步初始可见状态。
+func bind(world: WorldState, entity_id: int) -> void:
+	source = world
 	player_id = entity_id
-	source.value_changed.connect(_on_value_changed)
-	visible = source.read_value(WorldState.DEBUG_RADAR_KEY) == true
+	radar_system = RadarSystem.new(source, player_id)
+	source.ecs.add_system(radar_system)
+	source.player_changed.connect(_on_player_changed)
+	source.chunks_changed.connect(_on_chunks_changed)
+	source.debug_changed.connect(_on_debug_changed)
+	visible = source.debug().radar
 	queue_redraw()
 
 
-## 根据调试设置和玩家状态刷新雷达。
-func _on_value_changed(key: StringName, _value: Variant) -> void:
-	if key == WorldState.DEBUG_RADAR_KEY:
-		visible = source.read_value(WorldState.DEBUG_RADAR_KEY) == true
-	if key == WorldState.LOADED_CHUNKS_KEY or key == WorldState.DEBUG_EDGES_KEY or key == WorldState.position_key(player_id) or key == WorldState.facing_key(player_id):
+## 在玩家状态变化时刷新雷达。
+func _on_player_changed(entity_id: int) -> void:
+	if entity_id == player_id:
+		radar_system.refresh()
 		queue_redraw()
+
+
+## 在加载范围变化时刷新雷达。
+func _on_chunks_changed() -> void:
+	radar_system.refresh()
+	queue_redraw()
+
+
+## 同步雷达可见状态与边缘提示。
+func _on_debug_changed() -> void:
+	visible = source.debug().radar
+	queue_redraw()
 
 
 ## 返回区块边缘快捷键的状态提示。
 func edge_hint_text() -> String:
-	return "F3 BORDERS: ON" if source != null and source.read_value(WorldState.DEBUG_EDGES_KEY) == true else "F3 BORDERS: OFF"
+	return "F3 BORDERS: ON" if source != null and source.debug().edges else "F3 BORDERS: OFF"
 
 
 ## 返回固定在雷达中心的玩家标记位置。
 func player_marker_position() -> Vector2:
-	return RADAR_CENTER
+	return radar_system.player_marker_position()
 
 
 ## 读取玩家朝向并转为雷达方向向量。
 func facing_vector() -> Vector2:
-	var facing: Vector2i = source.read_value(WorldState.facing_key(player_id))
-	return Vector2(facing).normalized()
+	return radar_system.facing_vector()
 
 
 ## 计算行走区块在雷达上的四个顶点。
 func chunk_corners(raw: Vector2i) -> PackedVector2Array:
-	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
-		return PackedVector2Array()
-	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
-	var origin := Vector2(ChunkCoordinates.tile_origin(raw, chunk_size))
-	return PackedVector2Array([
-		_radar_point(origin),
-		_radar_point(origin + Vector2(chunk_size.x, 0)),
-		_radar_point(origin + Vector2(chunk_size)),
-		_radar_point(origin + Vector2(0, chunk_size.y))
-	])
+	return radar_system.chunk_corners(raw)
 
 
 ## 按当前、已加载或未加载状态选择轮廓颜色。
 func chunk_outline_color(raw: Vector2i) -> Color:
-	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
-	var position: Vector2 = source.read_value(WorldState.position_key(player_id))
-	var current := ChunkCoordinates.raw_chunk(ChunkCoordinates.tile_at(position), chunk_size)
-	if raw == current:
-		return CURRENT_COLOR
-	var loaded: Array = source.read_value(WorldState.LOADED_CHUNKS_KEY)
-	return LOADED_COLOR if loaded.has(raw) else UNLOADED_COLOR
+	match radar_system.chunk_state(raw):
+		2:
+			return CURRENT_COLOR
+		1:
+			return LOADED_COLOR
+		_:
+			return UNLOADED_COLOR
 
 
 ## 判断区块东侧是否为世界回环接缝。
 func wrap_east(raw: Vector2i) -> bool:
-	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
-	return posmod(raw.x + 1, world_size.x) == 0
+	return radar_system.wrap_east(raw)
 
 
 ## 判断区块南侧是否为世界回环接缝。
 func wrap_south(raw: Vector2i) -> bool:
-	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
-	return posmod(raw.y + 1, world_size.y) == 0
+	return radar_system.wrap_south(raw)
 
 
 ## 避开玩家标记安排当前区块坐标标签。
 func current_label_position() -> Vector2:
-	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
-	var position: Vector2 = source.read_value(WorldState.position_key(player_id))
-	var raw := ChunkCoordinates.raw_chunk(ChunkCoordinates.tile_at(position), chunk_size)
-	var corners := chunk_corners(raw)
-	var center := (corners[0] + corners[2]) * 0.5
-	var below := RADAR_CENTER.y < center.y or (is_equal_approx(RADAR_CENTER.y, center.y) and facing_vector().y < 0)
-	return center + Vector2(-12, 14 if below else -4)
+	return radar_system.current_label_position()
 
 
 ## 找出与雷达视窗相交的行走区块。
 func visible_chunks() -> Array[Vector2i]:
-	var result: Array[Vector2i] = []
-	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
-		return result
-	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
-	var position: Vector2 = source.read_value(WorldState.position_key(player_id)) / Vector2(chunk_size)
-	var min_chunk := Vector2(INF, INF)
-	var max_chunk := Vector2(-INF, -INF)
-	for screen_point in [GRID_VIEW.position, Vector2(GRID_VIEW.end.x, GRID_VIEW.position.y), GRID_VIEW.end, Vector2(GRID_VIEW.position.x, GRID_VIEW.end.y)]:
-		var offset: Vector2 = (screen_point - RADAR_CENTER) / CHUNK_AXIS_PIXELS
-		var chunk_point := position + Vector2((offset.x + offset.y) * 0.5, (offset.y - offset.x) * 0.5)
-		min_chunk = min_chunk.min(chunk_point)
-		max_chunk = max_chunk.max(chunk_point)
-	for y in range(floori(min_chunk.y) - 1, ceili(max_chunk.y) + 1):
-		for x in range(floori(min_chunk.x) - 1, ceili(max_chunk.x) + 1):
-			var raw := Vector2i(x, y)
-			var corners := chunk_corners(raw)
-			var bounds := Rect2(corners[0], Vector2.ZERO)
-			for corner in corners:
-				bounds = bounds.expand(corner)
-			if bounds.intersects(GRID_VIEW):
-				result.append(raw)
-	return result
+	return radar_system.visible_chunks()
 
 
 ## 返回行走区块对应的规范坐标标签。
 func chunk_label(raw: Vector2i) -> String:
-	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
-	var canonical := ChunkCoordinates.canonical_chunk(raw, world_size)
-	return "%d,%d" % [canonical.x, canonical.y]
-
-
-## 将世界位置映射为相对玩家的雷达坐标。
-func _radar_point(world_position: Vector2) -> Vector2:
-	var player_position: Vector2 = source.read_value(WorldState.position_key(player_id))
-	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
-	var relative := (world_position - player_position) / Vector2(chunk_size)
-	return RADAR_CENTER + Vector2(relative.x - relative.y, relative.x + relative.y) * CHUNK_AXIS_PIXELS
+	return radar_system.chunk_label(raw)
 
 
 ## 绘制区块网格、状态轮廓、接缝和玩家标记。
 func _draw() -> void:
 	var panel_color := Color(0.04, 0.08, 0.11, 0.9)
 	draw_rect(Rect2(Vector2.ZERO, size), panel_color, true)
-	if source == null or not source.has_value(WorldState.LOADED_CHUNKS_KEY):
+	if source == null or source.chunks().loaded.is_empty():
 		return
-	var loaded: Array = source.read_value(WorldState.LOADED_CHUNKS_KEY)
-	if loaded.is_empty():
-		return
-	var position: Vector2 = source.read_value(WorldState.position_key(player_id))
-	var chunk_size: Vector2i = source.read_value(WorldState.CHUNK_SIZE_KEY)
-	var world_size: Vector2i = source.read_value(WorldState.WORLD_SIZE_KEY)
-	var player_raw := ChunkCoordinates.raw_chunk(ChunkCoordinates.tile_at(position), chunk_size)
+	var player_raw := radar_system.current_raw_chunk()
 	var font := ThemeDB.fallback_font
-	var current_id := ChunkCoordinates.canonical_chunk(player_raw, world_size)
+	var current_id := radar_system.current_canonical_chunk()
 	draw_rect(GRID_VIEW, Color(0.06, 0.11, 0.14), true)
 	var visible_raw := visible_chunks()
 	for raw: Vector2i in visible_raw:
 		var corners := chunk_corners(raw)
-		var current := raw == player_raw
-		var is_loaded := loaded.has(raw)
+		var state := radar_system.chunk_state(raw)
+		var current := state == 2
+		var is_loaded := state == 1
 		draw_colored_polygon(corners, Color(0.16, 0.28, 0.32, 0.95) if current else Color(0.08, 0.15, 0.19, 0.85) if is_loaded else Color(0.08, 0.10, 0.11, 0.85))
 	# 填充后再画边框，已加载区块最后绘制以保持共用边为蓝色。
 	for draw_loaded in [false, true]:
 		for raw: Vector2i in visible_raw:
-			if raw == player_raw or loaded.has(raw) != draw_loaded:
+			if raw == player_raw or (radar_system.chunk_state(raw) == 1) != draw_loaded:
 				continue
 			var corners := chunk_corners(raw)
 			var outline := PackedVector2Array(corners)
@@ -171,7 +133,7 @@ func _draw() -> void:
 		if raw == player_raw:
 			continue
 		var corners := chunk_corners(raw)
-		var is_loaded := loaded.has(raw)
+		var is_loaded := radar_system.chunk_state(raw) == 1
 		var label_position := (corners[0] + corners[2]) * 0.5 + Vector2(-12, 4)
 		if GRID_VIEW.has_point(label_position):
 			draw_string(font, label_position, chunk_label(raw), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.86, 0.94, 0.94) if is_loaded else Color(0.66, 0.70, 0.71))

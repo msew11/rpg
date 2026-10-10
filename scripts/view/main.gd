@@ -15,10 +15,8 @@ var chunk_world := ChunkWorld.new(session.world, catalog)
 var player_view: Node2D
 
 
-## 初始化调试状态与视图绑定，并加载玩家附近区块。
+## 绑定各视图并加载玩家附近区块。
 func _ready() -> void:
-	session.world.write_value(WorldState.DEBUG_EDGES_KEY, false)
-	session.world.write_value(WorldState.DEBUG_RADAR_KEY, true)
 	ground.bind(session.world)
 	radar.bind(session.world, session.player_id)
 	debug_panel.bind(session.world)
@@ -51,7 +49,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	elif event.keycode == KEY_SPACE:
 		chunk_world.toggle_tile(session.player_position())
 	elif event.keycode == KEY_F3:
-		session.world.write_value(WorldState.DEBUG_EDGES_KEY, not session.world.read_value(WorldState.DEBUG_EDGES_KEY))
+		session.world.set_debug_edges(not session.world.debug().edges)
 
 
 ## 重建玩家显示节点并恢复当前世界状态。
@@ -67,7 +65,7 @@ func rebuild_player_view() -> void:
 func _sync_view() -> void:
 	if not is_instance_valid(player_view):
 		return
-	var position: Vector2 = session.world.read_value(WorldState.position_key(session.player_id))
+	var position := session.player_position()
 	player_view.position = IsometricProjection.to_screen(position)
-	player_view.facing = session.world.read_value(WorldState.facing_key(session.player_id))
+	player_view.facing = session.player_facing()
 	camera.position = player_view.position

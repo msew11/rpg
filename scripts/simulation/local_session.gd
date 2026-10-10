@@ -10,12 +10,12 @@ var player_id: int
 
 ## 在世界中创建本地玩家实体。
 func _init() -> void:
-	player_id = world.create_entity(Vector2.ZERO, PLAYER_SPEED)
+	player_id = world.create_player(Vector2.ZERO, PLAYER_SPEED)
 
 
 ## 提交玩家的屏幕移动方向。
 func set_player_direction(screen_direction: Vector2i) -> void:
-	world.write_value(WorldState.intent_key(player_id), screen_direction)
+	world.set_player_intent(player_id, screen_direction)
 
 
 ## 推进本地世界的固定时间步。
@@ -25,9 +25,9 @@ func step(delta: float) -> void:
 
 ## 读取玩家的当前逻辑位置。
 func player_position() -> Vector2:
-	return world.read_value(WorldState.position_key(player_id))
+	return world.player_position(player_id)
 
 
 ## 读取玩家保留的朝向。
 func player_facing() -> Vector2i:
-	return world.read_value(WorldState.facing_key(player_id))
+	return world.player_facing(player_id)
