@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/view/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/view/chunk_ground.gd" id="2_ground"]
 [ext_resource type="Script" path="res://scripts/view/chunk_radar.gd" id="3_radar"]
+[ext_resource type="Script" path="res://scripts/view/debug_panel.gd" id="4_debug"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -15,10 +16,25 @@ zoom = Vector2(1.4, 1.4)
 
 [node name="RadarLayer" type="CanvasLayer" parent="."]
 
-[node name="ChunkRadar" type="Control" parent="RadarLayer"]
+[node name="DebugPanel" type="PanelContainer" parent="RadarLayer"]
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 256.0
-offset_bottom = 296.0
+offset_bottom = 82.0
+script = ExtResource("4_debug")
+
+[node name="Options" type="VBoxContainer" parent="RadarLayer/DebugPanel"]
+
+[node name="BordersButton" type="CheckButton" parent="RadarLayer/DebugPanel/Options"]
+text = "F3 · Show borders"
+
+[node name="RadarButton" type="CheckButton" parent="RadarLayer/DebugPanel/Options"]
+text = "Show radar"
+
+[node name="ChunkRadar" type="Control" parent="RadarLayer"]
+offset_left = 16.0
+offset_top = 88.0
+offset_right = 256.0
+offset_bottom = 386.0
 mouse_filter = 2
 script = ExtResource("3_radar")

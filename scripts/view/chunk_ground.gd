@@ -5,10 +5,6 @@ const GRASS := preload("res://assets/kenney_isometric_roads/grass.png")
 const DIRT := preload("res://assets/kenney_isometric_roads/dirt.png")
 
 var source: DataSource
-var debug_edges := false:
-	set(value):
-		debug_edges = value
-		queue_redraw()
 
 
 func bind(data_source: DataSource) -> void:
@@ -18,8 +14,12 @@ func bind(data_source: DataSource) -> void:
 
 
 func _on_value_changed(key: StringName, _value: Variant) -> void:
-	if key == WorldState.LOADED_CHUNKS_KEY or String(key).begins_with("chunk/"):
+	if key == WorldState.LOADED_CHUNKS_KEY or key == WorldState.DEBUG_EDGES_KEY or String(key).begins_with("chunk/"):
 		queue_redraw()
+
+
+func debug_edges_enabled() -> bool:
+	return source != null and source.read_value(WorldState.DEBUG_EDGES_KEY) == true
 
 
 func displayed_tile_type(tile_coord: Vector2i) -> int:
@@ -73,7 +73,7 @@ func _draw() -> void:
 			var tiles: PackedByteArray = by_raw[raw]
 			var tile_texture: Texture2D = DIRT if _tile_type(tile_coord, tiles, chunk_size) == 1 else GRASS
 			draw_texture(tile_texture, IsometricProjection.to_screen(Vector2(tile_coord)) - Vector2(50, 25))
-	if debug_edges and OS.is_debug_build():
+	if debug_edges_enabled():
 		for raw: Vector2i in loaded:
 			_draw_chunk_edge(raw, chunk_size)
 

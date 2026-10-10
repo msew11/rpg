@@ -5,6 +5,7 @@ const PLAYER_VIEW := preload("res://scenes/player_view.tscn")
 @onready var camera: Camera2D = $Camera2D
 @onready var ground: ChunkGround = $ChunkGround
 @onready var radar: ChunkRadar = $RadarLayer/ChunkRadar
+@onready var debug_panel: DebugPanel = $RadarLayer/DebugPanel
 
 var session := LocalSession.new()
 var catalog := TestChunkCatalog.new()
@@ -13,8 +14,11 @@ var player_view: Node2D
 
 
 func _ready() -> void:
+	session.world.write_value(WorldState.DEBUG_EDGES_KEY, false)
+	session.world.write_value(WorldState.DEBUG_RADAR_KEY, true)
 	ground.bind(session.world)
 	radar.bind(session.world, session.player_id)
+	debug_panel.bind(session.world)
 	chunk_world.load_around(session.player_position())
 	rebuild_player_view()
 	_sync_view()
@@ -32,8 +36,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if event.keycode == KEY_SPACE:
 		chunk_world.toggle_tile(session.player_position())
-	elif event.keycode == KEY_F3 and OS.is_debug_build():
-		ground.debug_edges = not ground.debug_edges
+	elif event.keycode == KEY_F3:
+		session.world.write_value(WorldState.DEBUG_EDGES_KEY, not session.world.read_value(WorldState.DEBUG_EDGES_KEY))
 
 
 func rebuild_player_view() -> void:

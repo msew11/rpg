@@ -4,6 +4,8 @@ extends DataSource
 const LOADED_CHUNKS_KEY := &"world/loaded_chunks"
 const CHUNK_SIZE_KEY := &"world/chunk_size"
 const WORLD_SIZE_KEY := &"world/world_size"
+const DEBUG_EDGES_KEY := &"debug/chunk_edges"
+const DEBUG_RADAR_KEY := &"debug/radar"
 
 var entity_ids: Array[int] = []
 var _values: Dictionary = {}
