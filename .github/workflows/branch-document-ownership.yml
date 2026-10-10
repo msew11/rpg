@@ -1,0 +1,52 @@
+name: Branch document ownership
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-documents:
+    name: Branch document ownership
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check main document ownership
+        if: >-
+          (github.event_name == 'push' && github.ref_name == 'main') ||
+          (github.event_name == 'pull_request' && github.base_ref == 'main')
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden=$(git ls-tree --name-only HEAD -- \
+            docs/architecture.md docs/game-vision.md docs/roadmap.md)
+          if [[ -n "$forbidden" ]]; then
+            echo 'Development documents must be absent from main:' >&2
+            echo "$forbidden" >&2
+            exit 1
+          fi
+
+      - name: Check develop shared documents
+        if: >-
+          (github.event_name == 'push' && github.ref_name == 'develop') ||
+          (github.event_name == 'pull_request' && github.base_ref == 'develop')
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin \
+            +refs/heads/main:refs/remotes/origin/main
+          if ! git diff --quiet origin/main HEAD -- AGENTS.md README.md; then
+            echo 'AGENTS.md and README.md on develop must match the latest main.' >&2
+            git diff --stat origin/main HEAD -- AGENTS.md README.md >&2
+            exit 1
+          fi
+          if ! git diff --quiet origin/main HEAD -- scripts/core/; then
+            echo 'scripts/core/ on develop must match the latest main.' >&2
+            git diff --stat origin/main HEAD -- scripts/core/ >&2
+            exit 1
+          fi

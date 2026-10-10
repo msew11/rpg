@@ -1,6 +1,6 @@
 # 数据层契约
 
-`scripts/data/data_source.gd` 定义可替换的数据源接口，目前没有正式提供方。功能代码可以依赖 `DataSource`，由具体功能在创建时传入提供方。
+`scripts/core/data_source.gd` 定义可替换的数据源接口，目前没有正式提供方。该核心脚本由 `main` 维护，`develop` 通过合并继承。功能代码可以依赖 `DataSource`，由具体功能在创建时传入提供方。
 
 | 成员 | 契约 |
 | --- | --- |
