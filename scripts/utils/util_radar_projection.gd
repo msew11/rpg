@@ -44,7 +44,7 @@ static func radar_point(world: WorldState, player_id: int, world_position: Vecto
 
 ## 计算行走区块在雷达上的四个顶点。
 static func chunk_corners(world: WorldState, player_id: int, raw: Vector2i) -> PackedVector2Array:
-	var chunk_size := world.chunks().chunk_size
+	var chunk_size: Vector2i = world.chunks().chunk_size
 	var origin := Vector2(UtilChunkCoordinates.tile_origin(raw, chunk_size))
 	return PackedVector2Array([
 		radar_point(world, player_id, origin),

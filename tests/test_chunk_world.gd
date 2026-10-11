@@ -10,7 +10,7 @@ func _initialize() -> void:
 	source.initialize_test_chunks(cfg)
 	var player_id := source.create_player(Vector2(1, 1), 3.0)
 	source.step(0.0)
-	var initial_loaded := source.chunks().loaded
+	var initial_loaded: Array[Vector2i] = source.chunks().loaded
 	assert(initial_loaded.size() == 9)
 	assert(initial_loaded.has(Vector2i(0, 0)))
 	var before := source.tile_type(Vector2i(1, 1))
@@ -18,7 +18,7 @@ func _initialize() -> void:
 	assert(source.tile_type(Vector2i(1, 1)) == 1 - before)
 	source.set_player_position(player_id, Vector2(25, 25))
 	source.step(0.0)
-	var distant_loaded := source.chunks().loaded
+	var distant_loaded: Array[Vector2i] = source.chunks().loaded
 	assert(distant_loaded.size() == 9)
 	assert(not distant_loaded.has(Vector2i(0, 0)))
 	source.set_player_position(player_id, Vector2(1, 1))

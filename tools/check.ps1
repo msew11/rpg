@@ -48,6 +48,7 @@ function Invoke-GodotCheck {
 Invoke-GodotCheck 'project import' @('--headless', '--path', $projectPath, '--editor', '--quit')
 Invoke-GodotCheck 'main scene' @('--headless', '--path', $projectPath, '--quit-after', '2')
 Invoke-GodotCheck 'core C# tests' @('--headless', '--path', $projectPath, '--script', 'res://tests/core/TestEcs.cs')
+Invoke-GodotCheck 'world ECS state' @('--headless', '--path', $projectPath, '--script', 'res://tests/TestWorldEcs.cs')
 Invoke-GodotCheck 'movement behavior' @('--headless', '--path', $projectPath, '--script', 'tests/test_movement.gd')
 Invoke-GodotCheck 'view rebuilding' @('--headless', '--path', $projectPath, '--script', 'tests/test_view.gd')
 Invoke-GodotCheck 'chunk coordinates' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_coordinates.gd')

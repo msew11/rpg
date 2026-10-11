@@ -83,8 +83,8 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.09), true)
 	if source == null:
 		return
-	var chunk_size := source.chunks().chunk_size
-	var world_size := source.chunks().world_size
+	var chunk_size: Vector2i = source.chunks().chunk_size
+	var world_size: Vector2i = source.chunks().world_size
 	var player_id_chunk := UtilWorldMapProjection.current_chunk(source, player_id)
 	var font := ThemeDB.fallback_font
 	draw_string(font, Vector2(24, 36), "WORLD MAP  ·  M close  ·  Left drag to pan", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
@@ -93,7 +93,7 @@ func _draw() -> void:
 			var canonical := Vector2i(x, y)
 			if not source.chunks().has_chunk(canonical):
 				continue
-			var tiles := source.chunks().tiles_for(canonical)
+			var tiles: PackedByteArray = source.chunks().tiles_for(canonical)
 			var origin := UtilChunkCoordinates.tile_origin(canonical, chunk_size)
 			for local_y in range(chunk_size.y):
 				for local_x in range(chunk_size.x):

@@ -9,7 +9,7 @@ func _initialize() -> void:
 	var player_id := session.player_id
 	assert(player_id > 0)
 	assert(session.world.player_position(player_id) == Vector2.ZERO)
-	assert(session.world.ecs.get_component(player_id, PositionComponent) is PositionComponent)
+	assert(session.world.ecs.HasEntity(player_id))
 
 	var directions := [
 		Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1),

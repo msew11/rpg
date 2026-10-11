@@ -6,19 +6,22 @@ extends SceneTree
 ## 运行 ECS 世界状态断言并退出。
 func _initialize() -> void:
 	var world := WorldState.new()
-	assert(world.ecs.has_entity(world.world_entity_id))
-	assert(world.ecs.get_component(world.world_entity_id, WorldChunksComponent) == world.chunks())
-	assert(world.ecs.get_component(world.world_entity_id, WorldDebugComponent) == world.debug())
+	assert(world.ecs.HasEntity(world.world_entity_id))
+	assert(world.chunks() is WorldChunksComponent)
+	assert(world.debug() is WorldDebugComponent)
 	var player_changes: Array[int] = []
 	var chunk_changes: Array[int] = []
 	var debug_changes: Array[int] = []
-	world.player_changed.connect(func(id: int) -> void: player_changes.append(id))
-	world.chunks_changed.connect(func() -> void: chunk_changes.append(1))
-	world.debug_changed.connect(func() -> void: debug_changes.append(1))
+	var on_player_changed := func(id: int) -> void: player_changes.append(id)
+	var on_chunks_changed := func() -> void: chunk_changes.append(1)
+	var on_debug_changed := func() -> void: debug_changes.append(1)
+	world.player_changed.connect(on_player_changed)
+	world.chunks_changed.connect(on_chunks_changed)
+	world.debug_changed.connect(on_debug_changed)
 	var id := world.create_player(Vector2.ZERO, 3.0)
 	assert(id != world.world_entity_id)
 	assert(world.player_position(id) == Vector2.ZERO)
-	assert(world.ecs.get_component(id, PositionComponent).value == Vector2.ZERO)
+	assert(world.ecs.HasEntity(id))
 	assert(player_changes == [id])
 	world.set_player_position(id, Vector2(2, 3))
 	assert(world.player_position(id) == Vector2(2, 3))
@@ -27,7 +30,7 @@ func _initialize() -> void:
 	assert(player_changes.size() == 2)
 	world.set_player_intent(id, Vector2i(1, 0))
 	world.step(1.0)
-	assert(world.player_position(id) == world.ecs.get_component(id, PositionComponent).value)
+	assert(world.player_position(id).is_equal_approx(Vector2(2, 3) + UtilIsometricProjection.movement_direction(Vector2i(1, 0)) * 3.0))
 	assert(world.player_facing(id) == Vector2i(1, 0))
 	assert(player_changes.size() == 3)
 	world.set_debug_edges(true)
@@ -39,7 +42,7 @@ func _initialize() -> void:
 	assert(chunk_changes.size() == 1)
 	tiles[0] = 1
 	assert(world.chunks().tiles_for(canonical)[0] == 0)
-	var read_tiles := world.chunks().tiles_for(canonical)
+	var read_tiles: PackedByteArray = world.chunks().tiles_for(canonical)
 	read_tiles[0] = 1
 	assert(world.chunks().tiles_for(canonical)[0] == 0)
 	assert(world.set_chunk_tiles(canonical, read_tiles))
@@ -47,5 +50,8 @@ func _initialize() -> void:
 	assert(chunk_changes.size() == 2)
 	assert(not world.set_chunk_tiles(canonical, read_tiles))
 	assert(chunk_changes.size() == 2)
+	world.player_changed.disconnect(on_player_changed)
+	world.chunks_changed.disconnect(on_chunks_changed)
+	world.debug_changed.disconnect(on_debug_changed)
 	print("test_world_state_data passed")
 	quit()
