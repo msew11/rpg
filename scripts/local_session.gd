@@ -15,7 +15,7 @@ var player_id: int
 
 ## 在世界中创建本地玩家实体。
 func _init() -> void:
-	world = cache.CreateWorldState()
+	world = WorldState.Create(cache)
 	player_id = world.create_player(Vector2.ZERO, PLAYER_SPEED)
 	world.initialize_test_chunks(ManualChunkCfg.new())
 

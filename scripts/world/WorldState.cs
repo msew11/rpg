@@ -6,6 +6,9 @@ using Godot;
 [GlobalClass]
 public partial class WorldState : RefCounted
 {
+    /// <summary>供 GDScript 从缓存创建世界状态。</summary>
+    public static WorldState Create(LocalDataRepoCache cache) => new(cache);
+
     /// <summary>玩家位置或朝向变化时通知展示层。</summary>
     [Signal] public delegate void player_changedEventHandler(long entityId);
 
