@@ -40,7 +40,7 @@ function Invoke-GodotCheck {
 
 Invoke-GodotCheck 'project import' @('--headless', '--path', $projectPath, '--editor', '--quit')
 Invoke-GodotCheck 'main scene' @('--headless', '--path', $projectPath, '--quit-after', '2')
-Invoke-GodotCheck 'ECS contract' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_ecs_contract.gd')
+Invoke-GodotCheck 'ECS tests' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_ecs.gd')
 
 if ($ExportWindows) {
     $exportPath = Join-Path $projectPath 'build\windows\rpg.exe'

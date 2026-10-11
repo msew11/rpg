@@ -1,6 +1,6 @@
 # 数据仓库框架
 
-`main` 在 `scripts/core/` 只定义 `DataRepo` 和 `DataRepoCache` 两个抽象类。`DataRepo` 供具体仓库继承，声明承载的数据脚本类型及 `SINGLE`（一个对象）或 `MULTIPLE`（一组对象）形态。`DataRepoCache` 供未来的统一管理单例继承，定义按仓库脚本类型查找仓库的入口。目前没有具体仓库、数据类、缓存实现或 AutoLoad 配置。
+`main` 在 `scripts/core/data/` 只定义 `DataRepo` 和 `DataRepoCache` 两个抽象类。`DataRepo` 供具体仓库继承，声明承载的数据脚本类型及 `SINGLE`（一个对象）或 `MULTIPLE`（一组对象）形态。`DataRepoCache` 供未来的统一管理单例继承，定义按仓库脚本类型查找仓库的入口。目前没有具体仓库、数据类、缓存实现或 AutoLoad 配置。
 
 具体仓库文件以 `repo_` 开头，随后用 `player`、`world` 等用途段区分数据归属，再以末段描述数据，例如未来的 `repo_player`、`repo_player_item`、`repo_world_monster`。承载的数据文件对应以 `data_` 开头。示例仅说明命名结构，不代表这些类型已实现。
 
