@@ -4,7 +4,9 @@
 
 ## 当前实现
 
-Godot 4.7.2 .NET 项目以 `scenes/main.tscn` 为入口，入口脚本 `scripts/main.gd`、本地会话 `scripts/local_session.gd` 位于脚本根目录，手工区块配置脚本 `scripts/cfg/manual_chunk_cfg.gd` 位于 `scripts/cfg/`。`scripts/core/` 提供 C# ECS 框架；`scripts/world/` 使用 C# 实现 `WorldState`、类型组件及无状态更新系统。`MovementSystem` 在固定物理步中更新玩家位置和朝向，随后 `ChunkLoadingSystem` 根据玩家位置更新附近 3 × 3 行走区块。世界实体上的 `WorldChunksComponent` 保存尺寸、全部规范区块地块数据和当前显示范围，`WorldDebugComponent` 保存调试开关。固定测试目录在初始化时写入全部 4 × 4 个规范区块。顶层 `scripts/utils/` 的 GDScript 提供无状态静态坐标与画面几何计算；`scripts/view/` 的 Godot 节点负责绘制与交互。世界 C# 代码使用相同的坐标与移动公式，配置仍经 Godot 对象接口读取。手工测试区块使用 Kenney Isometric Roads 的 CC0 资源。
+Godot 4.7.2 .NET 项目以 `scenes/main.tscn` 为入口，入口脚本 `scripts/main.gd`、本地会话 `scripts/local_session.gd` 位于脚本根目录，手工区块配置脚本 `scripts/cfg/manual_chunk_cfg.gd` 位于 `scripts/cfg/`。`scripts/core/` 提供 C# ECS 框架；`scripts/world/` 使用 C# 实现 `WorldState`、类型组件及无状态更新系统。`MovementSystem` 在固定物理步中更新玩家位置和朝向，随后 `ChunkLoadingSystem` 根据玩家位置更新附近 3 × 3 行走区块。世界实体上的 `WorldChunksComponent` 保存尺寸、全部规范区块地块数据和当前显示范围，`WorldDebugComponent` 保存调试开关。固定测试目录在初始化时写入全部 4 × 4 个规范区块。顶层 `scripts/utils/` 的 GDScript 提供无状态静态坐标与画面几何计算；雷达每次重绘集中读取玩家和区块状态，几何计算复用本次状态。`scripts/view/` 的 Godot 节点负责绘制与交互。世界 C# 代码使用相同的坐标与移动公式，配置仍经 Godot 对象接口读取。手工测试区块使用 Kenney Isometric Roads 的 CC0 资源。
+
+启动界面、游戏内保存入口与五槽位读取界面由 `scenes/main.tscn` 的 UI 层实现。`scripts/save_slots.gd` 负责 `user://saves/` 下版本化 JSON 文件的写入与完整性检查；`LocalSession` 收集并恢复玩家位置、朝向及相对手工测试地图变化的规范区块。新游戏与读取进度均创建独立本地会话，并重新绑定视图。调试开关和地图拖动偏移不属于存档进度。
 
 ## 已确认的约束
 
@@ -21,9 +23,9 @@ Godot 4.7.2 .NET 项目以 `scenes/main.tscn` 为入口，入口脚本 `scripts/
 | 通用数据访问 | 由每个本地会话的缓存统一持有具名仓库 | `main` 提供数据契约与 `IEcsWorldData`；当前世界数据由 `EcsWorldDataRepo` 单例仓库承载，详见 [数据层契约](data-layer.md) |
 | 世界数据与区块 | 使用规范区块 ID 管理测试地块状态，按玩家所在行走区块维护显示范围 | 已有手工配置的 4 × 4 个测试区块、每区块 12 × 12 格；最终地图制作方式待定 |
 | Godot 展示层 | 采集输入并绘制等轴地图、实体和镜头；调用静态工具计算雷达与地图几何 | 已有附近 3 × 3 区块、方向标记、连续位置投影、跟随镜头、区分加载状态的雷达和可拖动的完整测试地图；没有最终动画 |
-| 持久化 | 保存与恢复需要跨游玩会话保留的世界状态 | 后续阶段；格式和存储方式待定 |
+| 持久化 | 保存与恢复需要跨游玩会话保留的世界状态 | 已用 `user://saves/` 下五个版本化 JSON 槽位保存玩家位置、朝向及测试地块改动；格式迁移待定 |
 
-当前原型的数据流是：`输入 → 本地会话及其 DataRepoCache → ECS 玩家与世界实体组件 → World System 更新 → 静态工具计算 → Godot 绘制`。玩家行走坐标持续增长，地块整数坐标按区块尺寸映射到行走区块与区块内坐标；行走区块再对世界尺寸取非负余数得到规范 ID。显示实例使用行走坐标定位，地块状态按规范 ID 保存在世界实体的单个区块组件中。离开附近 3 × 3 范围只停止显示，不丢弃数据。缓存创建的 `EcsWorldDataRepo` 与 `EcsWorld` 引用同一份 `EcsWorldData`；当前尚未实现存档收集与恢复，也未解决 MMO 的权威状态、并发、分区和运维问题。
+当前原型的数据流是：`输入 → 本地会话及其 DataRepoCache → ECS 玩家与世界实体组件 → World System 更新 → 静态工具计算 → Godot 绘制`。玩家行走坐标持续增长，地块整数坐标按区块尺寸映射到行走区块与区块内坐标；行走区块再对世界尺寸取非负余数得到规范 ID。显示实例使用行走坐标定位，地块状态按规范 ID 保存在世界实体的单个区块组件中。离开附近 3 × 3 范围只停止显示，不丢弃数据。缓存创建的 `EcsWorldDataRepo` 与 `EcsWorld` 引用同一份 `EcsWorldData`；当前已支持五槽位本地存档收集与恢复。MMO 的权威状态、并发、分区和运维问题尚未解决。
 
 ## 首个原型的验证
 

@@ -13,6 +13,9 @@ var source: WorldState
 
 ## 绑定世界数据并订阅影响地面的变化。
 func bind(world: WorldState) -> void:
+	if source != null:
+		source.chunks_changed.disconnect(_on_chunks_changed)
+		source.debug_changed.disconnect(_on_debug_changed)
 	source = world
 	source.chunks_changed.connect(_on_chunks_changed)
 	source.debug_changed.connect(_on_debug_changed)

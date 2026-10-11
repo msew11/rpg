@@ -13,10 +13,14 @@ var source: WorldState
 
 ## 绑定数据源并连接开关事件。
 func bind(world: WorldState) -> void:
+	if source != null:
+		source.debug_changed.disconnect(_on_debug_changed)
 	source = world
 	source.debug_changed.connect(_on_debug_changed)
-	borders_button.toggled.connect(_on_borders_toggled)
-	radar_button.toggled.connect(_on_radar_toggled)
+	if not borders_button.toggled.is_connected(_on_borders_toggled):
+		borders_button.toggled.connect(_on_borders_toggled)
+	if not radar_button.toggled.is_connected(_on_radar_toggled):
+		radar_button.toggled.connect(_on_radar_toggled)
 	_sync_buttons()
 
 

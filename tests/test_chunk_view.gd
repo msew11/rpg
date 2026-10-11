@@ -16,6 +16,7 @@ func run_test() -> void:
 	var main := MAIN.instantiate()
 	root.add_child(main)
 	main.set_physics_process(false)
+	main.start_new_game()
 	assert(main.get_parent() == root)
 	assert(_loaded_count(main) == 9)
 	assert(main.debug_panel.borders_button.text.begins_with("F3"))
