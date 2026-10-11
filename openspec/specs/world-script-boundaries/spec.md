@@ -21,8 +21,8 @@
 - **THEN** UI 使用当前世界数据和显示参数计算绘制位置，雷达和地图呈现与既有行为一致
 
 ### Requirement: 脚本目录反映职责
-项目 SHALL 将 `main.gd`、`local_session.gd` 与手工区块内容读取器 `manual_chunk_catalog.gd` 放在 `scripts/` 根目录，将世界状态、组件和 ECS System 放在 `scripts/world/`，并保持 `scripts/core/` 的通用框架代码不变。
+项目 SHALL 将 `main.gd` 与 `local_session.gd` 放在 `scripts/` 根目录，将手工区块配置脚本 `manual_chunk_cfg.gd` 放在 `scripts/cfg/`，将世界状态、组件和 ECS System 放在 `scripts/world/`，并保持 `scripts/core/` 的通用框架代码不变。
 
 #### Scenario: 检查项目脚本
 - **WHEN** 开发者浏览 `scripts/` 目录
-- **THEN** 入口脚本、手工区块内容读取器、世界规则、UI 与静态工具位于各自约定的位置，且项目仍从 `scenes/main.tscn` 启动
+- **THEN** 入口脚本、手工区块配置脚本、世界规则、UI 与静态工具位于各自约定的位置，且项目仍从 `scenes/main.tscn` 启动

@@ -45,7 +45,7 @@ Invoke-GodotCheck 'ECS tests' @('--headless', '--path', $projectPath, '--script'
 Invoke-GodotCheck 'movement behavior' @('--headless', '--path', $projectPath, '--script', 'tests/test_movement.gd')
 Invoke-GodotCheck 'view rebuilding' @('--headless', '--path', $projectPath, '--script', 'tests/test_view.gd')
 Invoke-GodotCheck 'chunk coordinates' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_coordinates.gd')
-Invoke-GodotCheck 'manual chunk catalog' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_manual_chunk_catalog.gd')
+Invoke-GodotCheck 'manual chunk cfg' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_manual_chunk_cfg.gd')
 Invoke-GodotCheck 'world state data' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_world_state_data.gd')
 Invoke-GodotCheck 'chunk world state' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_world.gd')
 Invoke-GodotCheck 'chunk display' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_view.gd')

@@ -1,5 +1,5 @@
-## 从手工测试地图读取区块布局与地块图案。
-class_name ManualChunkCatalog
+## 从手工测试地图配置读取区块布局与地块图案。
+class_name ManualChunkCfg
 extends RefCounted
 
 ## 手工测试区块数据文件的资源路径。
