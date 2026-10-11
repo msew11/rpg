@@ -32,7 +32,7 @@ powershell -ExecutionPolicy Bypass -File tools/check.ps1
 
 ## Windows 导出
 
-安装与 Godot 4.7.2 匹配的 Export Templates 后，在编辑器中选用 `Windows Desktop` 预设，或在根目录运行：
+先在 Godot .NET 编辑器的 **Editor > Manage Export Templates** 中安装 **4.7.2 Mono Export Templates**（不能使用标准版模板）。然后选用 `Windows Desktop` 预设，或在根目录运行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/check.ps1 -ExportWindows

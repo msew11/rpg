@@ -58,6 +58,13 @@ Invoke-GodotCheck 'chunk world state' @('--headless', '--path', $projectPath, '-
 Invoke-GodotCheck 'chunk display' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_view.gd')
 
 if ($ExportWindows) {
+    $templateDir = Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'
+    $requiredTemplates = @('windows_debug_x86_64.exe', 'windows_release_x86_64.exe')
+    $missingTemplates = @($requiredTemplates | Where-Object { -not (Test-Path -LiteralPath (Join-Path $templateDir $_) -PathType Leaf) })
+    if ($missingTemplates.Count -gt 0) {
+        $missingPaths = ($missingTemplates | ForEach-Object { Join-Path $templateDir $_ }) -join ', '
+        throw "Godot 4.7.2 .NET Windows export templates are missing: $missingPaths. Install the matching Mono Export Templates via Editor > Manage Export Templates, then retry."
+    }
     $exportPath = Join-Path $projectPath 'build\windows\rpg.exe'
     New-Item -ItemType Directory -Force -Path (Split-Path $exportPath) | Out-Null
     Invoke-GodotCheck 'Windows export' @('--headless', '--path', $projectPath, '--export-release', 'Windows Desktop', $exportPath)
