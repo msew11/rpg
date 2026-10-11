@@ -4,15 +4,18 @@
 提供与具体玩法无关的实体、组件和系统运行时，使后续功能能够组合数据、筛选实体并按明确顺序执行更新逻辑。
 ## Requirements
 ### Requirement: 实体数据独立承载
-运行时 SHALL 将下一个实体标识、有效实体集合和组件索引保存在实现 `IDataRepoData` 的 `DataEcsWorld` 中。`EcsWorld` SHALL 能使用指定数据实例或承载该数据的 `DataRepoSingle<DataEcsWorld>`；不指定时 SHALL 创建独立实例。系统注册和调度状态 SHALL 留在 `EcsWorld` 中。
+
+运行时 SHALL 通过核心 `IEcsWorldData` 接口读取和修改下一个实体标识、有效实体集合和组件索引。`EcsWorld` SHALL 接收由调用方提供的非空实现，并允许多个世界先后使用同一实例；核心 SHALL 不创建具体世界数据或依赖具体仓库。系统注册和调度状态 SHALL 留在 `EcsWorld` 中。
 
 #### Scenario: 共享实体数据
-- **WHEN** 两个 `EcsWorld` 先后使用同一个 `DataEcsWorld`
+
+- **WHEN** 两个 `EcsWorld` 先后使用同一个 `IEcsWorldData` 实例
 - **THEN** 后一个世界能够读取已有实体及组件，并继续分配不重复的实体标识
 
-#### Scenario: 从单例仓库创建世界
-- **WHEN** 使用承载 `DataEcsWorld` 的单例仓库构造 `EcsWorld`
-- **THEN** 世界操作的实体数据就是该仓库的唯一数据实例
+#### Scenario: 缺失数据实例
+
+- **WHEN** 调用方构造世界时传入空数据实例
+- **THEN** 构造过程报告参数错误
 
 ### Requirement: 实体生命周期
 运行时 SHALL 创建唯一的实体标识，并允许销毁实体；销毁后该标识不再有效，关联组件不可访问。

@@ -7,17 +7,10 @@ using Godot;
 public partial class EcsWorld : RefCounted
 {
     /// <summary>保存实体与组件的单一数据实例。</summary>
-    public DataEcsWorld Data { get; }
-
-    /// <summary>创建使用独立实体数据的世界。</summary>
-    public EcsWorld() : this(new DataEcsWorld()) { }
+    public IEcsWorldData Data { get; }
 
     /// <summary>创建使用指定实体数据的世界。</summary>
-    public EcsWorld(DataEcsWorld data) => Data = data ?? throw new ArgumentNullException(nameof(data));
-
-    /// <summary>创建使用单例仓库所承载数据的世界。</summary>
-    public EcsWorld(DataRepoSingle<DataEcsWorld> repo) =>
-        Data = repo?.Data ?? throw new ArgumentNullException(nameof(repo));
+    public EcsWorld(IEcsWorldData data) => Data = data ?? throw new ArgumentNullException(nameof(data));
 
     /// <summary>保存系统的注册顺序。</summary>
     private readonly List<EcsSystem> _systems = [];
@@ -31,7 +24,8 @@ public partial class EcsWorld : RefCounted
     /// <summary>创建实体并返回不会复用的标识。</summary>
     public long CreateEntity()
     {
-        var entityId = Data.NextEntityId++;
+        var entityId = Data.NextEntityId;
+        Data.NextEntityId++;
         Data.Entities.Add(entityId);
         Data.Components.Add(entityId, []);
         return entityId;

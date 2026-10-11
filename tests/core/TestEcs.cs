@@ -32,7 +32,7 @@ public partial class TestEcs : SceneTree
     /// <summary>覆盖 ecs-runtime 规定的实体、组件、查询及系统调度行为。</summary>
     private void RunEcsScenarios()
     {
-        using var world = new EcsWorld();
+        using var world = new EcsWorld(new TestEcsWorldData());
         var first = world.CreateEntity();
         var second = world.CreateEntity();
         var third = world.CreateEntity();
@@ -97,7 +97,7 @@ public partial class TestEcs : SceneTree
         world.Step(0.25);
         Check(calls.SequenceEqual(["alpha", "alpha", "gamma", "gamma"]), "removed system stays inactive");
 
-        using var replacementWorld = new EcsWorld();
+        using var replacementWorld = new EcsWorld(new TestEcsWorldData());
         var replacementCalls = new List<string>();
         using var changer = new TestRecordingSystem("changer", replacementCalls, replacementWorld, 0.25);
         using var readded = new TestRecordingSystem("readded", replacementCalls, replacementWorld, 0.25);
@@ -119,10 +119,6 @@ public partial class TestEcs : SceneTree
         Check(single.GetStorageKind() == DataRepoStorageKind.Single, "single repo declares shape");
         Check(multiple.GetDataType() == typeof(TestRepoData), "multiple repo returns generic data type");
         Check(multiple.GetStorageKind() == DataRepoStorageKind.Multiple, "multiple repo declares shape");
-        var worldRepo = new TestEcsWorldRepo();
-        using var repoWorld = new EcsWorld(worldRepo);
-        Check(ReferenceEquals(repoWorld.Data, worldRepo.Data), "ECS world uses repo-owned data");
-        Check(repoWorld.CreateEntity() == 1, "ECS world accepts a single data repo");
     }
 
     /// <summary>记录未满足的验收断言。</summary>
@@ -142,11 +138,18 @@ public partial class TestEcs : SceneTree
         public override TestRepoData Data { get; } = new();
     }
 
-    /// <summary>验证 ECS 世界能直接接收单例仓库。</summary>
-    private sealed class TestEcsWorldRepo : DataRepoSingle<DataEcsWorld>
+    /// <summary>验证 ecs-runtime 数据接口的测试实现。</summary>
+    private sealed class TestEcsWorldData : IEcsWorldData
     {
-        /// <summary>测试世界仓库承载的数据。</summary>
-        public override DataEcsWorld Data { get; } = new();
+        /// <summary>测试实体标识分配状态。</summary>
+        public long NextEntityId { get; set; } = 1;
+
+        /// <summary>测试有效实体集合。</summary>
+        public ISet<long> Entities { get; } = new HashSet<long>();
+
+        /// <summary>测试组件索引。</summary>
+        public IDictionary<long, Dictionary<Type, EcsComponent>> Components { get; } =
+            new Dictionary<long, Dictionary<Type, EcsComponent>>();
     }
 
     /// <summary>验证多例形态声明的测试仓库。</summary>
