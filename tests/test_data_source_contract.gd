@@ -2,14 +2,14 @@
 class_name TestDataSourceContract
 extends SceneTree
 
-const TestMemoryDataSourceScript = preload("res://tests/doubles/test_memory_data_source.gd")
+const DoubleMemoryDataSourceScript = preload("res://tests/doubles/double_memory_data_source.gd")
 
 var _failures: Array[String] = []
 
 
 # 执行数据访问契约的验收场景，并以退出码报告结果。
 func _initialize() -> void:
-	var source: DataSource = TestMemoryDataSourceScript.new()
+	var source: DataSource = DoubleMemoryDataSourceScript.new()
 	var events: Array[Array] = []
 	source.value_changed.connect(func(key: StringName, value: Variant) -> void:
 		events.append([key, value])

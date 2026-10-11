@@ -1,5 +1,5 @@
 # 为 openspec/specs/data-access/spec.md 的数据访问契约测试提供内存替身。
-class_name TestMemoryDataSource
+class_name DoubleMemoryDataSource
 extends DataSource
 
 var _values: Dictionary = {}
