@@ -15,6 +15,10 @@ public partial class EcsWorld : RefCounted
     /// <summary>创建使用指定实体数据的世界。</summary>
     public EcsWorld(DataEcsWorld data) => Data = data ?? throw new ArgumentNullException(nameof(data));
 
+    /// <summary>创建使用单例仓库所承载数据的世界。</summary>
+    public EcsWorld(DataRepoSingle<DataEcsWorld> repo) =>
+        Data = repo?.Data ?? throw new ArgumentNullException(nameof(repo));
+
     /// <summary>保存系统的注册顺序。</summary>
     private readonly List<EcsSystem> _systems = [];
 
