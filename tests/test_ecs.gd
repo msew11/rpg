@@ -1,3 +1,6 @@
+# 验证 openspec/specs/ecs-runtime/spec.md 中的创建和销毁、无效标识、附加与替换、移除组件场景。
+# 同时验证多类型匹配、查询快照、顺序与增量、更新期间变更系统集合场景。
+class_name TestEcs
 extends SceneTree
 
 class Position extends EcsComponent:
@@ -37,6 +40,7 @@ class RecordingSystem extends EcsSystem:
 var _failures: Array[String] = []
 
 
+# 执行 ECS 契约的验收场景，并以退出码报告结果。
 func _initialize() -> void:
 	var world := EcsWorld.new()
 	var first := world.create_entity()
@@ -113,7 +117,7 @@ func _initialize() -> void:
 	_check(replacement_log == ["changer", "changer", "readded"], "re-added system follows new registration order")
 
 	if _failures.is_empty():
-		print("ECS contract passed.")
+		print("ECS tests passed.")
 		quit(0)
 	else:
 		for failure in _failures:
@@ -121,6 +125,7 @@ func _initialize() -> void:
 		quit(1)
 
 
+# 收集未满足的契约断言，供检查脚本报告。
 func _check(condition: bool, description: String) -> void:
 	if not condition:
 		_failures.append(description)
