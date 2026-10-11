@@ -1,0 +1,30 @@
+## MODIFIED Requirements
+
+### Requirement: 仓库抽象
+核心框架 SHALL 提供 C# `DataRepo<T>` 抽象基类与 `IDataRepoData` 接口，且 `T` SHALL 在编译期受 `IDataRepoData` 约束。具体仓库 SHALL 能声明单例或多例形态；`GetDataType()` SHALL 返回 `typeof(T)`。核心框架 SHALL 不实现任何具体仓库或数据类。
+
+#### Scenario: 单例仓库设计
+- **WHEN** 后续功能设计只承载一个实现 `IDataRepoData` 的数据类型的仓库
+- **THEN** 该仓库能够通过 `DataRepo<T>` 契约声明其数据类型和单例形态
+
+#### Scenario: 多例仓库设计
+- **WHEN** 后续功能设计承载一组同类型数据实例的仓库
+- **THEN** 该仓库能够通过 `DataRepo<T>` 契约声明其数据类型和多例形态
+
+#### Scenario: 无效数据类型
+- **WHEN** 仓库尝试将未实现 `IDataRepoData` 的类型作为 `T`
+- **THEN** C# 编译失败
+
+### Requirement: 管理入口抽象
+核心框架 SHALL 提供 C# `DataRepoCache` 抽象基类，定义按仓库 `Type` 获取 `IDataRepo` 的统一入口。核心框架 SHALL 不实例化该类，也 SHALL 不注册 AutoLoad 单例。
+
+#### Scenario: 后续管理器实现
+- **WHEN** 后续功能实现统一仓库管理单例
+- **THEN** 它能够继承 `DataRepoCache` 并提供具体的仓库查找行为
+
+### Requirement: 命名边界
+后续仓库及其承载的数据类 SHALL 分别采用 `Repo` 和 `Data` 前缀；仓库名称 SHALL 使用用途段和数据内容段区分职责。核心框架 SHALL 不预先声明具体名称或数据类型。
+
+#### Scenario: 具体仓库留待后续
+- **WHEN** 检查本次核心框架
+- **THEN** 只有数据仓库上层抽象，不包含具体仓库或对应数据类

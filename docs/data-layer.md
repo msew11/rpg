@@ -1,9 +1,11 @@
 # 数据仓库框架
 
-`main` 在 `scripts/core/data/` 只定义 `DataRepo` 和 `DataRepoCache` 两个抽象类。`DataRepo` 供具体仓库继承，声明承载的数据脚本类型及 `SINGLE`（一个对象）或 `MULTIPLE`（一组对象）形态。`DataRepoCache` 供未来的统一管理单例继承，定义按仓库脚本类型查找仓库的入口。目前没有具体仓库、数据类、缓存实现或 AutoLoad 配置。
+`scripts/core/data/` 定义 `IDataRepoData`、`IDataRepo`、`DataRepo<T>`、`DataRepoSingle<T>`、`DataRepoMultiple<T>`、`DataRepoStorageKind` 和 `DataRepoCache`。仓库的泛型参数 `T` 必须实现 `IDataRepoData`；`GetDataType()` 返回 `typeof(T)`。具体仓库可继承 `DataRepoSingle<T>` 或 `DataRepoMultiple<T>`，分别固定 `GetStorageKind()` 为 `Single` 或 `Multiple`，下级仓库不能改写。除单例仓库的数据入口外，框架尚不规定读取、集合标识、写入或持久化行为。
 
-具体仓库文件以 `repo_` 开头，随后用 `player`、`world` 等用途段区分数据归属，再以末段描述数据，例如未来的 `repo_player`、`repo_player_item`、`repo_world_monster`。承载的数据文件对应以 `data_` 开头。示例仅说明命名结构，不代表这些类型已实现。
+`DataRepoSingle<T>` 的具体仓库须提供 `Data` 属性，返回它承载的唯一数据实例；其他数据操作仍由具体功能设计。
 
-Godot 4.7.2 的 GDScript 不支持给类声明泛型参数，例如 `DataRepo[DataPlayer]`。抽象仓库通过 `get_data_type() -> Script` 声明运行时类型；未来具体仓库可以在自身读写接口使用具体数据类作为静态类型。`get_storage_kind()` 只标识单例或多例，尚不规定读取、集合标识、写入或持久化行为。
+`DataRepoCache` 是继承 Godot `RefCounted` 的抽象管理入口，按仓库 C# `Type` 返回 `IDataRepo`，无需进入场景树。目前没有具体仓库、数据类、缓存实现或 AutoLoad 配置。
 
-`develop` 后续通过独立 change 实现管理单例和具体仓库，再确定对象生命周期、注册方式与数据操作。旧 `DataSource` 具名键契约已移除。
+`DataEcsWorld` 是核心提供的 ECS 实体状态数据类型，包含实体 ID 分配状态、有效实体集合与组件索引；具体仓库和存档收集方式仍由后续功能确定。
+
+后续具体仓库和数据类分别采用 `Repo`、`Data` 前缀，仓库名再用用途段和数据内容段区分职责，例如 `RepoPlayerItem`、`DataPlayerItem`。示例只说明命名结构，并未实现这些类型。具体管理器、对象生命周期和数据操作由 `develop` 后续独立 change 确定。
