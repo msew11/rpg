@@ -4,6 +4,8 @@
 
 实体标识、有效实体集合和组件索引由 `DataEcsWorld : IDataRepoData` 统一承载。默认构造创建独立数据；也可把同一数据实例交给新的 `EcsWorld` 操作。系统注册与调度状态不属于该数据实例。
 
+`EcsWorld` 也可直接接收 `DataRepoSingle<DataEcsWorld>`，使用仓库承载的唯一数据实例。
+
 ```csharp
 public partial class Position : EcsComponent
 {
