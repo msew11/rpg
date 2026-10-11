@@ -6,9 +6,9 @@ using Godot;
 public partial class LocalDataRepoCache : DataRepoCache
 {
     /// <summary>创建缓存时即存在的 ECS 世界单例仓库。</summary>
-    internal DataRepoEcsWorld WorldRepo { get; } = new();
+    internal EcsWorldDataRepo WorldRepo { get; } = new();
 
     /// <summary>按仓库的精确 C# 类型读取已注册仓库。</summary>
     public override IDataRepo? GetRepo(Type repoType) =>
-        repoType == typeof(DataRepoEcsWorld) ? WorldRepo : null;
+        repoType == typeof(EcsWorldDataRepo) ? WorldRepo : null;
 }

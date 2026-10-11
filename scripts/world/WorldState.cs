@@ -28,7 +28,7 @@ public partial class WorldState : RefCounted
     public WorldState(LocalDataRepoCache cache)
     {
         System.ArgumentNullException.ThrowIfNull(cache);
-        ecs = new EcsWorld(cache.WorldRepo);
+        ecs = new EcsWorld(cache.WorldRepo.Data);
         world_entity_id = ecs.CreateEntity();
         ecs.AddComponent(world_entity_id, new WorldChunksComponent());
         ecs.AddComponent(world_entity_id, new WorldDebugComponent());
