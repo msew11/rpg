@@ -5,7 +5,8 @@ extends SceneTree
 
 ## 运行 ECS 世界状态断言并退出。
 func _initialize() -> void:
-	var world := WorldState.new()
+	var cache := LocalDataRepoCache.new()
+	var world: WorldState = cache.CreateWorldState()
 	assert(world.ecs.HasEntity(world.world_entity_id))
 	assert(world.chunks() is WorldChunksComponent)
 	assert(world.debug() is WorldDebugComponent)

@@ -5,7 +5,8 @@ extends SceneTree
 
 ## 运行区块世界行为断言并退出。
 func _initialize() -> void:
-	var source := WorldState.new()
+	var cache := LocalDataRepoCache.new()
+	var source: WorldState = cache.CreateWorldState()
 	var cfg := ManualChunkCfg.new()
 	source.initialize_test_chunks(cfg)
 	var player_id := source.create_player(Vector2(1, 1), 3.0)

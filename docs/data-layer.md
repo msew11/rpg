@@ -8,6 +8,6 @@
 
 `DataEcsWorld` 是核心提供的 ECS 实体状态数据类型，包含实体 ID 分配状态、有效实体集合与组件索引；具体仓库和存档收集方式仍由后续功能确定。
 
-`develop` 中的 `LocalDataRepoCache` 由每个 `LocalSession` 创建并持有，不进入场景树。`WorldState` 把 ECS 使用的同一 `DataEcsWorld` 绑定到 `RepoWorldEcs : DataRepoSingle<DataEcsWorld>`；缓存按 `typeof(RepoWorldEcs)` 返回仓库。该绑定只允许一次。组件读写仍通过 `EcsWorld`，仓库当前尚无存档方法。
+`develop` 中的 `LocalDataRepoCache` 由每个 `LocalSession` 创建并持有，不进入场景树。缓存初始化时便创建唯一的 `DataRepoEcsWorld : DataRepoSingle<DataEcsWorld>` 及其数据，按 `typeof(DataRepoEcsWorld)` 返回仓库。`WorldState` 构造时接收缓存，把仓库传给 `EcsWorld`。GDScript 通过 `cache.CreateWorldState()` 调用这一 C# 构造路径。组件读写仍通过 `EcsWorld`，仓库当前尚无存档方法。
 
-后续具体仓库和数据类分别采用 `Repo`、`Data` 前缀，仓库名再用用途段和数据内容段区分职责，例如 `RepoPlayerItem`、`DataPlayerItem`。示例只说明命名结构，并未实现这些类型。具体管理器、对象生命周期和数据操作由 `develop` 后续独立 change 确定。
+后续具体仓库和数据类一般分别采用 `Repo`、`Data` 前缀，仓库名再用用途段和数据内容段区分职责，例如 `RepoPlayerItem`、`DataPlayerItem`；已确定的 ECS 仓库专名为 `DataRepoEcsWorld`。示例名称尚未实现，存档操作留待后续 change 确定。
