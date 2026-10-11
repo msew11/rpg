@@ -71,6 +71,15 @@ public partial class TestEcs : SceneTree
         Check(world.Query().SequenceEqual([second, third]), "new query excludes destroyed entity");
         Check(world.CreateEntity() > third, "destroyed IDs are not reused");
 
+        // 对应 ecs-runtime 的共享数据场景：重建操作入口后，实体和组件仍由同一数据实例承载。
+        using (var sharedWorld = new EcsWorld(world.Data))
+        {
+            Check(sharedWorld.Query().SequenceEqual(world.Query()), "shared data preserves entity membership");
+            Check(ReferenceEquals(sharedWorld.GetComponent<TestPositionComponent>(second), secondPosition),
+                "shared data preserves component identity");
+            Check(sharedWorld.CreateEntity() > third, "shared data preserves next entity ID");
+        }
+
         var calls = new List<string>();
         using var alpha = new TestRecordingSystem("alpha", calls, world, 0.25);
         using var beta = new TestRecordingSystem("beta", calls, world, 0.25);

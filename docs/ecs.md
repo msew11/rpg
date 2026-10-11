@@ -2,6 +2,8 @@
 
 `scripts/core/ecs/` 提供与玩法无关的 C# 内存 ECS。调用方创建 `EcsWorld`，用单调递增的 `long` ID 表示实体；组件继承 `EcsComponent`，系统继承 `EcsSystem`。运行时不依赖场景节点，调用方负责在需要时调用 `Step(delta)`。
 
+实体标识、有效实体集合和组件索引由 `DataEcsWorld : IDataRepoData` 统一承载。默认构造创建独立数据；也可把同一数据实例交给新的 `EcsWorld` 操作。系统注册与调度状态不属于该数据实例。
+
 ```csharp
 public partial class Position : EcsComponent
 {
