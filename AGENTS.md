@@ -5,6 +5,7 @@
 - 分支文档归属：`main` 维护 `AGENTS.md` 和 `README.md`。这两个文件只在 `main` 修改；`develop` 通过合并 `main` 获取更新，不写入玩法、原型或开发进度细节，合并后保持与 `main` 内容一致。
 - `main` 保留空白的 `docs/architecture.md`、`docs/game-vision.md`、`docs/roadmap.md` 作为占位文件，不在其中写入内容；`develop` 独立维护这三个文件的正文。合并 `main` 到 `develop` 时保留 `develop` 的版本，不用空白占位文件覆盖正文。玩法、原型和阶段进度写在开发分支的这些文档、相应 specs 或功能文档中。
 - `scripts/core/` 由 `main` 维护；`develop` 通过合并 `main` 获取其更新，不直接新增、修改或删除目录内文件，并保持目录内容与最新 `main` 一致。
+- `tests/core/` 中的核心测试由 `main` 维护；`develop` 通过合并 `main` 获取其更新，不直接新增、修改或删除目录内文件，并保持目录内容与最新 `main` 一致。`develop` 的功能测试放在 `tests/core/` 之外。
 
 ## 提交与远程协作
 

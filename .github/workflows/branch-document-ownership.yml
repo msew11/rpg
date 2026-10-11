@@ -55,3 +55,8 @@ jobs:
             git diff --stat origin/main HEAD -- scripts/core/ >&2
             exit 1
           fi
+          if ! git diff --quiet origin/main HEAD -- tests/core/; then
+            echo 'tests/core/ on develop must match the latest main.' >&2
+            git diff --stat origin/main HEAD -- tests/core/ >&2
+            exit 1
+          fi
