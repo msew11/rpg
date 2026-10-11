@@ -101,7 +101,7 @@ public partial class TestEcs : SceneTree
         Check(replacementCalls.SequenceEqual(["changer", "changer", "readded"]), "re-added system follows new registration order");
     }
 
-    /// <summary>覆盖 data-repository 的数据接口约束与单例、多例形态声明。</summary>
+    /// <summary>覆盖 data-repository 的两种形态基类经统一接口返回类型与形态的场景。</summary>
     private void RunDataRepoScenarios()
     {
         IDataRepo single = new TestSingleRepo();
@@ -123,16 +123,8 @@ public partial class TestEcs : SceneTree
     private sealed class TestRepoData : IDataRepoData;
 
     /// <summary>验证单例形态声明的测试仓库。</summary>
-    private sealed class TestSingleRepo : DataRepo<TestRepoData>
-    {
-        /// <summary>返回单例形态。</summary>
-        public override DataRepoStorageKind GetStorageKind() => DataRepoStorageKind.Single;
-    }
+    private sealed class TestSingleRepo : DataRepoSingle<TestRepoData>;
 
     /// <summary>验证多例形态声明的测试仓库。</summary>
-    private sealed class TestMultipleRepo : DataRepo<TestRepoData>
-    {
-        /// <summary>返回多例形态。</summary>
-        public override DataRepoStorageKind GetStorageKind() => DataRepoStorageKind.Multiple;
-    }
+    private sealed class TestMultipleRepo : DataRepoMultiple<TestRepoData>;
 }

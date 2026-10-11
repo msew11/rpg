@@ -1,6 +1,6 @@
 # 数据仓库框架
 
-`scripts/core/data/` 定义 `IDataRepoData`、`IDataRepo`、`DataRepo<T>`、`DataRepoStorageKind` 和 `DataRepoCache`。仓库的泛型参数 `T` 必须实现 `IDataRepoData`；`GetDataType()` 返回 `typeof(T)`。仓库用 `Single` 或 `Multiple` 声明单例或多例形态。框架尚不规定读取、集合标识、写入或持久化行为。
+`scripts/core/data/` 定义 `IDataRepoData`、`IDataRepo`、`DataRepo<T>`、`DataRepoSingle<T>`、`DataRepoMultiple<T>`、`DataRepoStorageKind` 和 `DataRepoCache`。仓库的泛型参数 `T` 必须实现 `IDataRepoData`；`GetDataType()` 返回 `typeof(T)`。具体仓库可继承 `DataRepoSingle<T>` 或 `DataRepoMultiple<T>`，分别固定 `GetStorageKind()` 为 `Single` 或 `Multiple`，下级仓库不能改写。框架尚不规定读取、集合标识、写入或持久化行为。
 
 `DataRepoCache` 是继承 Godot `Node` 的抽象管理入口，按仓库 C# `Type` 返回 `IDataRepo`。目前没有具体仓库、数据类、缓存实现或 AutoLoad 配置。
 
