@@ -4,7 +4,7 @@
 
 ## 当前实现
 
-Godot 4.7.2 .NET 项目以 `scenes/main.tscn` 为入口，入口脚本 `scripts/main.gd`、本地会话 `scripts/local_session.gd` 位于脚本根目录，手工区块配置脚本 `scripts/cfg/manual_chunk_cfg.gd` 位于 `scripts/cfg/`。`scripts/core/` 提供 C# ECS 框架；`scripts/world/` 使用 C# 实现 `WorldState`、类型组件及无状态更新系统。`MovementSystem` 在固定物理步中更新玩家位置和朝向，随后 `ChunkLoadingSystem` 根据玩家位置更新附近 3 × 3 行走区块。世界实体上的 `WorldChunksComponent` 保存尺寸、全部规范区块地块数据和当前显示范围，`WorldDebugComponent` 保存调试开关。固定测试目录在初始化时写入全部 4 × 4 个规范区块。顶层 `scripts/utils/` 的 GDScript 提供无状态静态坐标与画面几何计算；`scripts/view/` 的 Godot 节点负责绘制与交互。世界 C# 代码使用相同的坐标与移动公式，配置仍经 Godot 对象接口读取。手工测试区块使用 Kenney Isometric Roads 的 CC0 资源。
+Godot 4.7.2 .NET 项目以 `scenes/main.tscn` 为入口，入口脚本 `scripts/main.gd`、本地会话 `scripts/local_session.gd` 位于脚本根目录，手工区块配置脚本 `scripts/cfg/manual_chunk_cfg.gd` 位于 `scripts/cfg/`。`scripts/core/` 提供 C# ECS 框架；`scripts/world/` 使用 C# 实现 `WorldState`、类型组件及无状态更新系统。`MovementSystem` 在固定物理步中更新玩家位置和朝向，随后 `ChunkLoadingSystem` 根据玩家位置更新附近 3 × 3 行走区块。世界实体上的 `WorldChunksComponent` 保存尺寸、全部规范区块地块数据和当前显示范围，`WorldDebugComponent` 保存调试开关。固定测试目录在初始化时写入全部 4 × 4 个规范区块。顶层 `scripts/utils/` 的 GDScript 提供无状态静态坐标与画面几何计算；雷达每次重绘集中读取玩家和区块状态，几何计算复用本次状态。`scripts/view/` 的 Godot 节点负责绘制与交互。世界 C# 代码使用相同的坐标与移动公式，配置仍经 Godot 对象接口读取。手工测试区块使用 Kenney Isometric Roads 的 CC0 资源。
 
 启动界面、游戏内保存入口与五槽位读取界面由 `scenes/main.tscn` 的 UI 层实现。`scripts/save_slots.gd` 负责 `user://saves/` 下版本化 JSON 文件的写入与完整性检查；`LocalSession` 收集并恢复玩家位置、朝向及相对手工测试地图变化的规范区块。新游戏与读取进度均创建独立本地会话，并重新绑定视图。调试开关和地图拖动偏移不属于存档进度。
 
