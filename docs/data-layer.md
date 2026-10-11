@@ -11,6 +11,6 @@
 
 提供方负责保存、比较和发出信号。契约不规定生命周期、持久化方式、线程模型或引用型 `Variant` 的深层变化追踪；修改可变对象后需要通过 `write_value` 提交，才能获得变化通知。提供方如支持复杂值，应明确其相等性规则。
 
-`tests/doubles/memory_data_source.gd` 仅用于验证契约，不能作为运行时提供方使用。执行 `powershell -ExecutionPolicy Bypass -File tools/check.ps1` 会运行该测试。
+`tests/doubles/test_memory_data_source.gd` 仅用于验证契约，不能作为运行时提供方使用。执行 `powershell -ExecutionPolicy Bypass -File tools/check.ps1` 会运行该测试。
 
 区块功能所需的具体单机内存提供方留待 develop 设计和实现。这里不定义地图数据、坐标、区块标识、回环或玩法状态。

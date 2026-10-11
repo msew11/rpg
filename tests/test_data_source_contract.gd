@@ -1,12 +1,15 @@
+# 验证 openspec/specs/data-access/spec.md 中的缺失键、已存储空值、替换值、创建与替换通知及相等值写入场景。
+class_name TestDataSourceContract
 extends SceneTree
 
-const MemoryDataSource = preload("res://tests/doubles/memory_data_source.gd")
+const TestMemoryDataSourceScript = preload("res://tests/doubles/test_memory_data_source.gd")
 
 var _failures: Array[String] = []
 
 
+# 执行数据访问契约的验收场景，并以退出码报告结果。
 func _initialize() -> void:
-	var source: DataSource = MemoryDataSource.new()
+	var source: DataSource = TestMemoryDataSourceScript.new()
 	var events: Array[Array] = []
 	source.value_changed.connect(func(key: StringName, value: Variant) -> void:
 		events.append([key, value])
@@ -36,6 +39,7 @@ func _initialize() -> void:
 		quit(1)
 
 
+# 收集未满足的契约断言，供检查脚本报告。
 func _check(condition: bool, description: String) -> void:
 	if not condition:
 		_failures.append(description)
