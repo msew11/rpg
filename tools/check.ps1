@@ -15,6 +15,7 @@ foreach ($name in @('godot', 'godot4')) {
     if ($command) { $candidates += $command.Source }
 }
 $candidates += 'D:\Program Files\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe'
+$candidates += 'D:\Program Dev\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe'
 
 $godot = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
 if (-not $godot) {
@@ -41,13 +42,13 @@ function Invoke-GodotCheck {
 Invoke-GodotCheck 'project import' @('--headless', '--path', $projectPath, '--editor', '--quit')
 Invoke-GodotCheck 'main scene' @('--headless', '--path', $projectPath, '--quit-after', '2')
 Invoke-GodotCheck 'ECS tests' @('--headless', '--path', $projectPath, '--script', 'res://tests/core/test_ecs.gd')
-Invoke-GodotCheck 'movement behavior' @('--headless', '--path', $projectPath, '--script', 'tests/movement_test.gd')
-Invoke-GodotCheck 'view rebuilding' @('--headless', '--path', $projectPath, '--script', 'tests/view_test.gd')
-Invoke-GodotCheck 'chunk coordinates' @('--headless', '--path', $projectPath, '--script', 'res://tests/chunk_coordinates_test.gd')
+Invoke-GodotCheck 'movement behavior' @('--headless', '--path', $projectPath, '--script', 'tests/test_movement.gd')
+Invoke-GodotCheck 'view rebuilding' @('--headless', '--path', $projectPath, '--script', 'tests/test_view.gd')
+Invoke-GodotCheck 'chunk coordinates' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_coordinates.gd')
 Invoke-GodotCheck 'manual chunk catalog' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_catalog_test.gd')
-Invoke-GodotCheck 'world state data' @('--headless', '--path', $projectPath, '--script', 'res://tests/world_state_data_test.gd')
-Invoke-GodotCheck 'chunk world state' @('--headless', '--path', $projectPath, '--script', 'res://tests/chunk_world_test.gd')
-Invoke-GodotCheck 'chunk display' @('--headless', '--path', $projectPath, '--script', 'res://tests/chunk_view_test.gd')
+Invoke-GodotCheck 'world state data' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_world_state_data.gd')
+Invoke-GodotCheck 'chunk world state' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_world.gd')
+Invoke-GodotCheck 'chunk display' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_view.gd')
 
 if ($ExportWindows) {
     $exportPath = Join-Path $projectPath 'build\windows\rpg.exe'

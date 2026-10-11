@@ -6,7 +6,9 @@ signal player_changed(entity_id: int)
 signal chunks_changed
 signal debug_changed
 
+## 保存实体组件并调度系统的 ECS 世界。
 var ecs := EcsWorld.new()
+## 持有世界区块和调试组件的实体标识。
 var world_entity_id: int
 
 

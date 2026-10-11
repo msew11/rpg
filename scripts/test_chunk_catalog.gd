@@ -2,11 +2,16 @@
 class_name TestChunkCatalog
 extends RefCounted
 
+## 手工测试区块数据文件的资源路径。
 const SOURCE_PATH := "res://data/test_chunks.json"
 
+## 每个区块的地块尺寸。
 var chunk_size: Vector2i
+## 测试世界的规范区块尺寸。
 var world_size: Vector2i
+## 规范区块到图案名称的布局。
 var _layout: Array
+## 图案名称到地块行数据的索引。
 var _patterns: Dictionary
 
 

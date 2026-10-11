@@ -1,4 +1,5 @@
-## 验证世界实体的区块组件、玩家组件及变化通知。
+## 验证 openspec/specs/world-script-boundaries/spec.md 的世界状态组件与变化通知场景。
+class_name TestWorldStateData
 extends SceneTree
 
 
@@ -46,5 +47,5 @@ func _initialize() -> void:
 	assert(chunk_changes.size() == 2)
 	assert(not world.set_chunk_tiles(canonical, read_tiles))
 	assert(chunk_changes.size() == 2)
-	print("world_state_data_test passed")
+	print("test_world_state_data passed")
 	quit()

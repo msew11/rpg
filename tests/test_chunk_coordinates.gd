@@ -1,4 +1,5 @@
-## 验证负坐标、区块回环与区块内坐标转换。
+## 验证 openspec/specs/continuous-chunk-world/spec.md 的负坐标与回环 ID 场景。
+class_name TestChunkCoordinates
 extends SceneTree
 
 
@@ -17,5 +18,5 @@ func _initialize() -> void:
 			var local := UtilChunkCoordinates.local_tile(tile, chunk_size)
 			assert(UtilChunkCoordinates.tile_origin(raw, chunk_size) + local == tile)
 			assert(UtilChunkCoordinates.canonical_chunk(raw, world_size) == UtilChunkCoordinates.canonical_chunk(raw + world_size, world_size))
-	print("chunk_coordinates_test passed")
+	print("test_chunk_coordinates passed")
 	quit()

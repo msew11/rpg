@@ -1,4 +1,5 @@
-## 验证八方向移动、速度与视图重建后的状态。
+## 验证 openspec/specs/player-movement/spec.md 的八方向移动、速度与停止朝向场景。
+class_name TestMovement
 extends SceneTree
 
 
@@ -59,5 +60,5 @@ func _initialize() -> void:
 	assert(view_b.position == UtilIsometricProjection.to_screen(session.world.player_position(player_id)))
 	view_b.free()
 
-	print("movement_test passed")
+	print("test_movement passed")
 	quit()

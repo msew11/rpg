@@ -2,8 +2,11 @@
 class_name UtilRadarProjection
 extends RefCounted
 
+## 雷达中绘制区块网格的可见矩形。
 const GRID_VIEW := Rect2(16, 38, 272, 272)
+## 雷达中固定的玩家标记中心。
 const RADAR_CENTER := Vector2(152, 174)
+## 雷达中一个区块轴向的屏幕像素长度。
 const CHUNK_AXIS_PIXELS := 26.0
 
 

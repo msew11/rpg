@@ -2,6 +2,7 @@
 class_name MoveSpeedComponent
 extends EcsComponent
 
+## 实体每秒在逻辑世界中的移动距离。
 var value: float
 
 

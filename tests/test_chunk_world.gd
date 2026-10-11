@@ -1,4 +1,5 @@
-## 验证区块加载、回环和运行期地块状态。
+## 验证 openspec/specs/continuous-chunk-world/spec.md 的区块加载、回环与改动保留场景。
+class_name TestChunkWorld
 extends SceneTree
 
 
@@ -31,5 +32,5 @@ func _initialize() -> void:
 	source.step(1.0)
 	assert(source.chunks().loaded.has(Vector2i(2, 0)))
 	assert(not source.chunks().loaded.has(Vector2i(-1, 0)))
-	print("chunk_world_test passed")
+	print("test_chunk_world passed")
 	quit()

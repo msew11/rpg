@@ -1,4 +1,5 @@
-## 验证测试区块目录的尺寸和图案读取。
+## 验证 openspec/specs/continuous-chunk-world/spec.md 的手工测试区块内容场景。
+class_name TestChunkCatalogScript
 extends SceneTree
 
 

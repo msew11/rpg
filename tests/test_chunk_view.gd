@@ -1,6 +1,8 @@
-## 验证区块地面、雷达和完整地图的显示交互。
+## 验证 openspec/specs/continuous-chunk-world/spec.md 的区块显示、雷达及完整地图场景。
+class_name TestChunkView
 extends SceneTree
 
+## 用于验证区块视图的主场景。
 const MAIN := preload("res://scenes/main.tscn")
 
 
@@ -126,7 +128,7 @@ func run_test() -> void:
 	assert(not main.world_map.visible)
 	assert(main.get_parent() == root)
 	main.free()
-	print("chunk_view_test passed")
+	print("test_chunk_view passed")
 	quit()
 
 

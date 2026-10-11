@@ -1,6 +1,8 @@
-## 验证玩家视图和镜头跟随同一世界状态。
+## 验证 openspec/specs/isometric-world-view/spec.md 的视图重建与跟随镜头场景。
+class_name TestView
 extends SceneTree
 
+## 用于验证玩家视图的主场景。
 const MAIN := preload("res://scenes/main.tscn")
 
 
@@ -36,5 +38,5 @@ func run_test() -> void:
 	assert(main.player_view.facing_screen_direction().is_equal_approx(travel_direction))
 	assert(current_scene == null)
 	main.free()
-	print("view_test passed")
+	print("test_view passed")
 	quit()

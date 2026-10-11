@@ -2,6 +2,7 @@
 class_name ChunkLoadingSystem
 extends EcsSystem
 
+## 玩家周围加载的区块半径。
 const LOAD_RADIUS := 1
 
 

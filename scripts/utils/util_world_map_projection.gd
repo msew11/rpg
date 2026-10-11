@@ -2,6 +2,7 @@
 class_name UtilWorldMapProjection
 extends RefCounted
 
+## 完整地图中一个区块轴向的屏幕像素长度。
 const CHUNK_AXIS_PIXELS := 58.0
 
 

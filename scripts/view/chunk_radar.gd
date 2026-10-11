@@ -2,15 +2,24 @@
 class_name ChunkRadar
 extends Control
 
+## 雷达网格的可见区域。
 const GRID_VIEW := UtilRadarProjection.GRID_VIEW
+## 玩家标记在雷达中的固定位置。
 const RADAR_CENTER := UtilRadarProjection.RADAR_CENTER
+## 雷达区块轴向的显示比例。
 const CHUNK_AXIS_PIXELS := UtilRadarProjection.CHUNK_AXIS_PIXELS
+## 已加载区块的轮廓颜色。
 const LOADED_COLOR := Color(0.48, 0.78, 0.84)
+## 未加载区块的轮廓颜色。
 const UNLOADED_COLOR := Color(0.42, 0.45, 0.48)
+## 玩家所在区块的轮廓颜色。
 const CURRENT_COLOR := Color(1.0, 0.82, 0.25)
+## 世界回环接缝的提示颜色。
 const WRAP_COLOR := Color(0.95, 0.45, 0.95)
 
+## 雷达读取的世界状态。
 var source: WorldState
+## 雷达跟踪的玩家实体标识。
 var player_id: int
 
 

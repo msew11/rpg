@@ -2,9 +2,12 @@
 class_name ChunkGround
 extends Node2D
 
+## 草地测试地块的纹理。
 const GRASS := preload("res://assets/kenney_isometric_roads/grass.png")
+## 道路测试地块的纹理。
 const DIRT := preload("res://assets/kenney_isometric_roads/dirt.png")
 
+## 地面视图读取的世界状态。
 var source: WorldState
 
 

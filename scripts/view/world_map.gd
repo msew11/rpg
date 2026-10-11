@@ -2,16 +2,26 @@
 class_name WorldMap
 extends Control
 
+## 完整地图的区块轴向显示比例。
 const CHUNK_AXIS_PIXELS := UtilWorldMapProjection.CHUNK_AXIS_PIXELS
+## 草地地块在地图上的颜色。
 const GRASS_COLOR := Color(0.35, 0.56, 0.31)
+## 道路地块在地图上的颜色。
 const DIRT_COLOR := Color(0.68, 0.52, 0.35)
+## 已加载区块在地图上的轮廓颜色。
 const LOADED_COLOR := Color(0.48, 0.78, 0.84)
+## 玩家所在区块在地图上的轮廓颜色。
 const CURRENT_COLOR := Color(1.0, 0.82, 0.25)
+## 世界回环接缝在地图上的颜色。
 const WRAP_COLOR := Color(0.95, 0.45, 0.95)
 
+## 地图读取的世界状态。
 var source: WorldState
+## 地图跟踪的玩家实体标识。
 var player_id: int
+## 鼠标拖动产生的地图显示偏移。
 var pan_offset := Vector2.ZERO
+## 鼠标当前是否正在拖动地图。
 var _dragging := false
 
 

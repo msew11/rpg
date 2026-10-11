@@ -2,9 +2,12 @@
 class_name LocalSession
 extends RefCounted
 
+## 本地玩家每秒在逻辑世界中的移动距离。
 const PLAYER_SPEED := 3.0
 
+## 本地会话持有的世界状态。
 var world := WorldState.new()
+## 本地玩家的 ECS 实体标识。
 var player_id: int
 
 

@@ -2,9 +2,13 @@
 class_name WorldChunksComponent
 extends EcsComponent
 
+## 单个区块的地块尺寸。
 var chunk_size := Vector2i.ZERO
+## 有限世界的规范区块尺寸。
 var world_size := Vector2i.ZERO
+## 当前需要显示的行走区块坐标。
 var loaded: Array[Vector2i] = []
+## 规范区块 ID 到地块数据的索引。
 var _tiles_by_id: Dictionary = {}
 
 
