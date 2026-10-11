@@ -1,16 +1,9 @@
-# 数据层契约
+# 数据仓库框架
 
-`scripts/core/data_source.gd` 定义可替换的数据源接口，目前没有正式提供方。该核心脚本由 `main` 维护，`develop` 通过合并继承。功能代码可以依赖 `DataSource`，由具体功能在创建时传入提供方。
+`main` 在 `scripts/core/data/` 只定义 `DataRepo` 和 `DataRepoCache` 两个抽象类。`DataRepo` 供具体仓库继承，声明承载的数据脚本类型及 `SINGLE`（一个对象）或 `MULTIPLE`（一组对象）形态。`DataRepoCache` 供未来的统一管理单例继承，定义按仓库脚本类型查找仓库的入口。目前没有具体仓库、数据类、缓存实现或 AutoLoad 配置。
 
-| 成员 | 契约 |
-| --- | --- |
-| `has_value(key: StringName) -> bool` | 判断键是否存在；已写入的 `null` 仍算存在。 |
-| `read_value(key: StringName) -> Variant` | 返回当前值；缺失时返回 `null`，需要区分缺失时先调用 `has_value`。 |
-| `write_value(key: StringName, value: Variant) -> bool` | 创建或替换值；有效变化返回 `true`，相等值写入返回 `false`。 |
-| `value_changed(key: StringName, value: Variant)` | 每次有效写入后由提供方发出一次，携带键和新值；无变化时不发出。 |
+具体仓库文件以 `repo_` 开头，随后用 `player`、`world` 等用途段区分数据归属，再以末段描述数据，例如未来的 `repo_player`、`repo_player_item`、`repo_world_monster`。承载的数据文件对应以 `data_` 开头。示例仅说明命名结构，不代表这些类型已实现。
 
-提供方负责保存、比较和发出信号。契约不规定生命周期、持久化方式、线程模型或引用型 `Variant` 的深层变化追踪；修改可变对象后需要通过 `write_value` 提交，才能获得变化通知。提供方如支持复杂值，应明确其相等性规则。
+Godot 4.7.2 的 GDScript 不支持给类声明泛型参数，例如 `DataRepo[DataPlayer]`。抽象仓库通过 `get_data_type() -> Script` 声明运行时类型；未来具体仓库可以在自身读写接口使用具体数据类作为静态类型。`get_storage_kind()` 只标识单例或多例，尚不规定读取、集合标识、写入或持久化行为。
 
-`tests/doubles/memory_data_source.gd` 仅用于验证契约，不能作为运行时提供方使用。执行 `powershell -ExecutionPolicy Bypass -File tools/check.ps1` 会运行该测试。
-
-区块功能所需的具体单机内存提供方留待 develop 设计和实现。这里不定义地图数据、坐标、区块标识、回环或玩法状态。
+`develop` 后续通过独立 change 实现管理单例和具体仓库，再确定对象生命周期、注册方式与数据操作。旧 `DataSource` 具名键契约已移除。

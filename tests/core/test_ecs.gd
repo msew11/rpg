@@ -1,36 +1,47 @@
-## 验证 ECS 实体、组件、查询与系统调度契约。
+# 验证 openspec/specs/ecs-runtime/spec.md 中的创建和销毁、无效标识、附加与替换、移除组件场景。
+# 同时验证多类型匹配、查询快照、顺序与增量、更新期间变更系统集合场景。
+class_name TestEcs
 extends SceneTree
 
-## 提供测试用的位置组件。
+# 提供带可设置坐标的组件，验证同类型组件替换。
 class Position extends EcsComponent:
+	# 保存用于区分组件实例的坐标。
 	var x: float
 
-	## 设置测试位置值。
+	# 设置测试组件的坐标值。
 	func _init(value: float = 0.0) -> void:
 		x = value
 
 
-## 提供测试用的速度组件。
+# 提供第二种组件类型，验证多类型查询。
 class Velocity extends EcsComponent:
+	# 保存查询测试使用的速度值。
 	var x: float = 1.0
 
 
-## 记录系统调用并触发调度期间的注册变化。
+# 记录更新调用，并在指定场景中修改系统注册集合。
 class RecordingSystem extends EcsSystem:
+	# 标识该系统在调用记录中的名称。
 	var name_tag: String
+	# 汇集系统执行顺序。
 	var calls: Array[String]
+	# 验证更新时接收的世界实例。
 	var expected_world_id: int
+	# 验证更新时接收的时间增量。
 	var expected_delta: float
+	# 指定更新期间需要修改的世界。
 	var world_to_change: EcsWorld
+	# 指定更新期间需要注册的系统。
 	var system_to_add: EcsSystem
+	# 指定更新期间需要移除的系统。
 	var system_to_remove: EcsSystem
 
-	## 设置系统标记与调用日志。
+	# 保存系统标识和共享调用记录。
 	func _init(tag: String, log: Array[String]) -> void:
 		name_tag = tag
 		calls = log
 
-	## 记录系统调用并验证调度上下文。
+	# 验证调度参数，并执行预设的注册变更。
 	func update(world: EcsWorld, delta: float) -> void:
 		calls.append(name_tag)
 		assert(world.get_instance_id() == expected_world_id)
@@ -41,10 +52,11 @@ class RecordingSystem extends EcsSystem:
 			world_to_change = null
 
 
+# 汇集未通过的契约断言，供测试退出时报告。
 var _failures: Array[String] = []
 
 
-## 执行 ECS 契约断言并汇总结果。
+# 执行 ECS 契约的验收场景，并以退出码报告结果。
 func _initialize() -> void:
 	var world := EcsWorld.new()
 	var first := world.create_entity()
@@ -121,7 +133,7 @@ func _initialize() -> void:
 	_check(replacement_log == ["changer", "changer", "readded"], "re-added system follows new registration order")
 
 	if _failures.is_empty():
-		print("ECS contract passed.")
+		print("ECS tests passed.")
 		quit(0)
 	else:
 		for failure in _failures:
@@ -129,7 +141,7 @@ func _initialize() -> void:
 		quit(1)
 
 
-## 记录未通过的 ECS 断言。
+# 收集未满足的契约断言，供检查脚本报告。
 func _check(condition: bool, description: String) -> void:
 	if not condition:
 		_failures.append(description)
