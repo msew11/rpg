@@ -18,6 +18,18 @@ public partial class WorldState : RefCounted
     /// <summary>保存实体组件并调度系统的 ECS 世界。</summary>
     public EcsWorld ecs { get; } = new();
 
+    /// <summary>记录已绑定的会话缓存，防止同一世界被多个缓存接管。</summary>
+    private LocalDataRepoCache? _cache;
+
+    /// <summary>绑定由本地会话持有的数据仓库缓存。</summary>
+    public void bind_cache(LocalDataRepoCache cache)
+    {
+        if (_cache is not null)
+            throw new System.InvalidOperationException("The ECS world already has a session cache.");
+        cache.BindWorld(ecs.Data);
+        _cache = cache;
+    }
+
     /// <summary>持有区块和调试组件的世界实体标识。</summary>
     public long world_entity_id { get; }
 

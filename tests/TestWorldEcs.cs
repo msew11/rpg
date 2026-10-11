@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-/// <summary>验证 openspec/specs/player-movement 与 world-script-boundaries 的 ECS 世界状态契约。</summary>
+/// <summary>验证 openspec/specs/player-movement、world-script-boundaries 与 session-data-repository 的世界状态契约。</summary>
 public partial class TestWorldEcs : SceneTree
 {
     /// <summary>检查世界实体和玩家组件确实由共享 ECS 保存并更新。</summary>
@@ -10,6 +10,16 @@ public partial class TestWorldEcs : SceneTree
         try
         {
             using var state = new WorldState();
+            using var cache = new LocalDataRepoCache();
+            state.bind_cache(cache);
+            var repo = cache.GetRepo(typeof(RepoWorldEcs)) as RepoWorldEcs;
+            Check(repo is not null && ReferenceEquals(repo.Data, state.ecs.Data), "cache owns the ECS data instance");
+            Check(cache.GetRepo(typeof(DataRepoSingle<DataEcsWorld>)) is null, "cache uses exact repo type");
+            var rejectedSecondBind = false;
+            using var extraCache = new LocalDataRepoCache();
+            try { state.bind_cache(extraCache); }
+            catch (InvalidOperationException) { rejectedSecondBind = true; }
+            Check(rejectedSecondBind, "a world binds to only one cache");
             var ecs = state.ecs;
             var worldId = state.world_entity_id;
             Check(ecs.HasEntity(worldId), "world entity exists");
@@ -28,6 +38,11 @@ public partial class TestWorldEcs : SceneTree
             state.step(1);
             Check(state.player_position(playerId) == ecs.GetComponent<PositionComponent>(playerId)?.value, "world reads ECS position");
             Check(state.player_facing(playerId) == ecs.GetComponent<FacingComponent>(playerId)?.value, "world reads ECS facing");
+            using var secondState = new WorldState();
+            using var secondCache = new LocalDataRepoCache();
+            secondState.bind_cache(secondCache);
+            Check(!ReferenceEquals(repo!.Data, ((RepoWorldEcs)secondCache.GetRepo(typeof(RepoWorldEcs))!).Data),
+                "sessions keep separate ECS data");
             GD.Print("test_world_ecs passed");
             Quit(0);
         }

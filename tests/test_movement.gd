@@ -1,4 +1,4 @@
-## 验证 openspec/specs/player-movement/spec.md 的八方向移动、速度与停止朝向场景。
+## 验证 openspec/specs/player-movement/spec.md 与 session-data-repository/spec.md 的移动及会话隔离场景。
 class_name TestMovement
 extends SceneTree
 
@@ -6,6 +6,7 @@ extends SceneTree
 ## 运行玩家移动和输入方向断言并退出。
 func _initialize() -> void:
 	var session := LocalSession.new()
+	assert(session.cache is LocalDataRepoCache)
 	var player_id := session.player_id
 	assert(player_id > 0)
 	assert(session.world.player_position(player_id) == Vector2.ZERO)
@@ -18,6 +19,7 @@ func _initialize() -> void:
 	]
 	for direction in directions:
 		var test_session := LocalSession.new()
+		assert(test_session.cache != session.cache)
 		test_session.set_player_direction(direction)
 		test_session.step(1.0 / 60.0)
 		var screen_delta := UtilIsometricProjection.to_screen(test_session.player_position())
