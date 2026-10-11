@@ -2,16 +2,22 @@
 class_name LocalSession
 extends RefCounted
 
+## 本地玩家每秒在逻辑世界中的移动距离。
 const PLAYER_SPEED := 3.0
 
-var world := WorldState.new()
+## 本地会话独占的数据仓库缓存。
+var cache := LocalDataRepoCache.new()
+## 本地会话持有的世界状态。
+var world: WorldState
+## 本地玩家的 ECS 实体标识。
 var player_id: int
 
 
 ## 在世界中创建本地玩家实体。
 func _init() -> void:
+	world = WorldState.Create(cache)
 	player_id = world.create_player(Vector2.ZERO, PLAYER_SPEED)
-	world.initialize_test_chunks(TestChunkCatalog.new())
+	world.initialize_test_chunks(ManualChunkCfg.new())
 
 
 ## 提交玩家的屏幕移动方向。

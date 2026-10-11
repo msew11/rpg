@@ -2,16 +2,26 @@
 class_name WorldMap
 extends Control
 
+## 完整地图的区块轴向显示比例。
 const CHUNK_AXIS_PIXELS := UtilWorldMapProjection.CHUNK_AXIS_PIXELS
+## 草地地块在地图上的颜色。
 const GRASS_COLOR := Color(0.35, 0.56, 0.31)
+## 道路地块在地图上的颜色。
 const DIRT_COLOR := Color(0.68, 0.52, 0.35)
+## 已加载区块在地图上的轮廓颜色。
 const LOADED_COLOR := Color(0.48, 0.78, 0.84)
+## 玩家所在区块在地图上的轮廓颜色。
 const CURRENT_COLOR := Color(1.0, 0.82, 0.25)
+## 世界回环接缝在地图上的颜色。
 const WRAP_COLOR := Color(0.95, 0.45, 0.95)
 
+## 地图读取的世界状态。
 var source: WorldState
+## 地图跟踪的玩家实体标识。
 var player_id: int
+## 鼠标拖动产生的地图显示偏移。
 var pan_offset := Vector2.ZERO
+## 鼠标当前是否正在拖动地图。
 var _dragging := false
 
 
@@ -73,8 +83,8 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.09), true)
 	if source == null:
 		return
-	var chunk_size := source.chunks().chunk_size
-	var world_size := source.chunks().world_size
+	var chunk_size: Vector2i = source.chunks().chunk_size
+	var world_size: Vector2i = source.chunks().world_size
 	var player_id_chunk := UtilWorldMapProjection.current_chunk(source, player_id)
 	var font := ThemeDB.fallback_font
 	draw_string(font, Vector2(24, 36), "WORLD MAP  ·  M close  ·  Left drag to pan", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
@@ -83,7 +93,7 @@ func _draw() -> void:
 			var canonical := Vector2i(x, y)
 			if not source.chunks().has_chunk(canonical):
 				continue
-			var tiles := source.chunks().tiles_for(canonical)
+			var tiles: PackedByteArray = source.chunks().tiles_for(canonical)
 			var origin := UtilChunkCoordinates.tile_origin(canonical, chunk_size)
 			for local_y in range(chunk_size.y):
 				for local_x in range(chunk_size.x):

@@ -2,9 +2,12 @@
 class_name DebugPanel
 extends PanelContainer
 
+## 切换区块边缘线的按钮。
 @onready var borders_button: CheckButton = $Options/BordersButton
+## 切换雷达显示的按钮。
 @onready var radar_button: CheckButton = $Options/RadarButton
 
+## 调试面板读取和更新的世界状态。
 var source: WorldState
 
 

@@ -1,15 +1,24 @@
 ## 协调本地会话、区块、输入、玩家视图和镜头。
+class_name Main
 extends Node2D
 
+## 用于重建玩家显示节点的场景。
 const PLAYER_VIEW := preload("res://scenes/player_view.tscn")
 
+## 持续跟随玩家的主镜头。
 @onready var camera: Camera2D = $Camera2D
+## 显示当前加载区块的地面节点。
 @onready var ground: ChunkGround = $ChunkGround
+## 显示玩家附近区块的雷达节点。
 @onready var radar: ChunkRadar = $RadarLayer/ChunkRadar
+## 控制调试显示的面板。
 @onready var debug_panel: DebugPanel = $RadarLayer/DebugPanel
+## 显示完整测试世界的地图节点。
 @onready var world_map: WorldMap = $RadarLayer/WorldMap
 
+## 接收输入并推进世界状态的本地会话。
 var session := LocalSession.new()
+## 当前玩家显示节点。
 var player_view: Node2D
 
 

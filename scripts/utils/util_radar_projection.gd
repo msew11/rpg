@@ -2,8 +2,11 @@
 class_name UtilRadarProjection
 extends RefCounted
 
+## 雷达中绘制区块网格的可见矩形。
 const GRID_VIEW := Rect2(16, 38, 272, 272)
+## 雷达中固定的玩家标记中心。
 const RADAR_CENTER := Vector2(152, 174)
+## 雷达中一个区块轴向的屏幕像素长度。
 const CHUNK_AXIS_PIXELS := 26.0
 
 
@@ -41,7 +44,7 @@ static func radar_point(world: WorldState, player_id: int, world_position: Vecto
 
 ## 计算行走区块在雷达上的四个顶点。
 static func chunk_corners(world: WorldState, player_id: int, raw: Vector2i) -> PackedVector2Array:
-	var chunk_size := world.chunks().chunk_size
+	var chunk_size: Vector2i = world.chunks().chunk_size
 	var origin := Vector2(UtilChunkCoordinates.tile_origin(raw, chunk_size))
 	return PackedVector2Array([
 		radar_point(world, player_id, origin),

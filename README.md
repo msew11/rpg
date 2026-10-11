@@ -1,6 +1,6 @@
 # Godot 2D 项目框架
 
-本项目使用 Godot 4.7.2、GDScript 和 2D 场景，以 `scenes/main.tscn` 为启动入口，首个验收平台为 Windows 桌面。当前提供可运行的启动场景。
+本项目使用 Godot 4.7.2 .NET 版和 2D 场景，以 `scenes/main.tscn` 为启动入口，首个验收平台为 Windows 桌面。核心框架使用 C#；其他尚未迁移的脚本暂用 GDScript。
 
 `main` 保存不限定具体玩法的项目框架；`develop` 用于游戏方向与功能开发。当前可运行能力以代码和 `openspec/specs/` 为准。
 
@@ -12,12 +12,12 @@
 
 ## 本机准备
 
-安装 Godot 4.7.2。检查脚本会优先使用 `GODOT_BIN` 环境变量，其次查找 PATH 中的 Godot，最后查找本机已安装的 Godot 4.7.2 控制台程序。
+安装 Godot 4.7.2 .NET 版和 .NET 8 SDK。检查脚本会优先使用 `GODOT_BIN` 环境变量，其次查找 PATH 中的 Godot，最后查找本机已安装的 Godot 4.7.2 .NET 控制台程序；普通版 Godot 无法运行核心 C# 脚本。
 
 若安装在别处，可在 PowerShell 中设置：
 
 ```powershell
-$env:GODOT_BIN = 'C:\path\to\Godot_v4.7.2-stable_win64_console.exe'
+$env:GODOT_BIN = 'C:\path\to\Godot_v4.7.2-stable_mono_win64_console.exe'
 ```
 
 ## 运行与检查
@@ -28,17 +28,17 @@ $env:GODOT_BIN = 'C:\path\to\Godot_v4.7.2-stable_win64_console.exe'
 powershell -ExecutionPolicy Bypass -File tools/check.ps1
 ```
 
-脚本会检查 Godot 版本，执行无界面资源导入与主场景启动。也可以在 Godot 编辑器中打开 `project.godot`，按 F6 运行当前场景或按 F5 运行项目。
+脚本会检查 Godot .NET 版本，构建 C# 项目，执行无界面资源导入、主场景启动和核心契约测试。也可以在 Godot .NET 编辑器中打开 `project.godot`，按 F6 运行当前场景或按 F5 运行项目。
 
 ## Windows 导出
 
-安装与 Godot 4.7.2 匹配的 Export Templates 后，在编辑器中选用 `Windows Desktop` 预设，或在根目录运行：
+先在 Godot .NET 编辑器的 **Editor > Manage Export Templates** 中安装 **4.7.2 Mono Export Templates**（不能使用标准版模板）。然后选用 `Windows Desktop` 预设，或在根目录运行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/check.ps1 -ExportWindows
 ```
 
-该命令也会启动导出的程序并确认正常退出。Windows 预设会把 PCK 嵌入 `build/windows/rpg.exe`，复制这个 exe 即可运行。导出文件写入 `build/`，不提交到 Git。
+该命令也会启动导出的程序并确认正常退出。C# 导出可能生成程序及其依赖文件；分发时应保留完整的 `build/windows/` 输出目录。导出文件不提交到 Git。
 
 在 Rider 中打开项目后，可从右上角的运行配置列表选择 **Export Windows single EXE**，点击运行。该共享配置执行上面的检查与导出命令；需要 Rider 的 Shell Script 插件（通常随 Rider 安装）。每个功能的开发和交付约定见 `AGENTS.md`。
 

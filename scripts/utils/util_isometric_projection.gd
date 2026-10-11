@@ -2,7 +2,9 @@
 class_name UtilIsometricProjection
 extends RefCounted
 
+## 等轴地块在屏幕上的半宽。
 const TILE_HALF_WIDTH := 50.0
+## 等轴地块在屏幕上的半高。
 const TILE_HALF_HEIGHT := 25.0
 
 

@@ -2,9 +2,12 @@
 class_name ChunkGround
 extends Node2D
 
+## 草地测试地块的纹理。
 const GRASS := preload("res://assets/kenney_isometric_roads/grass.png")
+## 道路测试地块的纹理。
 const DIRT := preload("res://assets/kenney_isometric_roads/dirt.png")
 
+## 地面视图读取的世界状态。
 var source: WorldState
 
 
@@ -35,14 +38,14 @@ func debug_edges_enabled() -> bool:
 func displayed_tile_type(tile_coord: Vector2i) -> int:
 	if source == null or source.chunks().loaded.is_empty():
 		return -1
-	var chunk_size := source.chunks().chunk_size
-	var world_size := source.chunks().world_size
+	var chunk_size: Vector2i = source.chunks().chunk_size
+	var world_size: Vector2i = source.chunks().world_size
 	var raw := UtilChunkCoordinates.raw_chunk(tile_coord, chunk_size)
-	var loaded := source.chunks().loaded
+	var loaded: Array[Vector2i] = source.chunks().loaded
 	if not loaded.has(raw):
 		return -1
 	var canonical := UtilChunkCoordinates.canonical_chunk(raw, world_size)
-	var tiles := source.chunks().tiles_for(canonical)
+	var tiles: PackedByteArray = source.chunks().tiles_for(canonical)
 	return _tile_type(tile_coord, tiles, chunk_size)
 
 
@@ -56,9 +59,9 @@ func _tile_type(tile_coord: Vector2i, tiles: PackedByteArray, chunk_size: Vector
 func _draw() -> void:
 	if source == null or source.chunks().loaded.is_empty():
 		return
-	var chunk_size := source.chunks().chunk_size
-	var world_size := source.chunks().world_size
-	var loaded := source.chunks().loaded
+	var chunk_size: Vector2i = source.chunks().chunk_size
+	var world_size: Vector2i = source.chunks().world_size
+	var loaded: Array[Vector2i] = source.chunks().loaded
 	if loaded.is_empty():
 		return
 	var by_raw: Dictionary = {}

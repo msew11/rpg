@@ -1,6 +1,8 @@
 ## 绘制玩家占位形象及其八方向朝向。
+class_name PlayerView
 extends Node2D
 
+## 玩家当前显示的八方向朝向。
 var facing := Vector2i(0, 1):
 	set(value):
 		facing = value

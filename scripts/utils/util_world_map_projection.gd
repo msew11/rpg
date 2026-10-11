@@ -2,6 +2,7 @@
 class_name UtilWorldMapProjection
 extends RefCounted
 
+## 完整地图中一个区块轴向的屏幕像素长度。
 const CHUNK_AXIS_PIXELS := 58.0
 
 
@@ -14,7 +15,7 @@ static func map_point(world: WorldState, map_size: Vector2, pan_offset: Vector2,
 
 ## 计算规范区块在地图上的四个顶点。
 static func chunk_corners(world: WorldState, map_size: Vector2, pan_offset: Vector2, canonical: Vector2i) -> PackedVector2Array:
-	var chunk_size := world.chunks().chunk_size
+	var chunk_size: Vector2i = world.chunks().chunk_size
 	var origin := Vector2(UtilChunkCoordinates.tile_origin(canonical, chunk_size))
 	return PackedVector2Array([
 		map_point(world, map_size, pan_offset, origin),
