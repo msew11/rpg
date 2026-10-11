@@ -10,26 +10,26 @@ public partial class TestRecordingSystem : EcsSystem
     public List<string> Calls { get; }
 
     /// <summary>验证更新时收到的世界实例。</summary>
-    public EcsWorld? ExpectedWorld { get; set; }
+    public EcsWorld ExpectedWorld { get; }
 
     /// <summary>验证更新时收到的时间增量。</summary>
-    public double ExpectedDelta { get; set; }
+    public double ExpectedDelta { get; }
 
-    /// <summary>指定更新期间修改注册集合的世界。</summary>
-    public EcsWorld? WorldToChange { get; set; }
+    /// <summary>保存可选的系统注册变更场景。</summary>
+    private (EcsWorld World, EcsSystem ToAdd, EcsSystem ToRemove)? _registrationChange;
 
-    /// <summary>指定更新期间需要注册的系统。</summary>
-    public EcsSystem? SystemToAdd { get; set; }
-
-    /// <summary>指定更新期间需要移除的系统。</summary>
-    public EcsSystem? SystemToRemove { get; set; }
-
-    /// <summary>初始化系统名称与共享日志。</summary>
-    public TestRecordingSystem(string tag, List<string> calls)
+    /// <summary>初始化系统名称、共享日志和预期调度参数。</summary>
+    public TestRecordingSystem(string tag, List<string> calls, EcsWorld expectedWorld, double expectedDelta)
     {
         Tag = tag;
         Calls = calls;
+        ExpectedWorld = expectedWorld;
+        ExpectedDelta = expectedDelta;
     }
+
+    /// <summary>指定更新期间需要执行的系统注册变更。</summary>
+    public void SetRegistrationChange(EcsWorld world, EcsSystem toAdd, EcsSystem toRemove) =>
+        _registrationChange = (world, toAdd, toRemove);
 
     /// <summary>验证调度参数并执行预设的注册变更。</summary>
     public override void Update(EcsWorld world, double delta)
@@ -37,10 +37,10 @@ public partial class TestRecordingSystem : EcsSystem
         Calls.Add(Tag);
         if (!ReferenceEquals(world, ExpectedWorld) || delta != ExpectedDelta)
             throw new System.InvalidOperationException("System received wrong world or delta.");
-        if (WorldToChange is null)
+        if (_registrationChange is not { } change)
             return;
-        WorldToChange.RemoveSystem(SystemToRemove);
-        WorldToChange.AddSystem(SystemToAdd);
-        WorldToChange = null;
+        change.World.RemoveSystem(change.ToRemove);
+        change.World.AddSystem(change.ToAdd);
+        _registrationChange = null;
     }
 }

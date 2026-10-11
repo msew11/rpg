@@ -40,3 +40,5 @@ public static class Example
 | `AddSystem(system)`, `RemoveSystem(system)`, `Step(delta)` | 系统按注册顺序每步执行一次。重复注册返回 `false`；更新中新增的系统下一步执行，已移除的系统立即跳过。 |
 
 组件是可变引用；本版不跟踪字段变化。调用方负责管理创建的 Godot 对象，并避免让系统长期持有世界的强引用。`tools/check.ps1` 使用 Godot 4.7.2 .NET 版运行 `tests/core/TestEcs.cs` 的验收场景。
+
+公开 API 的组件实例、组件类型和系统实例入参均要求非空。无效实体仍返回失败结果；缺失组件的 `GetComponent` 结果仍可为空，调用方在使用前应检查。

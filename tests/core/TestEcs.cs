@@ -72,17 +72,10 @@ public partial class TestEcs : SceneTree
         Check(world.CreateEntity() > third, "destroyed IDs are not reused");
 
         var calls = new List<string>();
-        using var alpha = new TestRecordingSystem("alpha", calls);
-        using var beta = new TestRecordingSystem("beta", calls);
-        using var gamma = new TestRecordingSystem("gamma", calls);
-        foreach (var system in new[] { alpha, beta, gamma })
-        {
-            system.ExpectedWorld = world;
-            system.ExpectedDelta = 0.25;
-        }
-        alpha.WorldToChange = world;
-        alpha.SystemToAdd = gamma;
-        alpha.SystemToRemove = beta;
+        using var alpha = new TestRecordingSystem("alpha", calls, world, 0.25);
+        using var beta = new TestRecordingSystem("beta", calls, world, 0.25);
+        using var gamma = new TestRecordingSystem("gamma", calls, world, 0.25);
+        alpha.SetRegistrationChange(world, gamma, beta);
         Check(world.AddSystem(alpha), "register first system");
         Check(world.AddSystem(beta), "register second system");
         Check(!world.AddSystem(alpha), "duplicate system rejected");
@@ -97,16 +90,9 @@ public partial class TestEcs : SceneTree
 
         using var replacementWorld = new EcsWorld();
         var replacementCalls = new List<string>();
-        using var changer = new TestRecordingSystem("changer", replacementCalls);
-        using var readded = new TestRecordingSystem("readded", replacementCalls);
-        foreach (var system in new[] { changer, readded })
-        {
-            system.ExpectedWorld = replacementWorld;
-            system.ExpectedDelta = 0.25;
-        }
-        changer.WorldToChange = replacementWorld;
-        changer.SystemToRemove = readded;
-        changer.SystemToAdd = readded;
+        using var changer = new TestRecordingSystem("changer", replacementCalls, replacementWorld, 0.25);
+        using var readded = new TestRecordingSystem("readded", replacementCalls, replacementWorld, 0.25);
+        changer.SetRegistrationChange(replacementWorld, readded, readded);
         replacementWorld.AddSystem(changer);
         replacementWorld.AddSystem(readded);
         replacementWorld.Step(0.25);

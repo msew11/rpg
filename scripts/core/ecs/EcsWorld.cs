@@ -46,32 +46,32 @@ public partial class EcsWorld : RefCounted
     }
 
     /// <summary>按组件的精确运行时类型附加或替换实体组件。</summary>
-    public bool AddComponent(long entityId, EcsComponent? component)
+    public bool AddComponent(long entityId, EcsComponent component)
     {
-        if (!HasEntity(entityId) || component is null)
+        if (!HasEntity(entityId))
             return false;
         _components[entityId][component.GetType()] = component;
         return true;
     }
 
     /// <summary>判断有效实体是否具有指定精确类型的组件。</summary>
-    public bool HasComponent(long entityId, Type? componentType) =>
-        componentType is not null && HasEntity(entityId) && _components[entityId].ContainsKey(componentType);
+    public bool HasComponent(long entityId, Type componentType) =>
+        HasEntity(entityId) && _components[entityId].ContainsKey(componentType);
 
     /// <summary>判断有效实体是否具有指定泛型类型的组件。</summary>
     public bool HasComponent<T>(long entityId) where T : EcsComponent => HasComponent(entityId, typeof(T));
 
-    /// <summary>读取组件；实体或类型不存在时返回空值。</summary>
-    public EcsComponent? GetComponent(long entityId, Type? componentType) =>
-        HasComponent(entityId, componentType) ? _components[entityId][componentType!] : null;
+    /// <summary>读取组件；实体或组件不存在时返回空值。</summary>
+    public EcsComponent? GetComponent(long entityId, Type componentType) =>
+        HasComponent(entityId, componentType) ? _components[entityId][componentType] : null;
 
     /// <summary>按静态类型读取组件，缺失时返回空值。</summary>
     public T? GetComponent<T>(long entityId) where T : EcsComponent =>
         GetComponent(entityId, typeof(T)) as T;
 
     /// <summary>移除指定精确类型组件，并报告此前是否存在。</summary>
-    public bool RemoveComponent(long entityId, Type? componentType) =>
-        HasComponent(entityId, componentType) && _components[entityId].Remove(componentType!);
+    public bool RemoveComponent(long entityId, Type componentType) =>
+        HasComponent(entityId, componentType) && _components[entityId].Remove(componentType);
 
     /// <summary>按泛型类型移除组件，并报告此前是否存在。</summary>
     public bool RemoveComponent<T>(long entityId) where T : EcsComponent =>
@@ -80,7 +80,6 @@ public partial class EcsWorld : RefCounted
     /// <summary>返回具有全部指定组件的实体标识快照，按创建顺序排列。</summary>
     public long[] Query(params Type[] componentTypes)
     {
-        ArgumentNullException.ThrowIfNull(componentTypes);
         var matches = new List<long>();
         foreach (var entityId in _entities)
         {
@@ -100,9 +99,9 @@ public partial class EcsWorld : RefCounted
     }
 
     /// <summary>注册系统；同一实例不能重复注册。</summary>
-    public bool AddSystem(EcsSystem? system)
+    public bool AddSystem(EcsSystem system)
     {
-        if (system is null || _systemTokens.ContainsKey(system))
+        if (_systemTokens.ContainsKey(system))
             return false;
         _systems.Add(system);
         _systemTokens.Add(system, _nextSystemToken++);
@@ -110,9 +109,9 @@ public partial class EcsWorld : RefCounted
     }
 
     /// <summary>注销系统，并报告它此前是否已注册。</summary>
-    public bool RemoveSystem(EcsSystem? system)
+    public bool RemoveSystem(EcsSystem system)
     {
-        if (system is null || !_systemTokens.Remove(system))
+        if (!_systemTokens.Remove(system))
             return false;
         _systems.RemoveAll(candidate => ReferenceEquals(candidate, system));
         return true;
