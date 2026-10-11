@@ -107,7 +107,7 @@ func toggle_tile(world_position: Vector2) -> void:
 
 
 ## 将固定测试目录一次写入世界实体的区块组件。
-func initialize_test_chunks(catalog: TestChunkCatalog) -> void:
+func initialize_test_chunks(catalog: ManualChunkCatalog) -> void:
 	chunks().chunk_size = catalog.chunk_size
 	chunks().world_size = catalog.world_size
 	for y in range(catalog.world_size.y):

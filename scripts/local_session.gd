@@ -14,7 +14,7 @@ var player_id: int
 ## 在世界中创建本地玩家实体。
 func _init() -> void:
 	player_id = world.create_player(Vector2.ZERO, PLAYER_SPEED)
-	world.initialize_test_chunks(TestChunkCatalog.new())
+	world.initialize_test_chunks(ManualChunkCatalog.new())
 
 
 ## 提交玩家的屏幕移动方向。

@@ -1,11 +1,11 @@
 ## 验证 openspec/specs/continuous-chunk-world/spec.md 的手工测试区块内容场景。
-class_name TestChunkCatalogScript
+class_name TestManualChunkCatalog
 extends SceneTree
 
 
 ## 检查目录布局与样例地块并退出。
 func _initialize() -> void:
-	var catalog := TestChunkCatalog.new()
+	var catalog := ManualChunkCatalog.new()
 	assert(catalog.chunk_size == Vector2i(12, 12))
 	assert(catalog.world_size == Vector2i(4, 4))
 	for y in range(catalog.world_size.y):
@@ -16,5 +16,5 @@ func _initialize() -> void:
 	assert(meadow != paths)
 	assert(meadow[0] == 0)
 	assert(paths[5] == 1)
-	print("test_chunk_catalog_test passed")
+	print("test_manual_chunk_catalog passed")
 	quit()

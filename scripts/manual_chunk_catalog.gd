@@ -1,9 +1,9 @@
 ## 从手工测试地图读取区块布局与地块图案。
-class_name TestChunkCatalog
+class_name ManualChunkCatalog
 extends RefCounted
 
 ## 手工测试区块数据文件的资源路径。
-const SOURCE_PATH := "res://data/test_chunks.json"
+const SOURCE_PATH := "res://data/manual_chunks.json"
 
 ## 每个区块的地块尺寸。
 var chunk_size: Vector2i
