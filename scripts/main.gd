@@ -4,6 +4,14 @@ extends Node2D
 
 ## 用于重建玩家显示节点的场景。
 const PLAYER_VIEW := preload("res://scenes/player_view.tscn")
+## 当前显示标题主选项。
+const MODE_TITLE := 0
+## 当前正在游玩。
+const MODE_PLAYING := 1
+## 当前从标题读取存档。
+const MODE_LOAD := 2
+## 当前从游戏保存存档。
+const MODE_SAVE := 3
 
 ## 持续跟随玩家的主镜头。
 @onready var camera: Camera2D = $Camera2D
@@ -20,21 +28,43 @@ const PLAYER_VIEW := preload("res://scenes/player_view.tscn")
 var session := LocalSession.new()
 ## 当前玩家显示节点。
 var player_view: Node2D
+## 五槽位本地进度管理器。
+var save_slots := SaveSlots.new()
+## 当前菜单及游戏模式。
+var mode := MODE_TITLE
+
+## 标题或槽位菜单的全屏遮罩。
+@onready var menu: Control = $MenuLayer/Menu
+## 游戏内操作按钮组。
+@onready var game_buttons: HBoxContainer = $RadarLayer/GameButtons
+## 菜单标题。
+@onready var heading: Label = $MenuLayer/Menu/Center/Panel/Content/Rows/Heading
+## 菜单副标题。
+@onready var subtitle: Label = $MenuLayer/Menu/Center/Panel/Content/Rows/Subtitle
+## 标题页操作按钮组。
+@onready var title_actions: VBoxContainer = $MenuLayer/Menu/Center/Panel/Content/Rows/TitleActions
+## 槽位操作按钮组。
+@onready var slot_actions: VBoxContainer = $MenuLayer/Menu/Center/Panel/Content/Rows/SlotActions
+## 五个槽位按钮的容器。
+@onready var slot_list: VBoxContainer = $MenuLayer/Menu/Center/Panel/Content/Rows/SlotActions/Slots
+## 操作结果与错误提示。
+@onready var message: Label = $MenuLayer/Menu/Center/Panel/Content/Rows/Message
 
 
 ## 绑定各视图并加载玩家附近区块。
 func _ready() -> void:
-	ground.bind(session.world)
-	radar.bind(session.world, session.player_id)
-	debug_panel.bind(session.world)
-	world_map.bind(session.world, session.player_id)
-	rebuild_player_view()
-	_sync_view()
+	_bind_session()
+	$MenuLayer/Menu/Center/Panel/Content/Rows/TitleActions/StartButton.pressed.connect(start_new_game)
+	$MenuLayer/Menu/Center/Panel/Content/Rows/TitleActions/LoadButton.pressed.connect(show_load_slots)
+	$MenuLayer/Menu/Center/Panel/Content/Rows/SlotActions/BackButton.pressed.connect(_on_back_pressed)
+	$RadarLayer/GameButtons/SaveButton.pressed.connect(show_save_slots)
+	$RadarLayer/GameButtons/TitleButton.pressed.connect(show_title)
+	show_title()
 
 
 ## 采集移动输入、推进模拟并同步画面。
 func _physics_process(delta: float) -> void:
-	if world_map.visible:
+	if mode != MODE_PLAYING or world_map.visible:
 		return
 	session.set_player_direction(MovementInput.from_keyboard())
 	session.step(delta)
@@ -43,7 +73,7 @@ func _physics_process(delta: float) -> void:
 
 ## 处理地图、地块切换和边缘显示快捷键。
 func _unhandled_key_input(event: InputEvent) -> void:
-	if not event is InputEventKey or not event.pressed or event.echo:
+	if mode != MODE_PLAYING or not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if event.keycode == KEY_M:
 		world_map.toggle_open()
@@ -72,3 +102,116 @@ func _sync_view() -> void:
 	player_view.position = UtilIsometricProjection.to_screen(position)
 	player_view.facing = session.player_facing()
 	camera.position = player_view.position
+
+
+## 让全部世界视图订阅当前会话并更新玩家显示节点。
+func _bind_session() -> void:
+	ground.bind(session.world)
+	radar.bind(session.world, session.player_id)
+	debug_panel.bind(session.world)
+	world_map.bind(session.world, session.player_id)
+	rebuild_player_view()
+	_sync_view()
+
+
+## 创建初始状态的新会话并进入游戏。
+func start_new_game() -> void:
+	session = LocalSession.new()
+	_bind_session()
+	_enter_game()
+
+
+## 显示标题选项并暂停会话推进。
+func show_title() -> void:
+	mode = MODE_TITLE
+	menu.visible = true
+	game_buttons.visible = false
+	world_map.visible = false
+	heading.text = "RPG"
+	subtitle.text = "连续世界测试原型"
+	title_actions.visible = true
+	slot_actions.visible = false
+	message.text = ""
+
+
+## 显示五个可读取的槽位。
+func show_load_slots() -> void:
+	mode = MODE_LOAD
+	menu.visible = true
+	game_buttons.visible = false
+	heading.text = "读取进度"
+	subtitle.text = "选择一个已有存档"
+	title_actions.visible = false
+	slot_actions.visible = true
+	message.text = ""
+	_refresh_slots()
+
+
+## 显示五个可覆盖保存的槽位。
+func show_save_slots() -> void:
+	mode = MODE_SAVE
+	menu.visible = true
+	game_buttons.visible = false
+	heading.text = "保存进度"
+	subtitle.text = "选择槽位保存当前进度"
+	title_actions.visible = false
+	slot_actions.visible = true
+	message.text = ""
+	_refresh_slots()
+
+
+## 为当前菜单重建五个槽位的状态与操作按钮。
+func _refresh_slots() -> void:
+	for child in slot_list.get_children():
+		slot_list.remove_child(child)
+		child.queue_free()
+	for slot in range(1, SaveSlots.SLOT_COUNT + 1):
+		var info := save_slots.inspect(slot)
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(0, 44)
+		match info["state"]:
+			"valid":
+				button.text = "存档 %d  ·  %s" % [slot, info["saved_at"]]
+			"invalid":
+				button.text = "存档 %d  ·  无效或不兼容" % slot
+			_:
+				button.text = "存档 %d  ·  空" % slot
+		button.disabled = mode == MODE_LOAD and info["state"] != "valid"
+		button.pressed.connect(_on_slot_pressed.bind(slot))
+		slot_list.add_child(button)
+
+
+## 保存选中槽位或从有效槽位创建恢复后的会话。
+func _on_slot_pressed(slot: int) -> void:
+	if mode == MODE_SAVE:
+		if save_slots.save(slot, session):
+			message.text = "进度已保存到存档 %d" % slot
+			_refresh_slots()
+		else:
+			message.text = "保存失败，请检查存档目录。"
+	elif mode == MODE_LOAD:
+		var snapshot := save_slots.read(slot)
+		if snapshot.is_empty():
+			message.text = "存档无效或不兼容。"
+			_refresh_slots()
+			return
+		var restored := LocalSession.new()
+		restored.restore_snapshot(snapshot)
+		session = restored
+		_bind_session()
+		_enter_game()
+
+
+## 从槽位菜单返回先前的标题或游戏画面。
+func _on_back_pressed() -> void:
+	if mode == MODE_SAVE:
+		_enter_game()
+	else:
+		show_title()
+
+
+## 关闭菜单并继续模拟当前会话。
+func _enter_game() -> void:
+	mode = MODE_PLAYING
+	menu.visible = false
+	game_buttons.visible = true

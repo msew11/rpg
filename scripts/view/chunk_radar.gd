@@ -25,6 +25,10 @@ var player_id: int
 
 ## 绑定玩家状态与变化通知，并同步初始可见状态。
 func bind(world: WorldState, entity_id: int) -> void:
+	if source != null:
+		source.player_changed.disconnect(_on_player_changed)
+		source.chunks_changed.disconnect(_on_chunks_changed)
+		source.debug_changed.disconnect(_on_debug_changed)
 	source = world
 	player_id = entity_id
 	source.player_changed.connect(_on_player_changed)
