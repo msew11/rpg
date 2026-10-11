@@ -29,4 +29,4 @@ func run_example() -> void:
 | `query([TypeA, TypeB])` | 返回同时具有指定类型的实体 ID 快照，按创建顺序排列。`query()` 返回全部有效实体。 |
 | `add_system(system)`, `remove_system(system)`, `step(delta)` | 系统按注册顺序每步执行一次。重复注册同一实例返回 `false`；更新中新增的系统下一步执行，已移除的系统立即跳过。 |
 
-组件是可变引用；本版不跟踪字段变化。调用方应避免让系统长期持有世界的强引用，以免与世界持有的系统形成 `RefCounted` 引用环。执行 `powershell -ExecutionPolicy Bypass -File tools/check.ps1` 会运行 `tests/test_ecs.gd` 中的 ECS 验收测试。
+组件是可变引用；本版不跟踪字段变化。调用方应避免让系统长期持有世界的强引用，以免与世界持有的系统形成 `RefCounted` 引用环。执行 `powershell -ExecutionPolicy Bypass -File tools/check.ps1` 会运行 `tests/core/test_ecs.gd` 中的 ECS 验收测试。

@@ -4,7 +4,12 @@ class_name DataRepo
 extends RefCounted
 
 # 标识具体仓库存储一个实例还是一组实例。
-enum StorageKind { SINGLE, MULTIPLE }
+enum StorageKind {
+	# 仓库只保存一个数据实例。
+	SINGLE,
+	# 仓库保存多个同类型数据实例。
+	MULTIPLE
+}
 
 
 # 声明具体仓库承载的数据脚本类型。
