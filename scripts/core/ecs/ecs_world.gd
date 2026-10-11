@@ -2,11 +2,17 @@
 class_name EcsWorld
 extends RefCounted
 
+# 分配给下一个实体的标识，保证销毁后不复用。
 var _next_entity_id: int = 1
+# 记录当前有效的实体标识。
 var _entities: Dictionary = {}
+# 按实体标识和组件脚本类型保存组件。
 var _components: Dictionary = {}
+# 保存系统的注册顺序。
 var _systems: Array[EcsSystem] = []
+# 记录每次系统注册的令牌，用于识别更新期间的重新注册。
 var _system_tokens: Dictionary = {}
+# 分配给下一次系统注册的令牌。
 var _next_system_token: int = 1
 
 
