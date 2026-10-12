@@ -35,12 +35,37 @@ func _start(initial: Dictionary) -> void:
 	player_id = world_manager.initialize_session(position, PLAYER_SPEED, facing, ManualChunkCfg.new())
 
 
-## 提交玩家的屏幕移动方向。
-func set_player_direction(screen_direction: Vector2i) -> void:
+## 提交玩家的屏幕移动方向并返回命令结果。
+func set_player_direction(screen_direction: Vector2i) -> WorldEventResult:
 	var command := MoveIntentEvent.new()
 	command.entity_id = player_id
 	command.direction = screen_direction
-	world_manager.send_event(command)
+	return world_manager.send_event(command)
+
+
+## 切换玩家当前所在的测试地块。
+func toggle_player_tile() -> WorldEventResult:
+	return world_manager.send_event(ToggleTileEvent.Create(player_position()))
+
+
+## 设置区块边缘线显示状态。
+func set_debug_edges(enabled: bool) -> WorldEventResult:
+	return world_manager.send_event(SetDebugEdgesEvent.Create(enabled))
+
+
+## 切换区块边缘线显示状态。
+func toggle_debug_edges() -> WorldEventResult:
+	return set_debug_edges(not world_manager.debug().edges)
+
+
+## 设置雷达显示状态。
+func set_debug_radar(enabled: bool) -> WorldEventResult:
+	return world_manager.send_event(SetDebugRadarEvent.Create(enabled))
+
+
+## 在玩家附近提交测试怪物创建命令。
+func spawn_debug_monster() -> WorldEventResult:
+	return world_manager.send_event(SpawnDebugMonsterEvent.Create(player_position()))
 
 
 ## 推进本地世界的固定时间步。

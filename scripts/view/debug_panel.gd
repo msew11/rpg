@@ -25,15 +25,19 @@ signal add_monster_requested
 ## 显示可选中复制的正式存档目录。
 @onready var save_dir_path: LineEdit = $Options/SaveDirPath
 
-## 调试面板读取和更新的世界状态。
+## 调试面板读取的世界状态。
 var source: WorldManager
 
+## 提交调试交互的当前本地会话。
+var interaction_session: LocalSession
 
-## 绑定数据源并连接开关事件。
-func bind(world: WorldManager) -> void:
+
+## 绑定当前会话及其只读世界状态，并连接开关事件。
+func bind(session: LocalSession) -> void:
 	if source != null:
 		source.debug_changed.disconnect(_on_debug_changed)
-	source = world
+	interaction_session = session
+	source = session.world_manager
 	source.debug_changed.connect(_on_debug_changed)
 	if not borders_button.toggled.is_connected(_on_borders_toggled):
 		borders_button.toggled.connect(_on_borders_toggled)
@@ -58,18 +62,14 @@ func _sync_buttons() -> void:
 	radar_button.set_pressed_no_signal(source.debug().radar)
 
 
-## 将区块边缘开关写入世界数据。
+## 经当前会话提交区块边缘开关。
 func _on_borders_toggled(enabled: bool) -> void:
-	var command := SetDebugEdgesEvent.new()
-	command.enabled = enabled
-	source.send_event(command)
+	interaction_session.set_debug_edges(enabled)
 
 
-## 将雷达开关写入世界数据。
+## 经当前会话提交雷达开关。
 func _on_radar_toggled(enabled: bool) -> void:
-	var command := SetDebugRadarEvent.new()
-	command.enabled = enabled
-	source.send_event(command)
+	interaction_session.set_debug_radar(enabled)
 
 
 ## 更新数值提示并通知镜头改变可见高度。

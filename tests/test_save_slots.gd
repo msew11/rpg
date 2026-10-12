@@ -1,4 +1,4 @@
-## 验证 openspec/specs/start-menu-and-save-slots 与 world-script-boundaries 的五槽位恢复及会话初始化场景。
+## 验证 openspec/specs/start-menu-and-save-slots、world-script-boundaries 与 world-interaction-events 的存档恢复及会话重新绑定场景。
 class_name TestSaveSlots
 extends SceneTree
 
@@ -51,8 +51,13 @@ func run_test() -> void:
 	assert(main.session.world_manager.tile_type(Vector2i(0, 0)) == initial_tile)
 	main.show_title()
 	main.show_load_slots()
+	var before_load_session: LocalSession = main.session
 	main._on_slot_pressed(1)
 	assert(main.mode == Main.MODE_PLAYING)
+	assert(main.debug_panel.interaction_session == main.session)
+	main.debug_panel.borders_button.button_pressed = true
+	assert(main.session.world_manager.debug().edges)
+	assert(not before_load_session.world_manager.debug().edges)
 	assert(main.session.player_position() == Vector2(27.25, -3.5))
 	assert(main.session.player_facing() == Vector2i(-1, 1))
 	assert(main.camera.position == UtilIsometricProjection.to_screen(Vector2(27.25, -3.5)))
