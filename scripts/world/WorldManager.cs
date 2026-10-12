@@ -26,6 +26,12 @@ public partial class WorldManager : RefCounted
     /// <summary>会话缓存负责临时存档读写。</summary>
     private readonly LocalDataRepoCache _cache;
 
+    /// <summary>向外部提供区块状态的只读视图。</summary>
+    private readonly WorldChunksView _chunksView;
+
+    /// <summary>向外部提供调试状态的只读视图。</summary>
+    private readonly WorldDebugView _debugView;
+
     /// <summary>不可变测试地图配置，用于生成区块基准地块。</summary>
     private GodotObject? _cfg;
 
@@ -59,8 +65,12 @@ public partial class WorldManager : RefCounted
         _cache = cache;
         _ecs = new EcsWorld(cache.WorldRepo.Data);
         world_entity_id = _ecs.CreateEntity();
-        _ecs.AddComponent(world_entity_id, new WorldChunksComponent());
-        _ecs.AddComponent(world_entity_id, new WorldDebugComponent());
+        var chunksComponent = new WorldChunksComponent();
+        var debugComponent = new WorldDebugComponent();
+        _ecs.AddComponent(world_entity_id, chunksComponent);
+        _ecs.AddComponent(world_entity_id, debugComponent);
+        _chunksView = new WorldChunksView(chunksComponent);
+        _debugView = new WorldDebugView(debugComponent);
         _ecs.AddSystem(new MovementSystem());
         _ecs.AddSystem(new ChunkLoadingSystem());
         _ecs.AddSystem(new TileInteractionSystem());
@@ -85,12 +95,12 @@ public partial class WorldManager : RefCounted
     public void step(double delta)
     {
         var previous = new Dictionary<long, (Vector2 Position, Vector2I Facing)>();
-        var previousLoaded = chunks().loaded.ToArray();
+        var previousLoaded = ChunksComponent().loaded.ToArray();
         foreach (var entityId in _ecs.Query(typeof(PositionComponent), typeof(FacingComponent)))
             previous[entityId] = (player_position(entityId), player_facing(entityId));
         _ecs.Step(delta);
         SyncChunkEntities(previousLoaded);
-        if (!chunks().loaded.SequenceEqual(previousLoaded))
+        if (!ChunksComponent().loaded.SequenceEqual(previousLoaded))
             EmitSignal("chunks_changed");
         foreach (var (entityId, state) in previous)
         {
@@ -104,24 +114,24 @@ public partial class WorldManager : RefCounted
     {
         if (_cfg is null)
             return;
-        var current = chunks().loaded;
+        var current = ChunksComponent().loaded;
         foreach (var raw in previousLoaded)
         {
             if (current.Contains(raw))
                 continue;
-            var canonical = WorldMath.CanonicalChunk(raw, chunks().world_size);
-            if (!current.Any(candidate => WorldMath.CanonicalChunk(candidate, chunks().world_size) == canonical))
+            var canonical = WorldMath.CanonicalChunk(raw, ChunksComponent().world_size);
+            if (!current.Any(candidate => WorldMath.CanonicalChunk(candidate, ChunksComponent().world_size) == canonical))
                 unload_chunk_entity(raw);
         }
         foreach (var raw in current)
         {
-            var canonical = WorldMath.CanonicalChunk(raw, chunks().world_size);
+            var canonical = WorldMath.CanonicalChunk(raw, ChunksComponent().world_size);
             if (_chunkEntities.ContainsKey(canonical))
                 continue;
-            if (!chunks().has_chunk(canonical))
+            if (!ChunksComponent().has_chunk(canonical))
             {
                 var baseline = _cfg.Call("tiles_for", canonical).AsByteArray();
-                chunks().set_tiles(canonical, _cache.load_chunk(canonical, baseline));
+                ChunksComponent().set_tiles(canonical, _cache.load_chunk(canonical, baseline));
             }
             var entityId = _ecs.CreateEntity(world_entity_id);
             _ecs.AddComponent(entityId, new ChunkIdComponent(canonical));
@@ -135,18 +145,18 @@ public partial class WorldManager : RefCounted
     {
         if (_cfg is null)
             return false;
-        var canonical = WorldMath.CanonicalChunk(raw, chunks().world_size);
-        if (chunks().loaded.Any(candidate =>
-                WorldMath.CanonicalChunk(candidate, chunks().world_size) == canonical))
+        var canonical = WorldMath.CanonicalChunk(raw, ChunksComponent().world_size);
+        if (ChunksComponent().loaded.Any(candidate =>
+                WorldMath.CanonicalChunk(candidate, ChunksComponent().world_size) == canonical))
             return false;
         if (!_chunkEntities.Remove(canonical, out var entityId))
             return false;
-        var tiles = chunks().tiles_for(canonical);
+        var tiles = ChunksComponent().tiles_for(canonical);
         var baseline = _cfg.Call("tiles_for", canonical).AsByteArray();
         var persisted = _cache.unload_chunk(canonical, tiles, baseline, CaptureChunkTree(entityId));
         if (!persisted)
             EmitSignal("system_error", $"区块 {canonical.X},{canonical.Y} 临时存档写入失败，本次改动可能丢失。");
-        chunks().remove_chunk(canonical);
+        ChunksComponent().remove_chunk(canonical);
         _ecs.DestroyEntity(entityId);
         return persisted;
     }
@@ -154,7 +164,7 @@ public partial class WorldManager : RefCounted
     /// <summary>收集区块实体下所有子实体的可落地组件。</summary>
     public string capture_chunk_entities(Vector2I raw)
     {
-        var canonical = WorldMath.CanonicalChunk(raw, chunks().world_size);
+        var canonical = WorldMath.CanonicalChunk(raw, ChunksComponent().world_size);
         return _chunkEntities.TryGetValue(canonical, out var entityId) ? CaptureChunkTree(entityId) : "{}";
     }
 
@@ -250,11 +260,14 @@ public partial class WorldManager : RefCounted
             RestoreEntity(entityId, child);
     }
 
-    /// <summary>读取世界实体的区块组件。</summary>
-    public WorldChunksComponent chunks() => _ecs.GetComponent<WorldChunksComponent>(world_entity_id)!;
+    /// <summary>内部读取世界实体的可变区块组件。</summary>
+    private WorldChunksComponent ChunksComponent() => _ecs.GetComponent<WorldChunksComponent>(world_entity_id)!;
 
-    /// <summary>读取世界实体的调试显示组件。</summary>
-    public WorldDebugComponent debug() => _ecs.GetComponent<WorldDebugComponent>(world_entity_id)!;
+    /// <summary>读取当前区块状态的只读视图。</summary>
+    public WorldChunksView chunks() => _chunksView;
+
+    /// <summary>读取当前调试开关的只读视图。</summary>
+    public WorldDebugView debug() => _debugView;
 
     /// <summary>读取玩家的连续世界位置。</summary>
     public Vector2 player_position(long entityId) => _ecs.GetComponent<PositionComponent>(entityId)!.value;
@@ -289,13 +302,13 @@ public partial class WorldManager : RefCounted
     /// <summary>读取指定地块在规范区块中的当前类型。</summary>
     public int tile_type(Vector2I tile)
     {
-        var chunkSize = chunks().chunk_size;
+        var chunkSize = ChunksComponent().chunk_size;
         var raw = WorldMath.RawChunk(tile, chunkSize);
-        var canonical = WorldMath.CanonicalChunk(raw, chunks().world_size);
+        var canonical = WorldMath.CanonicalChunk(raw, ChunksComponent().world_size);
         var local = WorldMath.LocalTile(tile, chunkSize);
-        if (!chunks().has_chunk(canonical))
+        if (!ChunksComponent().has_chunk(canonical))
             return -1;
-        return chunks().tiles_for(canonical)[local.Y * chunkSize.X + local.X];
+        return ChunksComponent().tiles_for(canonical)[local.Y * chunkSize.X + local.X];
     }
 
     /// <summary>绑定手工配置并按玩家当前位置首次加载区块。</summary>
@@ -304,24 +317,24 @@ public partial class WorldManager : RefCounted
         _cfg = cfg;
         var chunkSize = cfg.Get("chunk_size").AsVector2I();
         var worldSize = cfg.Get("world_size").AsVector2I();
-        chunks().chunk_size = chunkSize;
-        chunks().world_size = worldSize;
-        chunks().active_chunk_size = cfg.Get("active_chunk_size").AsVector2I();
+        ChunksComponent().chunk_size = chunkSize;
+        ChunksComponent().world_size = worldSize;
+        ChunksComponent().active_chunk_size = cfg.Get("active_chunk_size").AsVector2I();
         step(0);
     }
 
     /// <summary>返回活跃区块实体；区块未激活时返回零。</summary>
     public long chunk_entity(Vector2I raw) =>
-        _chunkEntities.GetValueOrDefault(WorldMath.CanonicalChunk(raw, chunks().world_size));
+        _chunkEntities.GetValueOrDefault(WorldMath.CanonicalChunk(raw, ChunksComponent().world_size));
 
     /// <summary>读取所有活跃行走区块实例中的怪物显示位置。</summary>
     public Vector2[] visible_monster_positions()
     {
         var result = new List<Vector2>();
-        var chunkSize = chunks().chunk_size;
+        var chunkSize = ChunksComponent().chunk_size;
         if (chunkSize.X <= 0 || chunkSize.Y <= 0)
             return result.ToArray();
-        foreach (var raw in chunks().loaded)
+        foreach (var raw in ChunksComponent().loaded)
         {
             var chunkId = chunk_entity(raw);
             if (chunkId == 0)
@@ -354,7 +367,7 @@ public partial class WorldManager : RefCounted
     /// <summary>保存一个规范区块的地块，并通知依赖它的视图。</summary>
     public bool set_chunk_tiles(Vector2I canonicalId, byte[] tiles)
     {
-        if (!chunks().set_tiles(canonicalId, tiles))
+        if (!ChunksComponent().set_tiles(canonicalId, tiles))
             return false;
         EmitSignal("chunks_changed");
         return true;

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using Godot;
 
 /// <summary>验证 openspec/specs/player-movement、world-script-boundaries 与 session-data-repository 的世界状态契约。</summary>
@@ -24,8 +25,17 @@ public partial class TestWorldEcs : SceneTree
             Check(ReferenceEquals(repo!.Data, ecs.Data), "world uses repo-owned ECS data");
             var worldId = state.world_entity_id;
             Check(ecs.HasEntity(worldId), "world entity exists");
-            Check(ReferenceEquals(ecs.GetComponent<WorldChunksComponent>(worldId), state.chunks()), "world chunks use ECS");
-            Check(ReferenceEquals(ecs.GetComponent<WorldDebugComponent>(worldId), state.debug()), "world debug uses ECS");
+            Check(ecs.GetComponent<WorldChunksComponent>(worldId) is not null && state.chunks() is WorldChunksView,
+                "world chunks use ECS and expose a read-only view");
+            Check(ecs.GetComponent<WorldDebugComponent>(worldId) is not null && state.debug() is WorldDebugView,
+                "world debug uses ECS and exposes a read-only view");
+            Check(typeof(WorldChunksView).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .All(property => property.SetMethod is null), "chunk view has no writable properties");
+            Check(typeof(WorldDebugView).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .All(property => property.SetMethod is null), "debug view has no writable properties");
+            var loadedCopy = state.chunks().loaded;
+            loadedCopy.Add(new Vector2I(9, 9));
+            Check(!state.chunks().loaded.Contains(new Vector2I(9, 9)), "loaded query returns a separate collection");
 
             var playerId = state.create_player(Vector2.Zero, 3);
             Check(ecs.HasEntity(playerId), "player entity exists");

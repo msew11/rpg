@@ -1,4 +1,4 @@
-## 验证 openspec/specs/world-script-boundaries/spec.md 的世界状态组件与变化通知场景。
+## 验证 openspec/specs/world-script-boundaries/spec.md 的只读世界查询与变化通知场景。
 class_name TestWorldManagerData
 extends SceneTree
 
@@ -9,8 +9,8 @@ func _initialize() -> void:
 	var world: WorldManager = WorldManager.Create(cache)
 	var ecs: EcsWorld = WorldEcsTestAccess.FromCache(cache)
 	assert(ecs.HasEntity(world.world_entity_id))
-	assert(world.chunks() is WorldChunksComponent)
-	assert(world.debug() is WorldDebugComponent)
+	assert(world.chunks() is WorldChunksView)
+	assert(world.debug() is WorldDebugView)
 	var player_changes: Array[int] = []
 	var chunk_changes: Array[int] = []
 	var debug_changes: Array[int] = []
@@ -52,6 +52,13 @@ func _initialize() -> void:
 	assert(chunk_changes.size() == 2)
 	assert(not world.set_chunk_tiles(canonical, read_tiles))
 	assert(chunk_changes.size() == 2)
+	world.initialize_test_chunks(ManualChunkCfg.new())
+	var loaded_count: int = world.chunks().loaded.size()
+	var notified_count: int = chunk_changes.size()
+	var loaded_copy: Array[Vector2i] = world.chunks().loaded
+	loaded_copy.clear()
+	assert(world.chunks().loaded.size() == loaded_count)
+	assert(chunk_changes.size() == notified_count)
 	world.player_changed.disconnect(on_player_changed)
 	world.chunks_changed.disconnect(on_chunks_changed)
 	world.debug_changed.disconnect(on_debug_changed)
