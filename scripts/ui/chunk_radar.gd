@@ -23,7 +23,7 @@ var source: WorldManager
 var player_id: int
 
 
-## 绑定玩家状态与变化通知，并同步初始可见状态。
+## 绑定玩家状态与变化通知，保持雷达常显。
 func bind(world: WorldManager, entity_id: int) -> void:
 	if source != null:
 		source.player_changed.disconnect(_on_player_changed)
@@ -34,7 +34,7 @@ func bind(world: WorldManager, entity_id: int) -> void:
 	source.player_changed.connect(_on_player_changed)
 	source.chunks_changed.connect(_on_chunks_changed)
 	source.debug_changed.connect(_on_debug_changed)
-	visible = source.debug_view().radar
+	visible = true
 	queue_redraw()
 
 
@@ -49,9 +49,8 @@ func _on_chunks_changed() -> void:
 	queue_redraw()
 
 
-## 同步雷达可见状态与边缘提示。
+## 在边缘调试状态变化时刷新雷达提示。
 func _on_debug_changed() -> void:
-	visible = source.debug_view().radar
 	queue_redraw()
 
 

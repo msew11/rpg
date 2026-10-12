@@ -62,6 +62,7 @@ func _ready() -> void:
 	debug_panel.view_height_changed.connect(_on_view_height_changed)
 	debug_panel.add_monster_requested.connect(_on_add_monster_requested)
 	debug_panel.player_template_changed.connect(_on_player_template_changed)
+	debug_panel.action_changed.connect(_on_action_changed)
 	debug_panel.set_save_directory(ProjectSettings.globalize_path(save_slots.save_dir))
 	_bind_session()
 	_on_view_height_changed(debug_panel.view_height_slider.value)
@@ -111,6 +112,19 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		session.toggle_debug_edges()
 
 
+## 在游玩画面用滚轮按滑条步进改变视野高度。
+func _unhandled_input(event: InputEvent) -> void:
+	if mode != MODE_PLAYING or world_map.visible or not event is InputEventMouseButton or not event.pressed:
+		return
+	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		debug_panel.view_height_slider.value += debug_panel.view_height_slider.step
+	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		debug_panel.view_height_slider.value -= debug_panel.view_height_slider.step
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+
 ## 按视野高度倍数缩小镜头缩放。
 func _on_view_height_changed(multiplier: float) -> void:
 	camera.zoom = Vector2.ONE * (DEFAULT_CAMERA_ZOOM / multiplier)
@@ -128,13 +142,21 @@ func _on_player_template_changed(template_id: int) -> void:
 		player_view.template_id = template_id
 
 
+## 将 GM 选定动作应用到玩家显示节点。
+func _on_action_changed(action_id: int) -> void:
+	if is_instance_valid(player_view):
+		player_view.demo_action = action_id
+
+
 ## 重建玩家显示节点并恢复当前世界状态。
 func rebuild_player_view() -> void:
 	if is_instance_valid(player_view):
 		player_view.queue_free()
 	player_view = PLAYER_VIEW.instantiate()
 	add_child(player_view)
+	player_view.demo_stopped.connect(debug_panel.stop_action_demo)
 	player_view.template_id = debug_panel.selected_player_template()
+	player_view.demo_action = debug_panel.action_selector.get_selected_id()
 	_sync_view()
 
 
