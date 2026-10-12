@@ -125,7 +125,7 @@ func run_test() -> void:
 	_move_to(main, Vector2(49, 1))
 	assert(main.ground.displayed_tile_type(Vector2i(49, 1)) == main.session.world_manager.tile_type(Vector2i(1, 1)))
 	assert(main.camera.position == UtilIsometricProjection.to_screen(Vector2(49, 1)))
-	assert(main.radar.position == Vector2(16, 246))
+	assert(main.radar.position == Vector2(16, 312))
 	var map_key := InputEventKey.new()
 	map_key.keycode = KEY_M
 	map_key.pressed = true

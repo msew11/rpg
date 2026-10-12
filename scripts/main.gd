@@ -33,7 +33,7 @@ const DEFAULT_CAMERA_ZOOM := 1.4
 ## 接收输入并推进世界状态的本地会话。
 var session := LocalSession.new()
 ## 当前玩家显示节点。
-var player_view: Node2D
+var player_view: PlayerView
 ## 五槽位本地进度管理器。
 var save_slots := SaveSlots.new()
 ## 当前菜单及游戏模式。
@@ -61,6 +61,7 @@ var mode := MODE_TITLE
 func _ready() -> void:
 	debug_panel.view_height_changed.connect(_on_view_height_changed)
 	debug_panel.add_monster_requested.connect(_on_add_monster_requested)
+	debug_panel.player_template_changed.connect(_on_player_template_changed)
 	debug_panel.set_save_directory(ProjectSettings.globalize_path(save_slots.save_dir))
 	_bind_session()
 	_on_view_height_changed(debug_panel.view_height_slider.value)
@@ -75,9 +76,13 @@ func _ready() -> void:
 ## 采集移动输入、推进模拟并同步画面。
 func _physics_process(delta: float) -> void:
 	if mode != MODE_PLAYING or world_map.visible:
+		if is_instance_valid(player_view):
+			player_view.moving = false
 		return
-	session.set_player_direction(MovementInput.from_keyboard())
+	var direction := MovementInput.from_keyboard()
+	session.set_player_direction(direction)
 	session.step(delta)
+	player_view.moving = direction != Vector2i.ZERO
 	_sync_view()
 
 
@@ -117,12 +122,19 @@ func _on_add_monster_requested() -> void:
 		session.spawn_debug_monster()
 
 
+## 立即应用调试面板选定的玩家模板。
+func _on_player_template_changed(template_id: int) -> void:
+	if is_instance_valid(player_view):
+		player_view.template_id = template_id
+
+
 ## 重建玩家显示节点并恢复当前世界状态。
 func rebuild_player_view() -> void:
 	if is_instance_valid(player_view):
 		player_view.queue_free()
 	player_view = PLAYER_VIEW.instantiate()
 	add_child(player_view)
+	player_view.template_id = debug_panel.selected_player_template()
 	_sync_view()
 
 
@@ -164,6 +176,8 @@ func start_new_game() -> void:
 ## 显示标题选项并暂停会话推进。
 func show_title() -> void:
 	mode = MODE_TITLE
+	if is_instance_valid(player_view):
+		player_view.moving = false
 	menu.visible = true
 	game_buttons.visible = false
 	world_map.visible = false

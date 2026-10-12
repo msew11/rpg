@@ -8,6 +8,9 @@ signal view_height_changed(multiplier: float)
 ## 请求在玩家当前区块创建一个怪物实体。
 signal add_monster_requested
 
+## 玩家显示模板变化时通知主场景。
+signal player_template_changed(template_id: int)
+
 ## 切换区块边缘线的按钮。
 @onready var borders_button: CheckButton = $Options/BordersButton
 ## 切换雷达显示的按钮。
@@ -22,6 +25,9 @@ signal add_monster_requested
 ## 在当前区块创建怪物的按钮。
 @onready var add_monster_button: Button = $Options/AddMonsterButton
 
+## 调试用角色模板选择框。
+@onready var player_template_selector: OptionButton = $Options/PlayerTemplateSelector
+
 ## 显示可选中复制的正式存档目录。
 @onready var save_dir_path: LineEdit = $Options/SaveDirPath
 
@@ -30,6 +36,25 @@ var source: WorldManager
 
 ## 提交调试交互的当前本地会话。
 var interaction_session: LocalSession
+
+
+## 初始化模板选项并保留整个运行期的选择。
+func _ready() -> void:
+	player_template_selector.add_item("原占位角色", PlayerView.TEMPLATE_PLACEHOLDER)
+	player_template_selector.add_item("ErisEsra 16×16 素体", PlayerView.TEMPLATE_SMALL)
+	player_template_selector.add_item("ErisEsra 16×32 素体", PlayerView.TEMPLATE_TALL)
+	player_template_selector.select(PlayerView.TEMPLATE_TALL)
+	player_template_selector.item_selected.connect(_on_player_template_selected)
+
+
+## 返回当前选择的角色模板编号。
+func selected_player_template() -> int:
+	return player_template_selector.get_selected_id()
+
+
+## 转发玩家模板的调试选择。
+func _on_player_template_selected(index: int) -> void:
+	player_template_changed.emit(player_template_selector.get_item_id(index))
 
 
 ## 绑定当前会话及其只读世界状态，并连接开关事件。

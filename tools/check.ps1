@@ -51,6 +51,7 @@ Invoke-GodotCheck 'core C# tests' @('--headless', '--path', $projectPath, '--scr
 Invoke-GodotCheck 'world ECS state' @('--headless', '--path', $projectPath, '--script', 'res://tests/TestWorldEcs.cs')
 Invoke-GodotCheck 'movement behavior' @('--headless', '--path', $projectPath, '--script', 'tests/test_movement.gd')
 Invoke-GodotCheck 'view rebuilding' @('--headless', '--path', $projectPath, '--script', 'tests/test_view.gd')
+Invoke-GodotCheck 'player templates' @('--headless', '--path', $projectPath, '--script', 'tests/test_player_template.gd')
 Invoke-GodotCheck 'chunk coordinates' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_coordinates.gd')
 Invoke-GodotCheck 'manual chunk cfg' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_manual_chunk_cfg.gd')
 Invoke-GodotCheck 'world manager data' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_world_manager_data.gd')
