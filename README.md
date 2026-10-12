@@ -12,7 +12,7 @@
 
 ## 本机准备
 
-安装 Godot 4.7.2 .NET 版和 .NET 8 SDK。检查脚本会优先使用 `GODOT_BIN` 环境变量，其次查找 PATH 中的 Godot，最后查找本机已安装的 Godot 4.7.2 .NET 控制台程序；普通版 Godot 无法运行核心 C# 脚本。
+安装 Godot 4.7.2 .NET 版和 .NET 8 SDK。保留仓库中的 `rpg.sln`：Godot .NET 导出会查找它，在 Rider 中也应打开该解决方案以加载 C# 项目。检查脚本会优先使用 `GODOT_BIN` 环境变量，其次查找 PATH 中的 Godot，最后查找本机已安装的 Godot 4.7.2 .NET 控制台程序；普通版 Godot 无法运行核心 C# 脚本。
 
 若安装在别处，可在 PowerShell 中设置：
 
@@ -38,9 +38,9 @@ powershell -ExecutionPolicy Bypass -File tools/check.ps1
 powershell -ExecutionPolicy Bypass -File tools/check.ps1 -ExportWindows
 ```
 
-该命令也会启动导出的程序并确认正常退出。C# 导出可能生成程序及其依赖文件；分发时应保留完整的 `build/windows/` 输出目录。导出文件不提交到 Git。
+该命令也会启动导出的程序并确认正常退出，然后将 `build/windows/` 中的 `rpg.exe` 和 .NET 运行时依赖打包为 `build/rpg-windows.zip`。分发压缩包时需完整解压后运行 `rpg.exe`，保留其中的相对目录结构。导出文件不提交到 Git。
 
-在 Rider 中打开项目后，可从右上角的运行配置列表选择 **Export Windows single EXE**，点击运行。该共享配置执行上面的检查与导出命令；需要 Rider 的 Shell Script 插件（通常随 Rider 安装）。每个功能的开发和交付约定见 `AGENTS.md`。
+在 Rider 中打开 `rpg.sln` 后，可从右上角的运行配置列表选择 **Export Windows ZIP**，点击运行。该共享配置执行上面的检查与导出命令；需要 Rider 的 Shell Script 插件（通常随 Rider 安装）。每个功能的开发和交付约定见 `AGENTS.md`。
 
 ## 用 OpenSpec 记录目标
 
