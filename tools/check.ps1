@@ -10,7 +10,7 @@ if ($env:GODOT_BIN) {
     }
     $candidates += $env:GODOT_BIN
 }
-foreach ($name in @('godot', 'godot4')) {
+foreach ($name in @('godot-mono', 'godot', 'godot4')) {
     $command = Get-Command $name -ErrorAction SilentlyContinue
     if ($command) { $candidates += $command.Source }
 }
