@@ -22,7 +22,7 @@ zoom = Vector2(1.4, 1.4)
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 336.0
-offset_bottom = 200.0
+offset_bottom = 240.0
 script = ExtResource("4_debug")
 
 [node name="Options" type="VBoxContainer" parent="RadarLayer/DebugPanel"]
@@ -43,6 +43,9 @@ max_value = 4.0
 step = 0.25
 value = 1.0
 
+[node name="AddMonsterButton" type="Button" parent="RadarLayer/DebugPanel/Options"]
+text = "Add monster"
+
 [node name="SaveDirLabel" type="Label" parent="RadarLayer/DebugPanel/Options"]
 text = "存档目录"
 
@@ -52,9 +55,9 @@ editable = false
 
 [node name="ChunkRadar" type="Control" parent="RadarLayer"]
 offset_left = 16.0
-offset_top = 206.0
+offset_top = 246.0
 offset_right = 320.0
-offset_bottom = 590.0
+offset_bottom = 630.0
 clip_contents = true
 mouse_filter = 2
 script = ExtResource("3_radar")

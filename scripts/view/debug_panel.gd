@@ -1,9 +1,12 @@
-## 提供区块边缘、雷达、视野和存档目录的调试信息。
+## 提供区块边缘、雷达、视野、怪物创建和存档目录的调试操作。
 class_name DebugPanel
 extends PanelContainer
 
 ## 视野高度倍数变化时通知主镜头。
 signal view_height_changed(multiplier: float)
+
+## 请求在玩家当前区块创建一个怪物实体。
+signal add_monster_requested
 
 ## 切换区块边缘线的按钮。
 @onready var borders_button: CheckButton = $Options/BordersButton
@@ -15,6 +18,9 @@ signal view_height_changed(multiplier: float)
 
 ## 调整镜头可见世界高度的滑条。
 @onready var view_height_slider: HSlider = $Options/ViewHeightSlider
+
+## 在当前区块创建怪物的按钮。
+@onready var add_monster_button: Button = $Options/AddMonsterButton
 
 ## 显示可选中复制的正式存档目录。
 @onready var save_dir_path: LineEdit = $Options/SaveDirPath
@@ -35,6 +41,8 @@ func bind(world: WorldState) -> void:
 		radar_button.toggled.connect(_on_radar_toggled)
 	if not view_height_slider.value_changed.is_connected(_on_view_height_changed):
 		view_height_slider.value_changed.connect(_on_view_height_changed)
+	if not add_monster_button.pressed.is_connected(_on_add_monster_pressed):
+		add_monster_button.pressed.connect(_on_add_monster_pressed)
 	_sync_buttons()
 	_on_view_height_changed(view_height_slider.value)
 
@@ -64,6 +72,11 @@ func _on_radar_toggled(enabled: bool) -> void:
 func _on_view_height_changed(multiplier: float) -> void:
 	view_height_label.text = "视野高度 %.2f×" % multiplier
 	view_height_changed.emit(multiplier)
+
+
+## 将创建请求交给当前游玩会话。
+func _on_add_monster_pressed() -> void:
+	add_monster_requested.emit()
 
 
 ## 显示当前存档管理器实际使用的绝对目录。

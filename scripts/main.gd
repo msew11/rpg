@@ -58,6 +58,7 @@ var mode := MODE_TITLE
 ## 绑定各视图并加载玩家附近区块。
 func _ready() -> void:
 	debug_panel.view_height_changed.connect(_on_view_height_changed)
+	debug_panel.add_monster_requested.connect(_on_add_monster_requested)
 	debug_panel.set_save_directory(ProjectSettings.globalize_path(save_slots.save_dir))
 	_bind_session()
 	_on_view_height_changed(debug_panel.view_height_slider.value)
@@ -106,6 +107,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 ## 按视野高度倍数缩小镜头缩放。
 func _on_view_height_changed(multiplier: float) -> void:
 	camera.zoom = Vector2.ONE * (DEFAULT_CAMERA_ZOOM / multiplier)
+
+
+## 仅在游玩时于玩家当前区块创建怪物实体。
+func _on_add_monster_requested() -> void:
+	if mode == MODE_PLAYING:
+		session.world.create_monster(session.player_position())
 
 
 ## 重建玩家显示节点并恢复当前世界状态。

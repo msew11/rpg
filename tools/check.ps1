@@ -55,6 +55,7 @@ Invoke-GodotCheck 'chunk coordinates' @('--headless', '--path', $projectPath, '-
 Invoke-GodotCheck 'manual chunk cfg' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_manual_chunk_cfg.gd')
 Invoke-GodotCheck 'world state data' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_world_state_data.gd')
 Invoke-GodotCheck 'chunk world state' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_world.gd')
+Invoke-GodotCheck 'debug monster creation' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_debug_monster.gd')
 Invoke-GodotCheck 'chunk display' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_view.gd')
 Invoke-GodotCheck 'save slots and start menu' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_save_slots.gd')
 Invoke-GodotCheck 'working save and system chat' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_working_save.gd')

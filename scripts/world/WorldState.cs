@@ -316,6 +316,26 @@ public partial class WorldState : RefCounted
     public long chunk_entity(Vector2I raw) =>
         _chunkEntities.GetValueOrDefault(WorldMath.CanonicalChunk(raw, chunks().world_size));
 
+    /// <summary>在指定位置所属的活跃行走区块内随机创建怪物子实体。</summary>
+    public long create_monster(Vector2 nearPosition)
+    {
+        var chunkSize = chunks().chunk_size;
+        if (chunkSize.X <= 0 || chunkSize.Y <= 0)
+            return 0;
+        var raw = WorldMath.RawChunk(WorldMath.TileAt(nearPosition), chunkSize);
+        if (!chunks().loaded.Contains(raw))
+            return 0;
+        var parentId = chunk_entity(raw);
+        if (parentId == 0)
+            return 0;
+        var position = new Vector2(raw.X * chunkSize.X + Random.Shared.Next(chunkSize.X) + 0.5f,
+            raw.Y * chunkSize.Y + Random.Shared.Next(chunkSize.Y) + 0.5f);
+        var entityId = ecs.CreateEntity(parentId);
+        ecs.AddComponent(entityId, new MonsterComponent());
+        ecs.AddComponent(entityId, new PositionComponent(position));
+        return entityId;
+    }
+
     /// <summary>设置玩家朝向，并在有效变化时通知视图。</summary>
     public void set_player_facing(long entityId, Vector2I value)
     {
