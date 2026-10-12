@@ -6,7 +6,7 @@ public partial class TileInteractionSystem : EcsSystem
     /// <summary>此系统没有逐帧行为。</summary>
     public override void Update(EcsWorld world, double delta) { }
 
-    /// <summary>切换已加载地块并标记区块数据变化。</summary>
+    /// <summary>切换已加载地块。</summary>
     [EcsEventHandler(typeof(ToggleTileEvent))]
     private void OnToggleTile(EcsWorld world, ToggleTileEvent gameEvent)
     {
@@ -24,6 +24,6 @@ public partial class TileInteractionSystem : EcsSystem
         var tiles = chunks.tiles_for(canonical);
         var index = local.Y * chunks.chunk_size.X + local.X;
         tiles[index] = (byte)(1 - tiles[index]);
-        gameEvent.chunks_changed = chunks.set_tiles(canonical, tiles);
+        chunks.set_tiles(canonical, tiles);
     }
 }

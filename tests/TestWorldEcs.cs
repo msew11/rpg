@@ -37,6 +37,9 @@ public partial class TestWorldEcs : SceneTree
                 .All(property => property.SetMethod is null), "chunk view has no writable properties");
             Check(typeof(WorldDebugView).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .All(property => property.SetMethod is null), "debug view has no writable properties");
+            Check(typeof(WorldCommandEvent).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .All(property => property.Name is not ("chunks_changed" or "debug_changed")),
+                "event does not expose notification hints");
             var loadedCopy = state.chunks().loaded;
             loadedCopy.Add(new Vector2I(9, 9));
             Check(!state.chunks().loaded.Contains(new Vector2I(9, 9)), "loaded query returns a separate collection");

@@ -15,7 +15,6 @@ public partial class DebugSettingsSystem : EcsSystem
         if (debug.edges == gameEvent.enabled)
             return;
         debug.edges = gameEvent.enabled;
-        gameEvent.debug_changed = true;
     }
 
     /// <summary>更新雷达状态。</summary>
@@ -29,6 +28,5 @@ public partial class DebugSettingsSystem : EcsSystem
         if (debug.radar == gameEvent.enabled)
             return;
         debug.radar = gameEvent.enabled;
-        gameEvent.debug_changed = true;
     }
 }

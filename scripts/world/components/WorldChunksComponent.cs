@@ -27,6 +27,9 @@ public partial class WorldChunksComponent : EcsComponent
     /// <summary>返回当前持有地块数组的规范区块数量。</summary>
     public int active_count() => _tilesById.Count;
 
+    /// <summary>返回当前持有地块数据的规范区块标识快照。</summary>
+    internal Vector2I[] chunk_ids() => _tilesById.Keys.ToArray();
+
     /// <summary>释放指定规范区块的地块数组。</summary>
     public bool remove_chunk(Vector2I canonicalId) => _tilesById.Remove(canonicalId);
 

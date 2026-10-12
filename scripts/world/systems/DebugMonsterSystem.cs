@@ -51,6 +51,5 @@ public partial class DebugMonsterSystem : EcsSystem
         world.AddComponent(entityId, new MonsterComponent());
         world.AddComponent(entityId, new PositionComponent(position));
         gameEvent.entity_id = entityId;
-        gameEvent.chunks_changed = true;
     }
 }

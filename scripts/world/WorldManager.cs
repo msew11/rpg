@@ -41,6 +41,28 @@ public partial class WorldManager : RefCounted
     /// <summary>活跃规范区块与其实体标识。</summary>
     private readonly Dictionary<Vector2I, long> _chunkEntities = [];
 
+    /// <summary>保存通知所需的可观察世界状态快照。</summary>
+    private sealed class VisibleStateSnapshot
+    {
+        /// <summary>玩家位置与朝向。</summary>
+        public Dictionary<long, (Vector2 Position, Vector2I Facing)> Players { get; init; } = [];
+
+        /// <summary>区块尺寸与加载配置。</summary>
+        public (Vector2I Chunk, Vector2I World, Vector2I Active) ChunkConfig { get; init; }
+
+        /// <summary>当前加载的行走区块。</summary>
+        public Vector2I[] Loaded { get; init; } = [];
+
+        /// <summary>当前持有的规范区块地块副本。</summary>
+        public Dictionary<Vector2I, byte[]> Tiles { get; init; } = [];
+
+        /// <summary>活跃区块下的实体树数据。</summary>
+        public Dictionary<Vector2I, string> Entities { get; init; } = [];
+
+        /// <summary>调试视图的两个开关。</summary>
+        public (bool Edges, bool Radar) Debug { get; init; }
+    }
+
     /// <summary>记录一个组件的稳定类型名和落地内容。</summary>
     private sealed class PersistedComponentRecord
     {
@@ -107,22 +129,14 @@ public partial class WorldManager : RefCounted
         return entityId;
     }
 
-    /// <summary>推进 ECS，并在玩家位置或朝向变化时通知视图。</summary>
+    /// <summary>推进 ECS，并通知实际改变的世界视图。</summary>
     public void step(double delta)
     {
-        var previous = new Dictionary<long, (Vector2 Position, Vector2I Facing)>();
+        var previous = CaptureVisibleState();
         var previousLoaded = ChunksComponent().loaded.ToArray();
-        foreach (var entityId in _ecs.Query(typeof(PositionComponent), typeof(FacingComponent)))
-            previous[entityId] = (player_position(entityId), player_facing(entityId));
         _ecs.Step(delta);
         SyncChunkEntities(previousLoaded);
-        if (!ChunksComponent().loaded.SequenceEqual(previousLoaded))
-            EmitSignal("chunks_changed");
-        foreach (var (entityId, state) in previous)
-        {
-            if (player_position(entityId) != state.Position || player_facing(entityId) != state.Facing)
-                EmitSignal("player_changed", entityId);
-        }
+        EmitChangedSignals(previous);
     }
 
     /// <summary>在加载范围变化后卸载离开区块并创建新进入的区块。</summary>
@@ -291,18 +305,71 @@ public partial class WorldManager : RefCounted
     /// <summary>读取玩家当前保留的朝向。</summary>
     public Vector2I player_facing(long entityId) => _ecs.GetComponent<FacingComponent>(entityId)!.value;
 
-    /// <summary>将交互事件交给 ECS 路由，并通知对应的世界视图。</summary>
+    /// <summary>将交互事件交给 ECS 路由，并按实际状态变化通知视图。</summary>
     public bool send_event(EcsEvent eventData)
     {
+        var previous = CaptureVisibleState();
         var handled = _ecs.SendEvent(eventData);
-        if (eventData is WorldCommandEvent command)
-        {
-            if (command.chunks_changed)
-                EmitSignal("chunks_changed");
-            if (command.debug_changed)
-                EmitSignal("debug_changed");
-        }
+        EmitChangedSignals(previous);
         return handled;
+    }
+
+    /// <summary>复制玩家、区块和调试视图依赖的状态。</summary>
+    private VisibleStateSnapshot CaptureVisibleState()
+    {
+        var chunks = ChunksComponent();
+        var debug = _ecs.GetComponent<WorldDebugComponent>(world_entity_id)!;
+        var players = new Dictionary<long, (Vector2 Position, Vector2I Facing)>();
+        foreach (var entityId in _ecs.Query(typeof(PositionComponent), typeof(FacingComponent)))
+            players[entityId] = (player_position(entityId), player_facing(entityId));
+        var tiles = new Dictionary<Vector2I, byte[]>();
+        foreach (var canonical in chunks.chunk_ids())
+            tiles[canonical] = chunks.tiles_for(canonical);
+        var entities = new Dictionary<Vector2I, string>();
+        foreach (var (canonical, entityId) in _chunkEntities)
+            entities[canonical] = CaptureChunkTree(entityId);
+        return new VisibleStateSnapshot
+        {
+            Players = players,
+            ChunkConfig = (chunks.chunk_size, chunks.world_size, chunks.active_chunk_size),
+            Loaded = chunks.loaded.ToArray(),
+            Tiles = tiles,
+            Entities = entities,
+            Debug = (debug.edges, debug.radar)
+        };
+    }
+
+    /// <summary>只为与快照不同的公开视图发出变化通知。</summary>
+    private void EmitChangedSignals(VisibleStateSnapshot previous)
+    {
+        var current = CaptureVisibleState();
+        foreach (var entityId in previous.Players.Keys.Union(current.Players.Keys))
+        {
+            if (!previous.Players.TryGetValue(entityId, out var oldState) ||
+                !current.Players.TryGetValue(entityId, out var newState) || oldState != newState)
+                EmitSignal("player_changed", entityId);
+        }
+        if (previous.ChunkConfig != current.ChunkConfig ||
+            !previous.Loaded.SequenceEqual(current.Loaded) ||
+            !SameEntries(previous.Tiles, current.Tiles, (left, right) => left.SequenceEqual(right)) ||
+            !SameEntries(previous.Entities, current.Entities, (left, right) => left == right))
+            EmitSignal("chunks_changed");
+        if (previous.Debug != current.Debug)
+            EmitSignal("debug_changed");
+    }
+
+    /// <summary>比较两份以规范区块标识索引的状态快照。</summary>
+    private static bool SameEntries<T>(Dictionary<Vector2I, T> left, Dictionary<Vector2I, T> right,
+        Func<T, T, bool> equals)
+    {
+        if (left.Count != right.Count)
+            return false;
+        foreach (var (key, value) in left)
+        {
+            if (!right.TryGetValue(key, out var other) || !equals(value, other))
+                return false;
+        }
+        return true;
     }
 
     /// <summary>设置玩家位置，并在有效变化时通知视图。</summary>
