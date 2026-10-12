@@ -1,4 +1,4 @@
-## 验证 openspec/specs/world-interaction-events 的真实变化通知场景。
+## 验证 openspec/specs/world-interaction-events 的真实变化通知与三态事件结果场景。
 class_name TestWorldNotifications
 extends SceneTree
 
@@ -18,27 +18,31 @@ func _initialize() -> void:
 	world.chunks_changed.connect(on_chunks_changed)
 	world.debug_changed.connect(on_debug_changed)
 
-	assert(world.send_event(SetDebugEdgesEvent.Create(false)))
+	_expect_result(world.send_event(TestUnroutedWorldEvent.new()), false, false)
+	assert(player_changes.is_empty() and chunk_changes.is_empty() and debug_changes.is_empty())
+	_expect_result(world.send_event(SetDebugEdgesEvent.Create(false)), true, false)
 	assert(debug_changes.is_empty())
-	assert(world.send_event(SetDebugEdgesEvent.Create(true)))
+	_expect_result(world.send_event(SetDebugEdgesEvent.Create(true)), true, true)
 	assert(debug_changes.size() == 1)
-	assert(world.send_event(SetDebugEdgesEvent.Create(true)))
+	_expect_result(world.send_event(SetDebugEdgesEvent.Create(true)), true, false)
 	assert(debug_changes.size() == 1)
 
-	assert(world.send_event(ToggleTileEvent.Create(Vector2(25, 25))))
+	_expect_result(world.send_event(ToggleTileEvent.Create(Vector2(25, 25))), true, false)
 	assert(chunk_changes.is_empty())
-	assert(world.send_event(ToggleTileEvent.Create(Vector2.ZERO)))
+	_expect_result(world.send_event(ToggleTileEvent.Create(Vector2.ZERO)), true, true)
 	assert(chunk_changes.size() == 1)
-	assert(world.send_event(SpawnDebugMonsterEvent.Create(Vector2(25, 25))))
+	_expect_result(world.send_event(SpawnDebugMonsterEvent.Create(Vector2(25, 25))), true, false)
 	assert(chunk_changes.size() == 1)
 	var spawn := SpawnDebugMonsterEvent.Create(Vector2.ZERO)
-	assert(world.send_event(spawn) and spawn.entity_id != 0)
+	_expect_result(world.send_event(spawn), true, true)
+	assert(spawn.entity_id != 0)
 	assert(chunk_changes.size() == 2)
 
-	assert(world.send_event(MoveIntentEvent.Create(-1, Vector2i.RIGHT)))
+	_expect_result(world.send_event(MoveIntentEvent.Create(-1, Vector2i.RIGHT)), true, false)
 	world.step(0.0)
 	assert(player_changes.is_empty() and chunk_changes.size() == 2)
-	assert(world.send_event(MoveIntentEvent.Create(player_id, Vector2i.RIGHT)))
+	_expect_result(world.send_event(MoveIntentEvent.Create(player_id, Vector2i.RIGHT)), true, true)
+	_expect_result(world.send_event(MoveIntentEvent.Create(player_id, Vector2i.RIGHT)), true, false)
 	assert(player_changes.is_empty())
 	world.step(0.0)
 	assert(player_changes == [player_id])
@@ -53,3 +57,9 @@ func _initialize() -> void:
 	world.debug_changed.disconnect(on_debug_changed)
 	print("test_world_notifications passed")
 	quit()
+
+
+## 检查一次世界事件的路由结果与状态变化结果。
+func _expect_result(result: WorldEventResult, expected_handled: bool, expected_changed: bool) -> void:
+	assert(result.handled == expected_handled)
+	assert(result.changed == expected_changed)

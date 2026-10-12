@@ -305,13 +305,24 @@ public partial class WorldManager : RefCounted
     /// <summary>读取玩家当前保留的朝向。</summary>
     public Vector2I player_facing(long entityId) => _ecs.GetComponent<FacingComponent>(entityId)!.value;
 
-    /// <summary>将交互事件交给 ECS 路由，并按实际状态变化通知视图。</summary>
-    public bool send_event(EcsEvent eventData)
+    /// <summary>路由交互事件并报告处理与变化结果，同时通知实际改变的视图。</summary>
+    public WorldEventResult send_event(EcsEvent eventData)
     {
         var previous = CaptureVisibleState();
+        var previousIntents = CaptureMovementIntents();
         var handled = _ecs.SendEvent(eventData);
-        EmitChangedSignals(previous);
-        return handled;
+        var visibleChanged = EmitChangedSignals(previous);
+        var intentChanged = !SameEntries(previousIntents, CaptureMovementIntents(), (left, right) => left == right);
+        return new WorldEventResult(handled, visibleChanged || intentChanged);
+    }
+
+    /// <summary>复制当前实体的移动意图供命令结果比较。</summary>
+    private Dictionary<long, Vector2I> CaptureMovementIntents()
+    {
+        var result = new Dictionary<long, Vector2I>();
+        foreach (var entityId in _ecs.Query(typeof(MovementIntentComponent)))
+            result[entityId] = _ecs.GetComponent<MovementIntentComponent>(entityId)!.value;
+        return result;
     }
 
     /// <summary>复制玩家、区块和调试视图依赖的状态。</summary>
@@ -339,28 +350,39 @@ public partial class WorldManager : RefCounted
         };
     }
 
-    /// <summary>只为与快照不同的公开视图发出变化通知。</summary>
-    private void EmitChangedSignals(VisibleStateSnapshot previous)
+    /// <summary>只为与快照不同的公开视图发出通知并报告是否有变化。</summary>
+    private bool EmitChangedSignals(VisibleStateSnapshot previous)
     {
         var current = CaptureVisibleState();
+        var changed = false;
         foreach (var entityId in previous.Players.Keys.Union(current.Players.Keys))
         {
             if (!previous.Players.TryGetValue(entityId, out var oldState) ||
                 !current.Players.TryGetValue(entityId, out var newState) || oldState != newState)
+            {
                 EmitSignal("player_changed", entityId);
+                changed = true;
+            }
         }
         if (previous.ChunkConfig != current.ChunkConfig ||
             !previous.Loaded.SequenceEqual(current.Loaded) ||
             !SameEntries(previous.Tiles, current.Tiles, (left, right) => left.SequenceEqual(right)) ||
             !SameEntries(previous.Entities, current.Entities, (left, right) => left == right))
+        {
             EmitSignal("chunks_changed");
+            changed = true;
+        }
         if (previous.Debug != current.Debug)
+        {
             EmitSignal("debug_changed");
+            changed = true;
+        }
+        return changed;
     }
 
-    /// <summary>比较两份以规范区块标识索引的状态快照。</summary>
-    private static bool SameEntries<T>(Dictionary<Vector2I, T> left, Dictionary<Vector2I, T> right,
-        Func<T, T, bool> equals)
+    /// <summary>比较两份以相同键索引的状态快照。</summary>
+    private static bool SameEntries<TKey, T>(Dictionary<TKey, T> left, Dictionary<TKey, T> right,
+        Func<T, T, bool> equals) where TKey : notnull
     {
         if (left.Count != right.Count)
             return false;

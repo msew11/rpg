@@ -37,6 +37,8 @@ public partial class TestWorldEcs : SceneTree
                 .All(property => property.SetMethod is null), "chunk view has no writable properties");
             Check(typeof(WorldDebugView).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .All(property => property.SetMethod is null), "debug view has no writable properties");
+            Check(typeof(WorldEventResult).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .All(property => property.SetMethod is null), "event result has no writable properties");
             Check(typeof(WorldCommandEvent).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .All(property => property.Name is not ("chunks_changed" or "debug_changed")),
                 "event does not expose notification hints");
