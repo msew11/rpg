@@ -12,6 +12,8 @@ const MODE_PLAYING := 1
 const MODE_LOAD := 2
 ## 当前从游戏保存存档。
 const MODE_SAVE := 3
+## 默认镜头缩放，用作视野高度滑条的基准。
+const DEFAULT_CAMERA_ZOOM := 1.4
 
 ## 持续跟随玩家的主镜头。
 @onready var camera: Camera2D = $Camera2D
@@ -55,7 +57,9 @@ var mode := MODE_TITLE
 
 ## 绑定各视图并加载玩家附近区块。
 func _ready() -> void:
+	debug_panel.view_height_changed.connect(_on_view_height_changed)
 	_bind_session()
+	_on_view_height_changed(debug_panel.view_height_slider.value)
 	$MenuLayer/Menu/Center/Panel/Content/Rows/TitleActions/StartButton.pressed.connect(start_new_game)
 	$MenuLayer/Menu/Center/Panel/Content/Rows/TitleActions/LoadButton.pressed.connect(show_load_slots)
 	$MenuLayer/Menu/Center/Panel/Content/Rows/SlotActions/BackButton.pressed.connect(_on_back_pressed)
@@ -73,7 +77,18 @@ func _physics_process(delta: float) -> void:
 	_sync_view()
 
 
-## 处理地图、地块切换和边缘显示快捷键。
+## 在 GUI 接收空格前处理地块快捷键，避免聚焦开关被触发。
+func _input(event: InputEvent) -> void:
+	if mode != MODE_PLAYING or world_map.visible or not event is InputEventKey or not event.pressed or event.echo or event.keycode != KEY_SPACE:
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused is LineEdit or focused is TextEdit:
+		return
+	session.world.toggle_tile(session.player_position())
+	get_viewport().set_input_as_handled()
+
+
+## 处理地图和边缘显示快捷键。
 func _unhandled_key_input(event: InputEvent) -> void:
 	if mode != MODE_PLAYING or not event is InputEventKey or not event.pressed or event.echo:
 		return
@@ -81,10 +96,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		world_map.toggle_open()
 	elif world_map.visible:
 		return
-	elif event.keycode == KEY_SPACE:
-		session.world.toggle_tile(session.player_position())
 	elif event.keycode == KEY_F3:
 		session.world.set_debug_edges(not session.world.debug().edges)
+
+
+## 按视野高度倍数缩小镜头缩放。
+func _on_view_height_changed(multiplier: float) -> void:
+	camera.zoom = Vector2.ONE * (DEFAULT_CAMERA_ZOOM / multiplier)
 
 
 ## 重建玩家显示节点并恢复当前世界状态。

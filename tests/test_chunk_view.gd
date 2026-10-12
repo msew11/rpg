@@ -1,4 +1,4 @@
-## 验证 openspec/specs/continuous-chunk-world/spec.md 的区块显示、雷达及完整地图场景。
+## 验证 openspec/specs/continuous-chunk-world/spec.md 的区块显示、调试视野、快捷键及完整地图场景。
 class_name TestChunkView
 extends SceneTree
 
@@ -22,6 +22,14 @@ func run_test() -> void:
 	assert(main.debug_panel.borders_button.text.begins_with("F3"))
 	assert(not main.debug_panel.borders_button.button_pressed)
 	assert(main.debug_panel.radar_button.button_pressed)
+	assert(is_equal_approx(main.camera.zoom.x, 1.4))
+	main.debug_panel.view_height_slider.value = 2.0
+	assert(is_equal_approx(main.camera.zoom.x, 0.7))
+	assert(is_equal_approx(main.camera.zoom.y, 0.7))
+	assert(main.debug_panel.view_height_label.text.contains("2.00"))
+	assert(_loaded_count(main) == 9)
+	main.debug_panel.view_height_slider.value = 1.0
+	assert(is_equal_approx(main.camera.zoom.x, 1.4))
 	assert(main.radar.visible)
 	assert(main.radar.chunk_corners(Vector2i(0, 0)).size() == 4)
 	assert(main.radar.chunk_outline_color(Vector2i(0, 0)) == ChunkRadar.CURRENT_COLOR)
@@ -66,6 +74,20 @@ func run_test() -> void:
 	assert(not main.radar.visible)
 	main.debug_panel.radar_button.button_pressed = true
 	assert(main.radar.visible)
+	var tile_before_space: int = main.session.world.tile_type(Vector2i(12, 1))
+	main.debug_panel.radar_button.grab_focus()
+	var space_key := InputEventKey.new()
+	space_key.keycode = KEY_SPACE
+	space_key.pressed = true
+	main.get_viewport().push_input(space_key, true)
+	assert(main.session.world.tile_type(Vector2i(12, 1)) != tile_before_space)
+	assert(main.debug_panel.radar_button.button_pressed)
+	assert(main.debug_panel.borders_button.button_pressed)
+	main.debug_panel.borders_button.grab_focus()
+	main.get_viewport().push_input(space_key, true)
+	assert(main.session.world.tile_type(Vector2i(12, 1)) == tile_before_space)
+	assert(main.debug_panel.radar_button.button_pressed)
+	assert(main.debug_panel.borders_button.button_pressed)
 	_move_to(main, Vector2(-1, -1))
 	_assert_radar_coverage(main)
 	assert(main.radar.visible_chunks().size() > 25)
@@ -96,7 +118,7 @@ func run_test() -> void:
 	_move_to(main, Vector2(49, 1))
 	assert(main.ground.displayed_tile_type(Vector2i(49, 1)) == main.session.world.tile_type(Vector2i(1, 1)))
 	assert(main.camera.position == UtilIsometricProjection.to_screen(Vector2(49, 1)))
-	assert(main.radar.position == Vector2(16, 88))
+	assert(main.radar.position == Vector2(16, 152))
 	var map_key := InputEventKey.new()
 	map_key.keycode = KEY_M
 	map_key.pressed = true

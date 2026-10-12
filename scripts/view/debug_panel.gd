@@ -2,10 +2,19 @@
 class_name DebugPanel
 extends PanelContainer
 
+## 视野高度倍数变化时通知主镜头。
+signal view_height_changed(multiplier: float)
+
 ## 切换区块边缘线的按钮。
 @onready var borders_button: CheckButton = $Options/BordersButton
 ## 切换雷达显示的按钮。
 @onready var radar_button: CheckButton = $Options/RadarButton
+
+## 显示当前视野高度倍数。
+@onready var view_height_label: Label = $Options/ViewHeightLabel
+
+## 调整镜头可见世界高度的滑条。
+@onready var view_height_slider: HSlider = $Options/ViewHeightSlider
 
 ## 调试面板读取和更新的世界状态。
 var source: WorldState
@@ -21,7 +30,10 @@ func bind(world: WorldState) -> void:
 		borders_button.toggled.connect(_on_borders_toggled)
 	if not radar_button.toggled.is_connected(_on_radar_toggled):
 		radar_button.toggled.connect(_on_radar_toggled)
+	if not view_height_slider.value_changed.is_connected(_on_view_height_changed):
+		view_height_slider.value_changed.connect(_on_view_height_changed)
 	_sync_buttons()
+	_on_view_height_changed(view_height_slider.value)
 
 
 ## 在调试设置变化时同步开关状态。
@@ -43,3 +55,9 @@ func _on_borders_toggled(enabled: bool) -> void:
 ## 将雷达开关写入世界数据。
 func _on_radar_toggled(enabled: bool) -> void:
 	source.set_debug_radar(enabled)
+
+
+## 更新数值提示并通知镜头改变可见高度。
+func _on_view_height_changed(multiplier: float) -> void:
+	view_height_label.text = "视野高度 %.2f×" % multiplier
+	view_height_changed.emit(multiplier)

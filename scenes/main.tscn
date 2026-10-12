@@ -22,7 +22,7 @@ zoom = Vector2(1.4, 1.4)
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 256.0
-offset_bottom = 82.0
+offset_bottom = 146.0
 script = ExtResource("4_debug")
 
 [node name="Options" type="VBoxContainer" parent="RadarLayer/DebugPanel"]
@@ -33,11 +33,21 @@ text = "F3 · Show borders"
 [node name="RadarButton" type="CheckButton" parent="RadarLayer/DebugPanel/Options"]
 text = "Show radar"
 
+[node name="ViewHeightLabel" type="Label" parent="RadarLayer/DebugPanel/Options"]
+text = "视野高度 1.00×"
+
+[node name="ViewHeightSlider" type="HSlider" parent="RadarLayer/DebugPanel/Options"]
+custom_minimum_size = Vector2(210, 24)
+min_value = 1.0
+max_value = 4.0
+step = 0.25
+value = 1.0
+
 [node name="ChunkRadar" type="Control" parent="RadarLayer"]
 offset_left = 16.0
-offset_top = 88.0
+offset_top = 152.0
 offset_right = 320.0
-offset_bottom = 472.0
+offset_bottom = 536.0
 clip_contents = true
 mouse_filter = 2
 script = ExtResource("3_radar")
