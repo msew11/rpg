@@ -78,5 +78,30 @@ if ($ExportWindows) {
         throw "Exported game failed to start (exit code $($game.ExitCode))."
     }
     Write-Host 'Exported game launch passed.'
+
+    $exportDir = Split-Path $exportPath
+    $archivePath = Join-Path $projectPath 'build\rpg-windows.zip'
+    $temporaryArchive = Join-Path $projectPath ("build\rpg-windows-$([guid]::NewGuid().ToString('N')).zip")
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    try {
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($exportDir, $temporaryArchive, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($temporaryArchive)
+        try {
+            $entries = @($archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') })
+            if ('rpg.exe' -notin $entries -or 'data_rpg_windows_x86_64/coreclr.dll' -notin $entries) {
+                throw 'Windows archive is missing the executable or .NET runtime files.'
+            }
+        }
+        finally {
+            $archive.Dispose()
+        }
+        Move-Item -LiteralPath $temporaryArchive -Destination $archivePath -Force
+        Write-Host "Packaged $archivePath"
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryArchive -PathType Leaf) {
+            Remove-Item -LiteralPath $temporaryArchive
+        }
+    }
 }
 Write-Host 'All checks passed.'
