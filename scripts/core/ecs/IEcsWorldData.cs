@@ -12,4 +12,10 @@ public interface IEcsWorldData
 
     /// <summary>按实体标识和组件精确类型保存组件。</summary>
     IDictionary<long, Dictionary<Type, EcsComponent>> Components { get; }
+
+    /// <summary>记录每个子实体的父实体标识。</summary>
+    IDictionary<long, long> ParentByEntity { get; }
+
+    /// <summary>记录每个实体的直接子实体集合。</summary>
+    IDictionary<long, HashSet<long>> ChildrenByEntity { get; }
 }

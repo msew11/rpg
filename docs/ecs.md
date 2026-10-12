@@ -2,9 +2,11 @@
 
 `scripts/core/ecs/` 提供与玩法无关的 C# 内存 ECS。调用方创建 `EcsWorld`，用单调递增的 `long` ID 表示实体；组件继承 `EcsComponent`，系统继承 `EcsSystem`。运行时不依赖场景节点，调用方负责在需要时调用 `Step(delta)`。
 
-实体标识、有效实体集合和组件索引由 `DataEcsWorld : IDataRepoData` 统一承载。默认构造创建独立数据；也可把同一数据实例交给新的 `EcsWorld` 操作。系统注册与调度状态不属于该数据实例。
+实体标识、有效实体集合、组件索引和父子关系经核心 `IEcsWorldData` 接口读写。调用方提供数据实例，也可把同一实例交给新的 `EcsWorld` 使用。系统注册与调度状态不属于该数据实例。
 
-`EcsWorld` 也可直接接收 `DataRepoSingle<DataEcsWorld>`，使用仓库承载的唯一数据实例。
+实体可用 `CreateEntity(parentId)` 指定父实体。`GetParent(id)` 和 `GetChildren(id)` 查询关系；销毁父实体会级联销毁所有后代及其组件。无效父标识无法创建子实体。
+
+组件可覆写 `ToPersistedString()` 与 `FromPersistedString(string)` 提供双向落地；前者默认返回 `null`，表示无需持久化。核心不负责文件写入、实体记录格式或卸载策略。
 
 ```csharp
 public partial class Position : EcsComponent
@@ -23,9 +25,9 @@ public partial class MoveSystem : EcsSystem
 
 public static class Example
 {
-    public static void Run()
+    public static void Run(IEcsWorldData data)
     {
-        using var world = new EcsWorld();
+        using var world = new EcsWorld(data);
         var entityId = world.CreateEntity();
         world.AddComponent(entityId, new Position());
         world.AddSystem(new MoveSystem());
@@ -37,7 +39,7 @@ public static class Example
 
 | 操作 | 行为 |
 | --- | --- |
-| `CreateEntity()`, `DestroyEntity(id)`, `HasEntity(id)` | 创建、销毁和检查实体。ID 不复用；无效 ID 的销毁返回 `false`。 |
+| `CreateEntity()`, `CreateEntity(parentId)`, `DestroyEntity(id)`, `HasEntity(id)` | 创建、级联销毁和检查实体。ID 不复用；无效 ID 的销毁返回 `false`。 |
 | `AddComponent(id, component)` | 按组件实例的精确 C# 类型附加；同类型再次附加会替换旧实例。无效 ID 返回 `false`。 |
 | `HasComponent<T>(id)`, `GetComponent<T>(id)`, `RemoveComponent<T>(id)` | 按静态类型操作；缺失时分别返回 `false`、`null`、`false`。也提供接受 `Type` 的重载。 |
 | `Query(typeof(A), typeof(B))` | 返回同时具有指定类型的实体 ID 快照，按创建顺序排列。`Query()` 返回全部有效实体。 |
