@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 
 /// <summary>验证 openspec/specs/player-movement、world-script-boundaries 与 session-data-repository 的世界状态契约。</summary>
@@ -14,9 +15,13 @@ public partial class TestWorldEcs : SceneTree
             Check(repo is not null, "cache creates the ECS repo before the world");
             Check(ReferenceEquals(repo, cache.GetRepo(typeof(EcsWorldDataRepo))), "cache keeps one ECS repo");
             using var state = new WorldManager(cache);
-            Check(ReferenceEquals(repo!.Data, state.ecs.Data), "world uses repo-owned ECS data");
+            Check(typeof(WorldManager).GetProperties().All(property => property.PropertyType != typeof(EcsWorld)),
+                "world manager does not expose an ECS property");
+            Check(typeof(WorldManager).GetFields().All(field => field.FieldType != typeof(EcsWorld)),
+                "world manager does not expose an ECS field");
             Check(cache.GetRepo(typeof(DataRepoSingle<EcsWorldData>)) is null, "cache uses exact repo type");
-            var ecs = state.ecs;
+            using var ecs = WorldEcsTestAccess.FromCache(cache);
+            Check(ReferenceEquals(repo!.Data, ecs.Data), "world uses repo-owned ECS data");
             var worldId = state.world_entity_id;
             Check(ecs.HasEntity(worldId), "world entity exists");
             Check(ReferenceEquals(ecs.GetComponent<WorldChunksComponent>(worldId), state.chunks()), "world chunks use ECS");

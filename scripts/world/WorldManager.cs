@@ -21,7 +21,7 @@ public partial class WorldManager : RefCounted
     [Signal] public delegate void debug_changedEventHandler();
 
     /// <summary>保存实体组件并调度系统的 ECS 世界。</summary>
-    public EcsWorld ecs { get; }
+    private readonly EcsWorld _ecs;
 
     /// <summary>会话缓存负责临时存档读写。</summary>
     private readonly LocalDataRepoCache _cache;
@@ -57,26 +57,26 @@ public partial class WorldManager : RefCounted
     {
         System.ArgumentNullException.ThrowIfNull(cache);
         _cache = cache;
-        ecs = new EcsWorld(cache.WorldRepo.Data);
-        world_entity_id = ecs.CreateEntity();
-        ecs.AddComponent(world_entity_id, new WorldChunksComponent());
-        ecs.AddComponent(world_entity_id, new WorldDebugComponent());
-        ecs.AddSystem(new MovementSystem());
-        ecs.AddSystem(new ChunkLoadingSystem());
-        ecs.AddSystem(new TileInteractionSystem());
-        ecs.AddSystem(new DebugSettingsSystem());
-        ecs.AddSystem(new DebugMonsterSystem());
+        _ecs = new EcsWorld(cache.WorldRepo.Data);
+        world_entity_id = _ecs.CreateEntity();
+        _ecs.AddComponent(world_entity_id, new WorldChunksComponent());
+        _ecs.AddComponent(world_entity_id, new WorldDebugComponent());
+        _ecs.AddSystem(new MovementSystem());
+        _ecs.AddSystem(new ChunkLoadingSystem());
+        _ecs.AddSystem(new TileInteractionSystem());
+        _ecs.AddSystem(new DebugSettingsSystem());
+        _ecs.AddSystem(new DebugMonsterSystem());
     }
 
     /// <summary>创建具有位置、意图、速度与朝向的玩家实体。</summary>
     public long create_player(Vector2 position, float speed)
     {
-        var entityId = ecs.CreateEntity(world_entity_id);
-        ecs.AddComponent(entityId, new PositionComponent(position));
-        ecs.AddComponent(entityId, new MovementIntentComponent());
-        ecs.AddComponent(entityId, new MoveSpeedComponent(speed));
-        ecs.AddComponent(entityId, new FacingComponent());
-        ecs.AddComponent(entityId, new LocalPlayerComponent());
+        var entityId = _ecs.CreateEntity(world_entity_id);
+        _ecs.AddComponent(entityId, new PositionComponent(position));
+        _ecs.AddComponent(entityId, new MovementIntentComponent());
+        _ecs.AddComponent(entityId, new MoveSpeedComponent(speed));
+        _ecs.AddComponent(entityId, new FacingComponent());
+        _ecs.AddComponent(entityId, new LocalPlayerComponent());
         EmitSignal("player_changed", entityId);
         return entityId;
     }
@@ -86,9 +86,9 @@ public partial class WorldManager : RefCounted
     {
         var previous = new Dictionary<long, (Vector2 Position, Vector2I Facing)>();
         var previousLoaded = chunks().loaded.ToArray();
-        foreach (var entityId in ecs.Query(typeof(PositionComponent), typeof(FacingComponent)))
+        foreach (var entityId in _ecs.Query(typeof(PositionComponent), typeof(FacingComponent)))
             previous[entityId] = (player_position(entityId), player_facing(entityId));
-        ecs.Step(delta);
+        _ecs.Step(delta);
         SyncChunkEntities(previousLoaded);
         if (!chunks().loaded.SequenceEqual(previousLoaded))
             EmitSignal("chunks_changed");
@@ -123,8 +123,8 @@ public partial class WorldManager : RefCounted
                 var baseline = _cfg.Call("tiles_for", canonical).AsByteArray();
                 chunks().set_tiles(canonical, _cache.load_chunk(canonical, baseline));
             }
-            var entityId = ecs.CreateEntity(world_entity_id);
-            ecs.AddComponent(entityId, new ChunkIdComponent(canonical));
+            var entityId = _ecs.CreateEntity(world_entity_id);
+            _ecs.AddComponent(entityId, new ChunkIdComponent(canonical));
             _chunkEntities.Add(canonical, entityId);
             RestoreChunkTree(entityId, _cache.load_entities_json(canonical));
         }
@@ -147,7 +147,7 @@ public partial class WorldManager : RefCounted
         if (!persisted)
             EmitSignal("system_error", $"区块 {canonical.X},{canonical.Y} 临时存档写入失败，本次改动可能丢失。");
         chunks().remove_chunk(canonical);
-        ecs.DestroyEntity(entityId);
+        _ecs.DestroyEntity(entityId);
         return persisted;
     }
 
@@ -170,13 +170,13 @@ public partial class WorldManager : RefCounted
     private PersistedEntityRecord CaptureEntity(long entityId)
     {
         var result = new PersistedEntityRecord();
-        foreach (var (type, component) in ecs.Data.Components[entityId])
+        foreach (var (type, component) in _ecs.Data.Components[entityId])
         {
             var data = component.ToPersistedString();
             if (data is not null)
                 result.Components.Add(new PersistedComponentRecord { Type = type.FullName!, Data = data });
         }
-        foreach (var childId in ecs.GetChildren(entityId))
+        foreach (var childId in _ecs.GetChildren(entityId))
             result.Children.Add(CaptureEntity(childId));
         return result;
     }
@@ -230,7 +230,7 @@ public partial class WorldManager : RefCounted
     /// <summary>恢复一个子实体的组件及其后代。</summary>
     private void RestoreEntity(long parentId, PersistedEntityRecord record)
     {
-        var entityId = ecs.CreateEntity(parentId);
+        var entityId = _ecs.CreateEntity(parentId);
         RestoreEntityData(entityId, record);
     }
 
@@ -244,28 +244,28 @@ public partial class WorldManager : RefCounted
                 Activator.CreateInstance(type) is not EcsComponent component)
                 throw new FormatException($"Invalid persisted component type: {entry.Type}");
             component.FromPersistedString(entry.Data);
-            ecs.AddComponent(entityId, component);
+            _ecs.AddComponent(entityId, component);
         }
         foreach (var child in record.Children)
             RestoreEntity(entityId, child);
     }
 
     /// <summary>读取世界实体的区块组件。</summary>
-    public WorldChunksComponent chunks() => ecs.GetComponent<WorldChunksComponent>(world_entity_id)!;
+    public WorldChunksComponent chunks() => _ecs.GetComponent<WorldChunksComponent>(world_entity_id)!;
 
     /// <summary>读取世界实体的调试显示组件。</summary>
-    public WorldDebugComponent debug() => ecs.GetComponent<WorldDebugComponent>(world_entity_id)!;
+    public WorldDebugComponent debug() => _ecs.GetComponent<WorldDebugComponent>(world_entity_id)!;
 
     /// <summary>读取玩家的连续世界位置。</summary>
-    public Vector2 player_position(long entityId) => ecs.GetComponent<PositionComponent>(entityId)!.value;
+    public Vector2 player_position(long entityId) => _ecs.GetComponent<PositionComponent>(entityId)!.value;
 
     /// <summary>读取玩家当前保留的朝向。</summary>
-    public Vector2I player_facing(long entityId) => ecs.GetComponent<FacingComponent>(entityId)!.value;
+    public Vector2I player_facing(long entityId) => _ecs.GetComponent<FacingComponent>(entityId)!.value;
 
     /// <summary>将交互事件交给 ECS 路由，并通知对应的世界视图。</summary>
     public bool send_event(EcsEvent eventData)
     {
-        var handled = ecs.SendEvent(eventData);
+        var handled = _ecs.SendEvent(eventData);
         if (eventData is WorldCommandEvent command)
         {
             if (command.chunks_changed)
@@ -279,7 +279,7 @@ public partial class WorldManager : RefCounted
     /// <summary>设置玩家位置，并在有效变化时通知视图。</summary>
     public void set_player_position(long entityId, Vector2 value)
     {
-        var position = ecs.GetComponent<PositionComponent>(entityId)!;
+        var position = _ecs.GetComponent<PositionComponent>(entityId)!;
         if (position.value == value)
             return;
         position.value = value;
@@ -326,11 +326,11 @@ public partial class WorldManager : RefCounted
             var chunkId = chunk_entity(raw);
             if (chunkId == 0)
                 continue;
-            foreach (var childId in ecs.GetChildren(chunkId))
+            foreach (var childId in _ecs.GetChildren(chunkId))
             {
-                if (!ecs.HasComponent<MonsterComponent>(childId))
+                if (!_ecs.HasComponent<MonsterComponent>(childId))
                     continue;
-                var position = ecs.GetComponent<PositionComponent>(childId);
+                var position = _ecs.GetComponent<PositionComponent>(childId);
                 if (position is null)
                     continue;
                 var originalRaw = WorldMath.RawChunk(WorldMath.TileAt(position.value), chunkSize);
@@ -344,7 +344,7 @@ public partial class WorldManager : RefCounted
     /// <summary>设置玩家朝向，并在有效变化时通知视图。</summary>
     public void set_player_facing(long entityId, Vector2I value)
     {
-        var facing = ecs.GetComponent<FacingComponent>(entityId)!;
+        var facing = _ecs.GetComponent<FacingComponent>(entityId)!;
         if (facing.value == value)
             return;
         facing.value = value;

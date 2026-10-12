@@ -1,4 +1,4 @@
-## 验证 openspec/specs/player-movement/spec.md 与 session-data-repository/spec.md 的移动及会话隔离场景。
+## 验证 openspec/specs/player-movement、session-data-repository 与 world-script-boundaries 的移动及会话边界场景。
 class_name TestMovement
 extends SceneTree
 
@@ -10,7 +10,7 @@ func _initialize() -> void:
 	var player_id := session.player_id
 	assert(player_id > 0)
 	assert(session.world_manager.player_position(player_id) == Vector2.ZERO)
-	assert(session.world_manager.ecs.HasEntity(player_id))
+	assert(WorldEcsTestAccess.FromCache(session.cache).HasEntity(player_id))
 
 	var directions := [
 		Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1),

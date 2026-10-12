@@ -7,7 +7,8 @@ extends SceneTree
 func _initialize() -> void:
 	var cache := LocalDataRepoCache.new()
 	var world: WorldManager = WorldManager.Create(cache)
-	assert(world.ecs.HasEntity(world.world_entity_id))
+	var ecs: EcsWorld = WorldEcsTestAccess.FromCache(cache)
+	assert(ecs.HasEntity(world.world_entity_id))
 	assert(world.chunks() is WorldChunksComponent)
 	assert(world.debug() is WorldDebugComponent)
 	var player_changes: Array[int] = []
@@ -22,7 +23,7 @@ func _initialize() -> void:
 	var id := world.create_player(Vector2.ZERO, 3.0)
 	assert(id != world.world_entity_id)
 	assert(world.player_position(id) == Vector2.ZERO)
-	assert(world.ecs.HasEntity(id))
+	assert(ecs.HasEntity(id))
 	assert(player_changes == [id])
 	world.set_player_position(id, Vector2(2, 3))
 	assert(world.player_position(id) == Vector2(2, 3))

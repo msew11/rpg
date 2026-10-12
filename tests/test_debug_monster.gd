@@ -1,4 +1,4 @@
-## 验证 openspec/specs/debug-monster-spawning/spec.md 的创建、可见标记、区块恢复与回环场景。
+## 验证 openspec/specs/debug-monster-spawning 与 world-script-boundaries 的创建、实体归属、恢复与回环场景。
 class_name TestDebugMonster
 extends SceneTree
 
@@ -18,13 +18,14 @@ func run_test() -> void:
 	main.set_physics_process(false)
 	main.start_new_game()
 	var world: WorldManager = main.session.world_manager
+	var ecs: EcsWorld = WorldEcsTestAccess.FromCache(main.session.cache)
 	var chunk_id: int = world.chunk_entity(Vector2i.ZERO)
-	var before: PackedInt64Array = world.ecs.GetChildren(chunk_id)
+	var before: PackedInt64Array = ecs.GetChildren(chunk_id)
 	main.debug_panel.add_monster_button.pressed.emit()
-	var children: PackedInt64Array = world.ecs.GetChildren(chunk_id)
+	var children: PackedInt64Array = ecs.GetChildren(chunk_id)
 	assert(children.size() == before.size() + 1)
 	var monster_id: int = children[children.size() - 1]
-	assert(world.ecs.GetParent(monster_id) == chunk_id)
+	assert(ecs.GetParent(monster_id) == chunk_id)
 	var position: Vector2 = world.player_position(monster_id)
 	assert(position.x >= 0.0 and position.x < 12.0)
 	assert(position.y >= 0.0 and position.y < 12.0)
@@ -35,11 +36,11 @@ func run_test() -> void:
 	assert(world.capture_chunk_entities(Vector2i.ZERO).contains("MonsterComponent"))
 	world.set_player_position(main.session.player_id, Vector2(25, 25))
 	world.step(0.0)
-	assert(not world.ecs.HasEntity(monster_id))
+	assert(not ecs.HasEntity(monster_id))
 	assert(not main.monster_layer.visible_positions().has(screen_position))
 	world.set_player_position(main.session.player_id, Vector2.ZERO)
 	world.step(0.0)
-	var restored: PackedInt64Array = world.ecs.GetChildren(world.chunk_entity(Vector2i.ZERO))
+	var restored: PackedInt64Array = ecs.GetChildren(world.chunk_entity(Vector2i.ZERO))
 	assert(restored.size() == children.size())
 	assert(world.player_position(restored[restored.size() - 1]) == position)
 	assert(main.monster_layer.visible_positions().has(screen_position))
