@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
 using Godot;
 
 /// <summary>管理 ECS 实体、组件和系统的生命周期与调度。</summary>
@@ -17,6 +19,9 @@ public partial class EcsWorld : RefCounted
 
     /// <summary>记录系统注册令牌，区分更新期间的重新注册。</summary>
     private readonly Dictionary<EcsSystem, long> _systemTokens = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>按事件精确类型索引已注册系统的处理方法。</summary>
+    private readonly Dictionary<Type, List<(EcsSystem System, MethodInfo Method, long Token)>> _eventRoutes = [];
 
     /// <summary>分配给下一次系统注册的令牌。</summary>
     private long _nextSystemToken = 1;
@@ -146,8 +151,30 @@ public partial class EcsWorld : RefCounted
     {
         if (_systemTokens.ContainsKey(system))
             return false;
+        var handlers = new List<(Type EventType, MethodInfo Method)>();
+        foreach (var method in system.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            var attribute = method.GetCustomAttribute<EcsEventHandlerAttribute>();
+            if (attribute is null)
+                continue;
+            var parameters = method.GetParameters();
+            if (method.IsStatic || method.ContainsGenericParameters || method.ReturnType != typeof(void) ||
+                parameters.Length != 2 || parameters[0].ParameterType != typeof(EcsWorld) ||
+                !typeof(EcsEvent).IsAssignableFrom(attribute.EventType) ||
+                attribute.EventType.IsAbstract || parameters[1].ParameterType != attribute.EventType)
+                throw new ArgumentException($"Invalid ECS event handler: {method.DeclaringType?.Name}.{method.Name}", nameof(system));
+            handlers.Add((attribute.EventType, method));
+        }
+        handlers.Sort((a, b) => a.Method.MetadataToken.CompareTo(b.Method.MetadataToken));
         _systems.Add(system);
-        _systemTokens.Add(system, _nextSystemToken++);
+        var token = _nextSystemToken++;
+        _systemTokens.Add(system, token);
+        foreach (var (eventType, method) in handlers)
+        {
+            if (!_eventRoutes.TryGetValue(eventType, out var route))
+                _eventRoutes[eventType] = route = [];
+            route.Add((system, method, token));
+        }
         return true;
     }
 
@@ -157,7 +184,34 @@ public partial class EcsWorld : RefCounted
         if (!_systemTokens.Remove(system))
             return false;
         _systems.RemoveAll(candidate => ReferenceEquals(candidate, system));
+        foreach (var route in _eventRoutes.Values)
+            route.RemoveAll(handler => ReferenceEquals(handler.System, system));
         return true;
+    }
+
+    /// <summary>将事件同步发送给精确类型匹配的处理方法，返回是否有处理者。</summary>
+    public bool SendEvent(EcsEvent eventData)
+    {
+        ArgumentNullException.ThrowIfNull(eventData);
+        if (!_eventRoutes.TryGetValue(eventData.GetType(), out var route) || route.Count == 0)
+            return false;
+        var scheduled = route.ToArray();
+        var handled = false;
+        foreach (var (system, method, token) in scheduled)
+        {
+            if (!_systemTokens.TryGetValue(system, out var currentToken) || currentToken != token)
+                continue;
+            try
+            {
+                method.Invoke(system, [this, eventData]);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            }
+            handled = true;
+        }
+        return handled;
     }
 
     /// <summary>按注册顺序更新系统，执行期间新增或重新注册的系统留到下次更新。</summary>

@@ -2,6 +2,8 @@
 
 `scripts/core/ecs/` 提供与玩法无关的 C# 内存 ECS。调用方创建 `EcsWorld`，用单调递增的 `long` ID 表示实体；组件继承 `EcsComponent`，系统继承 `EcsSystem`。运行时不依赖场景节点，调用方负责在需要时调用 `Step(delta)`。
 
+交互事件继承 `EcsEvent`。系统用 `[EcsEventHandler(typeof(MyEvent))]` 标记 `void Handler(EcsWorld world, MyEvent value)` 方法；`AddSystem` 收集和校验处理方法，`SendEvent(event)` 按注册顺序同步分发给精确类型匹配的处理者，返回是否被处理。无效声明在注册时抛出参数异常；移除系统会注销其路由。事件与路由不属于持久化数据。
+
 实体标识、有效实体集合、组件索引和父子关系经核心 `IEcsWorldData` 接口读写。调用方提供数据实例，也可把同一实例交给新的 `EcsWorld` 使用。系统注册与调度状态不属于该数据实例。
 
 实体可用 `CreateEntity(parentId)` 指定父实体。`GetParent(id)` 和 `GetChildren(id)` 查询关系；销毁父实体会级联销毁所有后代及其组件。无效父标识无法创建子实体。

@@ -15,6 +15,7 @@ public partial class TestEcs : SceneTree
         try
         {
             RunEcsScenarios();
+            RunEventScenarios();
             RunEntityTreeScenarios();
             RunComponentPersistenceScenarios();
             RunDataRepoScenarios();
@@ -144,6 +145,62 @@ public partial class TestEcs : SceneTree
         Check(replacementCalls.SequenceEqual(["changer"]), "remove and re-add waits until next step");
         replacementWorld.Step(0.25);
         Check(replacementCalls.SequenceEqual(["changer", "changer", "readded"]), "re-added system follows new registration order");
+    }
+
+    /// <summary>验证 ecs-runtime 的注解路由、顺序、注销及错误声明场景。</summary>
+    private void RunEventScenarios()
+    {
+        using var world = new EcsWorld(new TestEcsWorldData());
+        var calls = new List<string>();
+        using var first = new TestEventSystem("first", calls);
+        using var second = new TestEventSystem("second", calls);
+        Check(world.AddSystem(first), "first event system registered");
+        Check(world.AddSystem(second), "second event system registered");
+        using var gameEvent = new TestGameEvent();
+        Check(world.SendEvent(gameEvent), "event finds handlers");
+        Check(calls.SequenceEqual(["first", "second"]), "event follows registration order");
+        Check(world.RemoveSystem(first), "event system removed");
+        Check(world.SendEvent(gameEvent), "remaining event handler runs");
+        Check(calls.SequenceEqual(["first", "second", "second"]), "removed handler is not called");
+        Check(!world.SendEvent(new TestOtherEvent()), "unknown event has no handlers");
+        using var invalid = new TestInvalidEventSystem();
+        try
+        {
+            world.AddSystem(invalid);
+            Check(false, "invalid event handler rejected");
+        }
+        catch (ArgumentException)
+        {
+            Check(true, "invalid event handler rejected");
+        }
+    }
+
+    /// <summary>验证 ECS 事件路由的事件类型。</summary>
+    private sealed partial class TestGameEvent : EcsEvent;
+
+    /// <summary>验证未注册事件的类型。</summary>
+    private sealed partial class TestOtherEvent : EcsEvent;
+
+    /// <summary>记录事件路由的测试系统。</summary>
+    private sealed partial class TestEventSystem(string name, List<string> calls) : EcsSystem
+    {
+        /// <summary>仅满足系统更新契约。</summary>
+        public override void Update(EcsWorld world, double delta) { }
+
+        /// <summary>记录带注解事件的调用次序。</summary>
+        [EcsEventHandler(typeof(TestGameEvent))]
+        private void OnGameEvent(EcsWorld world, TestGameEvent gameEvent) => calls.Add(name);
+    }
+
+    /// <summary>验证无效事件处理声明会拒绝注册。</summary>
+    private sealed partial class TestInvalidEventSystem : EcsSystem
+    {
+        /// <summary>仅满足系统更新契约。</summary>
+        public override void Update(EcsWorld world, double delta) { }
+
+        /// <summary>以错误参数形式覆盖注册验证。</summary>
+        [EcsEventHandler(typeof(TestGameEvent))]
+        private void Invalid(TestGameEvent gameEvent) { }
     }
 
     /// <summary>覆盖 data-repository 的两种形态基类经统一接口返回类型与形态的场景。</summary>
