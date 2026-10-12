@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/view/chunk_ground.gd" id="2_ground"]
@@ -6,12 +6,16 @@
 [ext_resource type="Script" path="res://scripts/view/debug_panel.gd" id="4_debug"]
 [ext_resource type="Script" path="res://scripts/view/world_map.gd" id="5_map"]
 [ext_resource type="Script" path="res://scripts/view/chat_panel.gd" id="6_chat"]
+[ext_resource type="Script" path="res://scripts/view/monster_layer.gd" id="7_monsters"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
 
 [node name="ChunkGround" type="Node2D" parent="."]
 script = ExtResource("2_ground")
+
+[node name="MonsterLayer" type="Node2D" parent="."]
+script = ExtResource("7_monsters")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 zoom = Vector2(1.4, 1.4)

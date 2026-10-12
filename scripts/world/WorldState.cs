@@ -316,7 +316,7 @@ public partial class WorldState : RefCounted
     public long chunk_entity(Vector2I raw) =>
         _chunkEntities.GetValueOrDefault(WorldMath.CanonicalChunk(raw, chunks().world_size));
 
-    /// <summary>在指定位置所属的活跃行走区块内随机创建怪物子实体。</summary>
+    /// <summary>在指定位置附近的活跃行走区块内随机创建怪物子实体。</summary>
     public long create_monster(Vector2 nearPosition)
     {
         var chunkSize = chunks().chunk_size;
@@ -328,12 +328,50 @@ public partial class WorldState : RefCounted
         var parentId = chunk_entity(raw);
         if (parentId == 0)
             return 0;
-        var position = new Vector2(raw.X * chunkSize.X + Random.Shared.Next(chunkSize.X) + 0.5f,
-            raw.Y * chunkSize.Y + Random.Shared.Next(chunkSize.Y) + 0.5f);
+        var tile = WorldMath.TileAt(nearPosition);
+        var origin = new Vector2I(raw.X * chunkSize.X, raw.Y * chunkSize.Y);
+        var candidates = new List<Vector2I>();
+        for (var y = Math.Max(origin.Y, tile.Y - 2); y <= Math.Min(origin.Y + chunkSize.Y - 1, tile.Y + 2); y++)
+        for (var x = Math.Max(origin.X, tile.X - 2); x <= Math.Min(origin.X + chunkSize.X - 1, tile.X + 2); x++)
+        {
+            var candidate = new Vector2I(x, y);
+            if (candidate != tile)
+                candidates.Add(candidate);
+        }
+        var selected = candidates.Count > 0 ? candidates[Random.Shared.Next(candidates.Count)] : tile;
+        var position = new Vector2(selected.X + 0.5f, selected.Y + 0.5f);
         var entityId = ecs.CreateEntity(parentId);
         ecs.AddComponent(entityId, new MonsterComponent());
         ecs.AddComponent(entityId, new PositionComponent(position));
+        EmitSignal("chunks_changed");
         return entityId;
+    }
+
+    /// <summary>读取所有活跃行走区块实例中的怪物显示位置。</summary>
+    public Vector2[] visible_monster_positions()
+    {
+        var result = new List<Vector2>();
+        var chunkSize = chunks().chunk_size;
+        if (chunkSize.X <= 0 || chunkSize.Y <= 0)
+            return result.ToArray();
+        foreach (var raw in chunks().loaded)
+        {
+            var chunkId = chunk_entity(raw);
+            if (chunkId == 0)
+                continue;
+            foreach (var childId in ecs.GetChildren(chunkId))
+            {
+                if (!ecs.HasComponent<MonsterComponent>(childId))
+                    continue;
+                var position = ecs.GetComponent<PositionComponent>(childId);
+                if (position is null)
+                    continue;
+                var originalRaw = WorldMath.RawChunk(WorldMath.TileAt(position.value), chunkSize);
+                result.Add(position.value + new Vector2((raw.X - originalRaw.X) * chunkSize.X,
+                    (raw.Y - originalRaw.Y) * chunkSize.Y));
+            }
+        }
+        return result.ToArray();
     }
 
     /// <summary>设置玩家朝向，并在有效变化时通知视图。</summary>

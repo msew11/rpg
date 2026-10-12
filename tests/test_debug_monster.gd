@@ -1,4 +1,4 @@
-## 验证 openspec/specs/debug-monster-spawning/spec.md 的创建、区块归属与卸载恢复场景。
+## 验证 openspec/specs/debug-monster-spawning/spec.md 的创建、可见标记、区块恢复与回环场景。
 class_name TestDebugMonster
 extends SceneTree
 
@@ -28,16 +28,25 @@ func run_test() -> void:
 	var position: Vector2 = world.player_position(monster_id)
 	assert(position.x >= 0.0 and position.x < 12.0)
 	assert(position.y >= 0.0 and position.y < 12.0)
+	assert(position.x <= 2.5 and position.y <= 2.5)
+	assert(position != Vector2(0.5, 0.5))
+	var screen_position := UtilIsometricProjection.to_screen(position)
+	assert(main.monster_layer.visible_positions().has(screen_position))
 	assert(world.capture_chunk_entities(Vector2i.ZERO).contains("MonsterComponent"))
 	world.set_player_position(main.session.player_id, Vector2(25, 25))
 	world.step(0.0)
 	assert(not world.ecs.HasEntity(monster_id))
+	assert(not main.monster_layer.visible_positions().has(screen_position))
 	world.set_player_position(main.session.player_id, Vector2.ZERO)
 	world.step(0.0)
 	var restored: PackedInt64Array = world.ecs.GetChildren(world.chunk_entity(Vector2i.ZERO))
 	assert(restored.size() == children.size())
 	assert(world.player_position(restored[restored.size() - 1]) == position)
+	assert(main.monster_layer.visible_positions().has(screen_position))
 	assert(world.capture_chunk_entities(Vector2i.ZERO).contains("MonsterComponent"))
+	world.set_player_position(main.session.player_id, Vector2(49, 1))
+	world.step(0.0)
+	assert(main.monster_layer.visible_positions().has(UtilIsometricProjection.to_screen(position + Vector2(48, 0))))
 	main.free()
 	print("test_debug_monster passed")
 	quit()

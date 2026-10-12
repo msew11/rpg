@@ -19,6 +19,8 @@ const DEFAULT_CAMERA_ZOOM := 1.4
 @onready var camera: Camera2D = $Camera2D
 ## 显示当前加载区块的地面节点。
 @onready var ground: ChunkGround = $ChunkGround
+## 绘制已加载 monster 临时标记的节点。
+@onready var monster_layer: MonsterLayer = $MonsterLayer
 ## 显示玩家附近区块的雷达节点。
 @onready var radar: ChunkRadar = $RadarLayer/ChunkRadar
 ## 控制调试显示的面板。
@@ -139,6 +141,7 @@ func _bind_session() -> void:
 	chat_panel.clear_messages()
 	session.world.system_error.connect(_on_system_error)
 	ground.bind(session.world)
+	monster_layer.bind(session.world)
 	radar.bind(session.world, session.player_id)
 	debug_panel.bind(session.world)
 	world_map.bind(session.world, session.player_id)
