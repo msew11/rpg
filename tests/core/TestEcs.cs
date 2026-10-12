@@ -15,6 +15,8 @@ public partial class TestEcs : SceneTree
         try
         {
             RunEcsScenarios();
+            RunEntityTreeScenarios();
+            RunComponentPersistenceScenarios();
             RunDataRepoScenarios();
         }
         catch (Exception exception)
@@ -27,6 +29,40 @@ public partial class TestEcs : SceneTree
         if (_failures.Count == 0)
             GD.Print("Core C# tests passed.");
         Quit(_failures.Count == 0 ? 0 : 1);
+    }
+
+    /// <summary>验证 ecs-runtime 的父子创建、共享关系和级联销毁场景。</summary>
+    private void RunEntityTreeScenarios()
+    {
+        var data = new TestEcsWorldData();
+        using var world = new EcsWorld(data);
+        var root = world.CreateEntity();
+        var sibling = world.CreateEntity();
+        var child = world.CreateEntity(root);
+        var grandchild = world.CreateEntity(child);
+        Check(world.CreateEntity(999) == 0, "invalid parent rejects child creation");
+        Check(world.GetParent(child) == root, "child keeps parent");
+        Check(world.GetChildren(root).SequenceEqual([child]), "direct children listed");
+        Check(world.GetChildren(child).SequenceEqual([grandchild]), "grandchild listed");
+        using var component = new TestPositionComponent(8);
+        world.AddComponent(grandchild, component);
+        using var reused = new EcsWorld(data);
+        Check(reused.GetParent(grandchild) == child, "shared data retains parent");
+        Check(reused.DestroyEntity(root), "destroy parent succeeds");
+        Check(!world.HasEntity(root) && !world.HasEntity(child) && !world.HasEntity(grandchild), "subtree destroyed");
+        Check(world.GetComponent<TestPositionComponent>(grandchild) is null, "descendant component removed");
+        Check(world.HasEntity(sibling), "unrelated root remains");
+    }
+
+    /// <summary>验证 ecs-runtime 的组件字符串落地和无数据组件场景。</summary>
+    private void RunComponentPersistenceScenarios()
+    {
+        using var source = new TestPositionComponent(12.5);
+        using var restored = new TestPositionComponent();
+        restored.FromPersistedString(source.ToPersistedString()!);
+        Check(restored.X == source.X, "persisted component restores state");
+        using var marker = new TestVelocityComponent();
+        Check(marker.ToPersistedString() is null, "runtime-only component has no data");
     }
 
     /// <summary>覆盖 ecs-runtime 规定的实体、组件、查询及系统调度行为。</summary>
@@ -150,6 +186,13 @@ public partial class TestEcs : SceneTree
         /// <summary>测试组件索引。</summary>
         public IDictionary<long, Dictionary<Type, EcsComponent>> Components { get; } =
             new Dictionary<long, Dictionary<Type, EcsComponent>>();
+
+        /// <summary>测试实体父关系索引。</summary>
+        public IDictionary<long, long> ParentByEntity { get; } = new Dictionary<long, long>();
+
+        /// <summary>测试实体子关系索引。</summary>
+        public IDictionary<long, HashSet<long>> ChildrenByEntity { get; } =
+            new Dictionary<long, HashSet<long>>();
     }
 
     /// <summary>验证多例形态声明的测试仓库。</summary>
