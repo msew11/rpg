@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using System;
-using System.Text.Json;
 
 /// <summary>管理世界实体和玩家实体，并向展示层发出状态变化通知。</summary>
 [GlobalClass]
@@ -23,23 +22,17 @@ public partial class WorldManager : RefCounted
     /// <summary>保存实体组件并调度系统的 ECS 世界。</summary>
     private readonly EcsWorld _ecs;
 
-    /// <summary>会话缓存负责临时存档读写。</summary>
-    private readonly LocalDataRepoCache _cache;
-
     /// <summary>向外部提供区块状态的只读视图。</summary>
     private readonly WorldChunksView _chunksView;
 
     /// <summary>向外部提供调试状态的只读视图。</summary>
     private readonly WorldDebugView _debugView;
 
-    /// <summary>不可变测试地图配置，用于生成区块基准地块。</summary>
-    private GodotObject? _cfg;
-
     /// <summary>标记会话是否已完成一次性世界初始化。</summary>
     private bool _sessionInitialized;
 
-    /// <summary>活跃规范区块与其实体标识。</summary>
-    private readonly Dictionary<Vector2I, long> _chunkEntities = [];
+    /// <summary>管理活跃区块实体与临时落地。</summary>
+    private readonly WorldChunkLifecycle _chunkLifecycle;
 
     /// <summary>保存通知所需的可观察世界状态快照。</summary>
     private sealed class VisibleStateSnapshot
@@ -63,20 +56,6 @@ public partial class WorldManager : RefCounted
         public (bool Edges, bool Radar) Debug { get; init; }
     }
 
-    /// <summary>记录一个组件的稳定类型名和落地内容。</summary>
-    private sealed class PersistedComponentRecord
-    {
-        public string Type { get; set; } = "";
-        public string Data { get; set; } = "";
-    }
-
-    /// <summary>记录区块下一个实体的组件和子实体。</summary>
-    private sealed class PersistedEntityRecord
-    {
-        public List<PersistedComponentRecord> Components { get; set; } = [];
-        public List<PersistedEntityRecord> Children { get; set; } = [];
-    }
-
     /// <summary>临时落地失败时通知界面。</summary>
     [Signal] public delegate void system_errorEventHandler(string message);
 
@@ -87,7 +66,6 @@ public partial class WorldManager : RefCounted
     public WorldManager(LocalDataRepoCache cache)
     {
         System.ArgumentNullException.ThrowIfNull(cache);
-        _cache = cache;
         _ecs = new EcsWorld(cache.WorldRepo.Data);
         world_entity_id = _ecs.CreateEntity();
         var chunksComponent = new WorldChunksComponent();
@@ -96,6 +74,8 @@ public partial class WorldManager : RefCounted
         _ecs.AddComponent(world_entity_id, debugComponent);
         _chunksView = new WorldChunksView(chunksComponent);
         _debugView = new WorldDebugView(debugComponent);
+        _chunkLifecycle = new WorldChunkLifecycle(_ecs, cache, world_entity_id, chunksComponent,
+            message => EmitSignal("system_error", message));
         _ecs.AddSystem(new MovementSystem());
         _ecs.AddSystem(new ChunkLoadingSystem());
         _ecs.AddSystem(new TileInteractionSystem());
@@ -135,160 +115,15 @@ public partial class WorldManager : RefCounted
         var previous = CaptureVisibleState();
         var previousLoaded = ChunksComponent().loaded.ToArray();
         _ecs.Step(delta);
-        SyncChunkEntities(previousLoaded);
+        _chunkLifecycle.Sync(previousLoaded);
         EmitChangedSignals(previous);
     }
 
-    /// <summary>在加载范围变化后卸载离开区块并创建新进入的区块。</summary>
-    private void SyncChunkEntities(Vector2I[] previousLoaded)
-    {
-        if (_cfg is null)
-            return;
-        var current = ChunksComponent().loaded;
-        foreach (var raw in previousLoaded)
-        {
-            if (current.Contains(raw))
-                continue;
-            var canonical = WorldMath.CanonicalChunk(raw, ChunksComponent().world_size);
-            if (!current.Any(candidate => WorldMath.CanonicalChunk(candidate, ChunksComponent().world_size) == canonical))
-                unload_chunk_entity(raw);
-        }
-        foreach (var raw in current)
-        {
-            var canonical = WorldMath.CanonicalChunk(raw, ChunksComponent().world_size);
-            if (_chunkEntities.ContainsKey(canonical))
-                continue;
-            if (!ChunksComponent().has_chunk(canonical))
-            {
-                var baseline = _cfg.Call("tiles_for", canonical).AsByteArray();
-                ChunksComponent().set_tiles(canonical, _cache.load_chunk(canonical, baseline));
-            }
-            var entityId = _ecs.CreateEntity(world_entity_id);
-            _ecs.AddComponent(entityId, new ChunkIdComponent(canonical));
-            _chunkEntities.Add(canonical, entityId);
-            RestoreChunkTree(entityId, _cache.load_entities_json(canonical));
-        }
-    }
+    /// <summary>收集活跃区块实体及其子树的落地内容。</summary>
+    public string capture_chunk_entities(Vector2I raw) => _chunkLifecycle.Capture(raw);
 
-    /// <summary>落地一个不再活跃的区块及其子实体，然后释放内存；失败仍卸载。</summary>
-    private bool unload_chunk_entity(Vector2I raw)
-    {
-        if (_cfg is null)
-            return false;
-        var canonical = WorldMath.CanonicalChunk(raw, ChunksComponent().world_size);
-        if (ChunksComponent().loaded.Any(candidate =>
-                WorldMath.CanonicalChunk(candidate, ChunksComponent().world_size) == canonical))
-            return false;
-        if (!_chunkEntities.Remove(canonical, out var entityId))
-            return false;
-        var tiles = ChunksComponent().tiles_for(canonical);
-        var baseline = _cfg.Call("tiles_for", canonical).AsByteArray();
-        var persisted = _cache.unload_chunk(canonical, tiles, baseline, CaptureChunkTree(entityId));
-        if (!persisted)
-            EmitSignal("system_error", $"区块 {canonical.X},{canonical.Y} 临时存档写入失败，本次改动可能丢失。");
-        ChunksComponent().remove_chunk(canonical);
-        _ecs.DestroyEntity(entityId);
-        return persisted;
-    }
-
-    /// <summary>收集区块实体下所有子实体的可落地组件。</summary>
-    public string capture_chunk_entities(Vector2I raw)
-    {
-        var canonical = WorldMath.CanonicalChunk(raw, ChunksComponent().world_size);
-        return _chunkEntities.TryGetValue(canonical, out var entityId) ? CaptureChunkTree(entityId) : "{}";
-    }
-
-    /// <summary>序列化区块实体及其全部子树。</summary>
-    private string CaptureChunkTree(long entityId)
-    {
-        var record = CaptureEntity(entityId);
-        return record.Components.Count == 0 && record.Children.Count == 0
-            ? "{}" : JsonSerializer.Serialize(record);
-    }
-
-    /// <summary>递归收集一个实体及其可落地组件。</summary>
-    private PersistedEntityRecord CaptureEntity(long entityId)
-    {
-        var result = new PersistedEntityRecord();
-        foreach (var (type, component) in _ecs.Data.Components[entityId])
-        {
-            var data = component.ToPersistedString();
-            if (data is not null)
-                result.Components.Add(new PersistedComponentRecord { Type = type.FullName!, Data = data });
-        }
-        foreach (var childId in _ecs.GetChildren(entityId))
-            result.Children.Add(CaptureEntity(childId));
-        return result;
-    }
-
-    /// <summary>根据临时存档重建区块实体及其子树状态。</summary>
-    private void RestoreChunkTree(long chunkId, string json)
-    {
-        var record = JsonSerializer.Deserialize<PersistedEntityRecord>(json);
-        if (record is not null)
-            RestoreEntityData(chunkId, record);
-    }
-
-    /// <summary>在读档前验证实体子树及其组件落地字符串可还原。</summary>
-    public static bool can_restore_entities(string json)
-    {
-        try
-        {
-            var record = JsonSerializer.Deserialize<PersistedEntityRecord>(json);
-            var remaining = 10000;
-            if (record is not null)
-                ValidateEntity(record, 0, ref remaining);
-            return true;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-    }
-
-    /// <summary>限制坏档的实体树深度并检查组件类型与数据。</summary>
-    private static void ValidateEntity(PersistedEntityRecord record, int depth, ref int remaining)
-    {
-        if (depth > 64 || --remaining < 0 || record.Components is null || record.Children is null)
-            throw new FormatException("Invalid persisted entity tree.");
-        foreach (var entry in record.Components)
-        {
-            var type = ResolveComponentType(entry.Type);
-            if (type is null || !typeof(EcsComponent).IsAssignableFrom(type) ||
-                Activator.CreateInstance(type) is not EcsComponent component)
-                throw new FormatException("Invalid persisted component type.");
-            component.FromPersistedString(entry.Data);
-            component.Dispose();
-        }
-        foreach (var child in record.Children)
-            ValidateEntity(child, depth + 1, ref remaining);
-    }
-
-    /// <summary>仅从当前游戏程序集解析落地组件类型。</summary>
-    private static Type? ResolveComponentType(string name) => typeof(WorldManager).Assembly.GetType(name);
-
-    /// <summary>恢复一个子实体的组件及其后代。</summary>
-    private void RestoreEntity(long parentId, PersistedEntityRecord record)
-    {
-        var entityId = _ecs.CreateEntity(parentId);
-        RestoreEntityData(entityId, record);
-    }
-
-    /// <summary>恢复已创建实体的组件并递归创建其后代。</summary>
-    private void RestoreEntityData(long entityId, PersistedEntityRecord record)
-    {
-        foreach (var entry in record.Components)
-        {
-            var type = ResolveComponentType(entry.Type);
-            if (type is null || !typeof(EcsComponent).IsAssignableFrom(type) ||
-                Activator.CreateInstance(type) is not EcsComponent component)
-                throw new FormatException($"Invalid persisted component type: {entry.Type}");
-            component.FromPersistedString(entry.Data);
-            _ecs.AddComponent(entityId, component);
-        }
-        foreach (var child in record.Children)
-            RestoreEntity(entityId, child);
-    }
+    /// <summary>在读档前验证实体树和组件数据。</summary>
+    public static bool can_restore_entities(string json) => WorldEntityTreeCodec.CanRestore(json);
 
     /// <summary>内部读取世界实体的可变区块组件。</summary>
     private WorldChunksComponent ChunksComponent() => _ecs.GetComponent<WorldChunksComponent>(world_entity_id)!;
@@ -336,9 +171,7 @@ public partial class WorldManager : RefCounted
         var tiles = new Dictionary<Vector2I, byte[]>();
         foreach (var canonical in chunks.chunk_ids())
             tiles[canonical] = chunks.tiles_for(canonical);
-        var entities = new Dictionary<Vector2I, string>();
-        foreach (var (canonical, entityId) in _chunkEntities)
-            entities[canonical] = CaptureChunkTree(entityId);
+        var entities = _chunkLifecycle.CaptureActiveEntities();
         return new VisibleStateSnapshot
         {
             Players = players,
@@ -419,7 +252,7 @@ public partial class WorldManager : RefCounted
     /// <summary>绑定手工配置并按玩家当前位置首次加载区块。</summary>
     internal void initialize_test_chunks(GodotObject cfg)
     {
-        _cfg = cfg;
+        _chunkLifecycle.SetConfig(cfg);
         var chunkSize = cfg.Get("chunk_size").AsVector2I();
         var worldSize = cfg.Get("world_size").AsVector2I();
         ChunksComponent().chunk_size = chunkSize;
@@ -429,35 +262,11 @@ public partial class WorldManager : RefCounted
     }
 
     /// <summary>返回活跃区块实体；区块未激活时返回零。</summary>
-    public long chunk_entity(Vector2I raw) =>
-        _chunkEntities.GetValueOrDefault(WorldMath.CanonicalChunk(raw, ChunksComponent().world_size));
+    public long chunk_entity(Vector2I raw) => _chunkLifecycle.ChunkEntity(raw);
 
     /// <summary>读取所有活跃行走区块实例中的怪物显示位置。</summary>
-    public Vector2[] visible_monster_positions()
-    {
-        var result = new List<Vector2>();
-        var chunkSize = ChunksComponent().chunk_size;
-        if (chunkSize.X <= 0 || chunkSize.Y <= 0)
-            return result.ToArray();
-        foreach (var raw in ChunksComponent().loaded)
-        {
-            var chunkId = chunk_entity(raw);
-            if (chunkId == 0)
-                continue;
-            foreach (var childId in _ecs.GetChildren(chunkId))
-            {
-                if (!_ecs.HasComponent<MonsterComponent>(childId))
-                    continue;
-                var position = _ecs.GetComponent<PositionComponent>(childId);
-                if (position is null)
-                    continue;
-                var originalRaw = WorldMath.RawChunk(WorldMath.TileAt(position.value), chunkSize);
-                result.Add(position.value + new Vector2((raw.X - originalRaw.X) * chunkSize.X,
-                    (raw.Y - originalRaw.Y) * chunkSize.Y));
-            }
-        }
-        return result.ToArray();
-    }
+    public Vector2[] visible_monster_positions() =>
+        WorldMonsterQuery.VisiblePositions(_ecs, ChunksComponent(), _chunkLifecycle);
 
     /// <summary>设置玩家朝向，并在有效变化时通知视图。</summary>
     internal void set_player_facing(long entityId, Vector2I value)
