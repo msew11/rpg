@@ -4,10 +4,6 @@ extends Control
 
 ## 完整地图的区块轴向显示比例。
 const CHUNK_AXIS_PIXELS := UtilWorldMapProjection.CHUNK_AXIS_PIXELS
-## 草地地块在地图上的颜色。
-const GRASS_COLOR := Color(0.35, 0.56, 0.31)
-## 道路地块在地图上的颜色。
-const DIRT_COLOR := Color(0.68, 0.52, 0.35)
 ## 已加载区块在地图上的轮廓颜色。
 const LOADED_COLOR := Color(0.48, 0.78, 0.84)
 ## 玩家所在区块在地图上的轮廓颜色。
@@ -81,7 +77,7 @@ func player_marker_position() -> Vector2:
 	return UtilWorldMapProjection.player_marker_position(source, player_id, size, pan_offset)
 
 
-## 绘制全部测试地块、区块轮廓和玩家标记。
+## 根据世界尺寸绘制区块轮廓和玩家标记。
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.09), true)
 	if source == null:
@@ -91,28 +87,12 @@ func _draw() -> void:
 	var player_id_chunk := UtilWorldMapProjection.current_chunk(source, player_id)
 	var font := ThemeDB.fallback_font
 	draw_string(font, Vector2(24, 36), "WORLD MAP  ·  M close  ·  Left drag to pan", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
-	for y in range(world_size.y):
-		for x in range(world_size.x):
-			var canonical := Vector2i(x, y)
-			if not source.chunks().has_chunk(canonical):
-				continue
-			var tiles: PackedByteArray = source.chunks().tiles_for(canonical)
-			var origin := UtilChunkCoordinates.tile_origin(canonical, chunk_size)
-			for local_y in range(chunk_size.y):
-				for local_x in range(chunk_size.x):
-					var tile := Vector2(origin + Vector2i(local_x, local_y))
-					var corners := PackedVector2Array([
-						_map_point(tile), _map_point(tile + Vector2.RIGHT),
-						_map_point(tile + Vector2.ONE), _map_point(tile + Vector2.DOWN)
-					])
-					var kind: int = tiles[local_y * chunk_size.x + local_x]
-					draw_colored_polygon(corners, DIRT_COLOR if kind == 1 else GRASS_COLOR)
-	# 填充地块后统一绘制边框，让已加载区块的蓝色边框盖过灰色边框。
+	# 仅绘制区块线框，避免完整地图要求远处地块常驻内存。
 	for draw_loaded in [false, true]:
 		for y in range(world_size.y):
 			for x in range(world_size.x):
 				var canonical := Vector2i(x, y)
-				if canonical == player_id_chunk or not source.chunks().has_chunk(canonical) or UtilWorldMapProjection.is_loaded(source, canonical) != draw_loaded:
+				if canonical == player_id_chunk or UtilWorldMapProjection.is_loaded(source, canonical) != draw_loaded:
 					continue
 				var outline := chunk_corners(canonical)
 				outline.append(outline[0])
@@ -120,8 +100,6 @@ func _draw() -> void:
 	for y in range(world_size.y):
 		for x in range(world_size.x):
 			var canonical := Vector2i(x, y)
-			if not source.chunks().has_chunk(canonical):
-				continue
 			var corners := chunk_corners(canonical)
 			var center := (corners[0] + corners[2]) * 0.5
 			draw_string(font, center + Vector2(-14, 5), "%d,%d" % [x, y], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)

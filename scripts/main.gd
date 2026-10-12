@@ -23,6 +23,8 @@ const MODE_SAVE := 3
 @onready var debug_panel: DebugPanel = $RadarLayer/DebugPanel
 ## 显示完整测试世界的地图节点。
 @onready var world_map: WorldMap = $RadarLayer/WorldMap
+## 显示会话系统消息的聊天面板。
+@onready var chat_panel: ChatPanel = $RadarLayer/ChatPanel
 
 ## 接收输入并推进世界状态的本地会话。
 var session := LocalSession.new()
@@ -106,12 +108,19 @@ func _sync_view() -> void:
 
 ## 让全部世界视图订阅当前会话并更新玩家显示节点。
 func _bind_session() -> void:
+	chat_panel.clear_messages()
+	session.world.system_error.connect(_on_system_error)
 	ground.bind(session.world)
 	radar.bind(session.world, session.player_id)
 	debug_panel.bind(session.world)
 	world_map.bind(session.world, session.player_id)
 	rebuild_player_view()
 	_sync_view()
+
+
+## 将世界运行错误追加为系统消息。
+func _on_system_error(text: String) -> void:
+	chat_panel.add_system_message(text)
 
 
 ## 创建初始状态的新会话并进入游戏。
@@ -189,14 +198,15 @@ func _on_slot_pressed(slot: int) -> void:
 			_refresh_slots()
 		else:
 			message.text = "保存失败，请检查存档目录。"
+			chat_panel.add_system_message(message.text)
 	elif mode == MODE_LOAD:
 		var snapshot := save_slots.read(slot)
 		if snapshot.is_empty():
 			message.text = "存档无效或不兼容。"
+			chat_panel.add_system_message(message.text)
 			_refresh_slots()
 			return
-		var restored := LocalSession.new()
-		restored.restore_snapshot(snapshot)
+		var restored := LocalSession.new(snapshot)
 		session = restored
 		_bind_session()
 		_enter_game()

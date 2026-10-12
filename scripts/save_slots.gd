@@ -38,15 +38,26 @@ func save(slot: int, session: LocalSession) -> bool:
 	var snapshot := session.capture_snapshot()
 	snapshot["version"] = FORMAT_VERSION
 	snapshot["saved_at"] = Time.get_datetime_string_from_system()
+	if not session.working_store.replace_snapshot(snapshot):
+		return false
 	var absolute_dir := ProjectSettings.globalize_path(save_dir)
 	if DirAccess.make_dir_recursive_absolute(absolute_dir) != OK:
 		return false
-	var file := FileAccess.open(_slot_path(slot), FileAccess.WRITE)
+	var temporary := _slot_path(slot) + ".new"
+	var file := FileAccess.open(temporary, FileAccess.WRITE)
 	if file == null:
 		return false
 	file.store_string(JSON.stringify(snapshot))
 	file.flush()
-	return file.get_error() == OK
+	var written := file.get_error() == OK
+	file.close()
+	if not written:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(temporary))
+		return false
+	if DirAccess.rename_absolute(ProjectSettings.globalize_path(temporary), ProjectSettings.globalize_path(_slot_path(slot))) != OK:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(temporary))
+		return false
+	return true
 
 
 ## 读取并完整验证槽位内容；无效时返回空字典。
@@ -115,6 +126,8 @@ func _valid_snapshot(value: Variant) -> bool:
 		for tile in tiles:
 			if not _is_integer(tile) or (int(tile) != 0 and int(tile) != 1):
 				return false
+		if entry.has("entities") and not WorldState.can_restore_entities(JSON.stringify(entry["entities"])):
+			return false
 	return true
 
 

@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/view/chunk_ground.gd" id="2_ground"]
 [ext_resource type="Script" path="res://scripts/view/chunk_radar.gd" id="3_radar"]
 [ext_resource type="Script" path="res://scripts/view/debug_panel.gd" id="4_debug"]
 [ext_resource type="Script" path="res://scripts/view/world_map.gd" id="5_map"]
+[ext_resource type="Script" path="res://scripts/view/chat_panel.gd" id="6_chat"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -60,6 +61,29 @@ offset_top = 16.0
 offset_right = -16.0
 offset_bottom = 55.0
 theme_override_constants/separation = 8
+
+[node name="ChatPanel" type="PanelContainer" parent="RadarLayer"]
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = -456.0
+offset_top = -196.0
+offset_right = -16.0
+offset_bottom = -16.0
+script = ExtResource("6_chat")
+
+[node name="Content" type="VBoxContainer" parent="RadarLayer/ChatPanel"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="RadarLayer/ChatPanel/Content"]
+layout_mode = 2
+text = "Chat"
+
+[node name="History" type="RichTextLabel" parent="RadarLayer/ChatPanel/Content"]
+layout_mode = 2
+size_flags_vertical = 3
+scroll_following = true
 
 [node name="SaveButton" type="Button" parent="RadarLayer/GameButtons"]
 custom_minimum_size = Vector2(112, 38)

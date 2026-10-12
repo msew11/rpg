@@ -103,9 +103,8 @@ func run_test() -> void:
 	main._unhandled_key_input(map_key)
 	assert(main.world_map.visible)
 	assert(main.world_map.size.x > 0 and main.world_map.size.y > 0)
-	for y in range(4):
-		for x in range(4):
-			assert(main.session.world.chunks().has_chunk(Vector2i(x, y)))
+	assert(main.session.world.chunks().active_count() <= _loaded_count(main))
+	assert(not main.session.world.chunks().has_chunk(Vector2i(2, 2)))
 	assert(main.world_map.chunk_corners(Vector2i(0, 0)).size() == 4)
 	assert(main.world_map.player_marker_position() == main.world_map._map_point(Vector2(1, 1)))
 	var before_pan: Vector2 = main.world_map.chunk_corners(Vector2i(0, 0))[0]

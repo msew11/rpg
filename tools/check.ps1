@@ -57,6 +57,7 @@ Invoke-GodotCheck 'world state data' @('--headless', '--path', $projectPath, '--
 Invoke-GodotCheck 'chunk world state' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_world.gd')
 Invoke-GodotCheck 'chunk display' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_view.gd')
 Invoke-GodotCheck 'save slots and start menu' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_save_slots.gd')
+Invoke-GodotCheck 'working save and system chat' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_working_save.gd')
 
 if ($ExportWindows) {
     $templateDir = Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'

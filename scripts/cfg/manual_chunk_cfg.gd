@@ -7,6 +7,8 @@ const SOURCE_PATH := "res://data/manual_chunks.json"
 
 ## 每个区块的地块尺寸。
 var chunk_size: Vector2i
+## 玩家周围保持活跃的区块窗口尺寸。
+var active_chunk_size: Vector2i
 ## 测试世界的规范区块尺寸。
 var world_size: Vector2i
 ## 规范区块到图案名称的布局。
@@ -19,10 +21,12 @@ var _patterns: Dictionary
 func _init() -> void:
 	var parsed: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SOURCE_PATH))
 	chunk_size = Vector2i(parsed["chunk_size"][0], parsed["chunk_size"][1])
+	active_chunk_size = Vector2i(parsed.get("active_chunk_size", [3, 3])[0], parsed.get("active_chunk_size", [3, 3])[1])
 	_layout = parsed["layout"]
 	_patterns = parsed["patterns"]
 	world_size = Vector2i(_layout[0].size(), _layout.size())
 	assert(chunk_size.x > 0 and chunk_size.y > 0)
+	assert(active_chunk_size.x > 0 and active_chunk_size.y > 0 and active_chunk_size.x % 2 == 1 and active_chunk_size.y % 2 == 1)
 	for row in _layout:
 		assert(row.size() == world_size.x)
 		for pattern_name in row:
