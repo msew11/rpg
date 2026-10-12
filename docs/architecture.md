@@ -10,7 +10,7 @@ Godot 4.7.2 .NET 项目以 `scenes/main.tscn` 为入口，入口脚本 `scripts/
 
 启动界面、游戏内保存入口、Chat 面板与五槽位读取界面由 `scenes/main.tscn` 的 UI 层实现。`LocalSession` 在新游戏或读档时通过一次性的 `WorldManager.initialize_session()` 建立玩家与附近区块，运行期不调用零散直接写入入口；位置、朝向和地块等测试布置由 `tests/WorldEcsTestAccess.cs` 承接。`WorkingSaveStore` 管理会话临时增量，`LocalDataRepoCache` 仅经它加载与落地区块；`SaveSlots` 负责五个正式 JSON 槽位的验证和提交。新游戏清理残留工作文件并建立空副本，读档以正式快照建立工作副本；点击保存时 `LocalSession` 将活跃区块与临时记录合并，更新工作文件与指定正式槽位。区块实体及其子树按组件字符串落地和重建，直接销毁实体不触发落地。卸载写入失败时仍释放区块数据，并通过 Chat 系统消息提示可能丢失改动。调试开关和地图拖动偏移不属于存档进度。
 
-玩家模板选择由 `DebugPanel` 保存在当前运行的 UI 状态中，`Main` 在视图重建时重新应用。`PlayerView` 根据玩家朝向及移动输入播放临时素体的待机、行走动画。模板选择不写入 ECS 或正式存档；最终美术与战斗动作待定。
+玩家模板选择由 `DebugPanel` 保存在当前运行的 UI 状态中，`Main` 在视图重建时重新应用。`PlayerView` 根据玩家朝向及移动输入播放临时素体的待机、行走动画；16×16 素体按 3 倍整数倍率显示，脚部仍对齐玩家投影点。模板选择不写入 ECS 或正式存档；最终美术与战斗动作待定。
 
 ## 已确认的约束
 

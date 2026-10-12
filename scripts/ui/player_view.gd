@@ -10,6 +10,8 @@ const TEMPLATE_SMALL := 1
 const TEMPLATE_TALL := 2
 ## 16×16 素体的帧边长。
 const SMALL_FRAME := 24
+## 16×16 素体相对当前地块的整数显示倍率。
+const SMALL_DISPLAY_SCALE := 3.0
 ## 16×32 素体的帧边长。
 const TALL_FRAME := 32
 ## 动画每帧持续的秒数。
@@ -83,10 +85,12 @@ func _update_sprite() -> void:
 	if not sprite.visible:
 		return
 	var frame_size := SMALL_FRAME if template_id == TEMPLATE_SMALL else TALL_FRAME
+	var display_scale := SMALL_DISPLAY_SCALE if template_id == TEMPLATE_SMALL else 1.0
 	sprite.texture = (SMALL_WALK if moving else SMALL_IDLE) if template_id == TEMPLATE_SMALL else (TALL_WALK if moving else TALL_IDLE)
 	sprite.region_rect = Rect2(frame_index * frame_size, direction_row() * frame_size, frame_size, frame_size)
 	sprite.flip_h = facing.x < 0
-	sprite.position = Vector2(-frame_size / 2.0, -frame_size)
+	sprite.scale = Vector2.ONE * display_scale
+	sprite.position = Vector2(-frame_size / 2.0, -frame_size) * display_scale
 
 
 ## 将八方向映射到素材的下、右下、右、右上、上五行。
