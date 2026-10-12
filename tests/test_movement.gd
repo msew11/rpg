@@ -9,8 +9,8 @@ func _initialize() -> void:
 	assert(session.cache is LocalDataRepoCache)
 	var player_id := session.player_id
 	assert(player_id > 0)
-	assert(session.world.player_position(player_id) == Vector2.ZERO)
-	assert(session.world.ecs.HasEntity(player_id))
+	assert(session.world_manager.player_position(player_id) == Vector2.ZERO)
+	assert(session.world_manager.ecs.HasEntity(player_id))
 
 	var directions := [
 		Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1),
@@ -59,7 +59,7 @@ func _initialize() -> void:
 	var view_b := Node2D.new()
 	view_b.position = UtilIsometricProjection.to_screen(session.player_position())
 	assert(session.player_id == player_id)
-	assert(view_b.position == UtilIsometricProjection.to_screen(session.world.player_position(player_id)))
+	assert(view_b.position == UtilIsometricProjection.to_screen(session.world_manager.player_position(player_id)))
 	view_b.free()
 
 	print("test_movement passed")

@@ -17,7 +17,7 @@ func run_test() -> void:
 	root.add_child(main)
 	main.set_physics_process(false)
 	main.start_new_game()
-	var world: WorldState = main.session.world
+	var world: WorldManager = main.session.world_manager
 	var chunk_id: int = world.chunk_entity(Vector2i.ZERO)
 	var before: PackedInt64Array = world.ecs.GetChildren(chunk_id)
 	main.debug_panel.add_monster_button.pressed.emit()

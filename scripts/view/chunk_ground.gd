@@ -8,11 +8,11 @@ const GRASS := preload("res://assets/kenney_isometric_roads/grass.png")
 const DIRT := preload("res://assets/kenney_isometric_roads/dirt.png")
 
 ## 地面视图读取的世界状态。
-var source: WorldState
+var source: WorldManager
 
 
 ## 绑定世界数据并订阅影响地面的变化。
-func bind(world: WorldState) -> void:
+func bind(world: WorldManager) -> void:
 	if source != null:
 		source.chunks_changed.disconnect(_on_chunks_changed)
 		source.debug_changed.disconnect(_on_debug_changed)

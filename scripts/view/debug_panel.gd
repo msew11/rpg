@@ -26,11 +26,11 @@ signal add_monster_requested
 @onready var save_dir_path: LineEdit = $Options/SaveDirPath
 
 ## 调试面板读取和更新的世界状态。
-var source: WorldState
+var source: WorldManager
 
 
 ## 绑定数据源并连接开关事件。
-func bind(world: WorldState) -> void:
+func bind(world: WorldManager) -> void:
 	if source != null:
 		source.debug_changed.disconnect(_on_debug_changed)
 	source = world
@@ -60,12 +60,16 @@ func _sync_buttons() -> void:
 
 ## 将区块边缘开关写入世界数据。
 func _on_borders_toggled(enabled: bool) -> void:
-	source.set_debug_edges(enabled)
+	var command := SetDebugEdgesEvent.new()
+	command.enabled = enabled
+	source.send_event(command)
 
 
 ## 将雷达开关写入世界数据。
 func _on_radar_toggled(enabled: bool) -> void:
-	source.set_debug_radar(enabled)
+	var command := SetDebugRadarEvent.new()
+	command.enabled = enabled
+	source.send_event(command)
 
 
 ## 更新数值提示并通知镜头改变可见高度。

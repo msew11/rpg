@@ -13,7 +13,7 @@ public partial class TestWorldEcs : SceneTree
             var repo = cache.GetRepo(typeof(EcsWorldDataRepo)) as EcsWorldDataRepo;
             Check(repo is not null, "cache creates the ECS repo before the world");
             Check(ReferenceEquals(repo, cache.GetRepo(typeof(EcsWorldDataRepo))), "cache keeps one ECS repo");
-            using var state = new WorldState(cache);
+            using var state = new WorldManager(cache);
             Check(ReferenceEquals(repo!.Data, state.ecs.Data), "world uses repo-owned ECS data");
             Check(cache.GetRepo(typeof(DataRepoSingle<EcsWorldData>)) is null, "cache uses exact repo type");
             var ecs = state.ecs;
@@ -30,12 +30,12 @@ public partial class TestWorldEcs : SceneTree
             Check(ecs.GetComponent<FacingComponent>(playerId)?.value == new Vector2I(0, 1), "initial facing uses ECS");
             Check(ecs.HasComponent<LocalPlayerComponent>(playerId), "local player marker uses ECS");
 
-            state.set_player_intent(playerId, new Vector2I(1, 0));
+            state.send_event(MoveIntentEvent.Create(playerId, new Vector2I(1, 0)));
             state.step(1);
             Check(state.player_position(playerId) == ecs.GetComponent<PositionComponent>(playerId)?.value, "world reads ECS position");
             Check(state.player_facing(playerId) == ecs.GetComponent<FacingComponent>(playerId)?.value, "world reads ECS facing");
             using var secondCache = new LocalDataRepoCache();
-            using var secondState = new WorldState(secondCache);
+            using var secondState = new WorldManager(secondCache);
             Check(!ReferenceEquals(repo.Data, ((EcsWorldDataRepo)secondCache.GetRepo(typeof(EcsWorldDataRepo))!).Data),
                 "sessions keep separate ECS data");
             GD.Print("test_world_ecs passed");

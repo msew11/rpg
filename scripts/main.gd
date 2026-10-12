@@ -90,7 +90,9 @@ func _input(event: InputEvent) -> void:
 		return
 	if focused is TextEdit and focused.editable:
 		return
-	session.world.toggle_tile(session.player_position())
+	var command := ToggleTileEvent.new()
+	command.world_position = session.player_position()
+	session.world_manager.send_event(command)
 	get_viewport().set_input_as_handled()
 
 
@@ -103,7 +105,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	elif world_map.visible:
 		return
 	elif event.keycode == KEY_F3:
-		session.world.set_debug_edges(not session.world.debug().edges)
+		var command := SetDebugEdgesEvent.new()
+		command.enabled = not session.world_manager.debug().edges
+		session.world_manager.send_event(command)
 
 
 ## 按视野高度倍数缩小镜头缩放。
@@ -114,7 +118,9 @@ func _on_view_height_changed(multiplier: float) -> void:
 ## 仅在游玩时于玩家当前区块创建怪物实体。
 func _on_add_monster_requested() -> void:
 	if mode == MODE_PLAYING:
-		session.world.create_monster(session.player_position())
+		var command := SpawnDebugMonsterEvent.new()
+		command.near_position = session.player_position()
+		session.world_manager.send_event(command)
 
 
 ## 重建玩家显示节点并恢复当前世界状态。
@@ -139,12 +145,12 @@ func _sync_view() -> void:
 ## 让全部世界视图订阅当前会话并更新玩家显示节点。
 func _bind_session() -> void:
 	chat_panel.clear_messages()
-	session.world.system_error.connect(_on_system_error)
-	ground.bind(session.world)
-	monster_layer.bind(session.world)
-	radar.bind(session.world, session.player_id)
-	debug_panel.bind(session.world)
-	world_map.bind(session.world, session.player_id)
+	session.world_manager.system_error.connect(_on_system_error)
+	ground.bind(session.world_manager)
+	monster_layer.bind(session.world_manager)
+	radar.bind(session.world_manager, session.player_id)
+	debug_panel.bind(session.world_manager)
+	world_map.bind(session.world_manager, session.player_id)
 	rebuild_player_view()
 	_sync_view()
 

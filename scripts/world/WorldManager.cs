@@ -6,10 +6,10 @@ using System.Text.Json;
 
 /// <summary>管理世界实体和玩家实体，并向展示层发出状态变化通知。</summary>
 [GlobalClass]
-public partial class WorldState : RefCounted
+public partial class WorldManager : RefCounted
 {
     /// <summary>供 GDScript 从缓存创建世界状态。</summary>
-    public static WorldState Create(LocalDataRepoCache cache) => new(cache);
+    public static WorldManager Create(LocalDataRepoCache cache) => new(cache);
 
     /// <summary>玩家位置或朝向变化时通知展示层。</summary>
     [Signal] public delegate void player_changedEventHandler(long entityId);
@@ -53,7 +53,7 @@ public partial class WorldState : RefCounted
     public long world_entity_id { get; }
 
     /// <summary>创建世界实体及其组件，并按顺序注册移动与区块加载系统。</summary>
-    public WorldState(LocalDataRepoCache cache)
+    public WorldManager(LocalDataRepoCache cache)
     {
         System.ArgumentNullException.ThrowIfNull(cache);
         _cache = cache;
@@ -63,6 +63,9 @@ public partial class WorldState : RefCounted
         ecs.AddComponent(world_entity_id, new WorldDebugComponent());
         ecs.AddSystem(new MovementSystem());
         ecs.AddSystem(new ChunkLoadingSystem());
+        ecs.AddSystem(new TileInteractionSystem());
+        ecs.AddSystem(new DebugSettingsSystem());
+        ecs.AddSystem(new DebugMonsterSystem());
     }
 
     /// <summary>创建具有位置、意图、速度与朝向的玩家实体。</summary>
@@ -121,6 +124,7 @@ public partial class WorldState : RefCounted
                 chunks().set_tiles(canonical, _cache.load_chunk(canonical, baseline));
             }
             var entityId = ecs.CreateEntity(world_entity_id);
+            ecs.AddComponent(entityId, new ChunkIdComponent(canonical));
             _chunkEntities.Add(canonical, entityId);
             RestoreChunkTree(entityId, _cache.load_entities_json(canonical));
         }
@@ -221,7 +225,7 @@ public partial class WorldState : RefCounted
     }
 
     /// <summary>仅从当前游戏程序集解析落地组件类型。</summary>
-    private static Type? ResolveComponentType(string name) => typeof(WorldState).Assembly.GetType(name);
+    private static Type? ResolveComponentType(string name) => typeof(WorldManager).Assembly.GetType(name);
 
     /// <summary>恢复一个子实体的组件及其后代。</summary>
     private void RestoreEntity(long parentId, PersistedEntityRecord record)
@@ -258,9 +262,19 @@ public partial class WorldState : RefCounted
     /// <summary>读取玩家当前保留的朝向。</summary>
     public Vector2I player_facing(long entityId) => ecs.GetComponent<FacingComponent>(entityId)!.value;
 
-    /// <summary>设置玩家移动意图，供下一次 ECS 更新使用。</summary>
-    public void set_player_intent(long entityId, Vector2I direction) =>
-        ecs.GetComponent<MovementIntentComponent>(entityId)!.value = direction;
+    /// <summary>将交互事件交给 ECS 路由，并通知对应的世界视图。</summary>
+    public bool send_event(EcsEvent eventData)
+    {
+        var handled = ecs.SendEvent(eventData);
+        if (eventData is WorldCommandEvent command)
+        {
+            if (command.chunks_changed)
+                EmitSignal("chunks_changed");
+            if (command.debug_changed)
+                EmitSignal("debug_changed");
+        }
+        return handled;
+    }
 
     /// <summary>设置玩家位置，并在有效变化时通知视图。</summary>
     public void set_player_position(long entityId, Vector2 value)
@@ -284,22 +298,6 @@ public partial class WorldState : RefCounted
         return chunks().tiles_for(canonical)[local.Y * chunkSize.X + local.X];
     }
 
-    /// <summary>切换指定世界位置的测试地块类型。</summary>
-    public void toggle_tile(Vector2 worldPosition)
-    {
-        var tile = WorldMath.TileAt(worldPosition);
-        var chunkSize = chunks().chunk_size;
-        var raw = WorldMath.RawChunk(tile, chunkSize);
-        var canonical = WorldMath.CanonicalChunk(raw, chunks().world_size);
-        var local = WorldMath.LocalTile(tile, chunkSize);
-        if (!chunks().has_chunk(canonical))
-            return;
-        var tiles = chunks().tiles_for(canonical);
-        var index = local.Y * chunkSize.X + local.X;
-        tiles[index] = (byte)(1 - tiles[index]);
-        set_chunk_tiles(canonical, tiles);
-    }
-
     /// <summary>绑定手工配置并按玩家当前位置首次加载区块。</summary>
     public void initialize_test_chunks(GodotObject cfg)
     {
@@ -315,37 +313,6 @@ public partial class WorldState : RefCounted
     /// <summary>返回活跃区块实体；区块未激活时返回零。</summary>
     public long chunk_entity(Vector2I raw) =>
         _chunkEntities.GetValueOrDefault(WorldMath.CanonicalChunk(raw, chunks().world_size));
-
-    /// <summary>在指定位置附近的活跃行走区块内随机创建怪物子实体。</summary>
-    public long create_monster(Vector2 nearPosition)
-    {
-        var chunkSize = chunks().chunk_size;
-        if (chunkSize.X <= 0 || chunkSize.Y <= 0)
-            return 0;
-        var raw = WorldMath.RawChunk(WorldMath.TileAt(nearPosition), chunkSize);
-        if (!chunks().loaded.Contains(raw))
-            return 0;
-        var parentId = chunk_entity(raw);
-        if (parentId == 0)
-            return 0;
-        var tile = WorldMath.TileAt(nearPosition);
-        var origin = new Vector2I(raw.X * chunkSize.X, raw.Y * chunkSize.Y);
-        var candidates = new List<Vector2I>();
-        for (var y = Math.Max(origin.Y, tile.Y - 2); y <= Math.Min(origin.Y + chunkSize.Y - 1, tile.Y + 2); y++)
-        for (var x = Math.Max(origin.X, tile.X - 2); x <= Math.Min(origin.X + chunkSize.X - 1, tile.X + 2); x++)
-        {
-            var candidate = new Vector2I(x, y);
-            if (candidate != tile)
-                candidates.Add(candidate);
-        }
-        var selected = candidates.Count > 0 ? candidates[Random.Shared.Next(candidates.Count)] : tile;
-        var position = new Vector2(selected.X + 0.5f, selected.Y + 0.5f);
-        var entityId = ecs.CreateEntity(parentId);
-        ecs.AddComponent(entityId, new MonsterComponent());
-        ecs.AddComponent(entityId, new PositionComponent(position));
-        EmitSignal("chunks_changed");
-        return entityId;
-    }
 
     /// <summary>读取所有活跃行走区块实例中的怪物显示位置。</summary>
     public Vector2[] visible_monster_positions()
@@ -393,21 +360,4 @@ public partial class WorldState : RefCounted
         return true;
     }
 
-    /// <summary>切换区块边缘显示，并通知调试视图。</summary>
-    public void set_debug_edges(bool enabled)
-    {
-        if (debug().edges == enabled)
-            return;
-        debug().edges = enabled;
-        EmitSignal("debug_changed");
-    }
-
-    /// <summary>切换雷达显示，并通知调试视图。</summary>
-    public void set_debug_radar(bool enabled)
-    {
-        if (debug().radar == enabled)
-            return;
-        debug().radar = enabled;
-        EmitSignal("debug_changed");
-    }
 }

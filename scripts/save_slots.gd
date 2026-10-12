@@ -126,7 +126,7 @@ func _valid_snapshot(value: Variant) -> bool:
 		for tile in tiles:
 			if not _is_integer(tile) or (int(tile) != 0 and int(tile) != 1):
 				return false
-		if entry.has("entities") and not WorldState.can_restore_entities(JSON.stringify(entry["entities"])):
+		if entry.has("entities") and not WorldManager.can_restore_entities(JSON.stringify(entry["entities"])):
 			return false
 	return true
 

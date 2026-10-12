@@ -8,6 +8,6 @@
 
 核心只提供 `IEcsWorldData` 状态访问接口。`scripts/data/EcsWorldData.cs` 是本地 ECS 实体状态实现，包含实体 ID 分配状态、有效实体集合与组件索引；存档收集方式仍由后续功能确定。
 
-`develop` 中的 `LocalDataRepoCache` 由每个 `LocalSession` 创建并持有，不进入场景树。缓存初始化时便创建唯一的 `EcsWorldDataRepo : DataRepoSingle<EcsWorldData>` 及其数据，按 `typeof(EcsWorldDataRepo)` 返回仓库。`WorldState` 构造时接收缓存，把仓库的数据交给 `EcsWorld`。GDScript 通过 `WorldState.Create(cache)` 调用 C# 的 `new WorldState(cache)`；Godot 的 `.new()` 不接受这个 C# 构造参数。缓存还绑定当前会话的 `WorkingSaveStore`，只通过该临时存档加载和落地区块变化；正式槽位由会话调用者选择和提交。
+`develop` 中的 `LocalDataRepoCache` 由每个 `LocalSession` 创建并持有，不进入场景树。缓存初始化时便创建唯一的 `EcsWorldDataRepo : DataRepoSingle<EcsWorldData>` 及其数据，按 `typeof(EcsWorldDataRepo)` 返回仓库。`WorldManager` 构造时接收缓存，把仓库的数据交给 `EcsWorld`。GDScript 通过 `WorldManager.Create(cache)` 调用 C# 的 `new WorldManager(cache)`；Godot 的 `.new()` 不接受这个 C# 构造参数。缓存还绑定当前会话的 `WorkingSaveStore`，只通过该临时存档加载和落地区块变化；正式槽位由会话调用者选择和提交。
 
 后续具体仓库和数据类一般分别采用 `Repo`、`Data` 前缀，仓库名再用用途段和数据内容段区分职责，例如 `RepoPlayerItem`、`DataPlayerItem`；已确定的 ECS 仓库专名为 `EcsWorldDataRepo`。示例名称尚未实现，存档操作留待后续 change 确定。

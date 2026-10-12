@@ -10,7 +10,7 @@ var cache := LocalDataRepoCache.new()
 ## 会话唯一的临时存档工作副本。
 var working_store: WorkingSaveStore
 ## 本地会话持有的世界状态。
-var world: WorldState
+var world_manager: WorldManager
 ## 本地玩家的 ECS 实体标识。
 var player_id: int
 
@@ -25,34 +25,37 @@ func _start(initial: Dictionary) -> void:
 	cache = LocalDataRepoCache.new()
 	working_store = WorkingSaveStore.new(initial)
 	cache.bind_working_store(working_store)
-	world = WorldState.Create(cache)
+	world_manager = WorldManager.Create(cache)
 	var position := Vector2.ZERO
 	if initial.has("position"):
 		position = Vector2(float(initial["position"][0]), float(initial["position"][1]))
-	player_id = world.create_player(position, PLAYER_SPEED)
+	player_id = world_manager.create_player(position, PLAYER_SPEED)
 	if initial.has("facing"):
-		world.set_player_facing(player_id, Vector2i(int(initial["facing"][0]), int(initial["facing"][1])))
-	world.initialize_test_chunks(ManualChunkCfg.new())
+		world_manager.set_player_facing(player_id, Vector2i(int(initial["facing"][0]), int(initial["facing"][1])))
+	world_manager.initialize_test_chunks(ManualChunkCfg.new())
 
 
 ## 提交玩家的屏幕移动方向。
 func set_player_direction(screen_direction: Vector2i) -> void:
-	world.set_player_intent(player_id, screen_direction)
+	var command := MoveIntentEvent.new()
+	command.entity_id = player_id
+	command.direction = screen_direction
+	world_manager.send_event(command)
 
 
 ## 推进本地世界的固定时间步。
 func step(delta: float) -> void:
-	world.step(delta)
+	world_manager.step(delta)
 
 
 ## 读取玩家的当前逻辑位置。
 func player_position() -> Vector2:
-	return world.player_position(player_id)
+	return world_manager.player_position(player_id)
 
 
 ## 读取玩家保留的朝向。
 func player_facing() -> Vector2i:
-	return world.player_facing(player_id)
+	return world_manager.player_facing(player_id)
 
 
 ## 合并临时存档与活跃区块，生成本次正式保存的状态。
@@ -62,12 +65,12 @@ func capture_snapshot() -> Dictionary:
 	var config := ManualChunkCfg.new()
 	var result := working_store.snapshot.duplicate(true)
 	var seen := {}
-	for raw: Vector2i in world.chunks().loaded:
+	for raw: Vector2i in world_manager.chunks().loaded:
 		var id := UtilChunkCoordinates.canonical_chunk(raw, config.world_size)
 		if seen.has(id):
 			continue
 		seen[id] = true
-		working_store.merge_chunk_into(result, id, world.chunks().tiles_for(id), config.tiles_for(id), world.capture_chunk_entities(raw))
+		working_store.merge_chunk_into(result, id, world_manager.chunks().tiles_for(id), config.tiles_for(id), world_manager.capture_chunk_entities(raw))
 	result["position"] = [position.x, position.y]
 	result["facing"] = [facing.x, facing.y]
 	result["chunk_size"] = [config.chunk_size.x, config.chunk_size.y]

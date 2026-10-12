@@ -12,7 +12,7 @@ const CURRENT_COLOR := Color(1.0, 0.82, 0.25)
 const WRAP_COLOR := Color(0.95, 0.45, 0.95)
 
 ## 地图读取的世界状态。
-var source: WorldState
+var source: WorldManager
 ## 地图跟踪的玩家实体标识。
 var player_id: int
 ## 鼠标拖动产生的地图显示偏移。
@@ -22,7 +22,7 @@ var _dragging := false
 
 
 ## 绑定玩家状态，并订阅世界变化。
-func bind(world: WorldState, entity_id: int) -> void:
+func bind(world: WorldManager, entity_id: int) -> void:
 	if source != null:
 		source.player_changed.disconnect(_on_player_changed)
 		source.chunks_changed.disconnect(_on_chunks_changed)

@@ -3,11 +3,11 @@ class_name MonsterLayer
 extends Node2D
 
 ## 视图读取的世界状态。
-var source: WorldState
+var source: WorldManager
 
 
 ## 绑定世界并在区块或 monster 变化时重绘。
-func bind(world: WorldState) -> void:
+func bind(world: WorldManager) -> void:
 	if source != null:
 		source.chunks_changed.disconnect(_on_chunks_changed)
 	source = world

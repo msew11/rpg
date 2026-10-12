@@ -18,13 +18,13 @@ const CURRENT_COLOR := Color(1.0, 0.82, 0.25)
 const WRAP_COLOR := Color(0.95, 0.45, 0.95)
 
 ## 雷达读取的世界状态。
-var source: WorldState
+var source: WorldManager
 ## 雷达跟踪的玩家实体标识。
 var player_id: int
 
 
 ## 绑定玩家状态与变化通知，并同步初始可见状态。
-func bind(world: WorldState, entity_id: int) -> void:
+func bind(world: WorldManager, entity_id: int) -> void:
 	if source != null:
 		source.player_changed.disconnect(_on_player_changed)
 		source.chunks_changed.disconnect(_on_chunks_changed)
