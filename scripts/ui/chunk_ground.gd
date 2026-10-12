@@ -34,21 +34,21 @@ func _on_debug_changed() -> void:
 
 ## 读取区块调试边缘的显示状态。
 func debug_edges_enabled() -> bool:
-	return source != null and source.debug().edges
+	return source != null and source.debug_view().edges
 
 
 ## 读取当前加载范围内的地块类型。
 func displayed_tile_type(tile_coord: Vector2i) -> int:
-	if source == null or source.chunks().loaded.is_empty():
+	if source == null or source.chunks_view().loaded.is_empty():
 		return -1
-	var chunk_size: Vector2i = source.chunks().chunk_size
-	var world_size: Vector2i = source.chunks().world_size
+	var chunk_size: Vector2i = source.chunks_view().chunk_size
+	var world_size: Vector2i = source.chunks_view().world_size
 	var raw := UtilChunkCoordinates.raw_chunk(tile_coord, chunk_size)
-	var loaded: Array[Vector2i] = source.chunks().loaded
+	var loaded: Array[Vector2i] = source.chunks_view().loaded
 	if not loaded.has(raw):
 		return -1
 	var canonical := UtilChunkCoordinates.canonical_chunk(raw, world_size)
-	var tiles: PackedByteArray = source.chunks().tiles_for(canonical)
+	var tiles: PackedByteArray = source.chunks_view().tiles_for(canonical)
 	return _tile_type(tile_coord, tiles, chunk_size)
 
 
@@ -60,11 +60,11 @@ func _tile_type(tile_coord: Vector2i, tiles: PackedByteArray, chunk_size: Vector
 
 ## 绘制已加载地块及可选的区块边缘。
 func _draw() -> void:
-	if source == null or source.chunks().loaded.is_empty():
+	if source == null or source.chunks_view().loaded.is_empty():
 		return
-	var chunk_size: Vector2i = source.chunks().chunk_size
-	var world_size: Vector2i = source.chunks().world_size
-	var loaded: Array[Vector2i] = source.chunks().loaded
+	var chunk_size: Vector2i = source.chunks_view().chunk_size
+	var world_size: Vector2i = source.chunks_view().world_size
+	var loaded: Array[Vector2i] = source.chunks_view().loaded
 	if loaded.is_empty():
 		return
 	var by_raw: Dictionary = {}
@@ -76,7 +76,7 @@ func _draw() -> void:
 		max_raw.x = maxi(max_raw.x, raw.x)
 		max_raw.y = maxi(max_raw.y, raw.y)
 		var canonical := UtilChunkCoordinates.canonical_chunk(raw, world_size)
-		by_raw[raw] = source.chunks().tiles_for(canonical)
+		by_raw[raw] = source.chunks_view().tiles_for(canonical)
 	var min_tile := UtilChunkCoordinates.tile_origin(min_raw, chunk_size)
 	var max_tile := UtilChunkCoordinates.tile_origin(max_raw + Vector2i.ONE, chunk_size) - Vector2i.ONE
 	for row in range(min_tile.x + min_tile.y, max_tile.x + max_tile.y + 1):

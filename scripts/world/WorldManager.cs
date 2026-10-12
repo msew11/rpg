@@ -294,10 +294,10 @@ public partial class WorldManager : RefCounted
     private WorldChunksComponent ChunksComponent() => _ecs.GetComponent<WorldChunksComponent>(world_entity_id)!;
 
     /// <summary>读取当前区块状态的只读视图。</summary>
-    public WorldChunksView chunks() => _chunksView;
+    public WorldChunksView chunks_view() => _chunksView;
 
     /// <summary>读取当前调试开关的只读视图。</summary>
-    public WorldDebugView debug() => _debugView;
+    public WorldDebugView debug_view() => _debugView;
 
     /// <summary>读取玩家的连续世界位置。</summary>
     public Vector2 player_position(long entityId) => _ecs.GetComponent<PositionComponent>(entityId)!.value;

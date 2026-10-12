@@ -27,7 +27,7 @@ class RadarState extends RefCounted:
 ## 集中读取一次雷达绘制使用的玩家和区块状态。
 static func capture(world: WorldManager, player_id: int) -> RadarState:
 	var state := RadarState.new()
-	var chunks := world.chunks()
+	var chunks := world.chunks_view()
 	state.player_position = world.player_position(player_id)
 	state.player_facing = world.player_facing(player_id)
 	state.chunk_size = chunks.chunk_size

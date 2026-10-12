@@ -9,8 +9,8 @@ func _initialize() -> void:
 	var world: WorldManager = WorldManager.Create(cache)
 	var ecs: EcsWorld = WorldEcsTestAccess.FromCache(cache)
 	assert(ecs.HasEntity(world.world_entity_id))
-	assert(world.chunks() is WorldChunksView)
-	assert(world.debug() is WorldDebugView)
+	assert(world.chunks_view() is WorldChunksView)
+	assert(world.debug_view() is WorldDebugView)
 	var player_changes: Array[int] = []
 	var chunk_changes: Array[int] = []
 	var debug_changes: Array[int] = []
@@ -37,27 +37,27 @@ func _initialize() -> void:
 	assert(player_changes.size() == 3)
 	world.send_event(SetDebugEdgesEvent.Create(true))
 	world.send_event(SetDebugEdgesEvent.Create(true))
-	assert(world.debug().edges and debug_changes.size() == 1)
+	assert(world.debug_view().edges and debug_changes.size() == 1)
 	var canonical := Vector2i(2, 3)
 	var tiles := PackedByteArray([0, 1, 0])
 	assert(WorldEcsTestAccess.SetChunkTiles(world, canonical, tiles))
 	assert(chunk_changes.size() == 1)
 	tiles[0] = 1
-	assert(world.chunks().tiles_for(canonical)[0] == 0)
-	var read_tiles: PackedByteArray = world.chunks().tiles_for(canonical)
+	assert(world.chunks_view().tiles_for(canonical)[0] == 0)
+	var read_tiles: PackedByteArray = world.chunks_view().tiles_for(canonical)
 	read_tiles[0] = 1
-	assert(world.chunks().tiles_for(canonical)[0] == 0)
+	assert(world.chunks_view().tiles_for(canonical)[0] == 0)
 	assert(WorldEcsTestAccess.SetChunkTiles(world, canonical, read_tiles))
-	assert(world.chunks().tiles_for(canonical)[0] == 1)
+	assert(world.chunks_view().tiles_for(canonical)[0] == 1)
 	assert(chunk_changes.size() == 2)
 	assert(not WorldEcsTestAccess.SetChunkTiles(world, canonical, read_tiles))
 	assert(chunk_changes.size() == 2)
 	WorldEcsTestAccess.InitializeTestChunks(world, ManualChunkCfg.new())
-	var loaded_count: int = world.chunks().loaded.size()
+	var loaded_count: int = world.chunks_view().loaded.size()
 	var notified_count: int = chunk_changes.size()
-	var loaded_copy: Array[Vector2i] = world.chunks().loaded
+	var loaded_copy: Array[Vector2i] = world.chunks_view().loaded
 	loaded_copy.clear()
-	assert(world.chunks().loaded.size() == loaded_count)
+	assert(world.chunks_view().loaded.size() == loaded_count)
 	assert(chunk_changes.size() == notified_count)
 	world.player_changed.disconnect(on_player_changed)
 	world.chunks_changed.disconnect(on_chunks_changed)

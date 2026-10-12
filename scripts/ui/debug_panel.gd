@@ -58,8 +58,8 @@ func _on_debug_changed() -> void:
 
 ## 从数据源更新两个开关，避免回写事件。
 func _sync_buttons() -> void:
-	borders_button.set_pressed_no_signal(source.debug().edges)
-	radar_button.set_pressed_no_signal(source.debug().radar)
+	borders_button.set_pressed_no_signal(source.debug_view().edges)
+	radar_button.set_pressed_no_signal(source.debug_view().radar)
 
 
 ## 经当前会话提交区块边缘开关。

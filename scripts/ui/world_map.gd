@@ -82,8 +82,8 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.09), true)
 	if source == null:
 		return
-	var chunk_size: Vector2i = source.chunks().chunk_size
-	var world_size: Vector2i = source.chunks().world_size
+	var chunk_size: Vector2i = source.chunks_view().chunk_size
+	var world_size: Vector2i = source.chunks_view().world_size
 	var player_id_chunk := UtilWorldMapProjection.current_chunk(source, player_id)
 	var font := ThemeDB.fallback_font
 	draw_string(font, Vector2(24, 36), "WORLD MAP  ·  M close  ·  Left drag to pan", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)

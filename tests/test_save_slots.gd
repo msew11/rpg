@@ -56,8 +56,8 @@ func run_test() -> void:
 	assert(main.mode == Main.MODE_PLAYING)
 	assert(main.debug_panel.interaction_session == main.session)
 	main.debug_panel.borders_button.button_pressed = true
-	assert(main.session.world_manager.debug().edges)
-	assert(not before_load_session.world_manager.debug().edges)
+	assert(main.session.world_manager.debug_view().edges)
+	assert(not before_load_session.world_manager.debug_view().edges)
 	assert(main.session.player_position() == Vector2(27.25, -3.5))
 	assert(main.session.player_facing() == Vector2i(-1, 1))
 	assert(main.camera.position == UtilIsometricProjection.to_screen(Vector2(27.25, -3.5)))

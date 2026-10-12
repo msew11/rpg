@@ -29,9 +29,9 @@ public partial class TestWorldEcs : SceneTree
             Check(ReferenceEquals(repo!.Data, ecs.Data), "world uses repo-owned ECS data");
             var worldId = state.world_entity_id;
             Check(ecs.HasEntity(worldId), "world entity exists");
-            Check(ecs.GetComponent<WorldChunksComponent>(worldId) is not null && state.chunks() is WorldChunksView,
+            Check(ecs.GetComponent<WorldChunksComponent>(worldId) is not null && state.chunks_view() is WorldChunksView,
                 "world chunks use ECS and expose a read-only view");
-            Check(ecs.GetComponent<WorldDebugComponent>(worldId) is not null && state.debug() is WorldDebugView,
+            Check(ecs.GetComponent<WorldDebugComponent>(worldId) is not null && state.debug_view() is WorldDebugView,
                 "world debug uses ECS and exposes a read-only view");
             Check(typeof(WorldChunksView).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .All(property => property.SetMethod is null), "chunk view has no writable properties");
@@ -42,9 +42,9 @@ public partial class TestWorldEcs : SceneTree
             Check(typeof(WorldCommandEvent).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .All(property => property.Name is not ("chunks_changed" or "debug_changed")),
                 "event does not expose notification hints");
-            var loadedCopy = state.chunks().loaded;
+            var loadedCopy = state.chunks_view().loaded;
             loadedCopy.Add(new Vector2I(9, 9));
-            Check(!state.chunks().loaded.Contains(new Vector2I(9, 9)), "loaded query returns a separate collection");
+            Check(!state.chunks_view().loaded.Contains(new Vector2I(9, 9)), "loaded query returns a separate collection");
 
             var playerId = WorldEcsTestAccess.CreatePlayer(state, Vector2.Zero, 3);
             Check(ecs.HasEntity(playerId), "player entity exists");

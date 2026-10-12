@@ -34,7 +34,7 @@ func bind(world: WorldManager, entity_id: int) -> void:
 	source.player_changed.connect(_on_player_changed)
 	source.chunks_changed.connect(_on_chunks_changed)
 	source.debug_changed.connect(_on_debug_changed)
-	visible = source.debug().radar
+	visible = source.debug_view().radar
 	queue_redraw()
 
 
@@ -51,13 +51,13 @@ func _on_chunks_changed() -> void:
 
 ## 同步雷达可见状态与边缘提示。
 func _on_debug_changed() -> void:
-	visible = source.debug().radar
+	visible = source.debug_view().radar
 	queue_redraw()
 
 
 ## 返回区块边缘快捷键的状态提示。
 func edge_hint_text() -> String:
-	return "F3 BORDERS: ON" if source != null and source.debug().edges else "F3 BORDERS: OFF"
+	return "F3 BORDERS: ON" if source != null and source.debug_view().edges else "F3 BORDERS: OFF"
 
 
 ## 返回固定在雷达中心的玩家标记位置。

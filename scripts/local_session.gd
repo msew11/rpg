@@ -55,7 +55,7 @@ func set_debug_edges(enabled: bool) -> WorldEventResult:
 
 ## 切换区块边缘线显示状态。
 func toggle_debug_edges() -> WorldEventResult:
-	return set_debug_edges(not world_manager.debug().edges)
+	return set_debug_edges(not world_manager.debug_view().edges)
 
 
 ## 设置雷达显示状态。
@@ -90,12 +90,12 @@ func capture_snapshot() -> Dictionary:
 	var config := ManualChunkCfg.new()
 	var result := working_store.snapshot.duplicate(true)
 	var seen := {}
-	for raw: Vector2i in world_manager.chunks().loaded:
+	for raw: Vector2i in world_manager.chunks_view().loaded:
 		var id := UtilChunkCoordinates.canonical_chunk(raw, config.world_size)
 		if seen.has(id):
 			continue
 		seen[id] = true
-		working_store.merge_chunk_into(result, id, world_manager.chunks().tiles_for(id), config.tiles_for(id), world_manager.capture_chunk_entities(raw))
+		working_store.merge_chunk_into(result, id, world_manager.chunks_view().tiles_for(id), config.tiles_for(id), world_manager.capture_chunk_entities(raw))
 	result["position"] = [position.x, position.y]
 	result["facing"] = [facing.x, facing.y]
 	result["chunk_size"] = [config.chunk_size.x, config.chunk_size.y]

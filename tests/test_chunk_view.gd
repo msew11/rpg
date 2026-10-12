@@ -132,8 +132,8 @@ func run_test() -> void:
 	main._unhandled_key_input(map_key)
 	assert(main.world_map.visible)
 	assert(main.world_map.size.x > 0 and main.world_map.size.y > 0)
-	assert(main.session.world_manager.chunks().active_count() <= _loaded_count(main))
-	assert(not main.session.world_manager.chunks().has_chunk(Vector2i(2, 2)))
+	assert(main.session.world_manager.chunks_view().active_count() <= _loaded_count(main))
+	assert(not main.session.world_manager.chunks_view().has_chunk(Vector2i(2, 2)))
 	assert(main.world_map.chunk_corners(Vector2i(0, 0)).size() == 4)
 	assert(main.world_map.player_marker_position() == main.world_map._map_point(Vector2(1, 1)))
 	var before_pan: Vector2 = main.world_map.chunk_corners(Vector2i(0, 0))[0]
@@ -172,7 +172,7 @@ func _move_to(main: Node2D, position: Vector2) -> void:
 
 ## 读取当前加载的行走区块数量。
 func _loaded_count(main: Node2D) -> int:
-	var loaded: Array[Vector2i] = main.session.world_manager.chunks().loaded
+	var loaded: Array[Vector2i] = main.session.world_manager.chunks_view().loaded
 	return loaded.size()
 
 
@@ -180,7 +180,7 @@ func _loaded_count(main: Node2D) -> int:
 func _assert_radar_coverage(main: Node2D) -> void:
 	var radar: ChunkRadar = main.radar
 	var visible := radar.visible_chunks()
-	var chunk_size: Vector2i = main.session.world_manager.chunks().chunk_size
+	var chunk_size: Vector2i = main.session.world_manager.chunks_view().chunk_size
 	var player_chunk_position: Vector2 = main.session.player_position() / Vector2(chunk_size)
 	for screen_y in range(45, 307, 32):
 		for screen_x in range(23, 285, 32):
