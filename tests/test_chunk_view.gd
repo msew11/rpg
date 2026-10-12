@@ -1,4 +1,4 @@
-## 验证 openspec/specs/continuous-chunk-world/spec.md 的区块显示、调试视野、快捷键及完整地图场景。
+## 验证 openspec/specs/continuous-chunk-world/spec.md 的区块视图与快捷键，以及 openspec/specs/start-menu-and-save-slots/spec.md 的存档目录显示。
 class_name TestChunkView
 extends SceneTree
 
@@ -22,6 +22,8 @@ func run_test() -> void:
 	assert(main.debug_panel.borders_button.text.begins_with("F3"))
 	assert(not main.debug_panel.borders_button.button_pressed)
 	assert(main.debug_panel.radar_button.button_pressed)
+	assert(main.debug_panel.save_dir_path.text == ProjectSettings.globalize_path(SaveSlots.DEFAULT_DIR))
+	assert(not main.debug_panel.save_dir_path.editable)
 	assert(is_equal_approx(main.camera.zoom.x, 1.4))
 	main.debug_panel.view_height_slider.value = 2.0
 	assert(is_equal_approx(main.camera.zoom.x, 0.7))
@@ -88,6 +90,11 @@ func run_test() -> void:
 	assert(main.session.world.tile_type(Vector2i(12, 1)) == tile_before_space)
 	assert(main.debug_panel.radar_button.button_pressed)
 	assert(main.debug_panel.borders_button.button_pressed)
+	main.debug_panel.save_dir_path.grab_focus()
+	main.get_viewport().push_input(space_key, true)
+	assert(main.session.world.tile_type(Vector2i(12, 1)) != tile_before_space)
+	assert(main.debug_panel.radar_button.button_pressed)
+	assert(main.debug_panel.borders_button.button_pressed)
 	_move_to(main, Vector2(-1, -1))
 	_assert_radar_coverage(main)
 	assert(main.radar.visible_chunks().size() > 25)
@@ -118,7 +125,7 @@ func run_test() -> void:
 	_move_to(main, Vector2(49, 1))
 	assert(main.ground.displayed_tile_type(Vector2i(49, 1)) == main.session.world.tile_type(Vector2i(1, 1)))
 	assert(main.camera.position == UtilIsometricProjection.to_screen(Vector2(49, 1)))
-	assert(main.radar.position == Vector2(16, 152))
+	assert(main.radar.position == Vector2(16, 206))
 	var map_key := InputEventKey.new()
 	map_key.keycode = KEY_M
 	map_key.pressed = true

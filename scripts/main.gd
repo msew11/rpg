@@ -58,6 +58,7 @@ var mode := MODE_TITLE
 ## 绑定各视图并加载玩家附近区块。
 func _ready() -> void:
 	debug_panel.view_height_changed.connect(_on_view_height_changed)
+	debug_panel.set_save_directory(ProjectSettings.globalize_path(save_slots.save_dir))
 	_bind_session()
 	_on_view_height_changed(debug_panel.view_height_slider.value)
 	$MenuLayer/Menu/Center/Panel/Content/Rows/TitleActions/StartButton.pressed.connect(start_new_game)
@@ -82,7 +83,9 @@ func _input(event: InputEvent) -> void:
 	if mode != MODE_PLAYING or world_map.visible or not event is InputEventKey or not event.pressed or event.echo or event.keycode != KEY_SPACE:
 		return
 	var focused := get_viewport().gui_get_focus_owner()
-	if focused is LineEdit or focused is TextEdit:
+	if focused is LineEdit and focused.editable:
+		return
+	if focused is TextEdit and focused.editable:
 		return
 	session.world.toggle_tile(session.player_position())
 	get_viewport().set_input_as_handled()

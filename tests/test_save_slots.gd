@@ -19,6 +19,7 @@ func run_test() -> void:
 	main.save_slots = store
 	root.add_child(main)
 	main.set_physics_process(false)
+	assert(main.debug_panel.save_dir_path.text == ProjectSettings.globalize_path(directory))
 	assert(main.mode == Main.MODE_TITLE)
 	assert(not main.game_buttons.visible)
 	main.show_load_slots()

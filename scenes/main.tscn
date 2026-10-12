@@ -21,8 +21,8 @@ zoom = Vector2(1.4, 1.4)
 [node name="DebugPanel" type="PanelContainer" parent="RadarLayer"]
 offset_left = 16.0
 offset_top = 16.0
-offset_right = 256.0
-offset_bottom = 146.0
+offset_right = 336.0
+offset_bottom = 200.0
 script = ExtResource("4_debug")
 
 [node name="Options" type="VBoxContainer" parent="RadarLayer/DebugPanel"]
@@ -43,11 +43,18 @@ max_value = 4.0
 step = 0.25
 value = 1.0
 
+[node name="SaveDirLabel" type="Label" parent="RadarLayer/DebugPanel/Options"]
+text = "存档目录"
+
+[node name="SaveDirPath" type="LineEdit" parent="RadarLayer/DebugPanel/Options"]
+custom_minimum_size = Vector2(294, 28)
+editable = false
+
 [node name="ChunkRadar" type="Control" parent="RadarLayer"]
 offset_left = 16.0
-offset_top = 152.0
+offset_top = 206.0
 offset_right = 320.0
-offset_bottom = 536.0
+offset_bottom = 590.0
 clip_contents = true
 mouse_filter = 2
 script = ExtResource("3_radar")

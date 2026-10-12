@@ -1,4 +1,4 @@
-## 提供区块边缘和雷达的调试开关。
+## 提供区块边缘、雷达、视野和存档目录的调试信息。
 class_name DebugPanel
 extends PanelContainer
 
@@ -15,6 +15,9 @@ signal view_height_changed(multiplier: float)
 
 ## 调整镜头可见世界高度的滑条。
 @onready var view_height_slider: HSlider = $Options/ViewHeightSlider
+
+## 显示可选中复制的正式存档目录。
+@onready var save_dir_path: LineEdit = $Options/SaveDirPath
 
 ## 调试面板读取和更新的世界状态。
 var source: WorldState
@@ -61,3 +64,9 @@ func _on_radar_toggled(enabled: bool) -> void:
 func _on_view_height_changed(multiplier: float) -> void:
 	view_height_label.text = "视野高度 %.2f×" % multiplier
 	view_height_changed.emit(multiplier)
+
+
+## 显示当前存档管理器实际使用的绝对目录。
+func set_save_directory(directory: String) -> void:
+	save_dir_path.text = directory
+	save_dir_path.tooltip_text = directory
