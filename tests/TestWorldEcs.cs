@@ -20,6 +20,10 @@ public partial class TestWorldEcs : SceneTree
                 "world manager does not expose an ECS property");
             Check(typeof(WorldManager).GetFields().All(field => field.FieldType != typeof(EcsWorld)),
                 "world manager does not expose an ECS field");
+            foreach (var methodName in new[] { "create_player", "set_player_position", "set_player_facing",
+                         "set_chunk_tiles", "initialize_test_chunks", "unload_chunk_entity" })
+                Check(typeof(WorldManager).GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance) is null,
+                    $"world manager does not expose {methodName}");
             Check(cache.GetRepo(typeof(DataRepoSingle<EcsWorldData>)) is null, "cache uses exact repo type");
             using var ecs = WorldEcsTestAccess.FromCache(cache);
             Check(ReferenceEquals(repo!.Data, ecs.Data), "world uses repo-owned ECS data");
@@ -37,7 +41,7 @@ public partial class TestWorldEcs : SceneTree
             loadedCopy.Add(new Vector2I(9, 9));
             Check(!state.chunks().loaded.Contains(new Vector2I(9, 9)), "loaded query returns a separate collection");
 
-            var playerId = state.create_player(Vector2.Zero, 3);
+            var playerId = WorldEcsTestAccess.CreatePlayer(state, Vector2.Zero, 3);
             Check(ecs.HasEntity(playerId), "player entity exists");
             Check(ecs.GetComponent<PositionComponent>(playerId)?.value == Vector2.Zero, "initial position uses ECS");
             Check(ecs.GetComponent<MovementIntentComponent>(playerId)?.value == Vector2I.Zero, "initial intent uses ECS");

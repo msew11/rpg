@@ -11,6 +11,7 @@ func _initialize() -> void:
 	assert(player_id > 0)
 	assert(session.world_manager.player_position(player_id) == Vector2.ZERO)
 	assert(WorldEcsTestAccess.FromCache(session.cache).HasEntity(player_id))
+	assert(WorldEcsTestAccess.ReinitializeRejected(session.world_manager, ManualChunkCfg.new()))
 
 	var directions := [
 		Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1),

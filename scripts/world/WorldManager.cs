@@ -35,6 +35,9 @@ public partial class WorldManager : RefCounted
     /// <summary>不可变测试地图配置，用于生成区块基准地块。</summary>
     private GodotObject? _cfg;
 
+    /// <summary>标记会话是否已完成一次性世界初始化。</summary>
+    private bool _sessionInitialized;
+
     /// <summary>活跃规范区块与其实体标识。</summary>
     private readonly Dictionary<Vector2I, long> _chunkEntities = [];
 
@@ -78,8 +81,21 @@ public partial class WorldManager : RefCounted
         _ecs.AddSystem(new DebugMonsterSystem());
     }
 
-    /// <summary>创建具有位置、意图、速度与朝向的玩家实体。</summary>
-    public long create_player(Vector2 position, float speed)
+    /// <summary>按新游戏或有效存档的初始状态建立玩家和区块。</summary>
+    public long initialize_session(Vector2 position, float speed, Vector2I facing, GodotObject cfg)
+    {
+        ArgumentNullException.ThrowIfNull(cfg);
+        if (_sessionInitialized)
+            throw new InvalidOperationException("World session has already been initialized.");
+        var playerId = create_player(position, speed);
+        set_player_facing(playerId, facing);
+        initialize_test_chunks(cfg);
+        _sessionInitialized = true;
+        return playerId;
+    }
+
+    /// <summary>在初始化或测试布置时创建具有位置、意图、速度与朝向的玩家实体。</summary>
+    internal long create_player(Vector2 position, float speed)
     {
         var entityId = _ecs.CreateEntity(world_entity_id);
         _ecs.AddComponent(entityId, new PositionComponent(position));
@@ -141,7 +157,7 @@ public partial class WorldManager : RefCounted
     }
 
     /// <summary>落地一个不再活跃的区块及其子实体，然后释放内存；失败仍卸载。</summary>
-    public bool unload_chunk_entity(Vector2I raw)
+    private bool unload_chunk_entity(Vector2I raw)
     {
         if (_cfg is null)
             return false;
@@ -290,7 +306,7 @@ public partial class WorldManager : RefCounted
     }
 
     /// <summary>设置玩家位置，并在有效变化时通知视图。</summary>
-    public void set_player_position(long entityId, Vector2 value)
+    internal void set_player_position(long entityId, Vector2 value)
     {
         var position = _ecs.GetComponent<PositionComponent>(entityId)!;
         if (position.value == value)
@@ -312,7 +328,7 @@ public partial class WorldManager : RefCounted
     }
 
     /// <summary>绑定手工配置并按玩家当前位置首次加载区块。</summary>
-    public void initialize_test_chunks(GodotObject cfg)
+    internal void initialize_test_chunks(GodotObject cfg)
     {
         _cfg = cfg;
         var chunkSize = cfg.Get("chunk_size").AsVector2I();
@@ -355,7 +371,7 @@ public partial class WorldManager : RefCounted
     }
 
     /// <summary>设置玩家朝向，并在有效变化时通知视图。</summary>
-    public void set_player_facing(long entityId, Vector2I value)
+    internal void set_player_facing(long entityId, Vector2I value)
     {
         var facing = _ecs.GetComponent<FacingComponent>(entityId)!;
         if (facing.value == value)
@@ -365,7 +381,7 @@ public partial class WorldManager : RefCounted
     }
 
     /// <summary>保存一个规范区块的地块，并通知依赖它的视图。</summary>
-    public bool set_chunk_tiles(Vector2I canonicalId, byte[] tiles)
+    internal bool set_chunk_tiles(Vector2I canonicalId, byte[] tiles)
     {
         if (!ChunksComponent().set_tiles(canonicalId, tiles))
             return false;

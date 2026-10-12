@@ -52,7 +52,7 @@ func run_test() -> void:
 	assert(main.radar.player_marker_position() == ChunkRadar.RADAR_CENTER)
 	assert(main.radar.chunk_corners(Vector2i(0, 0))[0] == initial_corner - Vector2(0, ChunkRadar.CHUNK_AXIS_PIXELS))
 	assert(main.ground.displayed_tile_type(Vector2i(30, 1)) == -1)
-	main.session.world_manager.set_player_facing(main.session.player_id, Vector2i(1, 0))
+	WorldEcsTestAccess.SetPlayerFacing(main.session.world_manager, main.session.player_id, Vector2i(1, 0))
 	assert(main.radar.facing_vector() == Vector2.RIGHT)
 	_move_to(main, Vector2(6, 6) + UtilIsometricProjection.to_world(Vector2.RIGHT))
 	assert(main.radar.chunk_corners(Vector2i(0, 0))[0].x < initial_corner.x)
@@ -163,7 +163,7 @@ func run_test() -> void:
 
 ## 移动测试玩家并核对加载范围与视图位置。
 func _move_to(main: Node2D, position: Vector2) -> void:
-	main.session.world_manager.set_player_position(main.session.player_id, position)
+	WorldEcsTestAccess.SetPlayerPosition(main.session.world_manager, main.session.player_id, position)
 	main.session.world_manager.step(0.0)
 	main._sync_view()
 	assert(_loaded_count(main) == 9)

@@ -8,7 +8,7 @@ Godot 4.7.2 .NET 项目以 `scenes/main.tscn` 为入口，入口脚本 `scripts/
 
 输入和调试操作构造 `WorldCommandEvent` 子类并调用 `WorldManager.send_event()`。世界管理器私有持有 `EcsWorld`，生产调用方不能通过管理器直接增删实体、组件或 System。`chunks()` 与 `debug()` 返回持续读取当前状态的只读视图；加载坐标列表和地块数组返回独立副本，展示与存档代码不能通过查询结果改动组件。通用 `EcsWorld` 在系统注册时收集 `[EcsEventHandler(typeof(...))]` 方法，按事件精确类型同步路由。移动意图、测试地块切换、调试开关和调试怪物创建分别由世界 System 处理。事件标记区块或调试数据是否变化，管理器据此发出已有视图信号；逐帧移动和区块加载仍由 `step()` 调度。新交互可增加事件和处理系统，不需给管理器增加对应命令方法。
 
-启动界面、游戏内保存入口、Chat 面板与五槽位读取界面由 `scenes/main.tscn` 的 UI 层实现。`WorkingSaveStore` 管理会话临时增量，`LocalDataRepoCache` 仅经它加载与落地区块；`SaveSlots` 负责五个正式 JSON 槽位的验证和提交。新游戏清理残留工作文件并建立空副本，读档以正式快照建立工作副本；点击保存时 `LocalSession` 将活跃区块与临时记录合并，更新工作文件与指定正式槽位。区块实体及其子树按组件字符串落地和重建，直接销毁实体不触发落地。卸载写入失败时仍释放区块数据，并通过 Chat 系统消息提示可能丢失改动。调试开关和地图拖动偏移不属于存档进度。
+启动界面、游戏内保存入口、Chat 面板与五槽位读取界面由 `scenes/main.tscn` 的 UI 层实现。`LocalSession` 在新游戏或读档时通过一次性的 `WorldManager.initialize_session()` 建立玩家与附近区块，运行期不调用零散直接写入入口；位置、朝向和地块等测试布置由 `tests/WorldEcsTestAccess.cs` 承接。`WorkingSaveStore` 管理会话临时增量，`LocalDataRepoCache` 仅经它加载与落地区块；`SaveSlots` 负责五个正式 JSON 槽位的验证和提交。新游戏清理残留工作文件并建立空副本，读档以正式快照建立工作副本；点击保存时 `LocalSession` 将活跃区块与临时记录合并，更新工作文件与指定正式槽位。区块实体及其子树按组件字符串落地和重建，直接销毁实体不触发落地。卸载写入失败时仍释放区块数据，并通过 Chat 系统消息提示可能丢失改动。调试开关和地图拖动偏移不属于存档进度。
 
 ## 已确认的约束
 

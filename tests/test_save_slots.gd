@@ -1,4 +1,4 @@
-## 验证 openspec/specs/start-menu-and-save-slots/spec.md 的五槽位保存、恢复与无效档场景。
+## 验证 openspec/specs/start-menu-and-save-slots 与 world-script-boundaries 的五槽位恢复及会话初始化场景。
 class_name TestSaveSlots
 extends SceneTree
 
@@ -32,8 +32,8 @@ func run_test() -> void:
 	main.start_new_game()
 	var initial_tile: int = main.session.world_manager.tile_type(Vector2i(0, 0))
 	main.session.world_manager.send_event(ToggleTileEvent.Create(Vector2.ZERO))
-	main.session.world_manager.set_player_position(main.session.player_id, Vector2(27.25, -3.5))
-	main.session.world_manager.set_player_facing(main.session.player_id, Vector2i(-1, 1))
+	WorldEcsTestAccess.SetPlayerPosition(main.session.world_manager, main.session.player_id, Vector2(27.25, -3.5))
+	WorldEcsTestAccess.SetPlayerFacing(main.session.world_manager, main.session.player_id, Vector2i(-1, 1))
 	main.session.world_manager.step(0.0)
 	main.show_save_slots()
 	assert(main.slot_list.get_child_count() == 5)
@@ -42,7 +42,7 @@ func run_test() -> void:
 	assert(store.inspect(5)["state"] == "empty")
 	assert(not main.slot_list.get_child(0).disabled)
 
-	main.session.world_manager.set_player_position(main.session.player_id, Vector2(2, 4))
+	WorldEcsTestAccess.SetPlayerPosition(main.session.world_manager, main.session.player_id, Vector2(2, 4))
 	main._on_slot_pressed(5)
 	assert(store.inspect(5)["state"] == "valid")
 	main.show_title()
@@ -56,7 +56,7 @@ func run_test() -> void:
 	assert(main.session.player_position() == Vector2(27.25, -3.5))
 	assert(main.session.player_facing() == Vector2i(-1, 1))
 	assert(main.camera.position == UtilIsometricProjection.to_screen(Vector2(27.25, -3.5)))
-	main.session.world_manager.set_player_position(main.session.player_id, Vector2.ZERO)
+	WorldEcsTestAccess.SetPlayerPosition(main.session.world_manager, main.session.player_id, Vector2.ZERO)
 	main.session.world_manager.step(0.0)
 	assert(main.session.world_manager.tile_type(Vector2i(0, 0)) != initial_tile)
 	main.show_title()

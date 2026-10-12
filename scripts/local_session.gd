@@ -29,10 +29,10 @@ func _start(initial: Dictionary) -> void:
 	var position := Vector2.ZERO
 	if initial.has("position"):
 		position = Vector2(float(initial["position"][0]), float(initial["position"][1]))
-	player_id = world_manager.create_player(position, PLAYER_SPEED)
+	var facing := Vector2i(0, 1)
 	if initial.has("facing"):
-		world_manager.set_player_facing(player_id, Vector2i(int(initial["facing"][0]), int(initial["facing"][1])))
-	world_manager.initialize_test_chunks(ManualChunkCfg.new())
+		facing = Vector2i(int(initial["facing"][0]), int(initial["facing"][1]))
+	player_id = world_manager.initialize_session(position, PLAYER_SPEED, facing, ManualChunkCfg.new())
 
 
 ## 提交玩家的屏幕移动方向。
