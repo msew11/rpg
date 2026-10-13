@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using Godot;
 
 /// <summary>验证 openspec/specs/player-movement、world-script-boundaries 与 session-data-repository 的世界状态契约。</summary>
@@ -13,16 +15,38 @@ public partial class TestWorldEcs : SceneTree
             var repo = cache.GetRepo(typeof(EcsWorldDataRepo)) as EcsWorldDataRepo;
             Check(repo is not null, "cache creates the ECS repo before the world");
             Check(ReferenceEquals(repo, cache.GetRepo(typeof(EcsWorldDataRepo))), "cache keeps one ECS repo");
-            using var state = new WorldState(cache);
-            Check(ReferenceEquals(repo!.Data, state.ecs.Data), "world uses repo-owned ECS data");
+            using var state = new WorldManager(cache);
+            Check(typeof(WorldManager).GetProperties().All(property => property.PropertyType != typeof(EcsWorld)),
+                "world manager does not expose an ECS property");
+            Check(typeof(WorldManager).GetFields().All(field => field.FieldType != typeof(EcsWorld)),
+                "world manager does not expose an ECS field");
+            foreach (var methodName in new[] { "create_player", "set_player_position", "set_player_facing",
+                         "set_chunk_tiles", "initialize_test_chunks", "unload_chunk_entity" })
+                Check(typeof(WorldManager).GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance) is null,
+                    $"world manager does not expose {methodName}");
             Check(cache.GetRepo(typeof(DataRepoSingle<EcsWorldData>)) is null, "cache uses exact repo type");
-            var ecs = state.ecs;
+            using var ecs = WorldEcsTestAccess.FromCache(cache);
+            Check(ReferenceEquals(repo!.Data, ecs.Data), "world uses repo-owned ECS data");
             var worldId = state.world_entity_id;
             Check(ecs.HasEntity(worldId), "world entity exists");
-            Check(ReferenceEquals(ecs.GetComponent<WorldChunksComponent>(worldId), state.chunks()), "world chunks use ECS");
-            Check(ReferenceEquals(ecs.GetComponent<WorldDebugComponent>(worldId), state.debug()), "world debug uses ECS");
+            Check(ecs.GetComponent<WorldChunksComponent>(worldId) is not null && state.chunks_view() is WorldChunksView,
+                "world chunks use ECS and expose a read-only view");
+            Check(ecs.GetComponent<WorldDebugComponent>(worldId) is not null && state.debug_view() is WorldDebugView,
+                "world debug uses ECS and exposes a read-only view");
+            Check(typeof(WorldChunksView).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .All(property => property.SetMethod is null), "chunk view has no writable properties");
+            Check(typeof(WorldDebugView).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .All(property => property.SetMethod is null), "debug view has no writable properties");
+            Check(typeof(WorldEventResult).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .All(property => property.SetMethod is null), "event result has no writable properties");
+            Check(typeof(WorldCommandEvent).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .All(property => property.Name is not ("chunks_changed" or "debug_changed")),
+                "event does not expose notification hints");
+            var loadedCopy = state.chunks_view().loaded;
+            loadedCopy.Add(new Vector2I(9, 9));
+            Check(!state.chunks_view().loaded.Contains(new Vector2I(9, 9)), "loaded query returns a separate collection");
 
-            var playerId = state.create_player(Vector2.Zero, 3);
+            var playerId = WorldEcsTestAccess.CreatePlayer(state, Vector2.Zero, 3);
             Check(ecs.HasEntity(playerId), "player entity exists");
             Check(ecs.GetComponent<PositionComponent>(playerId)?.value == Vector2.Zero, "initial position uses ECS");
             Check(ecs.GetComponent<MovementIntentComponent>(playerId)?.value == Vector2I.Zero, "initial intent uses ECS");
@@ -30,12 +54,12 @@ public partial class TestWorldEcs : SceneTree
             Check(ecs.GetComponent<FacingComponent>(playerId)?.value == new Vector2I(0, 1), "initial facing uses ECS");
             Check(ecs.HasComponent<LocalPlayerComponent>(playerId), "local player marker uses ECS");
 
-            state.set_player_intent(playerId, new Vector2I(1, 0));
+            state.send_event(MoveIntentEvent.Create(playerId, new Vector2I(1, 0)));
             state.step(1);
             Check(state.player_position(playerId) == ecs.GetComponent<PositionComponent>(playerId)?.value, "world reads ECS position");
             Check(state.player_facing(playerId) == ecs.GetComponent<FacingComponent>(playerId)?.value, "world reads ECS facing");
             using var secondCache = new LocalDataRepoCache();
-            using var secondState = new WorldState(secondCache);
+            using var secondState = new WorldManager(secondCache);
             Check(!ReferenceEquals(repo.Data, ((EcsWorldDataRepo)secondCache.GetRepo(typeof(EcsWorldDataRepo))!).Data),
                 "sessions keep separate ECS data");
             GD.Print("test_world_ecs passed");

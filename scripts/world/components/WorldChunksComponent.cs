@@ -12,6 +12,9 @@ public partial class WorldChunksComponent : EcsComponent
     /// <summary>有限世界的规范区块尺寸。</summary>
     public Vector2I world_size { get; set; } = Vector2I.Zero;
 
+    /// <summary>玩家周围需要激活的行走区块窗口尺寸。</summary>
+    public Vector2I active_chunk_size { get; set; } = new(3, 3);
+
     /// <summary>当前需要显示的行走区块坐标。</summary>
     public Array<Vector2I> loaded { get; set; } = [];
 
@@ -20,6 +23,15 @@ public partial class WorldChunksComponent : EcsComponent
 
     /// <summary>检查规范区块的数据是否已创建。</summary>
     public bool has_chunk(Vector2I canonicalId) => _tilesById.ContainsKey(canonicalId);
+
+    /// <summary>返回当前持有地块数组的规范区块数量。</summary>
+    public int active_count() => _tilesById.Count;
+
+    /// <summary>返回当前持有地块数据的规范区块标识快照。</summary>
+    internal Vector2I[] chunk_ids() => _tilesById.Keys.ToArray();
+
+    /// <summary>释放指定规范区块的地块数组。</summary>
+    public bool remove_chunk(Vector2I canonicalId) => _tilesById.Remove(canonicalId);
 
     /// <summary>读取区块地块数组的副本，避免调用方直接改动世界状态。</summary>
     public byte[] tiles_for(Vector2I canonicalId) =>

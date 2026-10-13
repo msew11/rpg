@@ -1,4 +1,4 @@
-## 验证 openspec/specs/player-movement/spec.md 与 session-data-repository/spec.md 的移动及会话隔离场景。
+## 验证 openspec/specs/player-movement、session-data-repository 与 world-script-boundaries 的移动及会话边界场景。
 class_name TestMovement
 extends SceneTree
 
@@ -9,8 +9,9 @@ func _initialize() -> void:
 	assert(session.cache is LocalDataRepoCache)
 	var player_id := session.player_id
 	assert(player_id > 0)
-	assert(session.world.player_position(player_id) == Vector2.ZERO)
-	assert(session.world.ecs.HasEntity(player_id))
+	assert(session.world_manager.player_position(player_id) == Vector2.ZERO)
+	assert(WorldEcsTestAccess.FromCache(session.cache).HasEntity(player_id))
+	assert(WorldEcsTestAccess.ReinitializeRejected(session.world_manager, ManualChunkCfg.new()))
 
 	var directions := [
 		Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1),
@@ -59,7 +60,7 @@ func _initialize() -> void:
 	var view_b := Node2D.new()
 	view_b.position = UtilIsometricProjection.to_screen(session.player_position())
 	assert(session.player_id == player_id)
-	assert(view_b.position == UtilIsometricProjection.to_screen(session.world.player_position(player_id)))
+	assert(view_b.position == UtilIsometricProjection.to_screen(session.world_manager.player_position(player_id)))
 	view_b.free()
 
 	print("test_movement passed")

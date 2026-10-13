@@ -10,7 +10,7 @@ if ($env:GODOT_BIN) {
     }
     $candidates += $env:GODOT_BIN
 }
-foreach ($name in @('godot', 'godot4')) {
+foreach ($name in @('godot-mono', 'godot', 'godot4')) {
     $command = Get-Command $name -ErrorAction SilentlyContinue
     if ($command) { $candidates += $command.Source }
 }
@@ -51,12 +51,18 @@ Invoke-GodotCheck 'core C# tests' @('--headless', '--path', $projectPath, '--scr
 Invoke-GodotCheck 'world ECS state' @('--headless', '--path', $projectPath, '--script', 'res://tests/TestWorldEcs.cs')
 Invoke-GodotCheck 'movement behavior' @('--headless', '--path', $projectPath, '--script', 'tests/test_movement.gd')
 Invoke-GodotCheck 'view rebuilding' @('--headless', '--path', $projectPath, '--script', 'tests/test_view.gd')
+Invoke-GodotCheck 'player templates' @('--headless', '--path', $projectPath, '--script', 'tests/test_player_template.gd')
+Invoke-GodotCheck 'GM panel interactions' @('--headless', '--path', $projectPath, '--script', 'tests/test_gm_panel.gd')
 Invoke-GodotCheck 'chunk coordinates' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_coordinates.gd')
 Invoke-GodotCheck 'manual chunk cfg' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_manual_chunk_cfg.gd')
-Invoke-GodotCheck 'world state data' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_world_state_data.gd')
+Invoke-GodotCheck 'world manager data' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_world_manager_data.gd')
+Invoke-GodotCheck 'world change notifications' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_world_notifications.gd')
+Invoke-GodotCheck 'session interactions' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_session_interactions.gd')
 Invoke-GodotCheck 'chunk world state' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_world.gd')
+Invoke-GodotCheck 'debug monster creation' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_debug_monster.gd')
 Invoke-GodotCheck 'chunk display' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_chunk_view.gd')
 Invoke-GodotCheck 'save slots and start menu' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_save_slots.gd')
+Invoke-GodotCheck 'working save and system chat' @('--headless', '--path', $projectPath, '--script', 'res://tests/test_working_save.gd')
 
 if ($ExportWindows) {
     $templateDir = Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'
@@ -78,5 +84,30 @@ if ($ExportWindows) {
         throw "Exported game failed to start (exit code $($game.ExitCode))."
     }
     Write-Host 'Exported game launch passed.'
+
+    $exportDir = Split-Path $exportPath
+    $archivePath = Join-Path $projectPath 'build\rpg-windows.zip'
+    $temporaryArchive = Join-Path $projectPath ("build\rpg-windows-$([guid]::NewGuid().ToString('N')).zip")
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    try {
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($exportDir, $temporaryArchive, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($temporaryArchive)
+        try {
+            $entries = @($archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') })
+            if ('rpg.exe' -notin $entries -or 'data_rpg_windows_x86_64/coreclr.dll' -notin $entries) {
+                throw 'Windows archive is missing the executable or .NET runtime files.'
+            }
+        }
+        finally {
+            $archive.Dispose()
+        }
+        Move-Item -LiteralPath $temporaryArchive -Destination $archivePath -Force
+        Write-Host "Packaged $archivePath"
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryArchive -PathType Leaf) {
+            Remove-Item -LiteralPath $temporaryArchive
+        }
+    }
 }
 Write-Host 'All checks passed.'

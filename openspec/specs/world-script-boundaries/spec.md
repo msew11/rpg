@@ -3,7 +3,9 @@
 ## Purpose
 
 规定当前项目中世界状态、ECS 更新系统、静态计算工具和 UI 脚本的归属，保证单人世界原型的目录语义与运行时职责一致。
+
 ## Requirements
+
 ### Requirement: 世界规则由无状态 ECS System 更新
 项目 SHALL 将世界运行状态保存在 ECS 组件中，并使注册到 ECS 的世界 System 不保存玩家 ID、世界引用或随时间变化的计算缓存。
 
@@ -19,12 +21,103 @@
 - **THEN** UI 使用当前世界数据和显示参数计算绘制位置，雷达和地图呈现与既有行为一致
 
 ### Requirement: 脚本目录反映职责
-项目 SHALL 将入口和本地会话放在 `scripts/` 根目录，手工区块配置放在 `scripts/cfg/`，将 C# 世界状态、组件和 ECS System 放在 `scripts/world/`；视图和无状态展示计算工具保持在原有目录。`scripts/core/` 的通用框架代码 SHALL 与 `main` 一致。
+
+项目 SHALL 将入口和本地会话放在 `scripts/` 根目录，手工区块配置放在 `scripts/cfg/`，将 C# 世界状态、组件和 ECS System 放在 `scripts/world/`；Godot 展示和交互脚本放在 `scripts/ui/`，无状态展示计算工具放在 `scripts/utils/`。`scripts/core/` 的通用框架代码 SHALL 与 `main` 一致。
 
 #### Scenario: 检查项目脚本
+
 - **WHEN** 开发者浏览 `scripts/` 目录
 - **THEN** 世界状态、ECS 组件及 System 使用 C#，入口、配置、UI 与展示计算工具位于各自约定的位置，且项目仍从 `scenes/main.tscn` 启动
 
 #### Scenario: GDScript 视图订阅世界状态
+
 - **WHEN** 玩家、区块或调试状态改变
 - **THEN** 保留的 GDScript 视图通过 C# 世界状态的公开成员和信号取得更新
+
+### Requirement: 世界交互由事件系统承接
+
+世界管理器 SHALL 将交互事件转发给 ECS；具体移动意图、地块、调试开关和怪物生成规则 SHALL 位于世界 System 中，避免管理器按交互类型扩展方法。
+
+#### Scenario: 检查新增交互位置
+- **WHEN** 开发者查看交互命令实现
+- **THEN** 世界管理器仅执行事件转发和变化通知，具体规则可在对应 System 中找到
+
+### Requirement: 世界管理器封闭裸 ECS 入口
+
+世界管理器 SHALL 自行持有和调度 ECS，生产调用方 SHALL 无法通过世界管理器取得可直接增删实体、组件或 System 的 ECS 实例。现有交互命令、世界读取和存档行为 SHALL 保持可用。
+
+#### Scenario: 生产调用方检查世界入口
+
+- **WHEN** 生产调用方使用世界管理器的公开接口
+- **THEN** 无法从该接口取得可直接修改实体、组件或 System 的 ECS 实例
+
+#### Scenario: 实体随区块保存和恢复
+
+- **WHEN** 区块内实体在保存、卸载和重新加载后被检查
+- **THEN** 实体的父子关系和持久组件仍按既有规则恢复
+
+### Requirement: 世界查询不暴露可变组件
+
+世界管理器 SHALL 通过 `chunks_view()` 与 `debug_view()` 让展示层和存档层读取当前区块尺寸、加载范围、地块与调试开关，同时 SHALL 防止调用方通过查询结果改变世界组件。返回的区块列表和地块数组 SHALL 与内部可变数据隔离。
+
+#### Scenario: 展示与存档读取
+
+- **WHEN** 展示层绘制世界，或会话合并活跃区块存档
+- **THEN** 调用方取得当前尺寸、加载坐标、地块内容与调试状态，行为与既有场景一致
+
+#### Scenario: 修改查询得到的列表和数组
+
+- **WHEN** 调用方改动读取到的加载坐标列表或地块数组
+- **THEN** 后续世界查询及区块行为仍使用原有内部状态，也不产生虚假的变化通知
+
+#### Scenario: 查询调试与区块标量
+
+- **WHEN** 调用方取得区块尺寸、活跃窗口尺寸或调试开关
+- **THEN** 查询结果没有可写入口能改变对应世界组件
+
+### Requirement: 世界直接写入按生命周期隔离
+
+世界管理器 SHALL 允许本地会话在建立新游戏或恢复有效存档时一次性设置玩家初始状态与区块配置；初始化后，生产调用方 SHALL 通过事件提交运行时交互，而不能使用公开的零散玩家、地块、实体创建或区块卸载写入入口。测试布置 SHALL 与生产接口分离。
+
+#### Scenario: 新游戏与读档初始化
+
+- **WHEN** 本地会话从默认值或有效存档建立世界
+- **THEN** 玩家位置、朝向和附近区块按提供的初始状态建立，视图与保存结果保持既有行为
+
+#### Scenario: 重复初始化与运行时入口
+
+- **WHEN** 会话已经完成初始化
+- **THEN** 不能再次通过初始化入口重置世界，生产调用方也无法调用零散直接写入方法绕过事件规则
+
+#### Scenario: 测试布置后区块跟随
+
+- **WHEN** 测试将玩家放在另一区块并推进世界一步
+- **THEN** 加载范围跟随玩家变化，相关通知、卸载与重新加载行为仍可验收
+
+### Requirement: 世界内部工具按职责归档
+
+项目 SHALL 将世界内部无状态 C# 坐标计算、实体树编解码和怪物可见位置查询工具放在 `scripts/world/utils/`；持有会话状态的区块生命周期仍属于世界边界层。移动文件 SHALL 保持现有类型接口及运行行为。
+
+#### Scenario: 检查世界工具目录
+
+- **WHEN** 开发者查看 `scripts/world/utils/`
+- **THEN** 可找到 `WorldMath`、`WorldEntityTreeCodec` 和 `WorldMonsterQuery`，而 `WorldChunkLifecycle` 仍在 `scripts/world/`
+
+#### Scenario: 移动后运行世界
+
+- **WHEN** 玩家移动并穿越回环边界，或保存恢复怪物实体
+- **THEN** 坐标、存档和怪物显示结果与移动前一致
+
+### Requirement: 世界组件只读视图集中放置
+
+项目 SHALL 将 `WorldChunksView` 与 `WorldDebugView` 及其 Godot UID 放在 `scripts/world/compviews/`，并保持现有只读查询接口与隔离行为。
+
+#### Scenario: 检查组件视图目录
+
+- **WHEN** 开发者查看 `scripts/world/compviews/`
+- **THEN** 两个只读组件视图及其 UID 位于该目录，世界组件仍位于 `scripts/world/components/`
+
+#### Scenario: 移动后读取世界视图
+
+- **WHEN** 展示层或存档层通过世界管理器读取区块与调试视图
+- **THEN** 调用方仍取得当前状态，无法经查询结果修改世界组件

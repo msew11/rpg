@@ -2,9 +2,13 @@
 
 `scripts/core/ecs/` 提供与玩法无关的 C# 内存 ECS。调用方创建 `EcsWorld`，用单调递增的 `long` ID 表示实体；组件继承 `EcsComponent`，系统继承 `EcsSystem`。运行时不依赖场景节点，调用方负责在需要时调用 `Step(delta)`。
 
-实体标识、有效实体集合和组件索引经核心 `IEcsWorldData` 接口读写。`scripts/data/EcsWorldData.cs` 提供本地实现，调用方创建后交给 `EcsWorld`；同一数据实例也可交给后续世界继续使用。系统注册与调度状态不属于该数据实例。
+交互事件继承 `EcsEvent`。系统用 `[EcsEventHandler(typeof(MyEvent))]` 标记 `void Handler(EcsWorld world, MyEvent value)` 方法；`AddSystem` 收集和校验处理方法，`SendEvent(event)` 按注册顺序同步分发给精确类型匹配的处理者，返回是否被处理。无效声明在注册时抛出参数异常；移除系统会注销其路由。事件与路由不属于持久化数据。
 
-本地会话从 `EcsWorldDataRepo` 取得数据实例，再传给 `EcsWorld`。
+实体标识、有效实体集合、组件索引和父子关系经核心 `IEcsWorldData` 接口读写。`scripts/data/EcsWorldData.cs` 提供本地实现；本地会话从 `EcsWorldDataRepo` 取得数据实例，再传给 `EcsWorld`。同一数据实例也可交给后续世界使用。系统注册与调度状态不属于该数据实例。
+
+实体可用 `CreateEntity(parentId)` 指定父实体。`GetParent(id)` 和 `GetChildren(id)` 查询关系；销毁父实体会级联销毁所有后代及其组件。无效父标识无法创建子实体。
+
+组件可覆写 `ToPersistedString()` 与 `FromPersistedString(string)` 提供双向落地；前者默认返回 `null`，表示无需持久化。核心不负责文件写入、实体记录格式或卸载策略。
 
 ```csharp
 public partial class Position : EcsComponent
@@ -23,9 +27,9 @@ public partial class MoveSystem : EcsSystem
 
 public static class Example
 {
-    public static void Run()
+    public static void Run(IEcsWorldData data)
     {
-        using var world = new EcsWorld(new EcsWorldData());
+        using var world = new EcsWorld(data);
         var entityId = world.CreateEntity();
         world.AddComponent(entityId, new Position());
         world.AddSystem(new MoveSystem());
@@ -37,7 +41,7 @@ public static class Example
 
 | 操作 | 行为 |
 | --- | --- |
-| `CreateEntity()`, `DestroyEntity(id)`, `HasEntity(id)` | 创建、销毁和检查实体。ID 不复用；无效 ID 的销毁返回 `false`。 |
+| `CreateEntity()`, `CreateEntity(parentId)`, `DestroyEntity(id)`, `HasEntity(id)` | 创建、级联销毁和检查实体。ID 不复用；无效 ID 的销毁返回 `false`。 |
 | `AddComponent(id, component)` | 按组件实例的精确 C# 类型附加；同类型再次附加会替换旧实例。无效 ID 返回 `false`。 |
 | `HasComponent<T>(id)`, `GetComponent<T>(id)`, `RemoveComponent<T>(id)` | 按静态类型操作；缺失时分别返回 `false`、`null`、`false`。也提供接受 `Type` 的重载。 |
 | `Query(typeof(A), typeof(B))` | 返回同时具有指定类型的实体 ID 快照，按创建顺序排列。`Query()` 返回全部有效实体。 |

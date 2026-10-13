@@ -12,22 +12,28 @@ const MODE_PLAYING := 1
 const MODE_LOAD := 2
 ## 当前从游戏保存存档。
 const MODE_SAVE := 3
+## 默认镜头缩放，用作视野高度滑条的基准。
+const DEFAULT_CAMERA_ZOOM := 1.4
 
 ## 持续跟随玩家的主镜头。
 @onready var camera: Camera2D = $Camera2D
 ## 显示当前加载区块的地面节点。
 @onready var ground: ChunkGround = $ChunkGround
+## 绘制已加载 monster 临时标记的节点。
+@onready var monster_layer: MonsterLayer = $MonsterLayer
 ## 显示玩家附近区块的雷达节点。
 @onready var radar: ChunkRadar = $RadarLayer/ChunkRadar
 ## 控制调试显示的面板。
 @onready var debug_panel: DebugPanel = $RadarLayer/DebugPanel
 ## 显示完整测试世界的地图节点。
 @onready var world_map: WorldMap = $RadarLayer/WorldMap
+## 显示会话系统消息的聊天面板。
+@onready var chat_panel: ChatPanel = $RadarLayer/ChatPanel
 
 ## 接收输入并推进世界状态的本地会话。
 var session := LocalSession.new()
 ## 当前玩家显示节点。
-var player_view: Node2D
+var player_view: PlayerView
 ## 五槽位本地进度管理器。
 var save_slots := SaveSlots.new()
 ## 当前菜单及游戏模式。
@@ -53,7 +59,13 @@ var mode := MODE_TITLE
 
 ## 绑定各视图并加载玩家附近区块。
 func _ready() -> void:
+	debug_panel.view_height_changed.connect(_on_view_height_changed)
+	debug_panel.add_monster_requested.connect(_on_add_monster_requested)
+	debug_panel.player_template_changed.connect(_on_player_template_changed)
+	debug_panel.action_changed.connect(_on_action_changed)
+	debug_panel.set_save_directory(ProjectSettings.globalize_path(save_slots.save_dir))
 	_bind_session()
+	_on_view_height_changed(debug_panel.view_height_slider.value)
 	$MenuLayer/Menu/Center/Panel/Content/Rows/TitleActions/StartButton.pressed.connect(start_new_game)
 	$MenuLayer/Menu/Center/Panel/Content/Rows/TitleActions/LoadButton.pressed.connect(show_load_slots)
 	$MenuLayer/Menu/Center/Panel/Content/Rows/SlotActions/BackButton.pressed.connect(_on_back_pressed)
@@ -65,13 +77,30 @@ func _ready() -> void:
 ## 采集移动输入、推进模拟并同步画面。
 func _physics_process(delta: float) -> void:
 	if mode != MODE_PLAYING or world_map.visible:
+		if is_instance_valid(player_view):
+			player_view.moving = false
 		return
-	session.set_player_direction(MovementInput.from_keyboard())
+	var direction := MovementInput.from_keyboard()
+	session.set_player_direction(direction)
 	session.step(delta)
+	player_view.moving = direction != Vector2i.ZERO
 	_sync_view()
 
 
-## 处理地图、地块切换和边缘显示快捷键。
+## 在 GUI 接收空格前处理地块快捷键，避免聚焦开关被触发。
+func _input(event: InputEvent) -> void:
+	if mode != MODE_PLAYING or world_map.visible or not event is InputEventKey or not event.pressed or event.echo or event.keycode != KEY_SPACE:
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused is LineEdit and focused.editable:
+		return
+	if focused is TextEdit and focused.editable:
+		return
+	session.toggle_player_tile()
+	get_viewport().set_input_as_handled()
+
+
+## 处理地图和边缘显示快捷键。
 func _unhandled_key_input(event: InputEvent) -> void:
 	if mode != MODE_PLAYING or not event is InputEventKey or not event.pressed or event.echo:
 		return
@@ -79,10 +108,44 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		world_map.toggle_open()
 	elif world_map.visible:
 		return
-	elif event.keycode == KEY_SPACE:
-		session.world.toggle_tile(session.player_position())
 	elif event.keycode == KEY_F3:
-		session.world.set_debug_edges(not session.world.debug().edges)
+		session.toggle_debug_edges()
+
+
+## 在游玩画面用滚轮按滑条步进改变视野高度。
+func _unhandled_input(event: InputEvent) -> void:
+	if mode != MODE_PLAYING or world_map.visible or not event is InputEventMouseButton or not event.pressed:
+		return
+	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		debug_panel.view_height_slider.value += debug_panel.view_height_slider.step
+	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		debug_panel.view_height_slider.value -= debug_panel.view_height_slider.step
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+
+## 按视野高度倍数缩小镜头缩放。
+func _on_view_height_changed(multiplier: float) -> void:
+	camera.zoom = Vector2.ONE * (DEFAULT_CAMERA_ZOOM / multiplier)
+
+
+## 仅在游玩时于玩家当前区块创建怪物实体。
+func _on_add_monster_requested() -> void:
+	if mode == MODE_PLAYING:
+		session.spawn_debug_monster()
+
+
+## 立即应用调试面板选定的玩家模板。
+func _on_player_template_changed(template_id: int) -> void:
+	if is_instance_valid(player_view):
+		player_view.template_id = template_id
+
+
+## 将 GM 选定动作应用到玩家显示节点。
+func _on_action_changed(action_id: int) -> void:
+	if is_instance_valid(player_view):
+		player_view.demo_action = action_id
 
 
 ## 重建玩家显示节点并恢复当前世界状态。
@@ -91,6 +154,9 @@ func rebuild_player_view() -> void:
 		player_view.queue_free()
 	player_view = PLAYER_VIEW.instantiate()
 	add_child(player_view)
+	player_view.demo_stopped.connect(debug_panel.stop_action_demo)
+	player_view.template_id = debug_panel.selected_player_template()
+	player_view.demo_action = debug_panel.action_selector.get_selected_id()
 	_sync_view()
 
 
@@ -106,12 +172,20 @@ func _sync_view() -> void:
 
 ## 让全部世界视图订阅当前会话并更新玩家显示节点。
 func _bind_session() -> void:
-	ground.bind(session.world)
-	radar.bind(session.world, session.player_id)
-	debug_panel.bind(session.world)
-	world_map.bind(session.world, session.player_id)
+	chat_panel.clear_messages()
+	session.world_manager.system_error.connect(_on_system_error)
+	ground.bind(session.world_manager)
+	monster_layer.bind(session.world_manager)
+	radar.bind(session.world_manager, session.player_id)
+	debug_panel.bind(session)
+	world_map.bind(session.world_manager, session.player_id)
 	rebuild_player_view()
 	_sync_view()
+
+
+## 将世界运行错误追加为系统消息。
+func _on_system_error(text: String) -> void:
+	chat_panel.add_system_message(text)
 
 
 ## 创建初始状态的新会话并进入游戏。
@@ -124,6 +198,8 @@ func start_new_game() -> void:
 ## 显示标题选项并暂停会话推进。
 func show_title() -> void:
 	mode = MODE_TITLE
+	if is_instance_valid(player_view):
+		player_view.moving = false
 	menu.visible = true
 	game_buttons.visible = false
 	world_map.visible = false
@@ -189,14 +265,15 @@ func _on_slot_pressed(slot: int) -> void:
 			_refresh_slots()
 		else:
 			message.text = "保存失败，请检查存档目录。"
+			chat_panel.add_system_message(message.text)
 	elif mode == MODE_LOAD:
 		var snapshot := save_slots.read(slot)
 		if snapshot.is_empty():
 			message.text = "存档无效或不兼容。"
+			chat_panel.add_system_message(message.text)
 			_refresh_slots()
 			return
-		var restored := LocalSession.new()
-		restored.restore_snapshot(snapshot)
+		var restored := LocalSession.new(snapshot)
 		session = restored
 		_bind_session()
 		_enter_game()

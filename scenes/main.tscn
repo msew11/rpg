@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/view/chunk_ground.gd" id="2_ground"]
-[ext_resource type="Script" path="res://scripts/view/chunk_radar.gd" id="3_radar"]
-[ext_resource type="Script" path="res://scripts/view/debug_panel.gd" id="4_debug"]
-[ext_resource type="Script" path="res://scripts/view/world_map.gd" id="5_map"]
+[ext_resource type="Script" path="res://scripts/ui/chunk_ground.gd" id="2_ground"]
+[ext_resource type="Script" path="res://scripts/ui/chunk_radar.gd" id="3_radar"]
+[ext_resource type="Script" path="res://scripts/ui/debug_panel.gd" id="4_debug"]
+[ext_resource type="Script" path="res://scripts/ui/world_map.gd" id="5_map"]
+[ext_resource type="Script" path="res://scripts/ui/chat_panel.gd" id="6_chat"]
+[ext_resource type="Script" path="res://scripts/ui/monster_layer.gd" id="7_monsters"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -12,31 +14,97 @@ script = ExtResource("1_main")
 [node name="ChunkGround" type="Node2D" parent="."]
 script = ExtResource("2_ground")
 
+[node name="MonsterLayer" type="Node2D" parent="."]
+script = ExtResource("7_monsters")
+
 [node name="Camera2D" type="Camera2D" parent="."]
 zoom = Vector2(1.4, 1.4)
 
 [node name="RadarLayer" type="CanvasLayer" parent="."]
 
 [node name="DebugPanel" type="PanelContainer" parent="RadarLayer"]
-offset_left = 16.0
+visible = false
+offset_left = 336.0
 offset_top = 16.0
-offset_right = 256.0
-offset_bottom = 82.0
+offset_right = 656.0
+offset_bottom = 256.0
 script = ExtResource("4_debug")
 
-[node name="Options" type="VBoxContainer" parent="RadarLayer/DebugPanel"]
+[node name="Content" type="VBoxContainer" parent="RadarLayer/DebugPanel"]
 
-[node name="BordersButton" type="CheckButton" parent="RadarLayer/DebugPanel/Options"]
+[node name="Header" type="HBoxContainer" parent="RadarLayer/DebugPanel/Content"]
+
+[node name="PinButton" type="Button" parent="RadarLayer/DebugPanel/Content/Header"]
+toggle_mode = true
+text = "钉住"
+
+[node name="DragHandle" type="Button" parent="RadarLayer/DebugPanel/Content/Header"]
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 6
+text = "GM · 拖动这里移动"
+
+[node name="Tabs" type="TabContainer" parent="RadarLayer/DebugPanel/Content"]
+custom_minimum_size = Vector2(304, 195)
+
+[node name="World" type="VBoxContainer" parent="RadarLayer/DebugPanel/Content/Tabs"]
+layout_mode = 2
+
+[node name="BordersButton" type="CheckButton" parent="RadarLayer/DebugPanel/Content/Tabs/World"]
 text = "F3 · Show borders"
 
-[node name="RadarButton" type="CheckButton" parent="RadarLayer/DebugPanel/Options"]
-text = "Show radar"
+[node name="ViewHeightLabel" type="Label" parent="RadarLayer/DebugPanel/Content/Tabs/World"]
+text = "视野高度 1.00×"
+
+[node name="ViewHeightSlider" type="HSlider" parent="RadarLayer/DebugPanel/Content/Tabs/World"]
+custom_minimum_size = Vector2(210, 24)
+min_value = 1.0
+max_value = 4.0
+step = 0.25
+value = 1.0
+
+[node name="AddMonsterButton" type="Button" parent="RadarLayer/DebugPanel/Content/Tabs/World"]
+text = "Add monster"
+
+[node name="Character" type="VBoxContainer" parent="RadarLayer/DebugPanel/Content/Tabs"]
+visible = false
+layout_mode = 2
+
+[node name="PlayerTemplateLabel" type="Label" parent="RadarLayer/DebugPanel/Content/Tabs/Character"]
+text = "玩家角色模板"
+
+[node name="PlayerTemplateSelector" type="OptionButton" parent="RadarLayer/DebugPanel/Content/Tabs/Character"]
+custom_minimum_size = Vector2(294, 28)
+
+[node name="ActionLabel" type="Label" parent="RadarLayer/DebugPanel/Content/Tabs/Character"]
+text = "动作演示"
+
+[node name="ActionSelector" type="OptionButton" parent="RadarLayer/DebugPanel/Content/Tabs/Character"]
+custom_minimum_size = Vector2(294, 28)
+
+[node name="Save" type="VBoxContainer" parent="RadarLayer/DebugPanel/Content/Tabs"]
+visible = false
+layout_mode = 2
+
+[node name="SaveDirLabel" type="Label" parent="RadarLayer/DebugPanel/Content/Tabs/Save"]
+text = "存档目录"
+
+[node name="SaveDirPath" type="LineEdit" parent="RadarLayer/DebugPanel/Content/Tabs/Save"]
+custom_minimum_size = Vector2(294, 28)
+editable = false
+
+[node name="GmButton" type="Button" parent="RadarLayer"]
+offset_left = 16.0
+offset_top = 344.0
+offset_right = 72.0
+offset_bottom = 380.0
+mouse_default_cursor_shape = 6
+text = "GM"
 
 [node name="ChunkRadar" type="Control" parent="RadarLayer"]
 offset_left = 16.0
-offset_top = 88.0
+offset_top = 16.0
 offset_right = 320.0
-offset_bottom = 472.0
+offset_bottom = 334.0
 clip_contents = true
 mouse_filter = 2
 script = ExtResource("3_radar")
@@ -60,6 +128,29 @@ offset_top = 16.0
 offset_right = -16.0
 offset_bottom = 55.0
 theme_override_constants/separation = 8
+
+[node name="ChatPanel" type="PanelContainer" parent="RadarLayer"]
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = -456.0
+offset_top = -196.0
+offset_right = -16.0
+offset_bottom = -16.0
+script = ExtResource("6_chat")
+
+[node name="Content" type="VBoxContainer" parent="RadarLayer/ChatPanel"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="RadarLayer/ChatPanel/Content"]
+layout_mode = 2
+text = "Chat"
+
+[node name="History" type="RichTextLabel" parent="RadarLayer/ChatPanel/Content"]
+layout_mode = 2
+size_flags_vertical = 3
+scroll_following = true
 
 [node name="SaveButton" type="Button" parent="RadarLayer/GameButtons"]
 custom_minimum_size = Vector2(112, 38)
