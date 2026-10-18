@@ -2,6 +2,8 @@
 .godot/
 /android/
 /build/
+**/bin/
+**/obj/
 .idea/
 .codex/
 *.DotSettings.user

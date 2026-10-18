@@ -1,0 +1,48 @@
+using System.Collections.Generic;
+
+namespace Rpg.Settings;
+
+/// <summary>与账号角色无关的显示和声音设置。</summary>
+public sealed class DataSystemSetting
+{
+    /// <summary>窗口宽度。</summary>
+    public int Width { get; set; } = 1280;
+    /// <summary>窗口高度。</summary>
+    public int Height { get; set; } = 720;
+    /// <summary>主音量，范围为零到一。</summary>
+    public float MasterVolume { get; set; } = 0.8f;
+}
+
+/// <summary>单个 HUD 元素的相对屏幕左上坐标。</summary>
+public sealed class DataHudPosition
+{
+    /// <summary>相对横向坐标。</summary>
+    public float X { get; set; }
+    /// <summary>相对纵向坐标。</summary>
+    public float Y { get; set; }
+
+    /// <summary>创建一个可保存的相对位置。</summary>
+    public DataHudPosition() { }
+
+    /// <summary>按给定坐标创建默认相对位置。</summary>
+    public DataHudPosition(float x, float y) { X = x; Y = y; }
+}
+
+/// <summary>按角色独立持久化的技能栏显隐与 HUD 布局。</summary>
+public sealed class DataRoleSetting
+{
+    /// <summary>三条技能栏各自是否可见。</summary>
+    public bool[] VisibleHotbars { get; set; } = [true, false, false];
+    /// <summary>头像、技能栏和系统按钮条的相对位置。</summary>
+    public Dictionary<string, DataHudPosition> HudPositions { get; set; } = DefaultPositions();
+
+    /// <summary>为未保存过设置的角色提供默认 HUD 布局。</summary>
+    public static Dictionary<string, DataHudPosition> DefaultPositions() => new()
+    {
+        ["portrait"] = new(0.015f, 0.02f),
+        ["hotbar1"] = new(0.31f, 0.88f),
+        ["hotbar2"] = new(0.31f, 0.77f),
+        ["hotbar3"] = new(0.31f, 0.66f),
+        ["menu"] = new(0.76f, 0.90f)
+    };
+}

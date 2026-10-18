@@ -1,0 +1,40 @@
+using System.Collections.Generic;
+
+namespace Rpg.Config;
+
+/// <summary>组合各类已经校验的客户端游戏配置。</summary>
+public sealed class DataGameConfig
+{
+    /// <summary>首期使用的世界地图配置。</summary>
+    public required DataMapConfig Map { get; init; }
+}
+
+/// <summary>地图尺寸、默认瓦片和稀疏覆盖配置。</summary>
+public sealed class DataMapConfig
+{
+    /// <summary>配置类型标识。</summary>
+    public string Kind { get; init; } = "";
+    /// <summary>地图标识。</summary>
+    public string Id { get; init; } = "";
+    /// <summary>地图横向瓦片数。</summary>
+    public int Width { get; init; }
+    /// <summary>地图纵向瓦片数。</summary>
+    public int Height { get; init; }
+    /// <summary>每格的像素边长。</summary>
+    public int TileSize { get; init; }
+    /// <summary>未覆盖格子的地块类型。</summary>
+    public string DefaultTile { get; init; } = "";
+    /// <summary>少量不同于默认地块的格子。</summary>
+    public List<DataTileOverride> Overrides { get; init; } = [];
+}
+
+/// <summary>单个地图瓦片的覆盖值。</summary>
+public sealed class DataTileOverride
+{
+    /// <summary>横向格子索引。</summary>
+    public int X { get; init; }
+    /// <summary>纵向格子索引。</summary>
+    public int Y { get; init; }
+    /// <summary>该格的地块类型。</summary>
+    public string Tile { get; init; } = "";
+}

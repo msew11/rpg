@@ -4,4 +4,10 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" Version="9.4.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="tests/ClientTests/**/*.cs" />
+  </ItemGroup>
 </Project>
