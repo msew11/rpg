@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Godot;
 using Rpg.Config;
 using Rpg.Session;
@@ -14,7 +15,7 @@ public partial class GameHud : Control
     private readonly Dictionary<string, PanelContainer> _movable = new();
     /// <summary>HUD 元素的拖动把手。</summary>
     private readonly Dictionary<string, Label> _handles = new();
-    /// <summary>角色、背包、地图和系统弹出面板。</summary>
+    /// <summary>角色、背包、地图、GM 和系统弹出面板。</summary>
     private readonly List<Control> _panels = [];
     /// <summary>当前组合游戏配置。</summary>
     private DataGameConfig _config = null!;
@@ -148,10 +149,10 @@ public partial class GameHud : Control
             _movable[$"hotbar{bar}"].Visible = _roleSetting.VisibleHotbars[bar - 1];
         }
 
-        var menu = Movable("menu", new Vector2(280, 65), "系统菜单");
+        var menu = Movable("menu", new Vector2(355, 65), "系统菜单");
         var menuRow = new HBoxContainer();
         menu.AddChild(menuRow);
-        foreach (var title in new[] { "角色", "背包", "大地图", "系统" })
+        foreach (var title in new[] { "角色", "背包", "大地图", "GM", "系统" })
         {
             var button = new Button { Text = title, CustomMinimumSize = new Vector2(62, 34) };
             button.Pressed += () => TogglePanel(title);
@@ -176,7 +177,7 @@ public partial class GameHud : Control
         return box;
     }
 
-    /// <summary>创建四个基础面板与分类设置页签。</summary>
+    /// <summary>创建角色、背包、地图、GM 与系统面板及设置页签。</summary>
     private void BuildPanels()
     {
         var character = CreatePanel("角色", new Vector2(300, 255));
@@ -195,12 +196,38 @@ public partial class GameHud : Control
         _largeMap = new MiniMapControl { CustomMinimumSize = new Vector2(390, 340), Map = _config.Map };
         mapPanel.AddChild(_largeMap);
 
+        var gm = CreatePanel("GM", new Vector2(590, 255));
+        AddSettingLocation(gm, "系统设置文件", _settings.SystemPath);
+        AddSettingLocation(gm, "当前角色设置文件", _settings.GetRolePath(_session.Role.RoleId));
+
         var system = CreatePanel("系统", new Vector2(380, 390));
         var tabs = new TabContainer { CustomMinimumSize = new Vector2(345, 295) };
         system.AddChild(tabs);
         BuildDisplayTab(tabs);
         BuildSoundTab(tabs);
         BuildHudTab(tabs);
+    }
+
+    /// <summary>显示设置文件位置，并提供文件管理器定位按钮。</summary>
+    private void AddSettingLocation(VBoxContainer panel, string title, string path)
+    {
+        panel.AddChild(Text(title, 15));
+        panel.AddChild(new LineEdit
+        {
+            Text = path,
+            Editable = false,
+            CustomMinimumSize = new Vector2(540, 34),
+            FocusMode = FocusModeEnum.None
+        });
+        var open = new Button { Text = $"打开{title}位置" };
+        open.Pressed += () =>
+        {
+            var exists = File.Exists(path);
+            var target = exists ? path : Path.GetDirectoryName(path)!;
+            if (!exists) Directory.CreateDirectory(target);
+            OS.ShellShowInFileManager(target, !exists);
+        };
+        panel.AddChild(open);
     }
 
     /// <summary>创建带关闭按钮的弹出面板内容列。</summary>

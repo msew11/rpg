@@ -15,10 +15,16 @@ public sealed class RepoSettings
     /// <summary>创建基于指定本地目录的设置仓库。</summary>
     public RepoSettings(string root) => _root = root;
 
+    /// <summary>系统设置文件的绝对路径。</summary>
+    public string SystemPath => Path.GetFullPath(Path.Combine(_root, "system.json"));
+
+    /// <summary>指定角色设置文件的绝对路径。</summary>
+    public string GetRolePath(long roleId) => Path.GetFullPath(Path.Combine(_root, "roles", $"{roleId}.json"));
+
     /// <summary>读取系统设置；文件缺失或损坏时采用默认值。</summary>
     public DataSystemSetting LoadSystem()
     {
-        var setting = Read(Path.Combine(_root, "system.json"), new DataSystemSetting());
+        var setting = Read(SystemPath, new DataSystemSetting());
         if (setting.Width < 800 || setting.Width > 3840) setting.Width = 1280;
         if (setting.Height < 600 || setting.Height > 2160) setting.Height = 720;
         if (!float.IsFinite(setting.MasterVolume)) setting.MasterVolume = 0.8f;
@@ -27,12 +33,12 @@ public sealed class RepoSettings
     }
 
     /// <summary>原子保存系统设置。</summary>
-    public void SaveSystem(DataSystemSetting setting) => Write(Path.Combine(_root, "system.json"), setting);
+    public void SaveSystem(DataSystemSetting setting) => Write(SystemPath, setting);
 
     /// <summary>按角色 ID 读取独立设置。</summary>
     public DataRoleSetting LoadRole(long roleId)
     {
-        var setting = Read(RolePath(roleId), new DataRoleSetting());
+        var setting = Read(GetRolePath(roleId), new DataRoleSetting());
         if (setting.VisibleHotbars is null || setting.VisibleHotbars.Length != 3)
             setting.VisibleHotbars = [true, false, false];
         setting.HudPositions ??= DataRoleSetting.DefaultPositions();
@@ -51,10 +57,7 @@ public sealed class RepoSettings
     }
 
     /// <summary>按角色 ID 原子保存独立设置。</summary>
-    public void SaveRole(long roleId, DataRoleSetting setting) => Write(RolePath(roleId), setting);
-
-    /// <summary>形成只包含数字角色 ID 的文件名。</summary>
-    private string RolePath(long roleId) => Path.Combine(_root, "roles", $"{roleId}.json");
+    public void SaveRole(long roleId, DataRoleSetting setting) => Write(GetRolePath(roleId), setting);
 
     /// <summary>读取 JSON 并在损坏时给出警告。</summary>
     private static T Read<T>(string path, T fallback)

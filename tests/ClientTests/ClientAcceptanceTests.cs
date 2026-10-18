@@ -103,6 +103,21 @@ public sealed class ClientAcceptanceTests
 /// <summary>验证 openspec/specs/client-ecs-world 的 Action、重定目标与校正场景。</summary>
 public sealed class WorldAcceptanceTests
 {
+    /// <summary>验证 client-ecs-world 的等轴坐标往返及 2:1 地块几何。</summary>
+    [Fact]
+    public void IsometricProjectionRoundTripsLogicalCoordinates()
+    {
+        var logical = new Vector2(16016, 15984);
+        var screen = IsometricProjection.ToScreen(logical);
+        Assert.Equal(new Vector2(16, 8000), screen);
+        Assert.Equal(logical, IsometricProjection.ToLogical(screen));
+        var origin = IsometricProjection.ToScreen(Vector2.Zero);
+        var east = IsometricProjection.ToScreen(new Vector2(32, 0));
+        var south = IsometricProjection.ToScreen(new Vector2(0, 32));
+        Assert.Equal(32, east.X - south.X);
+        Assert.Equal(16, east.Y + south.Y - 2 * origin.Y);
+    }
+
     /// <summary>世界必须先于角色建立，连续点击改目标，权威状态只能经 Action 生效。</summary>
     [Fact]
     public void WorldActionOrderMovementAndCorrection()
@@ -152,6 +167,8 @@ public sealed class SettingsAcceptanceTests
         try
         {
             var repo = new RepoSettings(directory);
+            Assert.Equal(Path.GetFullPath(Path.Combine(directory, "system.json")), repo.SystemPath);
+            Assert.Equal(Path.GetFullPath(Path.Combine(directory, "roles", "1001.json")), repo.GetRolePath(1001));
             var system = repo.LoadSystem();
             system.Width = 1600;
             system.Height = 900;

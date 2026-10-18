@@ -65,15 +65,17 @@ public partial class MainController : Control
         if (_session is null || _world is null) return;
         _session.Advance(delta);
         _world.Tick(delta);
-        if (_actor is not null && _world.HasRole) _actor.Position = _world.RolePosition;
-        if (_camera is not null && _world.HasRole) _camera.Position = _world.RolePosition;
+        if (_actor is not null && _world.HasRole) _actor.Position = IsometricProjection.ToScreen(_world.RolePosition);
+        if (_camera is not null && _world.HasRole) _camera.Position = IsometricProjection.ToScreen(_world.RolePosition);
     }
 
     /// <summary>将未被 UI 消费的地图点击转为移动 Action。</summary>
     public override void _UnhandledInput(InputEvent input)
     {
-        if (_session is null || _world is null || _worldVisual is null) return;
-        var action = _inputSystem.TranslateWorldClick(input, _map!.Clamp(_worldVisual.GetGlobalMousePosition()));
+        if (_session is null || _world is null || _worldVisual is null || input is not InputEventMouseButton click) return;
+        var projectedPosition = GetViewport().GetCanvasTransform().AffineInverse() * click.Position;
+        var logicalPosition = IsometricProjection.ToLogical(projectedPosition);
+        var action = _inputSystem.TranslateWorldClick(input, _map!.Clamp(logicalPosition));
         if (action is null) return;
         _world.Enqueue(action);
         _session.SubmitMove(action.ActionId, action.Destination);
@@ -147,9 +149,9 @@ public partial class MainController : Control
         _worldVisual = new Node2D { Name = "WorldVisual" };
         AddChild(_worldVisual);
         _worldVisual.AddChild(new MapView { Map = _map, Name = "MapView" });
-        _actor = new ActorView { Name = "ActorView", Position = _world.RolePosition };
+        _actor = new ActorView { Name = "ActorView", Position = IsometricProjection.ToScreen(_world.RolePosition) };
         _worldVisual.AddChild(_actor);
-        _camera = new Camera2D { Name = "WorldCamera", Position = _world.RolePosition, Enabled = true };
+        _camera = new Camera2D { Name = "WorldCamera", Position = IsometricProjection.ToScreen(_world.RolePosition), Enabled = true };
         _worldVisual.AddChild(_camera);
 
         var roleSetting = _settings.LoadRole(roleId);

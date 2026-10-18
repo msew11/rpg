@@ -44,6 +44,7 @@ public partial class ClientSmoke : Node
                 .GetChildren().OfType<GameHud>().Single();
             AssertRadarTopRight(hud);
             var world = main.GetChildren().OfType<Node2D>().Single();
+            var actor = world.GetChildren().OfType<ActorView>().Single();
             if (hud.GetChildren().OfType<PanelContainer>().Count() < 7)
                 throw new InvalidOperationException("HUD 或基础面板未创建");
             if (!world.GetChildren().OfType<MapView>().Any())
@@ -52,17 +53,23 @@ public partial class ClientSmoke : Node
                 .GetField("_world", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(main)!;
             if (!manager.HasWorld || !manager.HasRole)
                 throw new InvalidOperationException("世界或角色实体未初始化");
+            if (actor.Position != IsometricProjection.ToScreen(manager.RolePosition))
+                throw new InvalidOperationException("角色表现未使用等轴投影");
             var click = new InputEventMouseButton
             {
                 ButtonIndex = MouseButton.Left,
                 Pressed = true,
                 Position = new Vector2(500, 400)
             };
+            var projectedClick = GetViewport().GetCanvasTransform().AffineInverse() * click.Position;
+            var expectedTarget = IsometricProjection.ToLogical(projectedClick);
             GetViewport().PushInput(click, true);
             await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (manager.RoleTarget is null)
                 throw new InvalidOperationException("地图点击未转为世界 Action");
+            if (manager.RoleTarget.Value.DistanceTo(expectedTarget) > 2)
+                throw new InvalidOperationException("等轴地图点击未还原为逻辑移动目标");
             var characterButton = hud.FindChildren("*", "Button", true, false).OfType<Button>()
                 .First(button => button.Text == "角色");
             characterButton.EmitSignal(Button.SignalName.Pressed);
@@ -70,6 +77,20 @@ public partial class ClientSmoke : Node
                 throw new InvalidOperationException("角色面板无法打开");
             var systemButton = hud.FindChildren("*", "Button", true, false).OfType<Button>()
                 .First(button => button.Text == "系统");
+            var menuButtons = hud.GetChildren().OfType<PanelContainer>()
+                .Single(panel => panel.Name == "menu")
+                .FindChildren("*", "Button", true, false).OfType<Button>().ToArray();
+            if (!menuButtons.Select(button => button.Text).SequenceEqual(["角色", "背包", "大地图", "GM", "系统"]))
+                throw new InvalidOperationException("系统菜单按钮顺序错误");
+            menuButtons[3].EmitSignal(Button.SignalName.Pressed);
+            var gmPanel = hud.GetChildren().OfType<PanelContainer>().Single(panel => panel.Name == "GM");
+            var paths = gmPanel.FindChildren("*", "LineEdit", true, false).OfType<LineEdit>().ToArray();
+            if (!gmPanel.Visible || paths.Length != 2 ||
+                paths[0].Text != Path.GetFullPath(Path.Combine(temporary, "system.json")) ||
+                paths[1].Text != Path.GetFullPath(Path.Combine(temporary, "roles", "1001.json")) ||
+                gmPanel.FindChildren("*", "Button", true, false).OfType<Button>()
+                    .Count(button => button.Text.StartsWith("打开")) != 2)
+                throw new InvalidOperationException("GM 设置文件路径或定位入口错误");
             systemButton.EmitSignal(Button.SignalName.Pressed);
             var systemPanel = hud.GetChildren().OfType<PanelContainer>().Single(panel => panel.Name == "系统");
             var tabs = systemPanel.FindChildren("*", "TabContainer", true, false).OfType<TabContainer>().Single();

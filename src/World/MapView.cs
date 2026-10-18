@@ -14,9 +14,22 @@ public partial class MapView : Node2D
         if (Map is null) return;
         var viewport = GetViewport();
         var inverse = viewport.GetCanvasTransform().AffineInverse();
-        var topLeft = inverse * Vector2.Zero;
-        var bottomRight = inverse * viewport.GetVisibleRect().Size;
-        var area = new Rect2(topLeft, bottomRight - topLeft);
+        var screenSize = viewport.GetVisibleRect().Size;
+        var corners = new[]
+        {
+            IsometricProjection.ToLogical(inverse * Vector2.Zero),
+            IsometricProjection.ToLogical(inverse * new Vector2(screenSize.X, 0)),
+            IsometricProjection.ToLogical(inverse * screenSize),
+            IsometricProjection.ToLogical(inverse * new Vector2(0, screenSize.Y))
+        };
+        var minimum = corners[0];
+        var maximum = corners[0];
+        foreach (var corner in corners)
+        {
+            minimum = minimum.Min(corner);
+            maximum = maximum.Max(corner);
+        }
+        var area = new Rect2(minimum, maximum - minimum);
         var (left, top, right, bottom) = Map.VisibleTiles(area);
         var size = Map.Config.TileSize;
         for (var y = top; y <= bottom; y++)
@@ -25,8 +38,16 @@ public partial class MapView : Node2D
             var accent = Map.TileAt(x, y) != Map.Config.DefaultTile;
             var checker = ((x + y) & 1) == 0;
             var color = accent ? new Color("607c96") : checker ? new Color("263a45") : new Color("2b414b");
-            DrawRect(new Rect2(x * size, y * size, size, size), color);
-            DrawRect(new Rect2(x * size, y * size, size, size), new Color("38515b"), false, 1);
+            var origin = new Vector2(x * size, y * size);
+            var points = new[]
+            {
+                IsometricProjection.ToScreen(origin),
+                IsometricProjection.ToScreen(origin + new Vector2(size, 0)),
+                IsometricProjection.ToScreen(origin + new Vector2(size, size)),
+                IsometricProjection.ToScreen(origin + new Vector2(0, size))
+            };
+            DrawColoredPolygon(points, color);
+            DrawPolyline([points[0], points[1], points[2], points[3], points[0]], new Color("38515b"), 1);
         }
     }
 

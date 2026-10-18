@@ -12,12 +12,12 @@
 
 独立的 `InputSystem` 把未被 UI 消费的 Godot 输入转换为世界 Action，也为今后的 UI 输入路由留出位置。`WorldManager` 是 ECS 的唯一外部写入入口：输入 Action、缓存状态同步 Action 排队后由 Godot 固定帧处理。初始化顺序为地图世界实体、角色实体。轻量 ECS 由整数实体 ID、组件仓库和固定顺序系统组成；首期移动系统按直线推进并接受权威位置修正。
 
-`MapManager` 内聚地图坐标、边界与可见格计算。地图表现只绘制视口可见地块，不创建百万个瓦片节点。角色表现只读取 ECS 位置；HUD、小地图和系统面板放在独立 `CanvasLayer`，不受世界摄像机变换影响，从 `DataGameConfig`、`DataCache` 与本地设置读取各自所需的数据。
+`MapManager` 内聚地图逻辑坐标、边界与可见格计算。`IsometricProjection` 在世界表现与地图点击边界做双向转换，ECS、配置、雷达和大地图继续使用逻辑坐标。地图表现以 2:1 等轴菱形绘制视口附近地块，不创建百万个瓦片节点；角色与摄像机使用同一投影。角色表现只读取 ECS 位置；HUD、小地图、GM 和系统面板放在独立 `CanvasLayer`，不受世界摄像机变换影响，从 `DataGameConfig`、`DataCache` 与本地设置读取各自所需的数据。GM 面板通过 `RepoSettings` 获取系统和当前角色设置文件路径，并交由桌面文件管理器定位。
 
 ```text
 JSON 配置 -> RepoGameConfig -> DataGameConfig -> 地图管理 / UI
 模拟状态源 -> GameSession -> DataCache -> 状态同步 Action -> WorldManager -> ECS -> 世界表现
-Godot 输入 -> InputSystem -> 移动 Action ------------------------^
+Godot 输入 -> 等轴逆投影 -> InputSystem -> 移动 Action --------^
 本地设置 ----------------------------------------------------> UI
 ```
 
