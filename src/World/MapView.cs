@@ -1,15 +1,23 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace Rpg.World;
 
-/// <summary>只为摄像机可见区域绘制地图地块。</summary>
+/// <summary>只保留视口附近的静态地图分块。</summary>
 public partial class MapView : Node2D
 {
+    /// <summary>每个分块在横纵方向包含的格子数。</summary>
+    private const int ChunkSize = 8;
+    /// <summary>当前仍需显示的地图分块。</summary>
+    private readonly Dictionary<Vector2I, MapChunkView> _chunks = new();
+    /// <summary>上次更新时视口覆盖的分块范围。</summary>
+    private (int Left, int Top, int Right, int Bottom)? _visibleChunks;
+
     /// <summary>地图读取与范围管理器。</summary>
     public MapManager? Map { get; set; }
 
-    /// <summary>按当前视口重绘有限数量的瓦片。</summary>
-    public override void _Draw()
+    /// <summary>视口进入新的分块范围时增删分块，其余帧复用已有绘制。</summary>
+    public override void _Process(double delta)
     {
         if (Map is null) return;
         var viewport = GetViewport();
@@ -29,28 +37,34 @@ public partial class MapView : Node2D
             minimum = minimum.Min(corner);
             maximum = maximum.Max(corner);
         }
-        var area = new Rect2(minimum, maximum - minimum);
-        var (left, top, right, bottom) = Map.VisibleTiles(area);
-        var size = Map.Config.TileSize;
-        for (var y = top; y <= bottom; y++)
-        for (var x = left; x <= right; x++)
-        {
-            var accent = Map.TileAt(x, y) != Map.Config.DefaultTile;
-            var checker = ((x + y) & 1) == 0;
-            var color = accent ? new Color("607c96") : checker ? new Color("263a45") : new Color("2b414b");
-            var origin = new Vector2(x * size, y * size);
-            var points = new[]
-            {
-                IsometricProjection.ToScreen(origin),
-                IsometricProjection.ToScreen(origin + new Vector2(size, 0)),
-                IsometricProjection.ToScreen(origin + new Vector2(size, size)),
-                IsometricProjection.ToScreen(origin + new Vector2(0, size))
-            };
-            DrawColoredPolygon(points, color);
-            DrawPolyline([points[0], points[1], points[2], points[3], points[0]], new Color("38515b"), 1);
-        }
-    }
+        var (left, top, right, bottom) = Map.VisibleTiles(new Rect2(minimum, maximum - minimum));
+        (int Left, int Top, int Right, int Bottom) visible =
+            (left / ChunkSize, top / ChunkSize, right / ChunkSize, bottom / ChunkSize);
+        if (_visibleChunks == visible) return;
 
-    /// <summary>摄像机移动或视口变化时刷新可见地块。</summary>
-    public override void _Process(double delta) => QueueRedraw();
+        var removed = new List<Vector2I>();
+        foreach (var (coordinate, chunk) in _chunks)
+        {
+            if (coordinate.X >= visible.Left && coordinate.X <= visible.Right &&
+                coordinate.Y >= visible.Top && coordinate.Y <= visible.Bottom) continue;
+            removed.Add(coordinate);
+            chunk.QueueFree();
+        }
+        foreach (var coordinate in removed) _chunks.Remove(coordinate);
+
+        for (var y = visible.Top; y <= visible.Bottom; y++)
+        for (var x = visible.Left; x <= visible.Right; x++)
+        {
+            var coordinate = new Vector2I(x, y);
+            if (_chunks.ContainsKey(coordinate)) continue;
+            var chunk = new MapChunkView(Map, x * ChunkSize, y * ChunkSize, ChunkSize)
+            {
+                Name = $"Chunk_{x}_{y}"
+            };
+            _chunks.Add(coordinate, chunk);
+            AddChild(chunk);
+        }
+
+        _visibleChunks = visible;
+    }
 }
