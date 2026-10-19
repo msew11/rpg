@@ -10,6 +10,8 @@
 
 ## 总体结构
 
+世界逻辑链路：
+
 ```mermaid
 flowchart TB
     Config["JSON 配置目录"] --> ConfigRepo["配置加载与 Schema 校验"]
@@ -19,20 +21,25 @@ flowchart TB
     Mock --> Roles["角色列表"]
     Roles --> Session["GameSession"]
     Session --> Cache["DataCache<br/>会话内权威状态与更新通知"]
+    Cache --> Sync["状态更新转 Action"]
 
     GodotInput["Godot 输入事件"] --> UIRoute["UI 优先消费输入"]
     UIRoute --> Projection["未消费的地图点击<br/>等轴逆投影"]
     Projection --> InputSystem["独立 InputSystem<br/>事件转 Action"]
-    InputSystem --> WorldManager["WorldManager<br/>唯一 ECS 外部写入入口"]
-    Cache --> Sync["状态更新转 Action"]
-    Sync --> WorldManager
+    Sync --> WorldManager["WorldManager<br/>唯一 ECS 外部写入入口"]
     GameConfig --> WorldManager
+    InputSystem --> WorldManager
     GodotTick["Godot 固定帧"] --> WorldManager
     WorldManager --> ECS["逻辑层 ECS<br/>世界实体 → 角色实体"]
     ECS --> IsoView["2D 等轴世界表现层"]
+```
 
-    GameConfig --> UI["世界外 HUD、地图与面板"]
-    Cache --> UI
+世界外 UI 链路：
+
+```mermaid
+flowchart TB
+    GameConfig["DataGameConfig<br/>组合地图等配置"] --> UI["世界外 HUD、地图与面板"]
+    Cache["DataCache<br/>会话内权威状态与更新通知"] --> UI
     Settings["本地系统设置 / 角色设置"] --> UI
     UI --> GM["GM 面板<br/>设置文件路径与文件管理器入口"]
 ```
