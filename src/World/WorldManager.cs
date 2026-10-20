@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Rpg.World.Actions;
+using Rpg.World.Components;
+using Rpg.World.Systems;
 
 namespace Rpg.World;
 

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace Rpg.World;
+namespace Rpg.World.Utils;
 
 /// <summary>在地图逻辑坐标和 2:1 等轴画布坐标间转换。</summary>
 public static class IsometricProjection

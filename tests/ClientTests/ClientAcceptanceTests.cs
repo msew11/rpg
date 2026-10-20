@@ -3,6 +3,8 @@ using Rpg.Config;
 using Rpg.Session;
 using Rpg.Settings;
 using Rpg.World;
+using Rpg.World.Actions;
+using Rpg.World.Utils;
 
 namespace ClientTests;
 

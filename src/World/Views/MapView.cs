@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using Godot;
+using Rpg.World.Utils;
 
-namespace Rpg.World;
+namespace Rpg.World.Views;
 
 /// <summary>只保留视口附近的静态地图分块。</summary>
 public partial class MapView : Node2D

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace Rpg.World;
+namespace Rpg.World.Views;
 
 /// <summary>只绘制当前角色，不持有或改变 ECS 状态。</summary>
 public partial class ActorView : Node2D

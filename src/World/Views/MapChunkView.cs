@@ -1,7 +1,8 @@
 using System;
 using Godot;
+using Rpg.World.Utils;
 
-namespace Rpg.World;
+namespace Rpg.World.Views;
 
 /// <summary>一次绘制一个静态地图分块，并由画布复用绘制命令。</summary>
 public partial class MapChunkView : Node2D

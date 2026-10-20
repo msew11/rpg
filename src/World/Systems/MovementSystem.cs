@@ -1,11 +1,6 @@
-namespace Rpg.World;
+using Rpg.World.Components;
 
-/// <summary>轻量 ECS 系统的固定帧更新契约。</summary>
-internal interface IWorldSystem
-{
-    /// <summary>对已创建角色实体执行一个固定帧。</summary>
-    void Update(EntityStore entities, int roleEntity, double delta);
-}
+namespace Rpg.World.Systems;
 
 /// <summary>按照角色目标进行直线移动的逻辑系统。</summary>
 internal sealed class MovementSystem : IWorldSystem
