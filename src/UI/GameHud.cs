@@ -23,10 +23,6 @@ public partial class GameHud : Control
     private GameSession _session = null!;
     /// <summary>本地设置仓库。</summary>
     private RepoSettings _settings = null!;
-    /// <summary>当前角色 HUD 设置。</summary>
-    private DataRoleSetting _roleSetting = null!;
-    /// <summary>当前系统显示及声音设置。</summary>
-    private DataSystemSetting _systemSetting = null!;
     /// <summary>头像区域中的角色状态文字。</summary>
     private Label _portraitText = null!;
     /// <summary>角色面板中的详细状态文字。</summary>
@@ -56,14 +52,11 @@ public partial class GameHud : Control
     public event Action? ChangeRoleRequested;
 
     /// <summary>用选中会话、配置及设置创建完整游戏界面。</summary>
-    public void Initialize(DataGameConfig config, GameSession session, RepoSettings settings,
-        DataSystemSetting systemSetting, DataRoleSetting roleSetting)
+    public void Initialize(DataGameConfig config, GameSession session, RepoSettings settings)
     {
         _config = config;
         _session = session;
         _settings = settings;
-        _systemSetting = systemSetting;
-        _roleSetting = roleSetting;
         AnchorRight = 1;
         AnchorBottom = 1;
         MouseFilter = MouseFilterEnum.Ignore;
@@ -74,10 +67,11 @@ public partial class GameHud : Control
         _session.Cache.RoleChanged += OnRoleChanged;
     }
 
-    /// <summary>释放会话缓存订阅。</summary>
+    /// <summary>退出界面时保存未提交的拖动位置并释放会话订阅。</summary>
     public override void _ExitTree()
     {
         if (_session is not null) _session.Cache.RoleChanged -= OnRoleChanged;
+        if (_dragging is not null) _settings.SaveCurrentRole();
     }
 
     /// <summary>窗口变化后重新按相对坐标布局。</summary>
@@ -100,7 +94,7 @@ public partial class GameHud : Control
         else if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false })
         {
             _dragging = null;
-            SaveRole();
+            _settings.SaveCurrentRole();
             GetViewport().SetInputAsHandled();
         }
     }
@@ -146,7 +140,7 @@ public partial class GameHud : Control
                 cell.AddChild(label);
                 row.AddChild(cell);
             }
-            _movable[$"hotbar{bar}"].Visible = _roleSetting.VisibleHotbars[bar - 1];
+            _movable[$"hotbar{bar}"].Visible = _settings.IsHotbarVisible(bar);
         }
 
         var menu = Movable("menu", new Vector2(355, 65), "系统菜单");
@@ -262,17 +256,15 @@ public partial class GameHud : Control
         var options = new OptionButton();
         var sizes = new[] { new Vector2I(1280, 720), new Vector2I(1600, 900), new Vector2I(1920, 1080) };
         for (var i = 0; i < sizes.Length; i++) options.AddItem($"{sizes[i].X} × {sizes[i].Y}", i);
-        var selected = Array.FindIndex(sizes, size => size.X == _systemSetting.Width && size.Y == _systemSetting.Height);
+        var selected = Array.FindIndex(sizes, size => size.X == _settings.Width && size.Y == _settings.Height);
         options.Select(Math.Max(0, selected));
         page.AddChild(options);
         var apply = new Button { Text = "应用并保存" };
         apply.Pressed += () =>
         {
             var size = sizes[options.Selected];
-            _systemSetting.Width = size.X;
-            _systemSetting.Height = size.Y;
+            _settings.SetResolution(size.X, size.Y);
             DisplayServer.WindowSetSize(size);
-            _settings.SaveSystem(_systemSetting);
             ApplyLayout();
         };
         page.AddChild(apply);
@@ -284,15 +276,14 @@ public partial class GameHud : Control
         var page = new VBoxContainer { Name = "声音" };
         tabs.AddChild(page);
         page.AddChild(Text("主音量", 16));
-        var slider = new HSlider { MinValue = 0, MaxValue = 100, Step = 1, Value = _systemSetting.MasterVolume * 100,
+        var slider = new HSlider { MinValue = 0, MaxValue = 100, Step = 1, Value = _settings.MasterVolume * 100,
             CustomMinimumSize = new Vector2(280, 28) };
         page.AddChild(slider);
         var save = new Button { Text = "应用并保存" };
         save.Pressed += () =>
         {
-            _systemSetting.MasterVolume = (float)slider.Value / 100;
+            _settings.SetMasterVolume((float)slider.Value / 100);
             ApplyVolume();
-            _settings.SaveSystem(_systemSetting);
         };
         page.AddChild(save);
     }
@@ -303,8 +294,8 @@ public partial class GameHud : Control
         var page = new VBoxContainer { Name = "角色 HUD" };
         tabs.AddChild(page);
         page.AddChild(Text("技能栏 1 始终显示", 14));
-        _secondBar = new CheckBox { Text = "显示技能栏 2", ButtonPressed = _roleSetting.VisibleHotbars[1] };
-        _thirdBar = new CheckBox { Text = "显示技能栏 3", ButtonPressed = _roleSetting.VisibleHotbars[2] };
+        _secondBar = new CheckBox { Text = "显示技能栏 2", ButtonPressed = _settings.IsHotbarVisible(2) };
+        _thirdBar = new CheckBox { Text = "显示技能栏 3", ButtonPressed = _settings.IsHotbarVisible(3) };
         page.AddChild(_secondBar);
         page.AddChild(_thirdBar);
         _secondBar.Toggled += enabled => SetBarVisible(2, enabled);
@@ -315,9 +306,8 @@ public partial class GameHud : Control
         var reset = new Button { Text = "恢复默认布局" };
         reset.Pressed += () =>
         {
-            _roleSetting.HudPositions = DataRoleSetting.DefaultPositions();
+            _settings.ResetHudPositions();
             ApplyLayout();
-            SaveRole();
         };
         page.AddChild(reset);
     }
@@ -325,9 +315,8 @@ public partial class GameHud : Control
     /// <summary>根据角色设置显示或隐藏指定技能栏。</summary>
     private void SetBarVisible(int index, bool visible)
     {
-        _roleSetting.VisibleHotbars[index - 1] = visible;
+        _settings.SetHotbarVisible(index, visible);
         _movable[$"hotbar{index}"].Visible = visible;
-        SaveRole();
     }
 
     /// <summary>切换 HUD 调整模式及拖动把手。</summary>
@@ -336,7 +325,7 @@ public partial class GameHud : Control
         _editing = !_editing;
         _editButton.Text = _editing ? "完成 HUD 调整" : "进入 HUD 调整";
         foreach (var handle in _handles.Values) handle.Visible = _editing;
-        if (!_editing) { _dragging = null; SaveRole(); }
+        if (!_editing) { _dragging = null; _settings.SaveCurrentRole(); }
     }
 
     /// <summary>处理拖动把手的按下、移动和松开事件。</summary>
@@ -361,7 +350,7 @@ public partial class GameHud : Control
             Mathf.Clamp(desired.X, 0, Mathf.Max(0, viewport.X - panel.Size.X)),
             Mathf.Clamp(desired.Y, 0, Mathf.Max(0, viewport.Y - panel.Size.Y)));
         panel.Position = bounded;
-        _roleSetting.HudPositions[key] = new DataHudPosition(bounded.X / viewport.X, bounded.Y / viewport.Y);
+        _settings.SetHudPosition(key, bounded.X / viewport.X, bounded.Y / viewport.Y);
     }
 
     /// <summary>按保存的屏幕相对坐标排列并约束 HUD。</summary>
@@ -371,7 +360,7 @@ public partial class GameHud : Control
         _lastViewport = viewport;
         foreach (var (key, panel) in _movable)
         {
-            var position = _roleSetting.HudPositions[key];
+            var position = _settings.GetHudPosition(key);
             panel.Position = new Vector2(
                 Mathf.Clamp(position.X * viewport.X, 0, Mathf.Max(0, viewport.X - panel.Size.X)),
                 Mathf.Clamp(position.Y * viewport.Y, 0, Mathf.Max(0, viewport.Y - panel.Size.Y)));
@@ -402,14 +391,11 @@ public partial class GameHud : Control
     /// <summary>响应缓存变化并更新世界外 UI。</summary>
     private void OnRoleChanged(DataRoleState state) => RefreshData();
 
-    /// <summary>持久化当前角色的 HUD 配置。</summary>
-    private void SaveRole() => _settings.SaveRole(_session.Role.RoleId, _roleSetting);
-
     /// <summary>把保存的主音量应用到 Godot 音频总线。</summary>
     public void ApplyVolume()
     {
         var bus = AudioServer.GetBusIndex("Master");
-        if (bus >= 0) AudioServer.SetBusVolumeLinear(bus, _systemSetting.MasterVolume);
+        if (bus >= 0) AudioServer.SetBusVolumeLinear(bus, _settings.MasterVolume);
     }
 
     /// <summary>创建统一尺寸的普通文本。</summary>

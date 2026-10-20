@@ -9,11 +9,98 @@ public sealed class RepoSettings
 {
     /// <summary>系统与角色设置的本地根目录。</summary>
     private readonly string _root;
+    /// <summary>当前系统显示和声音设置。</summary>
+    private readonly DataSystemSetting _system;
+    /// <summary>当前选中角色的设置。</summary>
+    private DataRoleSetting? _role;
+    /// <summary>当前选中角色的标识。</summary>
+    private long? _roleId;
+    /// <summary>当前角色设置是否有未保存的修改。</summary>
+    private bool _roleDirty;
     /// <summary>持久化 JSON 的格式设置。</summary>
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     /// <summary>创建基于指定本地目录的设置仓库。</summary>
-    public RepoSettings(string root) => _root = root;
+    public RepoSettings(string root)
+    {
+        _root = root;
+        _system = LoadSystem();
+    }
+
+    /// <summary>当前窗口宽度。</summary>
+    public int Width => _system.Width;
+    /// <summary>当前窗口高度。</summary>
+    public int Height => _system.Height;
+    /// <summary>当前主音量。</summary>
+    public float MasterVolume => _system.MasterVolume;
+    /// <summary>切换当前角色并载入其独立设置。</summary>
+    public void SelectRole(long roleId)
+    {
+        SaveCurrentRole();
+        _role = LoadRole(roleId);
+        _roleId = roleId;
+        _roleDirty = false;
+    }
+
+    /// <summary>修改并保存当前分辨率。</summary>
+    public void SetResolution(int width, int height)
+    {
+        _system.Width = width;
+        _system.Height = height;
+        SaveSystem(_system);
+    }
+
+    /// <summary>修改并保存当前主音量。</summary>
+    public void SetMasterVolume(float volume)
+    {
+        _system.MasterVolume = Math.Clamp(volume, 0, 1);
+        SaveSystem(_system);
+    }
+
+    /// <summary>读取当前角色的技能栏显隐状态。</summary>
+    public bool IsHotbarVisible(int index) => CurrentRole.VisibleHotbars[index - 1];
+
+    /// <summary>修改并保存当前角色的技能栏显隐状态。</summary>
+    public void SetHotbarVisible(int index, bool visible)
+    {
+        if (index == 1 && !visible) throw new ArgumentException("第一条技能栏始终显示", nameof(visible));
+        CurrentRole.VisibleHotbars[index - 1] = visible;
+        _roleDirty = true;
+        SaveCurrentRole();
+    }
+
+    /// <summary>读取当前角色 HUD 元素位置的副本。</summary>
+    public DataHudPosition GetHudPosition(string key)
+    {
+        var position = CurrentRole.HudPositions[key];
+        return new DataHudPosition(position.X, position.Y);
+    }
+
+    /// <summary>更新当前角色的 HUD 位置，提交时再保存。</summary>
+    public void SetHudPosition(string key, float x, float y)
+    {
+        CurrentRole.HudPositions[key] = new DataHudPosition(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1));
+        _roleDirty = true;
+    }
+
+    /// <summary>恢复并保存当前角色的默认 HUD 布局。</summary>
+    public void ResetHudPositions()
+    {
+        CurrentRole.HudPositions = DataRoleSetting.DefaultPositions();
+        _roleDirty = true;
+        SaveCurrentRole();
+    }
+
+    /// <summary>保存当前角色的设置。</summary>
+    public void SaveCurrentRole()
+    {
+        if (!_roleDirty || _roleId is not long roleId) return;
+        SaveRole(roleId, CurrentRole);
+        _roleDirty = false;
+    }
+
+    /// <summary>需要先选中角色才能访问的当前角色设置。</summary>
+    private DataRoleSetting CurrentRole => _role ?? throw new InvalidOperationException("尚未选择角色");
 
     /// <summary>系统设置文件的绝对路径。</summary>
     public string SystemPath => Path.GetFullPath(Path.Combine(_root, "system.json"));

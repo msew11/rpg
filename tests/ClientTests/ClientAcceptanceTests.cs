@@ -190,4 +190,40 @@ public sealed class SettingsAcceptanceTests
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
+
+    /// <summary>验证 openspec/specs/client-settings 的角色隔离及 HUD 拖动保存时机。</summary>
+    [Fact]
+    public void CurrentSettingsOwnUpdatesAndDeferredHudSave()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "rpg-current-settings-test-" + Guid.NewGuid());
+        try
+        {
+            var repo = new RepoSettings(directory);
+            repo.SetResolution(1600, 900);
+            repo.SetMasterVolume(0.4f);
+            repo.SelectRole(1001);
+            Assert.False(File.Exists(repo.GetRolePath(1001)));
+            Assert.Throws<ArgumentException>(() => repo.SetHotbarVisible(1, false));
+            repo.SetHotbarVisible(2, true);
+            repo.SetHudPosition("portrait", 0.4f, 0.2f);
+            Assert.NotEqual(0.4f, new RepoSettings(directory).LoadRole(1001).HudPositions["portrait"].X);
+            Assert.Equal(0.4f, repo.GetHudPosition("portrait").X);
+            repo.SaveCurrentRole();
+            repo.SelectRole(1002);
+            Assert.False(repo.IsHotbarVisible(2));
+            repo.SetHudPosition("portrait", 0.6f, 0.3f);
+            repo.SelectRole(1001);
+            Assert.True(repo.IsHotbarVisible(2));
+            Assert.Equal(0.4f, repo.GetHudPosition("portrait").X);
+            repo.ResetHudPositions();
+
+            var reopened = new RepoSettings(directory);
+            Assert.Equal(1600, reopened.Width);
+            Assert.Equal(0.4f, reopened.MasterVolume);
+            Assert.Equal(0.6f, reopened.LoadRole(1002).HudPositions["portrait"].X);
+            Assert.Equal(DataRoleSetting.DefaultPositions()["portrait"].X,
+                reopened.LoadRole(1001).HudPositions["portrait"].X);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
 }

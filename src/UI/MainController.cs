@@ -20,8 +20,6 @@ public partial class MainController : Control
     private readonly IStateSource _source = new MockStateSource();
     /// <summary>本地系统与角色设置仓库。</summary>
     private RepoSettings _settings = null!;
-    /// <summary>当前系统显示和声音设置。</summary>
-    private DataSystemSetting _systemSetting = null!;
     /// <summary>选中角色的活动会话。</summary>
     private GameSession? _session;
     /// <summary>活动会话对应的 ECS 世界。</summary>
@@ -48,7 +46,6 @@ public partial class MainController : Control
     {
         MouseFilter = MouseFilterEnum.Ignore;
         _settings = new RepoSettings(ProjectSettings.GlobalizePath("user://settings"));
-        _systemSetting = _settings.LoadSystem();
         ApplySystemSettings();
         try
         {
@@ -157,12 +154,12 @@ public partial class MainController : Control
         _camera = new Camera2D { Name = "WorldCamera", Position = IsometricProjection.ToScreen(_world.RolePosition), Enabled = true };
         _worldVisual.AddChild(_camera);
 
-        var roleSetting = _settings.LoadRole(roleId);
+        _settings.SelectRole(roleId);
         _hudLayer = new CanvasLayer { Name = "HudLayer", Layer = 10 };
         AddChild(_hudLayer);
         _hud = new GameHud { Name = "GameHud" };
         _hudLayer.AddChild(_hud);
-        _hud.Initialize(_config, _session, _settings, _systemSetting, roleSetting);
+        _hud.Initialize(_config, _session, _settings);
         _hud.ChangeRoleRequested += () => ShowRoles(_source.Login("demo", "demo"));
     }
 
@@ -220,11 +217,11 @@ public partial class MainController : Control
     /// <summary>应用本地系统分辨率与音量。</summary>
     private void ApplySystemSettings()
     {
-        var width = Math.Clamp(_systemSetting.Width, 800, 3840);
-        var height = Math.Clamp(_systemSetting.Height, 600, 2160);
+        var width = Math.Clamp(_settings.Width, 800, 3840);
+        var height = Math.Clamp(_settings.Height, 600, 2160);
         DisplayServer.WindowSetSize(new Vector2I(width, height));
         var bus = AudioServer.GetBusIndex("Master");
-        if (bus >= 0) AudioServer.SetBusVolumeLinear(bus, Mathf.Clamp(_systemSetting.MasterVolume, 0, 1));
+        if (bus >= 0) AudioServer.SetBusVolumeLinear(bus, Mathf.Clamp(_settings.MasterVolume, 0, 1));
     }
 
     /// <summary>创建指定字号的文本控件。</summary>
