@@ -9,7 +9,7 @@ using Rpg.World.Systems;
 namespace Rpg.World;
 
 /// <summary>管理 Action 唯一入口、ECS 实体和固定帧系统顺序。</summary>
-public sealed class WorldManager
+internal sealed class WorldManager
 {
     /// <summary>待处理的输入和权威同步消息。</summary>
     private readonly Queue<WorldAction> _actions = new();

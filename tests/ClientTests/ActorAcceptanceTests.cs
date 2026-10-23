@@ -118,7 +118,7 @@ public sealed class ActorAcceptanceTests
     private static WorldManager CreateWorld(RoleWorldStatePbData role)
     {
         var world = new WorldManager();
-        world.Enqueue(new InitializeWorldAction(new MapManager(new Rpg.Config.ConfigService(ConfigTestFixture.LoadDefault()))));
+        world.Enqueue(new InitializeWorldAction(new MapManager(ConfigTestFixture.LoadDefault())));
         world.Enqueue(new InitializeRoleAction(role));
         world.Tick(0);
         return world;

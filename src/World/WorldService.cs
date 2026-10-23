@@ -1,7 +1,6 @@
 using System;
 using Godot;
 using Rpg.Config;
-using Rpg.Input;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Services;
@@ -22,8 +21,8 @@ public sealed class WorldService : IService
     private readonly MapManager _map;
     /// <summary>活动角色的 ECS 实例。</summary>
     private WorldManager? _world;
-    /// <summary>输入转换和移动序号仅在服务内维护。</summary>
-    private readonly InputSystem _input = new();
+    /// <summary>当前启动内递增的移动意图序号。</summary>
+    private long _nextActionId;
     /// <summary>世界更新所需的协议监听。</summary>
     private readonly IDisposable[] _subscriptions;
     /// <summary>是否已释放当前世界服务。</summary>
@@ -36,7 +35,7 @@ public sealed class WorldService : IService
     /// <summary>用于摄像机和呈现的逻辑位置。</summary>
     public Vector2 RolePosition => _world?.RolePosition ?? Vector2.Zero;
     /// <summary>当前移动目标的只读快照。</summary>
-    public Vector2? RoleTarget => _world?.RoleTarget;
+    internal Vector2? RoleTarget => _world?.RoleTarget;
     /// <summary>角色动作与朝向的不可变快照。</summary>
     public DataActorState? ActorState => _world?.ActorState;
 
@@ -54,9 +53,8 @@ public sealed class WorldService : IService
     public bool HandleInput(InputEvent input, Vector2 logicalPosition)
     {
         EnsureActive();
-        if (_world is null) return false;
-        var action = _input.TranslateWorldClick(input, _map.Clamp(logicalPosition));
-        if (action is null) return false;
+        if (_world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
+        var action = new MoveAction(++_nextActionId, _map.Clamp(logicalPosition));
         _session.SubmitMove(action.ActionId, action.Destination);
         _world.Enqueue(action);
         return true;

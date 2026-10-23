@@ -5,20 +5,20 @@
 - [x] 空白 Godot 4.7.2 .NET 项目、Windows 检查与导出工具。
 - [x] JSON 配置、1000×1000 地图管理与可见区域呈现。
 - [x] 模拟登录、角色选择、会话缓存。
-- [x] 独立输入模块、Action 驱动 ECS、点击移动与模拟确认修正。
+- [x] 世界服务内的输入转换、Action 驱动 ECS、点击移动与模拟确认修正。
 - [x] 基础 HUD、系统面板与系统/角色本地设置；面板关闭按钮统一位于标题栏右端。
 - [x] 系统按钮上拉菜单：系统设置、返回角色选择、返回登陆、退出游戏；返回选角时清理角色数据与世界、保留账号会话，返回登录时释放账号会话。
 - [x] 2D 等轴世界表现、点击坐标逆投影与 GM 设置文件定位面板。
 - [x] 静态地图分块绘制与视口附近分块复用，消除移动期间的逐帧全量重绘。
-- [x] 本地设置实例与修改流程收拢到 `RepoSettings`，设置数据类型按系统和角色拆分。
-- [x] 地图配置文件、数据类型一一对应，由 `RepoGameConfig` 持有已加载配置。
-- [x] 地图管理器和界面统一通过 `RepoGameConfig` 访问地图配置。
+- [x] 本地设置实例与修改流程收拢到 `SettingService`，设置数据类型按系统和角色拆分。
+- [x] 地图配置文件、数据类型一一对应，由 `ConfigService` 持有已加载配置。
+- [x] 地图管理器和界面统一通过 `ConfigService` 访问地图配置。
 - [x] 角色性别从会话数据接入玩家 entity；ECS 动作与逻辑朝向通过只读快照驱动男女基础身体的 13 个动作、八方向表现，点击移动接入跑步与站立。
-- [x] NetService 与 protobuf 请求/响应/推送、进程内 MockServer、按角色 JSON 持久化；登录返回角色摘要，选角加载完整世界状态，纯协议数据类型以 Pb 结尾，接收后组装为独立 PbData，集中于 Session/Data 并内聚双向转换；协议按公共、登录、世界拆分；登录后创建 GameSession，直接持有 LoginCache 与 RoleCache，切角保留账号摘要并重置角色数据，Session 事件缓存优先并隔离旧会话消息。
+- [x] NetService 与 protobuf 请求/响应/推送、进程内 MockServer、按角色 JSON 持久化；登录返回角色摘要，选角加载完整世界状态，纯协议数据类型以 Pb 结尾，接收后组装为独立 PbData，集中于 Session/Data 并内聚双向转换；协议按公共、登录、世界拆分；登录后由 SessionService 直接建立并持有 LoginCache 与 RoleCache，切角保留账号摘要并重置角色数据，Session 事件缓存优先并隔离旧会话消息。
 
 - [x] `GameServices.Net` 全局服务入口、显式注册与所有权句柄；主场景统一推进和释放网络，账号会话绑定创建时的服务，保留独立实例测试，覆盖启动失败清理与场景重建。
 
-- [x] 按功能聚合 Config、Setting、Net、Session、World、Animation 服务，统一 IService 契约；借鉴 Dalamud 的显式依赖和逆序卸载。Godot 节点通过 GameServices 调用业务，移除业务对象字段与逐层传参；设置状态归 SettingService，账号与世界协调归相应服务，覆盖非法登录、切角设置隔离和部分释放失败清理。
+- [x] 按功能聚合 Config、Setting、Net、Session、World、Animation 服务，统一 IService 契约；借鉴 Dalamud 的显式依赖和逆序卸载。Godot 节点通过 GameServices 调用业务，服务内部初始化状态，移除配置、设置、账号和动画的转发包装及独立输入转发类；设置状态与读写归 SettingService，账号缓存直接归 SessionService，世界协调归 WorldService，覆盖非法登录、切角设置隔离和部分释放失败清理。
 
 ## 后续阶段（待确认）
 

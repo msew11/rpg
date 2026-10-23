@@ -150,7 +150,7 @@ public sealed class MockServerAcceptanceTests
     {
         using var fixture = new NetworkTestFixture();
         fixture.Login();
-        GameSession? session = null;
+        SessionService? session = null;
         var notices = 0;
         var repo = new RepoServerRole(fixture.DirectoryPath);
         using var ui = fixture.Net.Events.Subscribe<RoleStateNotice>(notice =>

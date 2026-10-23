@@ -12,7 +12,9 @@
 ## Capabilities
 
 ### Modified Capabilities
-- `game-services`: 从网络入口扩展为按功能持有全部客户端业务服务，并约束节点和服务的依赖边界。
+- `game-services`: 从网络入口扩展为按功能持有全部客户端业务服务，服务在内部初始化状态，收敛节点和服务接口。
+- `client-session`: 账号缓存直接归 SessionService 持有，服务跨登录保留，账号状态在退出时清空。
+- `client-ui`: 页面切换操作 SessionService 内部账号状态，不再持有独立 GameSession。
 
 ## Impact
 

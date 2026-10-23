@@ -4,93 +4,153 @@ using Godot;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Services;
+using Rpg.Session.Cache;
 using Rpg.Session.Data;
 
 namespace Rpg.Session;
 
-/// <summary>拥有账号会话，向节点提供登录、选角和角色快照。</summary>
+/// <summary>直接持有账号缓存，处理登录、选角、移动请求与账号生命周期。</summary>
 public sealed class SessionService : IService
 {
-    /// <summary>绑定本次启动的网络，不随全局入口重建而切换。</summary>
+    /// <summary>本次启动绑定的网络。</summary>
     private readonly NetService _net;
-    /// <summary>缓存阶段处理账号建立，失败时阻止普通界面监听。</summary>
+    /// <summary>在缓存阶段建立账号，失败时阻止 UI 成功回调。</summary>
     private readonly IDisposable _loginSubscription;
-    /// <summary>成功登录后持有的账号会话。</summary>
-    private GameSession? _current;
-    /// <summary>是否已结束本次服务。</summary>
+    /// <summary>登录后由服务内部建立的账号摘要。</summary>
+    private LoginCache? _login;
+    /// <summary>登录后由服务内部建立的角色缓存。</summary>
+    private RoleCache? _role;
+    /// <summary>当前账号拥有的网络代次。</summary>
+    private long _generation;
+    /// <summary>是否已结束服务。</summary>
     private bool _disposed;
 
-    /// <summary>账号是否已认证。</summary>
-    public bool IsLoggedIn => _current?.LoginCache.IsLoggedIn == true;
+    /// <summary>账号是否已经认证。</summary>
+    public bool IsLoggedIn => _login?.IsLoggedIn == true;
+    /// <summary>角色缓存是否就绪。</summary>
+    public bool HasRole => _role?.IsInitialized == true;
     /// <summary>当前选择或等待进入的角色标识。</summary>
-    public long RoleId => _current?.RoleId ?? 0;
-    /// <summary>当前角色缓存是否就绪。</summary>
-    public bool HasRole => _current?.RoleCache.IsInitialized == true;
-    /// <summary>已转换的只读登录摘要，未登录时为空。</summary>
-    public IReadOnlyList<RoleSummaryPbData> Roles => _current?.LoginCache.Roles ?? Array.Empty<RoleSummaryPbData>();
-    /// <summary>缓存提供的不可变角色快照。</summary>
-    public RoleWorldStatePbData Role => Current.Role;
-    /// <summary>内部账号对象仅用于服务操作，不向节点暴露缓存容器。</summary>
-    private GameSession Current => _current ?? throw new InvalidOperationException("尚未登录");
+    public long RoleId => _role?.RoleId ?? 0;
+    /// <summary>已转换的只读角色摘要。</summary>
+    public IReadOnlyList<RoleSummaryPbData> Roles => _login?.Roles ?? Array.Empty<RoleSummaryPbData>();
+    /// <summary>当前权威角色快照。</summary>
+    public RoleWorldStatePbData Role => RoleCache.State;
+    /// <summary>账号缓存供缓存契约验证，节点通过 Roles 和 IsLoggedIn 读取。</summary>
+    internal LoginCache LoginCache => _login ?? throw new InvalidOperationException("尚未登录");
+    /// <summary>角色缓存供缓存契约验证，节点通过 Role 和 HasRole 读取。</summary>
+    internal RoleCache RoleCache => _role ?? throw new InvalidOperationException("尚未登录");
+    /// <summary>绑定网络的事件系统。</summary>
+    internal EventSystem Events => _net.Events;
 
-    /// <summary>建立先于界面的业务监听，网络由外部生命周期拥有。</summary>
+    /// <summary>绑定网络并建立常驻登录监听，缓存随后在登录成功时初始化。</summary>
     public SessionService(NetService net)
     {
+        ArgumentNullException.ThrowIfNull(net);
         _net = net;
+        _generation = net.Generation;
         _loginSubscription = net.Events.Subscribe<LoginRt>(OnLoggedIn, EventPhase.Cache);
     }
 
-    /// <summary>发送认证请求，协议组装集中于业务服务。</summary>
+    /// <summary>从全局入口绑定网络并装入已有响应，供隔离的会话验收使用。</summary>
+    internal SessionService(LoginRt response) : this(GameServices.Net, response) { }
+
+    /// <summary>从独立网络和已有响应建立账号，用于隔离协议测试。</summary>
+    internal SessionService(NetService net, LoginRt response) : this(net)
+    {
+        try { InitializeAccount(response, true); }
+        catch { _loginSubscription.Dispose(); throw; }
+    }
+
+    /// <summary>结束旧账号并在请求前隔离网络代次。</summary>
     public void Login(string username, string password)
     {
-        EnsureActive();
         Logout();
-        _net.ResetSession();
+        ResetNetwork();
         _net.Send(new Login { Username = username, Password = password });
     }
 
-    /// <summary>保留账号摘要并提交选角。</summary>
-    public void SelectRole(long roleId) { EnsureActive(); Current.SelectRole(roleId); }
+    /// <summary>清空旧角色并在新代次提交选角请求。</summary>
+    public void SelectRole(long roleId)
+    {
+        EnsureActive();
+        if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
+        var role = RoleCache;
+        ResetNetwork();
+        role.Reset(roleId);
+        _net.Send(new SelectRole { RoleId = roleId });
+    }
 
-    /// <summary>将逻辑坐标与移动序号交给绑定的账号会话。</summary>
-    internal void SubmitMove(long actionId, Vector2 target) { EnsureActive(); Current.SubmitMove(actionId, target); }
-
-    /// <summary>隔离旧角色消息，保留账号和登录摘要。</summary>
+    /// <summary>清理角色数据与在途消息，保留账号摘要。</summary>
     public void LeaveRole()
     {
         EnsureActive();
-        if (_current is not null) _current.LeaveRole();
-        else _net.ResetSession();
+        if (_role is not null && RoleId == 0) return;
+        ResetNetwork();
+        _role?.Reset();
     }
 
-    /// <summary>返回登录时释放整个账号状态。</summary>
+    /// <summary>把当前角色移动意图提交到网络。</summary>
+    internal void SubmitMove(long actionId, Vector2 target)
+    {
+        EnsureActive();
+        if (!HasRole) throw new InvalidOperationException("选角成功后才能提交移动");
+        _net.Send(new Move { RoleId = RoleId, ActionId = actionId, X = target.X, Y = target.Y });
+    }
+
+    /// <summary>释放账号缓存，保留服务本身供重新登录。</summary>
     public void Logout()
     {
         EnsureActive();
-        var current = _current;
-        _current = null;
-        current?.Dispose();
+        _role?.Dispose();
+        _login?.Dispose();
+        _role = null;
+        _login = null;
     }
 
-    /// <summary>成功响应先创建独立账号状态，再允许界面读取。</summary>
+    /// <summary>首次成功响应建立缓存；后续摘要由已有 LoginCache 处理。</summary>
     private void OnLoggedIn(LoginRt response)
     {
-        if (!response.Success) return;
-        if (_current is not null) return;
-        _current = new GameSession(_net, response, false);
+        if (response.Success && _login is null) InitializeAccount(response, false);
     }
 
-    /// <summary>结束登录监听和账号缓存，不释放借用的网络。</summary>
+    /// <summary>完整校验摘要后建立账号，失败时回收已创建的订阅。</summary>
+    private void InitializeAccount(LoginRt response, bool resetNetwork)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        if (!response.Success) throw new InvalidOperationException("登录成功后才能建立账号");
+        var login = new LoginCache(Events, response);
+        try
+        {
+            if (resetNetwork) ResetNetwork();
+            _role = new RoleCache(Events);
+            _login = login;
+        }
+        catch { login.Dispose(); throw; }
+    }
+
+    /// <summary>更新服务拥有的代次，隔离先前消息。</summary>
+    private void ResetNetwork()
+    {
+        _net.ResetSession();
+        _generation = _net.Generation;
+    }
+
+    /// <summary>释放监听和缓存；旧实例延后释放不重置后来建立的账号。</summary>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
         _loginSubscription.Dispose();
-        var current = _current;
-        _current = null;
-        current?.Dispose();
+        _role?.Dispose();
+        _login?.Dispose();
+        if (_login is not null && !_net.IsDisposed && _net.Generation == _generation) _net.ResetSession();
     }
 
-    /// <summary>阻止旧服务在重建后提交操作。</summary>
-    private void EnsureActive() => ObjectDisposedException.ThrowIf(_disposed, this);
+    /// <summary>阻止已释放或代次被替换的服务继续操作网络。</summary>
+    private void EnsureActive()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(_net.IsDisposed, _net);
+        if (_net.Generation != _generation) throw new InvalidOperationException("游戏会话已被替换");
+    }
 }

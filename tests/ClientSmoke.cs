@@ -173,16 +173,16 @@ public partial class ClientSmoke : Node
             var volume = tabs.FindChildren("*", "HSlider", true, false).OfType<HSlider>().Single();
             volume.Value = 40;
             saveButtons[1].EmitSignal(Button.SignalName.Pressed);
-            var persistedSystem = new RepoSettings(temporary).LoadSystem();
+            var persistedSystem = new SettingService(temporary);
             if (persistedSystem.Width != 1600 || Math.Abs(persistedSystem.MasterVolume - 0.4f) > 0.001f)
                 throw new InvalidOperationException("显示或声音设置未保存");
             var secondBar = tabs.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
                 .Single(check => check.Text == "显示技能栏 2");
             secondBar.ButtonPressed = true;
             secondBar.EmitSignal(CheckBox.SignalName.Toggled, true);
-            if (!new RepoSettings(temporary).LoadRole(1001).VisibleHotbars[1])
+            if (!ReadRoleSetting(temporary, 1001).VisibleHotbars[1])
                 throw new InvalidOperationException("角色技能栏设置未保存");
-            if (new RepoSettings(temporary).LoadRole(1002).VisibleHotbars[1])
+            if (ReadRoleSetting(temporary, 1002).VisibleHotbars[1])
                 throw new InvalidOperationException("角色设置互相污染");
             Click(systemButton);
             Click(entries[1]);
@@ -219,7 +219,7 @@ public partial class ClientSmoke : Node
                 { Position = end, Relative = end - start }, true);
             GetViewport().PushInput(new InputEventMouseButton
                 { ButtonIndex = MouseButton.Left, Pressed = false, Position = end }, true);
-            var savedPosition = new RepoSettings(temporary).LoadRole(1002).HudPositions["hotbar1"];
+            var savedPosition = ReadRoleSetting(temporary, 1002).HudPositions["hotbar1"];
             if (Math.Abs(savedPosition.X - RoleSetting.DefaultPositions()["hotbar1"].X) < 0.001f)
                 throw new InvalidOperationException("HUD 拖动位置未保存");
 
@@ -234,7 +234,7 @@ public partial class ClientSmoke : Node
                 { Position = menuEnd, Relative = menuEnd - menuStart }, true);
             GetViewport().PushInput(new InputEventMouseButton
                 { ButtonIndex = MouseButton.Left, Pressed = false, Position = menuEnd }, true);
-            var savedMenu = new RepoSettings(temporary).LoadRole(1002).HudPositions["menu"];
+            var savedMenu = ReadRoleSetting(temporary, 1002).HudPositions["menu"];
             if (Math.Abs(savedMenu.X - RoleSetting.DefaultPositions()["menu"].X) < 0.001f)
                 throw new InvalidOperationException("菜单 HUD 拖动位置未保存");
 
@@ -341,6 +341,15 @@ public partial class ClientSmoke : Node
         if (rect.Position.X < 0 || rect.Position.Y < 0 || rect.End.X > viewport.End.X + 1 ||
             rect.End.Y > viewport.End.Y + 1 || rect.End.Y > button.GlobalPosition.Y)
             throw new InvalidOperationException("系统菜单未向上展开或超出了视口");
+    }
+
+    /// <summary>按 client-settings 的公开文件格式验收保存结果，不依赖内部读写方法。</summary>
+    private static RoleSetting ReadRoleSetting(string directory, long roleId)
+    {
+        var path = Path.Combine(directory, "roles", $"{roleId}.json");
+        return File.Exists(path)
+            ? System.Text.Json.JsonSerializer.Deserialize<RoleSetting>(File.ReadAllText(path))!
+            : new RoleSetting();
     }
 
     /// <summary>读取服务公开的摘要身份，用于验证账号跨切角保留、重登后替换。</summary>

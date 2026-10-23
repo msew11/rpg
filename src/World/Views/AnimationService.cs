@@ -1,23 +1,56 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using Rpg.Const;
 using Rpg.Services;
 
 namespace Rpg.World.Views;
 
-/// <summary>统一拥有身体动画资源缓存，供多个角色节点复用。</summary>
+/// <summary>表现层按性别和动作加载并复用项目内的身体动画。</summary>
 public sealed class AnimationService : IService
 {
-    /// <summary>本次启动独占的动画仓库，释放时撤销持有。</summary>
-    private RepoActorAnimation? _repo = new();
+    /// <summary>是否已释放资源缓存。</summary>
+    private bool _disposed;
+    /// <summary>当前表现生命周期中已使用的动作资源。</summary>
+    private readonly Dictionary<(RoleGender, RoleMotion), DataActorAnimation> _animations = new();
 
-    /// <summary>取得指定性别和动作对应的原生动画资源。</summary>
-    public DataActorAnimation Get(RoleGender gender, RoleMotion motion) =>
-        (_repo ?? throw new ObjectDisposedException(nameof(AnimationService))).Get(gender, motion);
+    /// <summary>加载对应动作；资源缺失时给出明确的路径诊断。</summary>
+    public DataActorAnimation Get(RoleGender gender, RoleMotion motion)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_animations.TryGetValue((gender, motion), out var animation)) return animation;
+        var body = gender switch
+        {
+            RoleGender.Male => "male",
+            RoleGender.Female => "female",
+            _ => throw new ArgumentOutOfRangeException(nameof(gender))
+        };
+        if (!Enum.IsDefined(motion)) throw new ArgumentOutOfRangeException(nameof(motion));
+        var path = $"res://assets/characters/{body}/{motion.ToString().ToLowerInvariant()}.tres";
+        animation = GD.Load<DataActorAnimation>(path)
+            ?? throw new InvalidOperationException($"角色动画资源加载失败：{path}");
+        _animations.Add((gender, motion), animation);
+        return animation;
+    }
 
-    /// <summary>把逻辑朝向转换为五方向动画与镜像标记。</summary>
-    public (int Direction, bool Mirrored) ResolveDirection(Vector2 facing) => RepoActorAnimation.ResolveDirection(facing);
+    /// <summary>将逻辑朝向转换为五方向资源索引及水平镜像标记。</summary>
+    public static (int Direction, bool Mirrored) ResolveDirection(Vector2 facing)
+    {
+        var screen = Utils.IsometricProjection.ToScreen(facing);
+        var octant = Mathf.PosMod(Mathf.RoundToInt(screen.Angle() / (Mathf.Pi / 4)), 8);
+        return octant switch
+        {
+            0 => (1, true),  // 右。
+            1 => (0, true),  // 右下。
+            2 => (4, false), // 下。
+            3 => (0, false), // 左下。
+            4 => (1, false), // 左。
+            5 => (2, false), // 左上。
+            6 => (3, false), // 上。
+            _ => (2, true)   // 右上。
+        };
+    }
+    /// <summary>撤销资源缓存，原生资源仍由 Godot 引用计数管理。</summary>
+    public void Dispose() { _disposed = true; _animations.Clear(); }
 
-    /// <summary>撤销缓存引用，原生资源由 Godot 引用计数管理。</summary>
-    public void Dispose() => _repo = null;
 }

@@ -40,8 +40,29 @@ public static class GameServices
     /// <summary>跨表现节点共享的动画资源缓存。</summary>
     public static AnimationService Animation => Current.Animation;
 
+    /// <summary>在入口内部创建各服务，调用方只提供运行目录与可选传输创建边界。</summary>
+    public static IDisposable Initialize(string settingsDirectory, string serverDirectory, Func<string, NetService>? createNet = null)
+    {
+        if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
+        var config = new ConfigService();
+        SettingService? setting = null;
+        NetService? net = null;
+        try
+        {
+            setting = new SettingService(settingsDirectory);
+            net = createNet is null ? new NetService(serverDirectory) : createNet(serverDirectory);
+            return Initialize(config, setting, net);
+        }
+        catch
+        {
+            try { net?.Dispose(); }
+            finally { try { setting?.Dispose(); } finally { config.Dispose(); } }
+            throw;
+        }
+    }
+
     /// <summary>成功后接管显式服务并建立其依赖；失败时传入实例仍由调用方释放。</summary>
-    public static IDisposable Initialize(ConfigService config, SettingService setting, NetService net)
+    internal static IDisposable Initialize(ConfigService config, SettingService setting, NetService net)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(setting);

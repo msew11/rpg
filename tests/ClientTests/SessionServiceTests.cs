@@ -6,7 +6,7 @@ using Rpg.Session;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-session 的登录后建会话及角色代次隔离契约。</summary>
-public sealed class GameSessionTests
+public sealed class SessionServiceTests
 {
     /// <summary>失败或损坏的初始登录不创建会话、不遗留订阅，也不改变已有网络请求。</summary>
     [Fact]
@@ -15,9 +15,9 @@ public sealed class GameSessionTests
         using var transport = new DoubleNetTransport();
         using var net = new NetService(transport);
         net.Send(new Login { Username = "demo", Password = "demo" });
-        Assert.Throws<InvalidOperationException>(() => new GameSession(net, new LoginRt { Error = "登录失败" }));
+        Assert.Throws<InvalidOperationException>(() => new SessionService(net, new LoginRt { Error = "登录失败" }));
         var invalid = new LoginRt { Success = true, Roles = { new RoleSummaryPb { RoleId = 1001 } } };
-        Assert.Throws<InvalidDataException>(() => new GameSession(net, invalid));
+        Assert.Throws<InvalidDataException>(() => new SessionService(net, invalid));
         var errors = new List<Exception>();
         net.Error += errors.Add;
         net.Events.Publish(invalid);
@@ -32,7 +32,7 @@ public sealed class GameSessionTests
     {
         using var transport = new DoubleNetTransport();
         using var net = new NetService(transport);
-        using var session = new GameSession(net, new LoginRt { Success = true });
+        using var session = new SessionService(net, new LoginRt { Success = true });
         var loginCache = session.LoginCache;
         var state = new RoleWorldStatePb
         {
@@ -74,8 +74,8 @@ public sealed class GameSessionTests
     {
         using var transport = new DoubleNetTransport();
         using var net = new NetService(transport);
-        using var previous = new GameSession(net, new LoginRt { Success = true });
-        using var current = new GameSession(net, new LoginRt { Success = true });
+        using var previous = new SessionService(net, new LoginRt { Success = true });
+        using var current = new SessionService(net, new LoginRt { Success = true });
         Assert.Throws<InvalidOperationException>(() => previous.SelectRole(1001));
         current.SelectRole(1002);
         previous.Dispose();

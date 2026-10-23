@@ -20,14 +20,12 @@ public sealed class ClientAcceptanceTests
     public void ConfigLoadsAllFilesAndRejectsUnknownType()
     {
         var root = ConfigTestFixture.FindRoot();
-        var repo = new RepoGameConfig();
-        Assert.Throws<InvalidOperationException>(() => _ = repo.MapConfig);
-        repo.Load(Path.Combine(root, "config"), Path.Combine(root, "schemas"));
+        var repo = new ConfigService(Path.Combine(root, "config"), Path.Combine(root, "schemas"));
         Assert.Equal(1000, repo.MapConfig.Width);
         Assert.Equal(1000, repo.MapConfig.Height);
         Assert.Equal(32, repo.MapConfig.TileSize);
         Assert.Equal("map", repo.MapConfig.Id);
-        var map = new MapManager(new ConfigService(repo));
+        var map = new MapManager(repo);
         Assert.Equal("accent", map.TileAt(505, 500));
         Assert.Equal("ground", map.TileAt(1, 1));
 
@@ -36,19 +34,19 @@ public sealed class ClientAcceptanceTests
         try
         {
             File.WriteAllText(Path.Combine(temporary, "unexpected.json"), "{\"kind\":\"unknown\"}");
-            var error = Assert.Throws<InvalidDataException>(() => repo.Load(temporary, Path.Combine(root, "schemas")));
+            var error = Assert.Throws<InvalidDataException>(() => new ConfigService(temporary, Path.Combine(root, "schemas")));
             Assert.Contains("unexpected.json", error.Message);
             Assert.Equal("map", repo.MapConfig.Id);
             File.Delete(Path.Combine(temporary, "unexpected.json"));
             File.WriteAllText(Path.Combine(temporary, "map.json"),
                 "{\"kind\":\"map\",\"id\":\"bad\",\"width\":0,\"height\":1000,\"tileSize\":32,\"defaultTile\":\"ground\",\"overrides\":[]}");
-            error = Assert.Throws<InvalidDataException>(() => repo.Load(temporary, Path.Combine(root, "schemas")));
+            error = Assert.Throws<InvalidDataException>(() => new ConfigService(temporary, Path.Combine(root, "schemas")));
             Assert.Contains("map.json", error.Message);
             Assert.Contains("Schema", error.Message);
             File.Delete(Path.Combine(temporary, "map.json"));
             File.WriteAllText(Path.Combine(temporary, "wrong-name.json"),
                 File.ReadAllText(Path.Combine(root, "config", "maps", "map.json")));
-            error = Assert.Throws<InvalidDataException>(() => repo.Load(temporary, Path.Combine(root, "schemas")));
+            error = Assert.Throws<InvalidDataException>(() => new ConfigService(temporary, Path.Combine(root, "schemas")));
             Assert.Contains("wrong-name.json", error.Message);
             Assert.Contains("map.json", error.Message);
             Assert.Equal("map", repo.MapConfig.Id);
@@ -58,7 +56,7 @@ public sealed class ClientAcceptanceTests
             var validMap = File.ReadAllText(Path.Combine(root, "config", "maps", "map.json"));
             File.WriteAllText(Path.Combine(temporary, "map.json"), validMap);
             File.WriteAllText(Path.Combine(duplicateDirectory, "map.json"), validMap);
-            error = Assert.Throws<InvalidDataException>(() => repo.Load(temporary, Path.Combine(root, "schemas")));
+            error = Assert.Throws<InvalidDataException>(() => new ConfigService(temporary, Path.Combine(root, "schemas")));
             Assert.Contains("重复的地图配置", error.Message);
             Assert.Equal("map", repo.MapConfig.Id);
         }
@@ -69,7 +67,7 @@ public sealed class ClientAcceptanceTests
     [Fact]
     public void MapVisibleRegionDoesNotExpandWholeWorld()
     {
-        var map = new MapManager(new Rpg.Config.ConfigService(ConfigTestFixture.LoadDefault()));
+        var map = new MapManager(ConfigTestFixture.LoadDefault());
         var region = map.VisibleTiles(new Rect2(16000, 16000, 1280, 720));
         Assert.True((region.Right - region.Left + 1) * (region.Bottom - region.Top + 1) < 1500);
     }
@@ -150,7 +148,7 @@ public sealed class WorldAcceptanceTests
     [Fact]
     public void WorldActionOrderMovementAndCorrection()
     {
-        var map = new MapManager(new Rpg.Config.ConfigService(ConfigTestFixture.LoadDefault()));
+        var map = new MapManager(ConfigTestFixture.LoadDefault());
         var role = new RoleWorldStatePbData(1, "测试", 1, 10, 10, 10, 10, 0, 10, new Vector2(100, 100), RoleGender.Male, 0, 0);
         var world = new WorldManager();
         world.Enqueue(new InitializeRoleAction(role));
@@ -190,25 +188,24 @@ public sealed class SettingsAcceptanceTests
         var directory = Path.Combine(Path.GetTempPath(), "rpg-settings-test-" + Guid.NewGuid());
         try
         {
-            var repo = new RepoSettings(directory);
-            Assert.Equal(Path.GetFullPath(Path.Combine(directory, "system.json")), repo.SystemPath);
-            Assert.Equal(Path.GetFullPath(Path.Combine(directory, "roles", "1001.json")), repo.GetRolePath(1001));
-            var system = repo.LoadSystem();
-            system.Width = 1600;
-            system.Height = 900;
-            system.MasterVolume = 0.4f;
-            repo.SaveSystem(system);
-            var first = repo.LoadRole(1001);
-            first.VisibleHotbars[1] = true;
-            first.HudPositions["portrait"] = new HudPosition(0.4f, 0.2f);
-            repo.SaveRole(1001, first);
+            using var setting = new SettingService(directory);
+            Assert.Equal(Path.GetFullPath(Path.Combine(directory, "system.json")), setting.SystemPath);
+            setting.SetResolution(1600, 900);
+            setting.SetMasterVolume(0.4f);
+            setting.SelectRole(1001);
+            Assert.Equal(Path.GetFullPath(Path.Combine(directory, "roles", "1001.json")), setting.RolePath);
+            setting.SetHotbarVisible(2, true);
+            setting.SetHudPosition("portrait", 0.4f, 0.2f);
+            setting.SaveCurrentRole();
 
-            var reopened = new RepoSettings(directory);
-            Assert.Equal(1600, reopened.LoadSystem().Width);
-            Assert.Equal(0.4f, reopened.LoadSystem().MasterVolume);
-            Assert.True(reopened.LoadRole(1001).VisibleHotbars[1]);
-            Assert.Equal(0.4f, reopened.LoadRole(1001).HudPositions["portrait"].X);
-            Assert.False(reopened.LoadRole(1002).VisibleHotbars[1]);
+            using var reopened = new SettingService(directory);
+            Assert.Equal(1600, reopened.Width);
+            Assert.Equal(0.4f, reopened.MasterVolume);
+            reopened.SelectRole(1001);
+            Assert.True(reopened.IsHotbarVisible(2));
+            Assert.Equal(0.4f, reopened.GetHudPosition("portrait").X);
+            reopened.SelectRole(1002);
+            Assert.False(reopened.IsHotbarVisible(2));
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
@@ -228,7 +225,7 @@ public sealed class SettingsAcceptanceTests
             Assert.Throws<ArgumentException>(() => repo.SetHotbarVisible(1, false));
             repo.SetHotbarVisible(2, true);
             repo.SetHudPosition("portrait", 0.4f, 0.2f);
-            Assert.NotEqual(0.4f, new RepoSettings(directory).LoadRole(1001).HudPositions["portrait"].X);
+            Assert.NotEqual(0.4f, SettingsTestFixture.ReadRole(directory, 1001).HudPositions["portrait"].X);
             Assert.Equal(0.4f, repo.GetHudPosition("portrait").X);
             repo.SaveCurrentRole();
             repo.SelectRole(1002);
@@ -242,9 +239,9 @@ public sealed class SettingsAcceptanceTests
             var reopened = new Rpg.Settings.SettingService(directory);
             Assert.Equal(1600, reopened.Width);
             Assert.Equal(0.4f, reopened.MasterVolume);
-            Assert.Equal(0.6f, new RepoSettings(directory).LoadRole(1002).HudPositions["portrait"].X);
+            Assert.Equal(0.6f, SettingsTestFixture.ReadRole(directory, 1002).HudPositions["portrait"].X);
             Assert.Equal(RoleSetting.DefaultPositions()["portrait"].X,
-                new RepoSettings(directory).LoadRole(1001).HudPositions["portrait"].X);
+                SettingsTestFixture.ReadRole(directory, 1001).HudPositions["portrait"].X);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
@@ -254,12 +251,10 @@ public sealed class SettingsAcceptanceTests
 internal static class ConfigTestFixture
 {
     /// <summary>载入项目自带的地图配置。</summary>
-    internal static RepoGameConfig LoadDefault()
+    internal static ConfigService LoadDefault()
     {
         var root = FindRoot();
-        var repo = new RepoGameConfig();
-        repo.Load(Path.Combine(root, "config"), Path.Combine(root, "schemas"));
-        return repo;
+        return new ConfigService(Path.Combine(root, "config"), Path.Combine(root, "schemas"));
     }
 
     /// <summary>从测试输出目录向上寻找项目根目录。</summary>
@@ -269,5 +264,18 @@ internal static class ConfigTestFixture
         while (current is not null && !File.Exists(Path.Combine(current.FullName, "rpg.csproj")))
             current = current.Parent;
         return current?.FullName ?? throw new DirectoryNotFoundException("找不到项目根目录");
+    }
+}
+
+/// <summary>按 client-settings 的公开 JSON 存档格式读取验收结果。</summary>
+internal static class SettingsTestFixture
+{
+    /// <summary>读取角色存档；文件尚未创建时使用约定的默认布局。</summary>
+    internal static RoleSetting ReadRole(string directory, long roleId)
+    {
+        var path = Path.Combine(directory, "roles", $"{roleId}.json");
+        return File.Exists(path)
+            ? System.Text.Json.JsonSerializer.Deserialize<RoleSetting>(File.ReadAllText(path))!
+            : new RoleSetting();
     }
 }

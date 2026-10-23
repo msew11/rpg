@@ -6,7 +6,7 @@ using Rpg.Config;
 namespace Rpg.World;
 
 /// <summary>封装地图坐标、边界、地块读取和可见范围计算。</summary>
-public sealed class MapManager
+internal sealed class MapManager
 {
     /// <summary>由稀疏覆盖格建立的快速查询表。</summary>
     private readonly Dictionary<(int X, int Y), string> _overrides = new();

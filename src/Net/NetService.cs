@@ -4,6 +4,7 @@ using System.Diagnostics;
 using Google.Protobuf;
 using Rpg.Session;
 using Rpg.Services;
+using Rpg.Server;
 
 namespace Rpg.Net;
 
@@ -31,6 +32,9 @@ public sealed class NetService : IService
     internal bool IsDisposed => _disposed;
     /// <summary>报告编解码、传输和监听错误。</summary>
     public event Action<Exception>? Error;
+
+    /// <summary>在服务内部初始化当前阶段的进程内传输。</summary>
+    public NetService(string serverDirectory) : this(new MockTransport(new MockServer(serverDirectory))) { }
 
     /// <summary>绑定传输并建立首个会话代次。</summary>
     public NetService(INetTransport transport)

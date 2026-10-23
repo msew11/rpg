@@ -24,9 +24,8 @@ public partial class MapChunkSmoke : Node
         {
             var viewport = new SubViewport { Size = new Vector2I(1280, 720), Disable3D = true };
             AddChild(viewport);
-            var configRepo = new RepoGameConfig();
-            configRepo.LoadGodot();
-            using var services = GameServices.Initialize(new ConfigService(configRepo),
+            var configRepo = new ConfigService();
+            using var services = GameServices.Initialize(configRepo,
                 new SettingService(System.IO.Path.Combine(temporary, "settings")),
                 new NetService(new MockTransport(new MockServer(System.IO.Path.Combine(temporary, "server")))));
             var view = new MapView();

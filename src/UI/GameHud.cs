@@ -59,7 +59,7 @@ public partial class GameHud : Control
     public event Action? QuitRequested;
 
     /// <summary>从已注册服务读取选中角色，创建游戏界面及其监听。</summary>
-    public void Initialize()
+    public override void _Ready()
     {
         AnchorRight = 1;
         AnchorBottom = 1;

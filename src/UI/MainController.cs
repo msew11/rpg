@@ -2,12 +2,9 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using Rpg.Const;
-using Rpg.Config;
 using Rpg.Net;
 using Rpg.Net.Message;
-using Rpg.Server;
 using Rpg.Services;
-using Rpg.Settings;
 using Rpg.World.Utils;
 using Rpg.World.Views;
 
@@ -47,15 +44,11 @@ public partial class MainController : Control
         MouseFilter = MouseFilterEnum.Ignore;
         try
         {
-            var configRepo = new RepoGameConfig();
-            configRepo.LoadGodot();
-            var config = new ConfigService(configRepo);
-            var setting = new SettingService(string.IsNullOrEmpty(SettingsDirectory)
-                ? ProjectSettings.GlobalizePath("user://settings") : SettingsDirectory);
-            var directory = string.IsNullOrEmpty(ServerDirectory) ? ProjectSettings.GlobalizePath("user://server") : ServerDirectory;
-            var net = CreateNetService(directory);
-            try { _servicesLifetime = GameServices.Initialize(config, setting, net); }
-            catch { try { setting.Dispose(); } finally { config.Dispose(); net.Dispose(); } throw; }
+            var settingsDirectory = string.IsNullOrEmpty(SettingsDirectory)
+                ? ProjectSettings.GlobalizePath("user://settings") : SettingsDirectory;
+            var serverDirectory = string.IsNullOrEmpty(ServerDirectory)
+                ? ProjectSettings.GlobalizePath("user://server") : ServerDirectory;
+            _servicesLifetime = GameServices.Initialize(settingsDirectory, serverDirectory, CreateNetService);
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;
             _subscriptions.Add(GameServices.Net.Events.Subscribe<LoginRt>(OnLoggedIn));
@@ -94,7 +87,7 @@ public partial class MainController : Control
     public override void _ExitTree() => ReleaseServices();
 
     /// <summary>集中创建传输，允许场景验收替换网络而无需修改全局入口。</summary>
-    protected virtual NetService CreateNetService(string directory) => new(new MockTransport(new MockServer(directory)));
+    protected virtual NetService CreateNetService(string directory) => new(directory);
 
     /// <summary>启动失败与场景退出共用清理顺序，最终释放本次启动的服务句柄。</summary>
     private void ReleaseServices()
@@ -210,7 +203,6 @@ public partial class MainController : Control
         AddChild(_hudLayer);
         _hud = new GameHud { Name = "GameHud" };
         _hudLayer.AddChild(_hud);
-        _hud.Initialize();
         _hud.ChangeRoleRequested += ReturnToRoles;
         _hud.LoginRequested += ShowLogin;
         _hud.QuitRequested += QuitGame;

@@ -34,7 +34,7 @@ public partial class ActorView : Node2D
         var changed = _previous is null || _previous.RoleId != state.RoleId ||
             _previous.Gender != state.Gender || _previous.Motion != state.Motion ||
             _previous.MotionVersion != state.MotionVersion;
-        var (direction, mirrored) = GameServices.Animation.ResolveDirection(state.Facing);
+        var (direction, mirrored) = AnimationService.ResolveDirection(state.Facing);
         var name = $"dir{direction}";
         _facingRoot.Scale = new Vector2(mirrored ? -1 : 1, 1);
         if (changed)

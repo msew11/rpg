@@ -36,11 +36,11 @@ HUD 和系统面板 SHALL 独立于 ECS 世界，根据游戏配置与会话缓�
 
 #### Scenario: 返回登录
 - **WHEN** 在游戏中选择返回登陆
-- **THEN** 释放当前账号 GameSession、登录与角色缓存，清理世界和 HUD，显示登录页；重新登录成功后创建新会话，选角后可再次进入游戏
+- **THEN** 由 SessionService 清空当前账号和登录、角色缓存，清理世界和 HUD，显示登录页；重新登录成功后创建新会话，选角后可再次进入游戏
 
 #### Scenario: 返回角色选择
 - **WHEN** 在游戏中选择返回角色选择
-- **THEN** 清理当前角色数据、世界和 HUD，保留同一账号 GameSession 与 LoginCache，显示本次登录的角色列表；选择角色后重新初始化 RoleCache 并加载该角色的独立设置
+- **THEN** 清理当前角色数据、世界和 HUD，保留 SessionService 中同一账号和 LoginCache，显示本次登录的角色列表；选择角色后重新初始化 RoleCache 并加载该角色的独立设置
 
 #### Scenario: 退出游戏
 - **WHEN** 选择退出游戏

@@ -1,11 +1,15 @@
 ## ADDED Requirements
 
 ### Requirement: 按功能聚合业务服务
-客户端 SHALL 声明统一 IService 生命周期接口，由 GameServices 以只读 Config、Setting、Net、Session、World、Animation 入口持有本次启动的业务服务。服务 SHALL 内聚自己的状态与方法，通过显式依赖绑定同次启动的其他服务。配置与设置仓库、账号会话、地图和世界管理器及输入转换器 SHALL 作为相应服务的内部实现，不由 Godot 节点持有或逐层传递。
+客户端 SHALL 声明统一 IService 生命周期接口，由 GameServices 以只读 Config、Setting、Net、Session、World、Animation 入口持有本次启动的业务服务。服务 SHALL 内聚自己的状态与方法，通过显式依赖绑定同次启动的其他服务。配置加载、设置读写、账号缓存和动画缓存 SHALL 直接在相应服务内初始化与持有，不额外增加逐方法转发的包装类；地图与 ECS 管理器 SHALL 作为世界服务的内部实现，不由 Godot 节点持有或逐层传递。
 
 #### Scenario: 节点通过统一服务访问
 - **WHEN** 主场景启动并完成登录选角
 - **THEN** 节点通过 GameServices 读取配置、设置、账号和世界快照并提交业务操作，只持有节点、订阅句柄和呈现状态；世界创建、移动提交及权威同步由服务负责
+
+#### Scenario: 服务内部初始化
+- **WHEN** 主场景启动客户端
+- **THEN** 主控制器只传入运行目录和可选传输创建边界，GameServices 内部创建各服务；配置服务构造时完成加载，设置与账号服务自行初始化其状态，原始读写和缓存容器不作为节点公开接口
 
 #### Scenario: 收敛设置接口
 - **WHEN** UI 修改系统分辨率、声音或角色 HUD 布局

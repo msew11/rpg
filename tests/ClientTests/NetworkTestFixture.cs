@@ -19,7 +19,7 @@ internal sealed class NetworkTestFixture : IDisposable
     /// <summary>真实队列与事件网络服务。</summary>
     public NetService Net { get; }
     /// <summary>登录成功后建立的账号会话，未登录或失败时为空。</summary>
-    public GameSession? Session { get; private set; }
+    public SessionService? Session { get; private set; }
     /// <summary>当前账号会话持有的登录摘要缓存。</summary>
     public LoginCache LoginCache => Session!.LoginCache;
     /// <summary>观察可诊断网络错误。</summary>
@@ -46,12 +46,12 @@ internal sealed class NetworkTestFixture : IDisposable
         Net.Send(new Login { Username = username, Password = password });
         Net.Tick(0);
         Assert.NotNull(response);
-        if (response.Success) Session = new GameSession(Net, response);
+        if (response.Success) Session = new SessionService(Net, response);
         return (response.Success, response.Error, Session?.LoginCache.Roles ?? []);
     }
 
     /// <summary>通过已有账号会话选角并验证响应初始化角色缓存。</summary>
-    public GameSession SelectRole(long roleId)
+    public SessionService SelectRole(long roleId)
     {
         var session = Session ?? throw new InvalidOperationException("测试应先成功登录");
         session.SelectRole(roleId);

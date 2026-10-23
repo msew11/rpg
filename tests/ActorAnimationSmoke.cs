@@ -27,11 +27,10 @@ public partial class ActorAnimationSmoke : Node
         var temporary = Path.Combine(Path.GetTempPath(), "rpg-actor-smoke-" + Guid.NewGuid());
         try
         {
-            var config = new RepoGameConfig();
-            config.LoadGodot();
-            var repo = new RepoActorAnimation();
+            var config = new ConfigService();
+            var repo = new AnimationService();
             using var net = new NetService(new MockTransport(new MockServer(temporary)));
-            using var services = GameServices.Initialize(new ConfigService(config),
+            using var services = GameServices.Initialize(config,
                 new SettingService(Path.Combine(temporary, "settings")), net);
             LoginRt? loginResponse = null;
             using var login = net.Events.Subscribe<LoginRt>(response =>
@@ -41,7 +40,7 @@ public partial class ActorAnimationSmoke : Node
             });
             net.Send(new Login { Username = "demo", Password = "demo" });
             net.Tick(0);
-            using var session = new GameSession(net, loginResponse!);
+            using var session = new SessionService(net, loginResponse!);
             Check(session.LoginCache.Roles.Count == 2, "登录未返回两个演示角色");
             var actor = new ActorView();
             AddChild(actor);
@@ -55,7 +54,7 @@ public partial class ActorAnimationSmoke : Node
                 Check(session.RoleCache.IsInitialized, "选角未初始化角色世界状态");
                 var role = session.Role;
                 var world = new WorldManager();
-                world.Enqueue(new InitializeWorldAction(new MapManager(new ConfigService(config))));
+                world.Enqueue(new InitializeWorldAction(new MapManager(config)));
                 world.Enqueue(new InitializeRoleAction(role));
                 world.Tick(0);
                 actor.Present(world.ActorState!);
