@@ -307,7 +307,7 @@ public partial class GameHud : Control
         panel.AddChild(open);
     }
 
-    /// <summary>创建带关闭按钮的弹出面板内容列。</summary>
+    /// <summary>创建标题居左、关闭按钮靠右的弹出面板内容列。</summary>
     private VBoxContainer CreatePanel(string title, Vector2 minimum)
     {
         var outer = new PanelContainer { CustomMinimumSize = minimum, Visible = false, MouseFilter = MouseFilterEnum.Stop };
@@ -323,7 +323,9 @@ public partial class GameHud : Control
         outer.AddChild(box);
         var header = new HBoxContainer();
         box.AddChild(header);
-        header.AddChild(Text(title, 20));
+        var heading = Text(title, 20);
+        heading.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        header.AddChild(heading);
         var close = new Button { Text = "关闭" };
         close.Pressed += () => outer.Visible = false;
         header.AddChild(close);

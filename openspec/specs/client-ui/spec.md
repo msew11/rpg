@@ -4,7 +4,7 @@
 TBD - created by archiving change data-driven-rpg-client. Update Purpose after archive.
 ## Requirements
 ### Requirement: 世界外 HUD 与面板
-HUD 和系统面板 SHALL 独立于 ECS 世界，根据游戏配置与会话缓存显示游戏数据。GM 面板 SHALL 显示系统设置和当前角色设置文件的绝对路径，并提供在桌面文件管理器中定位文件的入口。
+HUD 和系统面板 SHALL 独立于 ECS 世界，根据游戏配置与会话缓存显示游戏数据。GM 面板 SHALL 显示系统设置和当前角色设置文件的绝对路径，并提供在桌面文件管理器中定位文件的入口。角色、背包、大地图、GM 和系统设置面板 SHALL 将标题放在标题栏左侧、关闭按钮放在标题栏最右侧。
 
 #### Scenario: 游戏 HUD
 - **WHEN** 进入角色世界
@@ -18,6 +18,10 @@ HUD 和系统面板 SHALL 独立于 ECS 世界，根据游戏配置与会话缓�
 
 - **WHEN** 玩家在 GM 面板点击某设置文件的打开按钮
 - **THEN** 文件存在时文件管理器定位该文件，文件缺失时打开其父目录；角色路径属于当前选中的 role_id
+
+#### Scenario: 右侧关闭按钮
+- **WHEN** 打开任一面板
+- **THEN** 标题位于左侧，关闭按钮靠标题栏右端，点击关闭按钮后该面板隐藏
 
 ### Requirement: 系统上拉菜单
 点击系统按钮 SHALL 在其上方展开菜单，条目从上到下依次为“系统设置”“退出游戏”“返回登录”“返回角色选择”。选择条目、再次点击系统按钮、点击菜单外部或按 Esc SHALL 收起菜单。菜单交互 SHALL 不触发世界移动；窗口大小或 HUD 布局变化后重新展开的菜单 SHALL 保持在视口内。
