@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using Rpg.Settings.Data;
 
 namespace Rpg.Settings;
 
@@ -10,9 +11,9 @@ public sealed class RepoSettings
     /// <summary>系统与角色设置的本地根目录。</summary>
     private readonly string _root;
     /// <summary>当前系统显示和声音设置。</summary>
-    private readonly DataSystemSetting _system;
+    private readonly SystemSetting _systemSetting;
     /// <summary>当前选中角色的设置。</summary>
-    private DataRoleSetting? _role;
+    private RoleSetting? _roleSetting;
     /// <summary>当前选中角色的标识。</summary>
     private long? _roleId;
     /// <summary>当前角色设置是否有未保存的修改。</summary>
@@ -24,20 +25,20 @@ public sealed class RepoSettings
     public RepoSettings(string root)
     {
         _root = root;
-        _system = LoadSystem();
+        _systemSetting = LoadSystem();
     }
 
     /// <summary>当前窗口宽度。</summary>
-    public int Width => _system.Width;
+    public int Width => _systemSetting.Width;
     /// <summary>当前窗口高度。</summary>
-    public int Height => _system.Height;
+    public int Height => _systemSetting.Height;
     /// <summary>当前主音量。</summary>
-    public float MasterVolume => _system.MasterVolume;
+    public float MasterVolume => _systemSetting.MasterVolume;
     /// <summary>切换当前角色并载入其独立设置。</summary>
     public void SelectRole(long roleId)
     {
         SaveCurrentRole();
-        _role = LoadRole(roleId);
+        _roleSetting = LoadRole(roleId);
         _roleId = roleId;
         _roleDirty = false;
     }
@@ -45,16 +46,16 @@ public sealed class RepoSettings
     /// <summary>修改并保存当前分辨率。</summary>
     public void SetResolution(int width, int height)
     {
-        _system.Width = width;
-        _system.Height = height;
-        SaveSystem(_system);
+        _systemSetting.Width = width;
+        _systemSetting.Height = height;
+        SaveSystem(_systemSetting);
     }
 
     /// <summary>修改并保存当前主音量。</summary>
     public void SetMasterVolume(float volume)
     {
-        _system.MasterVolume = Math.Clamp(volume, 0, 1);
-        SaveSystem(_system);
+        _systemSetting.MasterVolume = Math.Clamp(volume, 0, 1);
+        SaveSystem(_systemSetting);
     }
 
     /// <summary>读取当前角色的技能栏显隐状态。</summary>
@@ -70,23 +71,23 @@ public sealed class RepoSettings
     }
 
     /// <summary>读取当前角色 HUD 元素位置的副本。</summary>
-    public DataHudPosition GetHudPosition(string key)
+    public HudPosition GetHudPosition(string key)
     {
         var position = CurrentRole.HudPositions[key];
-        return new DataHudPosition(position.X, position.Y);
+        return new HudPosition(position.X, position.Y);
     }
 
     /// <summary>更新当前角色的 HUD 位置，提交时再保存。</summary>
     public void SetHudPosition(string key, float x, float y)
     {
-        CurrentRole.HudPositions[key] = new DataHudPosition(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1));
+        CurrentRole.HudPositions[key] = new HudPosition(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1));
         _roleDirty = true;
     }
 
     /// <summary>恢复并保存当前角色的默认 HUD 布局。</summary>
     public void ResetHudPositions()
     {
-        CurrentRole.HudPositions = DataRoleSetting.DefaultPositions();
+        CurrentRole.HudPositions = RoleSetting.DefaultPositions();
         _roleDirty = true;
         SaveCurrentRole();
     }
@@ -100,7 +101,7 @@ public sealed class RepoSettings
     }
 
     /// <summary>需要先选中角色才能访问的当前角色设置。</summary>
-    private DataRoleSetting CurrentRole => _role ?? throw new InvalidOperationException("尚未选择角色");
+    private RoleSetting CurrentRole => _roleSetting ?? throw new InvalidOperationException("尚未选择角色");
 
     /// <summary>系统设置文件的绝对路径。</summary>
     public string SystemPath => Path.GetFullPath(Path.Combine(_root, "system.json"));
@@ -109,9 +110,9 @@ public sealed class RepoSettings
     public string GetRolePath(long roleId) => Path.GetFullPath(Path.Combine(_root, "roles", $"{roleId}.json"));
 
     /// <summary>读取系统设置；文件缺失或损坏时采用默认值。</summary>
-    public DataSystemSetting LoadSystem()
+    public SystemSetting LoadSystem()
     {
-        var setting = Read(SystemPath, new DataSystemSetting());
+        var setting = Read(SystemPath, new SystemSetting());
         if (setting.Width < 800 || setting.Width > 3840) setting.Width = 1280;
         if (setting.Height < 600 || setting.Height > 2160) setting.Height = 720;
         if (!float.IsFinite(setting.MasterVolume)) setting.MasterVolume = 0.8f;
@@ -120,16 +121,16 @@ public sealed class RepoSettings
     }
 
     /// <summary>原子保存系统设置。</summary>
-    public void SaveSystem(DataSystemSetting setting) => Write(SystemPath, setting);
+    public void SaveSystem(SystemSetting setting) => Write(SystemPath, setting);
 
     /// <summary>按角色 ID 读取独立设置。</summary>
-    public DataRoleSetting LoadRole(long roleId)
+    public RoleSetting LoadRole(long roleId)
     {
-        var setting = Read(GetRolePath(roleId), new DataRoleSetting());
+        var setting = Read(GetRolePath(roleId), new RoleSetting());
         if (setting.VisibleHotbars is null || setting.VisibleHotbars.Length != 3)
             setting.VisibleHotbars = [true, false, false];
-        setting.HudPositions ??= DataRoleSetting.DefaultPositions();
-        foreach (var (key, value) in DataRoleSetting.DefaultPositions())
+        setting.HudPositions ??= RoleSetting.DefaultPositions();
+        foreach (var (key, value) in RoleSetting.DefaultPositions())
         {
             if (!setting.HudPositions.TryGetValue(key, out var position) || position is null)
                 setting.HudPositions[key] = value;
@@ -144,7 +145,7 @@ public sealed class RepoSettings
     }
 
     /// <summary>按角色 ID 原子保存独立设置。</summary>
-    public void SaveRole(long roleId, DataRoleSetting setting) => Write(GetRolePath(roleId), setting);
+    public void SaveRole(long roleId, RoleSetting setting) => Write(GetRolePath(roleId), setting);
 
     /// <summary>读取 JSON 并在损坏时给出警告。</summary>
     private static T Read<T>(string path, T fallback)

@@ -1,7 +1,7 @@
-namespace Rpg.Settings;
+namespace Rpg.Settings.Data;
 
 /// <summary>与账号角色无关的显示和声音设置。</summary>
-public sealed class DataSystemSetting
+public sealed class SystemSetting
 {
     /// <summary>窗口宽度。</summary>
     public int Width { get; set; } = 1280;

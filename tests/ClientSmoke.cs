@@ -4,6 +4,7 @@ using System.Reflection;
 using System.IO;
 using Godot;
 using Rpg.Settings;
+using Rpg.Settings.Data;
 using Rpg.UI;
 using Rpg.World;
 using Rpg.World.Utils;
@@ -152,7 +153,7 @@ public partial class ClientSmoke : Node
             GetViewport().PushInput(new InputEventMouseButton
                 { ButtonIndex = MouseButton.Left, Pressed = false, Position = end }, true);
             var savedPosition = new RepoSettings(temporary).LoadRole(1002).HudPositions["hotbar1"];
-            if (Math.Abs(savedPosition.X - DataRoleSetting.DefaultPositions()["hotbar1"].X) < 0.001f)
+            if (Math.Abs(savedPosition.X - RoleSetting.DefaultPositions()["hotbar1"].X) < 0.001f)
                 throw new InvalidOperationException("HUD 拖动位置未保存");
             GD.Print("Client smoke passed.");
             GetTree().Quit();

@@ -2,6 +2,7 @@ using Godot;
 using Rpg.Config;
 using Rpg.Session;
 using Rpg.Settings;
+using Rpg.Settings.Data;
 using Rpg.World;
 using Rpg.World.Actions;
 using Rpg.World.Utils;
@@ -178,7 +179,7 @@ public sealed class SettingsAcceptanceTests
             repo.SaveSystem(system);
             var first = repo.LoadRole(1001);
             first.VisibleHotbars[1] = true;
-            first.HudPositions["portrait"] = new DataHudPosition(0.4f, 0.2f);
+            first.HudPositions["portrait"] = new HudPosition(0.4f, 0.2f);
             repo.SaveRole(1001, first);
 
             var reopened = new RepoSettings(directory);
@@ -221,7 +222,7 @@ public sealed class SettingsAcceptanceTests
             Assert.Equal(1600, reopened.Width);
             Assert.Equal(0.4f, reopened.MasterVolume);
             Assert.Equal(0.6f, reopened.LoadRole(1002).HudPositions["portrait"].X);
-            Assert.Equal(DataRoleSetting.DefaultPositions()["portrait"].X,
+            Assert.Equal(RoleSetting.DefaultPositions()["portrait"].X,
                 reopened.LoadRole(1001).HudPositions["portrait"].X);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
