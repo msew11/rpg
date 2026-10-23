@@ -32,4 +32,5 @@
 - 在 `develop` 开始新 change 前阅读 `docs/game-vision.md`、`docs/architecture.md`、`docs/roadmap.md` 和相关 `openspec/specs/`；在 `main` 阅读相关 `openspec/specs/`。愿景记录长期目标，架构记录设计边界，路线图记录阶段顺序；`openspec/specs/` 与代码记录当前能力，不把未来目标写成已实现要求。
 - `develop` 上的 change 若改变产品方向、模块边界或阶段顺序，须在同一次交付中更新相应长期文档；完成时核对文档与代码、specs 一致，并更新路线图状态。未定事项先标为待定，不由 agent 擅自定案。
 - 不提交 `.godot/` 缓存和 `build/` 导出文件。功能完成后提供清晰的 Git 提交，便于回滚。
-- 所有新 Git 提交遵循约定式提交（Conventional Commits）：标题格式为 `<type>[(<scope>)][!]: <description>`，其中范围和 `!` 可选，例如 `feat(combat): add turn order`、`fix: correct scene loading`、`docs: clarify setup steps`。常用类型包括 `feat`、`fix`、`docs`、`refactor`、`test`、`chore`；有破坏性变更时在类型或范围后加 `!`，并在正文脚注写明 `BREAKING CHANGE: <说明>`。
+- 所有新 Git 提交信息的标题描述和正文使用中文；Conventional Commits 的类型、范围、固定标记及必要的技术名称可保留英文。
+- 所有新 Git 提交遵循约定式提交（Conventional Commits）：标题格式为 `<type>[(<scope>)][!]: <description>`，其中范围和 `!` 可选，例如 `feat(combat): 添加回合顺序`、`fix: 修正场景加载`、`docs: 明确环境配置步骤`。常用类型包括 `feat`、`fix`、`docs`、`refactor`、`test`、`chore`；有破坏性变更时在类型或范围后加 `!`，并在正文脚注写明 `BREAKING CHANGE: <说明>`。
