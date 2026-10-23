@@ -1,5 +1,5 @@
 using Godot;
-using Rpg.Config;
+using Rpg.Config.Data;
 
 namespace Rpg.UI;
 
@@ -7,7 +7,7 @@ namespace Rpg.UI;
 public partial class MiniMapControl : Control
 {
     /// <summary>用于计算相对位置的地图配置。</summary>
-    public DataMapConfig? Map { get; set; }
+    public MapConfig? Map { get; set; }
     /// <summary>会话缓存提供的权威角色位置。</summary>
     public Vector2 RolePosition { get; set; }
 

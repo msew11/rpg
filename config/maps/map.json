@@ -1,6 +1,6 @@
 {
   "kind": "map",
-  "id": "demo-map",
+  "id": "map",
   "width": 1000,
   "height": 1000,
   "tileSize": 32,

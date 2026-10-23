@@ -7,31 +7,39 @@ using System.Collections.Generic;
 using Godot;
 using FileAccess = Godot.FileAccess;
 using Json.Schema;
+using Rpg.Config.Data;
 
 namespace Rpg.Config;
 
 /// <summary>扫描、校验并组合打包的 JSON 游戏配置。</summary>
 public sealed class RepoGameConfig
 {
+    /// <summary>最近一次成功加载的地图配置。</summary>
+    private MapConfig? _mapConfig;
+
+    /// <summary>已校验的地图配置；首次成功加载前不可读取。</summary>
+    public MapConfig MapConfig => _mapConfig ?? throw new InvalidOperationException("地图配置尚未加载");
+
     /// <summary>读取目录中的全部配置；任何未识别或无效文件都使加载失败。</summary>
-    public DataGameConfig Load(string configDirectory, string schemaDirectory)
+    public void Load(string configDirectory, string schemaDirectory)
     {
         if (!Directory.Exists(configDirectory))
             throw new InvalidDataException($"配置目录不存在：{configDirectory}");
 
         var files = Directory.GetFiles(configDirectory, "*.json", SearchOption.AllDirectories);
-        return LoadDocuments(files.Select(file => (file, File.ReadAllText(file))),
+        var mapConfig = LoadDocuments(files.Select(file => (file, File.ReadAllText(file))),
             File.ReadAllText(Path.Combine(schemaDirectory, "map.schema.json")));
+        _mapConfig = mapConfig;
     }
 
     /// <summary>从 Godot 资源包递归读取配置，支持编辑器和导出程序。</summary>
-    public DataGameConfig LoadGodot(string configDirectory = "res://config")
+    public void LoadGodot(string configDirectory = "res://config")
     {
         var files = new List<(string Path, string Text)>();
         Scan(configDirectory, files);
         var schema = FileAccess.GetFileAsString("res://schemas/map.schema.json");
         if (string.IsNullOrWhiteSpace(schema)) throw new InvalidDataException("地图 Schema 不存在或为空");
-        return LoadDocuments(files, schema);
+        _mapConfig = LoadDocuments(files, schema);
     }
 
     /// <summary>递归读取资源包中所有 JSON 文件。</summary>
@@ -54,9 +62,9 @@ public sealed class RepoGameConfig
     }
 
     /// <summary>校验已读取的全部配置文档并组合类型化数据。</summary>
-    private static DataGameConfig LoadDocuments(IEnumerable<(string Path, string Text)> files, string schemaText)
+    private static MapConfig LoadDocuments(IEnumerable<(string Path, string Text)> files, string schemaText)
     {
-        DataMapConfig? map = null;
+        MapConfig? map = null;
         var documents = files.OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
         if (documents.Length == 0) throw new InvalidDataException("配置目录没有 JSON 文件");
 
@@ -70,6 +78,8 @@ public sealed class RepoGameConfig
                     ?? throw new InvalidDataException("缺少 kind 字段");
                 if (kind != "map")
                     throw new InvalidDataException($"未知配置类型：{kind}");
+                if (System.IO.Path.GetFileName(file.Path) != "map.json")
+                    throw new InvalidDataException("地图配置文件名必须为 map.json");
                 if (map is not null)
                     throw new InvalidDataException("重复的地图配置");
 
@@ -79,7 +89,7 @@ public sealed class RepoGameConfig
                 if (!result.IsValid)
                     throw new InvalidDataException($"Schema 校验失败：{JsonSerializer.Serialize(result)}");
 
-                map = document.Deserialize<DataMapConfig>(new JsonSerializerOptions
+                map = document.Deserialize<MapConfig>(new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 }) ?? throw new InvalidDataException("地图配置无法解码");
@@ -95,6 +105,6 @@ public sealed class RepoGameConfig
             }
         }
 
-        return new DataGameConfig { Map = map ?? throw new InvalidDataException("缺少地图配置") };
+        return map ?? throw new InvalidDataException("缺少地图配置");
     }
 }

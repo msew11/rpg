@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using Rpg.Config;
+using Rpg.Config.Data;
 
 namespace Rpg.World;
 
@@ -12,10 +12,10 @@ public sealed class MapManager
     private readonly Dictionary<(int X, int Y), string> _overrides = new();
 
     /// <summary>该管理器使用的地图配置。</summary>
-    public DataMapConfig Config { get; }
+    public MapConfig Config { get; }
 
     /// <summary>构建稀疏地块索引。</summary>
-    public MapManager(DataMapConfig config)
+    public MapManager(MapConfig config)
     {
         Config = config;
         foreach (var tile in config.Overrides)

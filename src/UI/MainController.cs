@@ -14,8 +14,8 @@ namespace Rpg.UI;
 /// <summary>串联配置启动、模拟登录、选角会话、世界和 HUD。</summary>
 public partial class MainController : Control
 {
-    /// <summary>启动时加载的组合式游戏配置。</summary>
-    private DataGameConfig _config = null!;
+    /// <summary>启动时加载并持有游戏配置的仓库。</summary>
+    private RepoGameConfig _configRepo = null!;
     /// <summary>当前使用的登录和状态来源。</summary>
     private readonly IStateSource _source = new MockStateSource();
     /// <summary>本地系统与角色设置仓库。</summary>
@@ -49,7 +49,8 @@ public partial class MainController : Control
         ApplySystemSettings();
         try
         {
-            _config = new RepoGameConfig().LoadGodot();
+            _configRepo = new RepoGameConfig();
+            _configRepo.LoadGodot();
             ShowLogin();
         }
         catch (Exception error)
@@ -140,7 +141,7 @@ public partial class MainController : Control
         ClearGame();
         _session = _source.SelectRole(roleId);
         _world = new WorldManager();
-        _map = new MapManager(_config.Map);
+        _map = new MapManager(_configRepo.MapConfig);
         _world.Enqueue(new InitializeWorldAction(_map));
         _world.Enqueue(new InitializeRoleAction(_session.Role));
         _world.Tick(0);
@@ -159,7 +160,7 @@ public partial class MainController : Control
         AddChild(_hudLayer);
         _hud = new GameHud { Name = "GameHud" };
         _hudLayer.AddChild(_hud);
-        _hud.Initialize(_config, _session, _settings);
+        _hud.Initialize(_configRepo, _session, _settings);
         _hud.ChangeRoleRequested += () => ShowRoles(_source.Login("demo", "demo"));
     }
 

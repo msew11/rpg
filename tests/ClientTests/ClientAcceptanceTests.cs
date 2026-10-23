@@ -1,5 +1,6 @@
 using Godot;
 using Rpg.Config;
+using Rpg.Config.Data;
 using Rpg.Session;
 using Rpg.Settings;
 using Rpg.Settings.Data;
@@ -18,11 +19,13 @@ public sealed class ClientAcceptanceTests
     {
         var root = FindRoot();
         var repo = new RepoGameConfig();
-        var config = repo.Load(Path.Combine(root, "config"), Path.Combine(root, "schemas"));
-        Assert.Equal(1000, config.Map.Width);
-        Assert.Equal(1000, config.Map.Height);
-        Assert.Equal(32, config.Map.TileSize);
-        var map = new MapManager(config.Map);
+        Assert.Throws<InvalidOperationException>(() => _ = repo.MapConfig);
+        repo.Load(Path.Combine(root, "config"), Path.Combine(root, "schemas"));
+        Assert.Equal(1000, repo.MapConfig.Width);
+        Assert.Equal(1000, repo.MapConfig.Height);
+        Assert.Equal(32, repo.MapConfig.TileSize);
+        Assert.Equal("map", repo.MapConfig.Id);
+        var map = new MapManager(repo.MapConfig);
         Assert.Equal("accent", map.TileAt(505, 500));
         Assert.Equal("ground", map.TileAt(1, 1));
 
@@ -33,12 +36,29 @@ public sealed class ClientAcceptanceTests
             File.WriteAllText(Path.Combine(temporary, "unexpected.json"), "{\"kind\":\"unknown\"}");
             var error = Assert.Throws<InvalidDataException>(() => repo.Load(temporary, Path.Combine(root, "schemas")));
             Assert.Contains("unexpected.json", error.Message);
+            Assert.Equal("map", repo.MapConfig.Id);
             File.Delete(Path.Combine(temporary, "unexpected.json"));
-            File.WriteAllText(Path.Combine(temporary, "invalid.json"),
+            File.WriteAllText(Path.Combine(temporary, "map.json"),
                 "{\"kind\":\"map\",\"id\":\"bad\",\"width\":0,\"height\":1000,\"tileSize\":32,\"defaultTile\":\"ground\",\"overrides\":[]}");
             error = Assert.Throws<InvalidDataException>(() => repo.Load(temporary, Path.Combine(root, "schemas")));
-            Assert.Contains("invalid.json", error.Message);
+            Assert.Contains("map.json", error.Message);
             Assert.Contains("Schema", error.Message);
+            File.Delete(Path.Combine(temporary, "map.json"));
+            File.WriteAllText(Path.Combine(temporary, "wrong-name.json"),
+                File.ReadAllText(Path.Combine(root, "config", "maps", "map.json")));
+            error = Assert.Throws<InvalidDataException>(() => repo.Load(temporary, Path.Combine(root, "schemas")));
+            Assert.Contains("wrong-name.json", error.Message);
+            Assert.Contains("map.json", error.Message);
+            Assert.Equal("map", repo.MapConfig.Id);
+            File.Delete(Path.Combine(temporary, "wrong-name.json"));
+            var duplicateDirectory = Path.Combine(temporary, "second");
+            Directory.CreateDirectory(duplicateDirectory);
+            var validMap = File.ReadAllText(Path.Combine(root, "config", "maps", "map.json"));
+            File.WriteAllText(Path.Combine(temporary, "map.json"), validMap);
+            File.WriteAllText(Path.Combine(duplicateDirectory, "map.json"), validMap);
+            error = Assert.Throws<InvalidDataException>(() => repo.Load(temporary, Path.Combine(root, "schemas")));
+            Assert.Contains("重复的地图配置", error.Message);
+            Assert.Equal("map", repo.MapConfig.Id);
         }
         finally { Directory.Delete(temporary, true); }
     }
@@ -47,7 +67,7 @@ public sealed class ClientAcceptanceTests
     [Fact]
     public void MapVisibleRegionDoesNotExpandWholeWorld()
     {
-        var map = new MapManager(new DataMapConfig
+        var map = new MapManager(new MapConfig
         {
             Kind = "map", Id = "test", Width = 1000, Height = 1000, TileSize = 32,
             DefaultTile = "ground"
@@ -125,7 +145,7 @@ public sealed class WorldAcceptanceTests
     [Fact]
     public void WorldActionOrderMovementAndCorrection()
     {
-        var map = new MapManager(new DataMapConfig
+        var map = new MapManager(new MapConfig
         {
             Kind = "map", Id = "test", Width = 1000, Height = 1000, TileSize = 32,
             DefaultTile = "ground"

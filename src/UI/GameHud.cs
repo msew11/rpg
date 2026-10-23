@@ -17,8 +17,8 @@ public partial class GameHud : Control
     private readonly Dictionary<string, Label> _handles = new();
     /// <summary>角色、背包、地图、GM 和系统弹出面板。</summary>
     private readonly List<Control> _panels = [];
-    /// <summary>当前组合游戏配置。</summary>
-    private DataGameConfig _config = null!;
+    /// <summary>当前游戏配置仓库。</summary>
+    private RepoGameConfig _configRepo = null!;
     /// <summary>当前角色会话。</summary>
     private GameSession _session = null!;
     /// <summary>本地设置仓库。</summary>
@@ -52,9 +52,9 @@ public partial class GameHud : Control
     public event Action? ChangeRoleRequested;
 
     /// <summary>用选中会话、配置及设置创建完整游戏界面。</summary>
-    public void Initialize(DataGameConfig config, GameSession session, RepoSettings settings)
+    public void Initialize(RepoGameConfig configRepo, GameSession session, RepoSettings settings)
     {
-        _config = config;
+        _configRepo = configRepo;
         _session = session;
         _settings = settings;
         AnchorRight = 1;
@@ -124,7 +124,7 @@ public partial class GameHud : Control
         var radarBox = new VBoxContainer();
         radarPanel.AddChild(radarBox);
         radarBox.AddChild(Text("小地图", 15));
-        _miniMap = new MiniMapControl { CustomMinimumSize = new Vector2(150, 145), Map = _config.Map };
+        _miniMap = new MiniMapControl { CustomMinimumSize = new Vector2(150, 145), Map = _configRepo.MapConfig };
         radarBox.AddChild(_miniMap);
 
         for (var bar = 1; bar <= 3; bar++)
@@ -187,7 +187,7 @@ public partial class GameHud : Control
         var mapPanel = CreatePanel("大地图", new Vector2(440, 440));
         _mapText = Text("", 14);
         mapPanel.AddChild(_mapText);
-        _largeMap = new MiniMapControl { CustomMinimumSize = new Vector2(390, 340), Map = _config.Map };
+        _largeMap = new MiniMapControl { CustomMinimumSize = new Vector2(390, 340), Map = _configRepo.MapConfig };
         mapPanel.AddChild(_largeMap);
 
         var gm = CreatePanel("GM", new Vector2(590, 255));
@@ -381,7 +381,8 @@ public partial class GameHud : Control
         var role = state.Role;
         _portraitText.Text = $"● {role.Name}  Lv.{role.Level}\n生命 {role.Health}/{role.MaxHealth}\n魔力 {role.Mana}/{role.MaxMana}\n经验 {role.Experience}/{role.NextExperience}";
         _characterText.Text = $"角色 ID：{role.RoleId}\n等级：{role.Level}\n生命：{role.Health}/{role.MaxHealth}\n魔力：{role.Mana}/{role.MaxMana}\n经验：{role.Experience}/{role.NextExperience}";
-        _mapText.Text = $"地图：{_config.Map.Id}  {_config.Map.Width}×{_config.Map.Height}\n位置：{state.Position.X:0}, {state.Position.Y:0}";
+        var mapConfig = _configRepo.MapConfig;
+        _mapText.Text = $"地图：{mapConfig.Id}  {mapConfig.Width}×{mapConfig.Height}\n位置：{state.Position.X:0}, {state.Position.Y:0}";
         _miniMap.RolePosition = state.Position;
         _largeMap.RolePosition = state.Position;
         _miniMap.QueueRedraw();
