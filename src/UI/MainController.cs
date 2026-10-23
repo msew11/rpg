@@ -22,6 +22,8 @@ public partial class MainController : Control
     private RepoSettings _settings = null!;
     /// <summary>选中角色的活动会话。</summary>
     private GameSession? _session;
+    /// <summary>本次成功登录的角色列表，供游戏内返回选角时复用。</summary>
+    private DataLoginResult? _loginResult;
     /// <summary>活动会话对应的 ECS 世界。</summary>
     private WorldManager? _world;
     /// <summary>当前地图的坐标与地块管理器。</summary>
@@ -90,6 +92,7 @@ public partial class MainController : Control
     private void ShowLogin()
     {
         ClearGame();
+        _loginResult = null;
         var box = CenteredScreen("网络 RPG 客户端 · 模拟登录");
         box.AddChild(Label("演示账号：demo / demo", 15));
         var username = new LineEdit { PlaceholderText = "用户名", Text = "demo", CustomMinimumSize = new Vector2(280, 36) };
@@ -119,6 +122,7 @@ public partial class MainController : Control
     private void ShowRoles(DataLoginResult result)
     {
         ClearGame();
+        _loginResult = result;
         var box = CenteredScreen("选择角色");
         foreach (var role in result.Roles)
         {
@@ -162,7 +166,23 @@ public partial class MainController : Control
         _hud = new GameHud { Name = "GameHud" };
         _hudLayer.AddChild(_hud);
         _hud.Initialize(_configRepo, _session, _settings);
-        _hud.ChangeRoleRequested += () => ShowRoles(_source.Login("demo", "demo"));
+        _hud.ChangeRoleRequested += ReturnToRoles;
+        _hud.LoginRequested += ShowLogin;
+        _hud.QuitRequested += QuitGame;
+    }
+
+    /// <summary>结束角色会话并返回本次登录的角色列表。</summary>
+    private void ReturnToRoles()
+    {
+        if (_loginResult is { } result) ShowRoles(result);
+        else ShowLogin();
+    }
+
+    /// <summary>释放当前世界与会话后正常关闭客户端。</summary>
+    private void QuitGame()
+    {
+        ClearGame();
+        GetTree().Quit();
     }
 
     /// <summary>将缓存中的权威状态变更转化为 ECS Action。</summary>

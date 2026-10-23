@@ -39,6 +39,12 @@ public partial class GameHud : Control
     private CheckBox _thirdBar = null!;
     /// <summary>HUD 调整模式的切换按钮。</summary>
     private Button _editButton = null!;
+    /// <summary>用于定位上拉菜单和恢复键盘焦点的系统按钮。</summary>
+    private Button _systemButton = null!;
+    /// <summary>菜单展开时消费外部点击的透明遮罩。</summary>
+    private Control _systemMenuOverlay = null!;
+    /// <summary>包含四项系统操作的上拉面板。</summary>
+    private PanelContainer _systemMenu = null!;
     /// <summary>当前是否允许拖动 HUD。</summary>
     private bool _editing;
     /// <summary>正在拖动的 HUD 元素键。</summary>
@@ -50,6 +56,10 @@ public partial class GameHud : Control
 
     /// <summary>需要返回角色选择界面时通知主控制器。</summary>
     public event Action? ChangeRoleRequested;
+    /// <summary>需要返回登录页面时通知主控制器。</summary>
+    public event Action? LoginRequested;
+    /// <summary>需要关闭客户端时通知主控制器。</summary>
+    public event Action? QuitRequested;
 
     /// <summary>用选中会话、配置及设置创建完整游戏界面。</summary>
     public void Initialize(RepoGameConfig configRepo, GameSession session, RepoSettings settings)
@@ -62,6 +72,7 @@ public partial class GameHud : Control
         MouseFilter = MouseFilterEnum.Ignore;
         BuildHud();
         BuildPanels();
+        BuildSystemMenu();
         ApplyLayout();
         RefreshData();
         _session.Cache.RoleChanged += OnRoleChanged;
@@ -85,6 +96,12 @@ public partial class GameHud : Control
     /// <summary>在整个视口内持续拖动 HUD，避免指针离开把手后中断。</summary>
     public override void _Input(InputEvent input)
     {
+        if (_systemMenuOverlay.Visible && input is InputEventKey { Keycode: Key.Escape, Pressed: true })
+        {
+            CloseSystemMenu();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (!_editing || _dragging is null) return;
         if (input is InputEventMouseMotion motion)
         {
@@ -149,9 +166,75 @@ public partial class GameHud : Control
         foreach (var title in new[] { "角色", "背包", "大地图", "GM", "系统" })
         {
             var button = new Button { Text = title, CustomMinimumSize = new Vector2(62, 34) };
-            button.Pressed += () => TogglePanel(title);
+            if (title == "系统")
+            {
+                _systemButton = button;
+                button.Pressed += ToggleSystemMenu;
+            }
+            else button.Pressed += () => TogglePanel(title);
             menuRow.AddChild(button);
         }
+    }
+
+    /// <summary>创建位于所有普通面板之上的系统菜单与点击遮罩。</summary>
+    private void BuildSystemMenu()
+    {
+        _systemMenuOverlay = new Control { Name = "SystemMenuOverlay", Visible = false, MouseFilter = MouseFilterEnum.Stop };
+        AddChild(_systemMenuOverlay);
+        _systemMenuOverlay.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        _systemMenuOverlay.GuiInput += input =>
+        {
+            if (input is not InputEventMouseButton { Pressed: true }) return;
+            _systemMenuOverlay.AcceptEvent();
+            CloseSystemMenu();
+        };
+        _systemMenu = new PanelContainer { Name = "SystemMenu", CustomMinimumSize = new Vector2(180, 0), MouseFilter = MouseFilterEnum.Stop };
+        _systemMenuOverlay.AddChild(_systemMenu);
+        var entries = new VBoxContainer();
+        _systemMenu.AddChild(entries);
+        AddSystemMenuItem(entries, "系统设置", () => TogglePanel("系统设置"));
+        AddSystemMenuItem(entries, "退出游戏", () => QuitRequested?.Invoke());
+        AddSystemMenuItem(entries, "返回登录", () => LoginRequested?.Invoke());
+        AddSystemMenuItem(entries, "返回角色选择", () => ChangeRoleRequested?.Invoke());
+    }
+
+    /// <summary>添加先收起菜单再执行操作的条目。</summary>
+    private void AddSystemMenuItem(VBoxContainer entries, string title, Action action)
+    {
+        var button = new Button { Text = title, CustomMinimumSize = new Vector2(0, 34) };
+        button.Pressed += () =>
+        {
+            CloseSystemMenu();
+            action();
+        };
+        entries.AddChild(button);
+    }
+
+    /// <summary>在系统按钮上方展开菜单，并把面板约束在当前视口内。</summary>
+    private void ToggleSystemMenu()
+    {
+        if (_systemMenuOverlay.Visible)
+        {
+            CloseSystemMenu();
+            return;
+        }
+        _systemMenu.Size = _systemMenu.GetCombinedMinimumSize();
+        var button = _systemButton.GetGlobalRect();
+        var desired = new Vector2(button.End.X - _systemMenu.Size.X, button.Position.Y - _systemMenu.Size.Y - 4) - GlobalPosition;
+        var viewport = GetViewportRect().Size;
+        _systemMenu.Position = new Vector2(
+            Mathf.Clamp(desired.X, 0, Mathf.Max(0, viewport.X - _systemMenu.Size.X)),
+            Mathf.Clamp(desired.Y, 0, Mathf.Max(0, viewport.Y - _systemMenu.Size.Y)));
+        _systemMenuOverlay.Show();
+        _systemMenu.GetChild(0).GetChild<Button>(0).GrabFocus();
+    }
+
+    /// <summary>收起系统菜单并将键盘焦点还给入口按钮。</summary>
+    private void CloseSystemMenu()
+    {
+        if (!_systemMenuOverlay.Visible) return;
+        _systemMenuOverlay.Hide();
+        _systemButton.GrabFocus();
     }
 
     /// <summary>创建一个可在 HUD 编辑模式拖动的元素。</summary>
@@ -194,7 +277,7 @@ public partial class GameHud : Control
         AddSettingLocation(gm, "系统设置文件", _settings.SystemPath);
         AddSettingLocation(gm, "当前角色设置文件", _settings.GetRolePath(_session.Role.RoleId));
 
-        var system = CreatePanel("系统", new Vector2(380, 390));
+        var system = CreatePanel("系统设置", new Vector2(380, 390));
         var tabs = new TabContainer { CustomMinimumSize = new Vector2(345, 295) };
         system.AddChild(tabs);
         BuildDisplayTab(tabs);
@@ -356,6 +439,7 @@ public partial class GameHud : Control
     /// <summary>按保存的屏幕相对坐标排列并约束 HUD。</summary>
     private void ApplyLayout()
     {
+        CloseSystemMenu();
         var viewport = GetViewportRect().Size;
         _lastViewport = viewport;
         foreach (var (key, panel) in _movable)
