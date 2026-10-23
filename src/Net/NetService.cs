@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Google.Protobuf;
 using Rpg.Session;
+using Rpg.Services;
 
 namespace Rpg.Net;
 
 /// <summary>管理请求队列、protobuf 字节和按类型分发的服务器消息。</summary>
-public sealed class NetService : IDisposable
+public sealed class NetService : IService
 {
     /// <summary>当前使用的可替换传输。</summary>
     private readonly INetTransport _transport;

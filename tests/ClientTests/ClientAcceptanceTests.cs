@@ -27,7 +27,7 @@ public sealed class ClientAcceptanceTests
         Assert.Equal(1000, repo.MapConfig.Height);
         Assert.Equal(32, repo.MapConfig.TileSize);
         Assert.Equal("map", repo.MapConfig.Id);
-        var map = new MapManager(repo);
+        var map = new MapManager(new ConfigService(repo));
         Assert.Equal("accent", map.TileAt(505, 500));
         Assert.Equal("ground", map.TileAt(1, 1));
 
@@ -69,7 +69,7 @@ public sealed class ClientAcceptanceTests
     [Fact]
     public void MapVisibleRegionDoesNotExpandWholeWorld()
     {
-        var map = new MapManager(ConfigTestFixture.LoadDefault());
+        var map = new MapManager(new Rpg.Config.ConfigService(ConfigTestFixture.LoadDefault()));
         var region = map.VisibleTiles(new Rect2(16000, 16000, 1280, 720));
         Assert.True((region.Right - region.Left + 1) * (region.Bottom - region.Top + 1) < 1500);
     }
@@ -150,7 +150,7 @@ public sealed class WorldAcceptanceTests
     [Fact]
     public void WorldActionOrderMovementAndCorrection()
     {
-        var map = new MapManager(ConfigTestFixture.LoadDefault());
+        var map = new MapManager(new Rpg.Config.ConfigService(ConfigTestFixture.LoadDefault()));
         var role = new RoleWorldStatePbData(1, "测试", 1, 10, 10, 10, 10, 0, 10, new Vector2(100, 100), RoleGender.Male, 0, 0);
         var world = new WorldManager();
         world.Enqueue(new InitializeRoleAction(role));
@@ -220,11 +220,11 @@ public sealed class SettingsAcceptanceTests
         var directory = Path.Combine(Path.GetTempPath(), "rpg-current-settings-test-" + Guid.NewGuid());
         try
         {
-            var repo = new RepoSettings(directory);
+            var repo = new Rpg.Settings.SettingService(directory);
             repo.SetResolution(1600, 900);
             repo.SetMasterVolume(0.4f);
             repo.SelectRole(1001);
-            Assert.False(File.Exists(repo.GetRolePath(1001)));
+            Assert.False(File.Exists(repo.RolePath));
             Assert.Throws<ArgumentException>(() => repo.SetHotbarVisible(1, false));
             repo.SetHotbarVisible(2, true);
             repo.SetHudPosition("portrait", 0.4f, 0.2f);
@@ -239,12 +239,12 @@ public sealed class SettingsAcceptanceTests
             Assert.Equal(0.4f, repo.GetHudPosition("portrait").X);
             repo.ResetHudPositions();
 
-            var reopened = new RepoSettings(directory);
+            var reopened = new Rpg.Settings.SettingService(directory);
             Assert.Equal(1600, reopened.Width);
             Assert.Equal(0.4f, reopened.MasterVolume);
-            Assert.Equal(0.6f, reopened.LoadRole(1002).HudPositions["portrait"].X);
+            Assert.Equal(0.6f, new RepoSettings(directory).LoadRole(1002).HudPositions["portrait"].X);
             Assert.Equal(RoleSetting.DefaultPositions()["portrait"].X,
-                reopened.LoadRole(1001).HudPositions["portrait"].X);
+                new RepoSettings(directory).LoadRole(1001).HudPositions["portrait"].X);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }

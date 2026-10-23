@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 using Rpg.World.Utils;
+using Rpg.Services;
 
 namespace Rpg.World.Views;
 
@@ -14,13 +15,11 @@ public partial class MapView : Node2D
     /// <summary>上次更新时视口覆盖的分块范围。</summary>
     private (int Left, int Top, int Right, int Bottom)? _visibleChunks;
 
-    /// <summary>地图读取与范围管理器。</summary>
-    public MapManager? Map { get; set; }
 
     /// <summary>视口进入新的分块范围时增删分块，其余帧复用已有绘制。</summary>
     public override void _Process(double delta)
     {
-        if (Map is null) return;
+        if (!GameServices.IsInitialized) return;
         var viewport = GetViewport();
         var inverse = viewport.GetCanvasTransform().AffineInverse();
         var screenSize = viewport.GetVisibleRect().Size;
@@ -38,7 +37,7 @@ public partial class MapView : Node2D
             minimum = minimum.Min(corner);
             maximum = maximum.Max(corner);
         }
-        var (left, top, right, bottom) = Map.VisibleTiles(new Rect2(minimum, maximum - minimum));
+        var (left, top, right, bottom) = GameServices.World.VisibleTiles(new Rect2(minimum, maximum - minimum));
         (int Left, int Top, int Right, int Bottom) visible =
             (left / ChunkSize, top / ChunkSize, right / ChunkSize, bottom / ChunkSize);
         if (_visibleChunks == visible) return;
@@ -58,7 +57,7 @@ public partial class MapView : Node2D
         {
             var coordinate = new Vector2I(x, y);
             if (_chunks.ContainsKey(coordinate)) continue;
-            var chunk = new MapChunkView(Map, x * ChunkSize, y * ChunkSize, ChunkSize)
+            var chunk = new MapChunkView(x * ChunkSize, y * ChunkSize, ChunkSize)
             {
                 Name = $"Chunk_{x}_{y}"
             };

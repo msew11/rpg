@@ -1,13 +1,170 @@
+using Rpg.Config;
+using Rpg.Settings;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Services;
 using Rpg.Session;
+using Rpg.Server;
 
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/game-services 的全局访问、所有权及独立实例契约；同类测试串行执行。</summary>
 public sealed class GameServicesTests
 {
+    /// <summary>验证 game-services 与 client-session 的非法登录摘要不会触发界面成功回调，且合法重试可恢复。</summary>
+    [Fact]
+    public void InvalidLoginStateStopsUiNotificationAndAllowsValidRetry()
+    {
+        using var transport = new DoubleNetTransport();
+        var net = new NetService(transport);
+        using var services = Register(net);
+        var errors = new List<Exception>();
+        net.Error += errors.Add;
+        var notifications = 0;
+        using var ui = net.Events.Subscribe<LoginRt>(_ => notifications++);
+        GameServices.Session.Login("demo", "demo");
+        net.Tick(0);
+        var generation = MessageCodec.ReadEnvelope(Assert.Single(transport.Sent)).Generation;
+        var invalid = new LoginRt { Success = true, Roles = { new RoleSummaryPb() } };
+        transport.Inject(MessageCodec.Encode(invalid, generation, false));
+        net.Tick(0);
+        Assert.Single(errors);
+        Assert.Equal(0, notifications);
+        Assert.False(GameServices.Session.IsLoggedIn);
+        Assert.Empty(GameServices.Session.Roles);
+        var valid = new LoginRt { Success = true, Roles = {
+            new RoleSummaryPb { RoleId = 1001, Name = "测试角色", Level = 1, Gender = RoleGenderPb.Male } } };
+        transport.Inject(MessageCodec.Encode(valid, generation, false));
+        net.Tick(0);
+        Assert.Equal(1, notifications);
+        Assert.True(GameServices.Session.IsLoggedIn);
+        Assert.Equal(1001, Assert.Single(GameServices.Session.Roles).RoleId);
+    }
+
+    /// <summary>验证 game-services 的业务先于界面就绪、切角隔离与离开角色保存布局场景。</summary>
+    [Fact]
+    public void CompleteServicesPrepareStateBeforeUiAndKeepRoleSettingsSeparate()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "rpg-service-flow-" + Guid.NewGuid());
+        try
+        {
+            var serverDirectory = Path.Combine(directory, "server");
+            var server = new MockServer(serverDirectory);
+            using var net = new NetService(new MockTransport(server));
+            var setting = new SettingService(Path.Combine(directory, "settings"));
+            using var services = GameServices.Initialize(new ConfigService(ConfigTestFixture.LoadDefault()), setting, net);
+            var errors = new List<Exception>();
+            net.Error += errors.Add;
+            var observedLogin = false;
+            using var loginUi = net.Events.Subscribe<LoginRt>(response =>
+            {
+                observedLogin = true;
+                Assert.True(response.Success);
+                Assert.True(GameServices.Session.IsLoggedIn);
+                Assert.Equal(2, GameServices.Session.Roles.Count);
+            });
+            var observedSelections = 0;
+            using var roleUi = net.Events.Subscribe<SelectRoleRt>(response =>
+            {
+                observedSelections++;
+                Assert.True(GameServices.Session.HasRole);
+                Assert.True(GameServices.World.HasRole);
+                Assert.Equal(response.RoleId, GameServices.World.ActorState!.RoleId);
+                Assert.Equal(GameServices.Session.Role.Position, GameServices.World.RolePosition);
+            });
+            GameServices.Session.Login("demo", "demo");
+            net.Tick(0);
+            Assert.True(observedLogin);
+            var roles = GameServices.Session.Roles;
+            GameServices.Session.SelectRole(1001);
+            net.Tick(0);
+            var world = GameServices.World;
+            var settingPath = setting.RolePath;
+            setting.SetHotbarVisible(2, true);
+            setting.SetHudPosition("portrait", 0.4f, 0.2f);
+            var updated = new RepoServerRole(serverDirectory).Load(1001) with { Health = 20 };
+            server.PublishRoleState(updated);
+            net.Tick(0);
+            Assert.Equal(20, GameServices.Session.Role.Health);
+            world.Tick(0);
+            world.LeaveRole();
+            GameServices.Session.LeaveRole();
+            Assert.Same(roles, GameServices.Session.Roles);
+            Assert.False(world.HasWorld);
+            Assert.False(GameServices.Session.HasRole);
+            Assert.Throws<InvalidOperationException>(() => setting.IsHotbarVisible(2));
+            Assert.Equal(0.4f, new RepoSettings(Path.Combine(directory, "settings")).LoadRole(1001).HudPositions["portrait"].X);
+            Assert.True(File.Exists(settingPath));
+            GameServices.Session.SelectRole(1002);
+            net.Tick(0);
+            Assert.False(setting.IsHotbarVisible(2));
+            Assert.Same(world, GameServices.World);
+            Assert.Same(roles, GameServices.Session.Roles);
+            Assert.Equal(2, observedSelections);
+            Assert.Empty(errors);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    /// <summary>验证 game-services 的整体清理：网络关闭失败后仍保存布局并使其他服务失效。</summary>
+    [Fact]
+    public void NetworkDisposalFailureStillSavesSettingsAndRevokesAllServices()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "rpg-service-dispose-" + Guid.NewGuid());
+        try
+        {
+            var config = new ConfigService(ConfigTestFixture.LoadDefault());
+            var setting = new SettingService(directory);
+            var net = new NetService(new DoubleLifetimeTransport { FailDispose = true });
+            using var services = GameServices.Initialize(config, setting, net);
+            var session = GameServices.Session;
+            var world = GameServices.World;
+            var animation = GameServices.Animation;
+            setting.SelectRole(1001);
+            setting.SetHudPosition("portrait", 0.3f, 0.4f);
+            Assert.Throws<IOException>(() => services.Dispose());
+            Assert.Throws<InvalidOperationException>(() => GameServices.Config);
+            Assert.Throws<InvalidOperationException>(() => GameServices.Setting);
+            Assert.Throws<InvalidOperationException>(() => GameServices.Session);
+            Assert.Throws<InvalidOperationException>(() => GameServices.World);
+            Assert.Throws<InvalidOperationException>(() => GameServices.Animation);
+            Assert.Throws<ObjectDisposedException>(() => config.MapConfig);
+            Assert.Throws<ObjectDisposedException>(() => setting.SetResolution(1280, 720));
+            Assert.Throws<ObjectDisposedException>(() => session.SelectRole(1001));
+            Assert.Throws<ObjectDisposedException>(() => world.Tick(0));
+            Assert.Throws<ObjectDisposedException>(() => animation.Get(Rpg.Const.RoleGender.Male, Rpg.Const.RoleMotion.Stand));
+            Assert.Equal(0.3f, new RepoSettings(directory).LoadRole(1001).HudPositions["portrait"].X);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    /// <summary>验证 game-services 的整体清理：设置保存失败也不阻止网络和配置清理或下次注册。</summary>
+    [Fact]
+    public void SettingsDisposalFailureStillRevokesDependenciesAndAllowsRestart()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "rpg-service-setting-failure-" + Guid.NewGuid());
+        try
+        {
+            var config = new ConfigService(ConfigTestFixture.LoadDefault());
+            var setting = new SettingService(directory);
+            var net = new NetService(new DoubleNetTransport());
+            using var services = GameServices.Initialize(config, setting, net);
+            setting.SelectRole(1001);
+            setting.SetHudPosition("portrait", 0.3f, 0.4f);
+            File.WriteAllText(directory, "阻止创建设置目录");
+            Assert.ThrowsAny<IOException>(() => services.Dispose());
+            Assert.False(GameServices.IsInitialized);
+            Assert.Throws<ObjectDisposedException>(() => net.Send(new Login()));
+            Assert.Throws<ObjectDisposedException>(() => config.MapConfig);
+            using var restarted = Register(new NetService(new DoubleNetTransport()));
+            Assert.False(GameServices.Session.IsLoggedIn);
+            Assert.False(GameServices.World.HasWorld);
+            services.Dispose();
+            Assert.True(GameServices.IsInitialized);
+        }
+        finally { if (File.Exists(directory)) File.Delete(directory); }
+    }
+
     /// <summary>注册前明确报错，注册后发送和监听仍遵循 client-network 的固定帧队列。</summary>
     [Fact]
     public void GlobalAccessRequiresRegistrationAndKeepsQueuedDelivery()
@@ -16,7 +173,7 @@ public sealed class GameServicesTests
         Assert.Throws<InvalidOperationException>(() => GameServices.Net);
         using var transport = new DoubleNetTransport();
         var net = new NetService(transport);
-        using var services = GameServices.Initialize(net);
+        using var services = Register(net);
         Assert.True(GameServices.IsInitialized);
         Assert.Same(net, GameServices.Net);
         var delivered = 0;
@@ -35,16 +192,16 @@ public sealed class GameServicesTests
     [Fact]
     public void InvalidAndDuplicateRegistrationLeaveOwnershipUnchanged()
     {
-        Assert.Throws<ArgumentNullException>(() => GameServices.Initialize(null!));
+        Assert.Throws<ArgumentNullException>(() => Register(null!));
         using var disposed = new NetService(new DoubleNetTransport());
         disposed.Dispose();
-        Assert.Throws<ObjectDisposedException>(() => GameServices.Initialize(disposed));
+        Assert.Throws<ObjectDisposedException>(() => Register(disposed));
         Assert.False(GameServices.IsInitialized);
         var original = new NetService(new DoubleNetTransport());
-        using var services = GameServices.Initialize(original);
+        using var services = Register(original);
         using var otherTransport = new DoubleNetTransport();
         using var other = new NetService(otherTransport);
-        Assert.Throws<InvalidOperationException>(() => GameServices.Initialize(other));
+        Assert.Throws<InvalidOperationException>(() => Register(other));
         Assert.Same(original, GameServices.Net);
         other.Send(new Login());
         other.Tick(0);
@@ -57,7 +214,7 @@ public sealed class GameServicesTests
     {
         var transport = new DoubleLifetimeTransport();
         var net = new NetService(transport);
-        using var services = GameServices.Initialize(net);
+        using var services = Register(net);
         using var subscription = net.Events.Subscribe<LoginRt>(_ => { });
         services.Dispose();
         services.Dispose();
@@ -67,7 +224,7 @@ public sealed class GameServicesTests
         Assert.Throws<ObjectDisposedException>(() => net.Events.Subscribe<LoginRt>(_ => { }));
         Assert.Equal(1, transport.DisposeCount);
         var current = new NetService(new DoubleNetTransport());
-        using var currentServices = GameServices.Initialize(current);
+        using var currentServices = Register(current);
         services.Dispose();
         Assert.Same(current, GameServices.Net);
         GameServices.Net.Send(new Login());
@@ -79,12 +236,12 @@ public sealed class GameServicesTests
     public void ExternallyDisposedNetworkIsNeverReturnedAsActive()
     {
         var net = new NetService(new DoubleNetTransport());
-        using var services = GameServices.Initialize(net);
+        using var services = Register(net);
         net.Dispose();
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<ObjectDisposedException>(() => GameServices.Net);
         using var other = new NetService(new DoubleNetTransport());
-        Assert.Throws<InvalidOperationException>(() => GameServices.Initialize(other));
+        Assert.Throws<InvalidOperationException>(() => Register(other));
     }
 
     /// <summary>传输释放异常也必须撤销入口，避免阻止后续启动。</summary>
@@ -93,14 +250,14 @@ public sealed class GameServicesTests
     {
         var transport = new DoubleLifetimeTransport { FailDispose = true };
         var net = new NetService(transport);
-        using var services = GameServices.Initialize(net);
+        using var services = Register(net);
         Assert.Throws<IOException>(() => services.Dispose());
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<InvalidOperationException>(() => GameServices.Net);
         Assert.Throws<ObjectDisposedException>(() => net.Events.Subscribe<LoginRt>(_ => { }));
         services.Dispose();
         Assert.Equal(1, transport.DisposeCount);
-        using var current = GameServices.Initialize(new NetService(new DoubleNetTransport()));
+        using var current = Register(new NetService(new DoubleNetTransport()));
         Assert.True(GameServices.IsInitialized);
     }
 
@@ -110,7 +267,7 @@ public sealed class GameServicesTests
     {
         Assert.Throws<InvalidOperationException>(() => new GameSession(new LoginRt { Success = true }));
         using var globalTransport = new DoubleNetTransport();
-        using var services = GameServices.Initialize(new NetService(globalTransport));
+        using var services = Register(new NetService(globalTransport));
         using var globalSession = new GameSession(new LoginRt { Success = true });
         using var isolatedTransport = new DoubleNetTransport();
         using var isolated = new NetService(isolatedTransport);
@@ -134,11 +291,11 @@ public sealed class GameServicesTests
     [Fact]
     public void OldGlobalSessionCannotOperateOrResetRestartedNetwork()
     {
-        using var oldServices = GameServices.Initialize(new NetService(new DoubleNetTransport()));
+        using var oldServices = Register(new NetService(new DoubleNetTransport()));
         using var oldSession = new GameSession(new LoginRt { Success = true });
         oldServices.Dispose();
         using var transport = new DoubleNetTransport();
-        using var currentServices = GameServices.Initialize(new NetService(transport));
+        using var currentServices = Register(new NetService(transport));
         using var currentSession = new GameSession(new LoginRt { Success = true });
         currentSession.SelectRole(1002);
         Assert.Throws<ObjectDisposedException>(() => oldSession.SelectRole(1001));
@@ -158,7 +315,7 @@ public sealed class GameServicesTests
     public void ExplicitInstancesRemainIndependentOfGlobalRegistration()
     {
         using var globalTransport = new DoubleNetTransport();
-        using var services = GameServices.Initialize(new NetService(globalTransport));
+        using var services = Register(new NetService(globalTransport));
         var globalNet = GameServices.Net;
         GameServices.Net.Send(new Login());
         using (var isolatedTransport = new DoubleNetTransport())
@@ -173,6 +330,15 @@ public sealed class GameServicesTests
         Assert.Same(globalNet, GameServices.Net);
         GameServices.Net.Tick(0);
         Assert.Single(globalTransport.Sent);
+    }
+
+    /// <summary>创建完整服务组，注册失败时释放仍归调用方的配置和设置。</summary>
+    private static IDisposable Register(NetService net)
+    {
+        var config = new ConfigService(ConfigTestFixture.LoadDefault());
+        var setting = new SettingService(Path.Combine(Path.GetTempPath(), "rpg-services-" + Guid.NewGuid()));
+        try { return GameServices.Initialize(config, setting, net); }
+        catch { setting.Dispose(); config.Dispose(); throw; }
     }
 
     /// <summary>服务于 game-services 释放契约的计数传输，可模拟关闭失败。</summary>

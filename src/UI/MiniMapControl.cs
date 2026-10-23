@@ -1,13 +1,11 @@
 using Godot;
-using Rpg.Config;
+using Rpg.Services;
 
 namespace Rpg.UI;
 
 /// <summary>根据配置尺寸与会话位置绘制世界外的小地图或大地图。</summary>
 public partial class MiniMapControl : Control
 {
-    /// <summary>用于读取地图尺寸的配置仓库。</summary>
-    public RepoGameConfig? ConfigRepo { get; set; }
     /// <summary>会话缓存提供的权威角色位置。</summary>
     public Vector2 RolePosition { get; set; }
 
@@ -16,8 +14,8 @@ public partial class MiniMapControl : Control
     {
         DrawRect(new Rect2(Vector2.Zero, Size), new Color("1c303a"));
         DrawRect(new Rect2(Vector2.Zero, Size), new Color("7a9eaa"), false, 2);
-        if (ConfigRepo is null) return;
-        var map = ConfigRepo.MapConfig;
+        if (!GameServices.IsInitialized) return;
+        var map = GameServices.Config.MapConfig;
         var width = map.Width * map.TileSize;
         var height = map.Height * map.TileSize;
         var point = new Vector2(RolePosition.X / width * Size.X, RolePosition.Y / height * Size.Y);

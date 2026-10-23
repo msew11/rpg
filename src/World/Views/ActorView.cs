@@ -1,12 +1,11 @@
 using Godot;
+using Rpg.Services;
 
 namespace Rpg.World.Views;
 
 /// <summary>根据只读玩家快照播放身体动画，不持有或改变 ECS 组件。</summary>
 public partial class ActorView : Node2D
 {
-    /// <summary>在节点生命周期内缓存使用过的身体动作。</summary>
-    private readonly RepoActorAnimation _animations = new();
     /// <summary>围绕角色定位点镜像整个身体的容器。</summary>
     private readonly Node2D _facingRoot = new() { Name = "Facing" };
     /// <summary>由 Godot 独立推进动画时间的身体节点。</summary>
@@ -35,12 +34,12 @@ public partial class ActorView : Node2D
         var changed = _previous is null || _previous.RoleId != state.RoleId ||
             _previous.Gender != state.Gender || _previous.Motion != state.Motion ||
             _previous.MotionVersion != state.MotionVersion;
-        var (direction, mirrored) = RepoActorAnimation.ResolveDirection(state.Facing);
+        var (direction, mirrored) = GameServices.Animation.ResolveDirection(state.Facing);
         var name = $"dir{direction}";
         _facingRoot.Scale = new Vector2(mirrored ? -1 : 1, 1);
         if (changed)
         {
-            var resource = _animations.Get(state.Gender, state.Motion);
+            var resource = GameServices.Animation.Get(state.Gender, state.Motion);
             _body.Stop();
             _body.SpriteFrames = resource.Frames;
             _body.Position = -resource.Anchor;

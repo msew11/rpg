@@ -1,57 +1,103 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
+using Rpg.Config;
 using Rpg.Net;
+using Rpg.Session;
+using Rpg.Settings;
+using Rpg.World;
+using Rpg.World.Views;
 
 namespace Rpg.Services;
 
-/// <summary>提供主线程常驻服务的显式注册、全局访问和生命周期所有权。</summary>
+/// <summary>以固定入口持有客户端服务，按显式依赖顺序初始化并逆序释放。</summary>
 public static class GameServices
 {
-    /// <summary>当前启动流程拥有的服务注册，释放前禁止替换。</summary>
+    /// <summary>本次启动的整体注册，释放前禁止替换。</summary>
     private static Registration? _current;
-
-    /// <summary>是否存在尚未释放的网络服务。</summary>
+    /// <summary>全部入口是否已注册且网络尚未释放。</summary>
     public static bool IsInitialized => _current is not null && !_current.Net.IsDisposed;
-
-    /// <summary>取得已注册网络；未初始化或被提前释放时明确报错。</summary>
-    public static NetService Net
+    /// <summary>当前有效注册；未启动和网络提前释放均明确报错。</summary>
+    private static Registration Current
     {
         get
         {
-            var net = _current?.Net ?? throw new InvalidOperationException("GameServices 尚未初始化，请先由启动流程注册服务");
-            ObjectDisposedException.ThrowIf(net.IsDisposed, net);
-            return net;
+            var current = _current ?? throw new InvalidOperationException("GameServices 尚未初始化，请先由启动流程注册服务");
+            ObjectDisposedException.ThrowIf(current.Net.IsDisposed, current.Net);
+            return current;
         }
     }
+    /// <summary>客户端只读配置。</summary>
+    public static ConfigService Config => Current.Config;
+    /// <summary>当前系统与角色本地设置。</summary>
+    public static SettingService Setting => Current.Setting;
+    /// <summary>固定帧网络请求与消息分发。</summary>
+    public static NetService Net => Current.Net;
+    /// <summary>账号与当前角色会话。</summary>
+    public static SessionService Session => Current.Session;
+    /// <summary>地图、输入意图和角色世界。</summary>
+    public static WorldService World => Current.World;
+    /// <summary>跨表现节点共享的动画资源缓存。</summary>
+    public static AnimationService Animation => Current.Animation;
 
-    /// <summary>成功后接管网络并返回释放句柄；注册失败时网络仍归调用方所有。</summary>
-    public static IDisposable Initialize(NetService net)
+    /// <summary>成功后接管显式服务并建立其依赖；失败时传入实例仍由调用方释放。</summary>
+    public static IDisposable Initialize(ConfigService config, SettingService setting, NetService net)
     {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(setting);
         ArgumentNullException.ThrowIfNull(net);
         ObjectDisposedException.ThrowIf(net.IsDisposed, net);
         if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
-        var registration = new Registration(net);
+        _ = config.MapConfig;
+        _ = setting.Width;
+        var registration = new Registration(config, setting, net);
         _current = registration;
         return registration;
     }
 
-    /// <summary>持有一次启动的服务，防止旧句柄重复释放时影响后续启动。</summary>
+    /// <summary>一次启动的所有权句柄，固定依赖图直接以构造顺序表达。</summary>
     private sealed class Registration : IDisposable
     {
-        /// <summary>当前注册接管的网络实例。</summary>
+        /// <summary>先就绪的配置服务。</summary>
+        public ConfigService Config { get; }
+        /// <summary>先就绪的设置服务。</summary>
+        public SettingService Setting { get; }
+        /// <summary>会话与世界借用的网络服务。</summary>
         public NetService Net { get; }
-        /// <summary>是否已释放本次注册。</summary>
+        /// <summary>先于世界创建的账号服务。</summary>
+        public SessionService Session { get; }
+        /// <summary>依赖配置、设置、网络与账号的世界服务。</summary>
+        public WorldService World { get; }
+        /// <summary>与账号无关的表现资源服务。</summary>
+        public AnimationService Animation { get; } = new();
+        /// <summary>防止旧句柄重复释放后续注册。</summary>
         private bool _disposed;
 
-        /// <summary>绑定网络实例，由外层登记为当前注册。</summary>
-        public Registration(NetService net) => Net = net;
+        /// <summary>先构造依赖，再构造消费者；内部失败只回收新增对象。</summary>
+        public Registration(ConfigService config, SettingService setting, NetService net)
+        {
+            Config = config;
+            Setting = setting;
+            Net = net;
+            Session = new SessionService(net);
+            try { World = new WorldService(config, setting, Session, net); }
+            catch { try { Session.Dispose(); } finally { Animation.Dispose(); } throw; }
+        }
 
-        /// <summary>先撤销全局访问，再幂等释放本次启动的网络和监听。</summary>
+        /// <summary>先撤销全部入口，再逆依赖清理；单个服务失败不阻止其余清理。</summary>
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
             if (ReferenceEquals(_current, this)) _current = null;
-            Net.Dispose();
+            var errors = new List<Exception>();
+            foreach (var service in new IService[] { Animation, World, Session, Net, Setting, Config })
+            {
+                try { service.Dispose(); }
+                catch (Exception error) { errors.Add(error); }
+            }
+            if (errors.Count == 1) ExceptionDispatchInfo.Capture(errors[0]).Throw();
+            if (errors.Count > 1) throw new AggregateException("客户端服务释放失败", errors);
         }
     }
 }

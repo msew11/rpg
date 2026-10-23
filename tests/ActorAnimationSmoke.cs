@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Godot;
 using Rpg.Const;
 using Rpg.Config;
+using Rpg.Services;
+using Rpg.Settings;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
@@ -29,6 +31,8 @@ public partial class ActorAnimationSmoke : Node
             config.LoadGodot();
             var repo = new RepoActorAnimation();
             using var net = new NetService(new MockTransport(new MockServer(temporary)));
+            using var services = GameServices.Initialize(new ConfigService(config),
+                new SettingService(Path.Combine(temporary, "settings")), net);
             LoginRt? loginResponse = null;
             using var login = net.Events.Subscribe<LoginRt>(response =>
             {
@@ -51,7 +55,7 @@ public partial class ActorAnimationSmoke : Node
                 Check(session.RoleCache.IsInitialized, "选角未初始化角色世界状态");
                 var role = session.Role;
                 var world = new WorldManager();
-                world.Enqueue(new InitializeWorldAction(new MapManager(config)));
+                world.Enqueue(new InitializeWorldAction(new MapManager(new ConfigService(config))));
                 world.Enqueue(new InitializeRoleAction(role));
                 world.Tick(0);
                 actor.Present(world.ActorState!);

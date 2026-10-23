@@ -33,7 +33,10 @@ public sealed class GameSession : IDisposable
     public GameSession(LoginRt response) : this(GameServices.Net, response) { }
 
     /// <summary>借用显式网络创建账号会话，供独立实例与隔离测试使用。</summary>
-    public GameSession(NetService net, LoginRt response)
+    public GameSession(NetService net, LoginRt response) : this(net, response, true) { }
+
+    /// <summary>服务已在登录请求前隔离代次时，保留当前成功响应的后续界面分发。</summary>
+    internal GameSession(NetService net, LoginRt response, bool resetNetwork)
     {
         ArgumentNullException.ThrowIfNull(net);
         ArgumentNullException.ThrowIfNull(response);
@@ -42,7 +45,7 @@ public sealed class GameSession : IDisposable
         LoginCache = new LoginCache(net.Events, response);
         try
         {
-            _net.ResetSession();
+            if (resetNetwork) _net.ResetSession();
             _generation = net.Generation;
             RoleCache = new RoleCache(net.Events);
         }

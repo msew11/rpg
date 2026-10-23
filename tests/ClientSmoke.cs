@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Reflection;
 using System.IO;
 using System.Threading.Tasks;
 using Godot;
@@ -9,7 +8,8 @@ using Rpg.Settings;
 using Rpg.Settings.Data;
 using Rpg.Server;
 using Rpg.Services;
-using Rpg.Session;
+using System.Collections.Generic;
+using Rpg.Session.Data;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
 using Rpg.World;
@@ -41,10 +41,9 @@ public partial class ClientSmoke : Node
             var scene = GD.Load<PackedScene>("res://scenes/main.tscn");
             var main = scene.Instantiate<MainController>();
             main.ServerDirectory = Path.Combine(temporary, "server");
+            main.SettingsDirectory = temporary;
             AddChild(main);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            typeof(MainController).GetField("_settings", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(main, new RepoSettings(temporary));
             var loginFields = main.FindChildren("*", "LineEdit", true, false).OfType<LineEdit>().ToArray();
             var loginButton = main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text == "登录");
@@ -54,12 +53,12 @@ public partial class ClientSmoke : Node
             if (!main.FindChildren("*", "Label", true, false).OfType<Label>()
                     .Any(label => label.Text.Contains("用户名或密码错误")))
                 throw new InvalidOperationException("错误凭据没有失败反馈");
-            if (GetSession(main) is not null) throw new InvalidOperationException("错误凭据创建了账号会话");
+            if (GetAccountRoles() is not null) throw new InvalidOperationException("错误凭据创建了账号会话");
             loginFields[1].Text = "demo";
             loginButton.EmitSignal(Button.SignalName.Pressed);
             await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
-            var account = GetSession(main) ?? throw new InvalidOperationException("登录成功后未建立账号会话");
-            if (!account.LoginCache.IsLoggedIn || account.RoleCache.IsInitialized || account.RoleId != 0)
+            var account = GetAccountRoles() ?? throw new InvalidOperationException("登录成功后未建立账号会话");
+            if (!GameServices.Session.IsLoggedIn || GameServices.Session.HasRole || GameServices.Session.RoleId != 0)
                 throw new InvalidOperationException("选角前账号摘要或空角色缓存不正确");
             var roleButton = main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text.Contains("ID 1001"));
@@ -87,8 +86,7 @@ public partial class ClientSmoke : Node
                 throw new InvalidOperationException("HUD 或基础面板未创建");
             if (!world.GetChildren().OfType<MapView>().Any())
                 throw new InvalidOperationException("地图表现未创建");
-            var manager = (WorldManager)typeof(MainController)
-                .GetField("_world", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(main)!;
+            var manager = GameServices.World;
             if (!manager.HasWorld || !manager.HasRole)
                 throw new InvalidOperationException("世界或角色实体未初始化");
             if (actor.Position != IsometricProjection.ToScreen(manager.RolePosition))
@@ -252,13 +250,13 @@ public partial class ClientSmoke : Node
             Click(secondEntries.Single(button => button.Text == "返回登陆"));
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             AssertGameCleared(main, null);
-            if (account.LoginCache.IsLoggedIn || account.RoleCache.IsInitialized)
+            if (GameServices.Session.IsLoggedIn || GameServices.Session.HasRole)
                 throw new InvalidOperationException("返回登录后旧账号缓存未释放");
             var relogin = main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text == "登录");
             Click(relogin);
             await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
-            if (GetSession(main) is not { } nextAccount || ReferenceEquals(account, nextAccount))
+            if (GetAccountRoles() is not { } nextAccount || ReferenceEquals(account, nextAccount))
                 throw new InvalidOperationException("重新登录没有建立新的账号会话");
             main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text.Contains("ID 1001")).EmitSignal(Button.SignalName.Pressed);
@@ -276,16 +274,15 @@ public partial class ClientSmoke : Node
                 throw new InvalidOperationException("主场景退出后全局服务未释放");
             main = scene.Instantiate<MainController>();
             main.ServerDirectory = Path.Combine(temporary, "server");
+            main.SettingsDirectory = temporary;
             AddChild(main);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            typeof(MainController).GetField("_settings", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(main, new RepoSettings(temporary));
             if (!GameServices.IsInitialized || ReferenceEquals(originalNet, GameServices.Net))
                 throw new InvalidOperationException("主场景重建未注册独立网络服务");
             main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text == "登录").EmitSignal(Button.SignalName.Pressed);
             await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
-            if (GetSession(main) is null) throw new InvalidOperationException("主场景重建后无法登录");
+            if (GetAccountRoles() is null) throw new InvalidOperationException("主场景重建后无法登录");
             main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text.Contains("ID 1001")).EmitSignal(Button.SignalName.Pressed);
             await WaitForHud(main);
@@ -346,16 +343,16 @@ public partial class ClientSmoke : Node
             throw new InvalidOperationException("系统菜单未向上展开或超出了视口");
     }
 
-    /// <summary>读取主控制器拥有的账号会话，用于验证 client-session 生命周期。</summary>
-    private static GameSession? GetSession(MainController main) => (GameSession?)typeof(MainController)
-        .GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(main);
+    /// <summary>读取服务公开的摘要身份，用于验证账号跨切角保留、重登后替换。</summary>
+    private static IReadOnlyList<RoleSummaryPbData>? GetAccountRoles() =>
+        GameServices.Session.IsLoggedIn ? GameServices.Session.Roles : null;
 
     /// <summary>验证世界与角色数据已清理，选角页保留原账号会话，登录页不保留会话。</summary>
-    private static void AssertGameCleared(MainController main, GameSession? expectedSession)
+    private static void AssertGameCleared(MainController main, IReadOnlyList<RoleSummaryPbData>? expectedSession)
     {
         if (main.GetChildren().OfType<Node2D>().Any() || main.HasNode("HudLayer") ||
-            !ReferenceEquals(GetSession(main), expectedSession) ||
-            expectedSession is { } session && (session.RoleId != 0 || session.RoleCache.IsInitialized || !session.LoginCache.IsLoggedIn))
+            !ReferenceEquals(GetAccountRoles(), expectedSession) ||
+            expectedSession is not null && (GameServices.Session.RoleId != 0 || GameServices.Session.HasRole || !GameServices.Session.IsLoggedIn))
             throw new InvalidOperationException("返回页面后世界、角色数据或账号会话生命周期不正确");
     }
 

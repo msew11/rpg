@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Rpg.Config;
+using Rpg.Services;
+using Rpg.Settings;
+using Rpg.Net;
+using Rpg.Server;
 using Rpg.World;
 using Rpg.World.Utils;
 using Rpg.World.Views;
@@ -15,14 +19,17 @@ public partial class MapChunkSmoke : Node
     /// <summary>在真实 Godot 视口内执行地图分块验收。</summary>
     public override async void _Ready()
     {
+        var temporary = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "rpg-map-smoke-" + Guid.NewGuid());
         try
         {
             var viewport = new SubViewport { Size = new Vector2I(1280, 720), Disable3D = true };
             AddChild(viewport);
             var configRepo = new RepoGameConfig();
             configRepo.LoadGodot();
-            var map = new MapManager(configRepo);
-            var view = new MapView { Map = map };
+            using var services = GameServices.Initialize(new ConfigService(configRepo),
+                new SettingService(System.IO.Path.Combine(temporary, "settings")),
+                new NetService(new MockTransport(new MockServer(System.IO.Path.Combine(temporary, "server")))));
+            var view = new MapView();
             viewport.AddChild(view);
             var camera = new Camera2D { Position = IsometricProjection.ToScreen(new Vector2(16016, 16016)) };
             viewport.AddChild(camera);
@@ -72,6 +79,10 @@ public partial class MapChunkSmoke : Node
         {
             GD.PushError(error.ToString());
             GetTree().Quit(1);
+        }
+        finally
+        {
+            if (System.IO.Directory.Exists(temporary)) System.IO.Directory.Delete(temporary, true);
         }
     }
 

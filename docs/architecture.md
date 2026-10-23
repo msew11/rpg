@@ -1,28 +1,37 @@
 # 客户端架构
 
-## 数据和生命周期
+## 服务、数据和生命周期
 
-客户端共享业务枚举统一放在 `src/Const/`，使用 `Rpg.Const` 命名空间，例如角色性别 `RoleGender` 和动作语义 `RoleMotion`。
+客户端共享业务枚举放在 `src/Const/`，使用 `Rpg.Const` 命名空间，例如 `RoleGender` 和 `RoleMotion`。
 
-`RepoGameConfig` 在启动时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验，并独占持有已加载的配置。首期 `config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块及稀疏覆盖格；地图管理器与 UI 持有配置仓库，需要地图数据时从仓库读取，不另存 `MapConfig` 引用。文件名与配置类型不符、未知、重复或无效文件均阻止启动。配置与程序同包发布。
+`IService` 位于 `src/Services/`，统一约定服务释放。`GameServices` 是主线程的固定服务集合，提供只读 `Config`、`Setting`、`Net`、`Session`、`World`、`Animation` 入口。参考 Dalamud 的服务契约、构造依赖与逆依赖卸载原则；当前服务数量固定，通过显式组合表达依赖。服务之间借用构造参数传入的同次启动实例，Godot 节点通过全局入口调用业务，不缓存服务、仓库、账号会话或世界管理器。节点只拥有 Godot 节点、订阅句柄、界面布局和上次呈现的不可变快照。
 
-`GameServices` 位于 `src/Services/`，使用 `Rpg.Services` 命名空间，通过只读 `GameServices.Net` 提供主线程网络访问。启动流程显式创建 `NetService` 并调用 `GameServices.Initialize(net)`，成功后接管网络并返回 `IDisposable` 所有权句柄；失败时网络仍由调用方释放。注册前访问、注册已释放实例及重复初始化明确报错，不隐式创建或替换服务。释放句柄先撤销入口再释放网络，重复释放不影响后续新注册。业务只借用服务，退出时由启动流程释放句柄；`NetService` 仍能独立创建供隔离测试使用。
+| 服务 | 拥有的状态和行为 | 内部依赖 |
+| --- | --- | --- |
+| `ConfigService Config` | 提供启动时已校验的只读配置 | `RepoGameConfig` |
+| `SettingService Setting` | 当前系统与角色设置、业务修改和保存 | `RepoSettings` 仅负责持久化与读取校验 |
+| `NetService Net` | protobuf 请求队列、固定帧收发和类型事件分发 | `INetTransport`、`EventSystem` |
+| `SessionService Session` | 账号建立、登录摘要、选角、角色权威快照 | `NetService`、私有 `GameSession` |
+| `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session、Net；私有 `MapManager`、`WorldManager`、`InputSystem` |
+| `AnimationService Animation` | 共享身体动画资源缓存与朝向解析 | `RepoActorAnimation` |
 
-`NetService` 在登录页和角色世界都由主控制器固定帧推进，`Send(IMessage)` 在调用时序列化并入队，回调中新请求留到下一帧发送。`INetTransport` 隔离具体传输，当前 `MockTransport` 在同进程内连接 `MockServer`，双向只交换 protobuf 字节，不传递共享对象。真实连接以后实现新的传输适配器，世界与 UI 不接触传输细节。
+`RepoGameConfig` 启动时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验。`ConfigService` 接管已加载仓库，公开 `MapConfig`；地图逻辑、分块和 UI 从配置服务读取，不另存配置引用。`config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块与稀疏覆盖格。未知、重复、无效或文件名不匹配的配置阻止启动。配置与程序同包发布。
 
-`MainController` 在配置加载后创建网络并持有 `GameServices.Initialize` 返回的句柄，通过 `GameServices.Net` 注册监听、发送请求和固定帧推进。启动失败与场景退出共用清理流程，先释放会话和监听，再释放服务句柄；返回登录或选角时保留网络。`CreateNetService` 作为受保护的创建边界支持场景测试替换传输，未获得注册句柄的控制器不释放其他启动流程的服务。
+主控制器加载配置、系统设置并创建网络，再调用 `GameServices.Initialize(config, setting, net)`。注册按依赖顺序创建 Session 与 World 服务；成功后接管传入服务并返回 `IDisposable` 所有权句柄，失败时仍由调用方释放传入实例。初始化前访问、已释放实例注册和重复初始化明确报错，不隐式创建或替换。释放句柄先撤销全部入口，再按 Animation、World、Session、Net、Setting、Config 顺序清理；某项失败也继续清理其他服务，最后报告异常。旧句柄重复释放不影响新注册。业务节点借用入口，不自行释放服务。
 
-`MainController` 在收到成功 `LoginRt` 后通过 `new GameSession(response)` 创建账号级会话，由其直接持有 `LoginCache` 和 `RoleCache`。该构造从全局入口绑定创建时的网络，后续服务重建不会切换会话归属；旧网络释放后会话操作明确报错，延后释放旧会话不会重置新连接。显式 `GameSession(net, response)` 保留给独立实例与隔离测试。`LoginCache` 构造时将首份响应转换为只读 `RoleSummaryPbData` 列表，后续登录结果通过缓存阶段处理；转换失败不建立会话或遗留订阅。选角界面只读取 `session.LoginCache.Roles`，不另存角色列表。`RoleCache` 在登录后即建立监听，选角前没有角色数据。
+`MainController` 只协调页面与表现：登录和选角按钮调用 Session 服务，成功后创建相应页面或世界表现；固定帧先推进 Net 再推进 World，再更新角色与摄像机。输入由节点完成视口逆投影，再交给 World 服务转换、限制边界并同时提交 ECS Action 与网络请求。`CreateNetService` 保留场景测试替换传输的边界，设置与服务端目录可在启动前注入。启动失败和退出共用清理，先撤销 UI 监听、提交拖动设置，再释放服务句柄；未获得句柄的控制器不会释放其他启动流程的服务。
 
-`GameSession.SelectRole()` 重置网络代次和角色数据，再发送选角请求；成功响应先初始化 `RoleCache`，再创建世界与 HUD。`LeaveRole()` 取消旧角色在途消息并清空 `RoleCache`，保留同一个账号会话和登录摘要。选角失败回到角色列表，返回登录才释放 `GameSession` 与两个缓存。移除 `DataCache` 中间容器与 `BagCache`；后续背包数据计划以 `BagPbData` 放入 `RoleCache`，当前不新增背包结构、协议或行为。
+`SessionService.Login` 在请求前隔离旧账号和网络代次。成功 `LoginRt` 在缓存阶段创建私有 `GameSession`，由其直接持有 `LoginCache` 与 `RoleCache`；此路径已在请求前重置网络，不再次中断当前成功响应的普通监听。非法摘要不会留下账号或部分订阅，并阻止 UI 成功回调。UI 直接读取 `GameServices.Session.Roles`、`RoleId`、`Role` 和状态标记，不访问缓存容器。显式 `GameSession(net, response)` 和从全局绑定网络的构造仍供隔离测试使用；账号绑定创建时的网络，旧实例不能操作后来注册的新服务。
 
-所有功能缓存位于 `src/Session/Cache/`，使用 `Rpg.Session.Cache` 命名空间并继承 `CacheBase`。子类通过受保护的 `Subscribe<T>()` 注册缓存阶段监听；基类私有持有订阅集合，幂等取消订阅后调用一次可重写的 `OnDispose()`，释放后禁止新增订阅。所有 `PbData` 类统一放在 `src/Session/Data/`，使用 `Rpg.Session.Data` 命名空间；各类在自己的文件内提供静态 `FromPb(pb)` 与实例 `ToPb()`，集中校验和复制数据，双向转换不共享可变协议对象。
+选角复用账号会话，发送请求前清空角色缓存并隔离旧代次。`RoleCache` 成功初始化后，World 服务先建立地图实体，再建立角色实体，并选择对应角色设置；随后 UI 创建表现。`WorldService` 监听移动响应与主动推送，将当前缓存快照转为同步 Action，不允许节点直接写 ECS。选角失败保留账号摘要并恢复角色列表。返回选角清理世界、角色数据和当前角色设置，保留同一个账号；返回登录释放账号缓存，网络常驻到场景结束。后续背包数据计划以 `BagPbData` 归入 `RoleCache`，当前没有 `DataCache`、独立 `BagCache` 或背包协议。
 
-`NetService.Events` 是位于 Session 模块的实例化 `EventSystem`：具体类型监听返回 `IDisposable` 句柄，固定先执行 `EventPhase.Cache` 再执行普通监听，各阶段按注册顺序。`RoleCache` 监听 `SelectRoleRt`、`MoveRt`、`RoleStateNotice`，将 `RoleWorldStatePb` 重新组装为不可变 `RoleWorldStatePbData` 后保存，按角色 ID 与 revision 过滤。角色属性、性别、逻辑位置及权威版本直接作为 `RoleWorldStatePbData` 的构造参数与属性，不再嵌套 `DataRole`；`GameSession.Role` 直接返回此缓存快照，UI 和世界协调器读取同一数据结构，世界更新仍转为 Action。
+所有功能缓存位于 `src/Session/Cache/`，继承 `CacheBase`，通过受保护的 `Subscribe<T>()` 注册缓存阶段监听，由基类私有集合托管句柄。释放幂等取消自身订阅并执行一次 `OnDispose()`，释放后禁止新增订阅。所有 `PbData` 类位于 `src/Session/Data/`，通过自身 `FromPb` 与 `ToPb` 校验、复制数据，不共享可变协议对象。`RoleWorldStatePbData` 直接持有角色属性、性别、逻辑位置、revision 和移动确认序号，不嵌套额外角色模型；World 与 UI 使用相同的不可变权威快照。
 
-事件分发采用单条消息的监听快照：新增监听处理后续消息，已取消监听立即跳过，嵌套发布排队。缓存监听失败报告错误并跳过该消息的普通阶段；普通监听失败不阻止其他监听。网络及监听错误通过 `NetService.Error` 报告并显示在登录/选角页或 HUD。离开角色时立即解除 HUD 监听并清空角色数据，账号缓存监听保留到账号会话释放；网络重置递增信封代次、清理队列及服务端未确认移动，旧消息不能进入后续角色。常驻登录监听保留到主控制器释放。
+`NetService.Events` 是 Session 模块的实例化 `EventSystem`：先 Cache 后 Normal，同阶段按注册顺序，每条消息使用监听快照。新增监听处理后续消息，已取消监听立即跳过，嵌套发布排队。缓存失败跳过该消息的普通阶段，普通监听失败不阻止其他监听。Session 服务在 Cache 阶段建立账号，World 服务先于 UI 注册 Normal 监听。网络与监听错误通过 `NetService.Error` 报告至页面或 HUD。会话重置递增信封代次、清理队列和服务端未确认移动，旧消息不能进入后续角色。
 
-本地设置与上述两类数据分离：系统设置保存在 `user://settings/system.json`；角色设置按 `role_id` 保存在 `user://settings/roles/`。`RepoSettings` 持有当前系统和选中角色设置，集中修改与保存；选角时加载对应角色设置。UI 只读取当前值并请求修改，窗口、声音和 HUD 的实际呈现仍由 UI 应用。设置仅控制本机显示、声音和 HUD 布局，不作为服务器权威数据。
+`NetService.Send(IMessage)` 调用时序列化并入队，回调内新增请求留到下一帧发送。`INetTransport` 隔离具体传输，`MockTransport` 在同进程连接 `MockServer`，双向仅交换 protobuf 字节。真实连接以后提供新的传输适配器，世界与 UI 不接触传输细节。
+
+本地系统设置保存到 `user://settings/system.json`，角色设置按 `role_id` 保存到 `user://settings/roles/`。`SettingService` 独占当前设置，提供当前值、分辨率、音量、技能栏和 HUD 布局操作；仓库的原始读写方法不进入 UI。离开角色或关闭服务时提交未保存布局并清空角色设置。窗口、声音和 HUD 实际呈现由节点应用，设置不作为服务器权威数据。
 
 ## 协议与模拟服务端
 
@@ -34,34 +43,27 @@
 
 模拟移动保留每秒 180 逻辑单位、0.45 秒确认及横向 3 单位校正偏差。仅保存已确认/推送状态，不保存会话结束时仍待确认的移动；选角恢复位置和 revision，移动确认序号重置为 0，供新世界使用。`PublishRoleState` 提供服务端主动更新入口，保存成功后发送 Notice，不添加产品操作面板。JSON 存储仅面向单实例进程内 Mock，不提供多进程写入协调。
 
-普通消息监听示例（缓存模块使用相同 API 并指定 `EventPhase.Cache`）：
-
-```csharp
-using var subscription = session.Events.Subscribe<MoveRt>(response =>
-{
-    if (response.Success)
-        world.Enqueue(new SyncRoleAction(session.RoleCache.State));
-});
-GameServices.Net.Send(new Move { RoleId = session.RoleId, ActionId = 1, X = 16048, Y = 16016 });
-```
+普通 UI 监听通过 `GameServices.Net.Events.Subscribe<T>()` 获取释放句柄，读取 `GameServices.Session.Role`；世界同步监听留在 World 服务内部。缓存模块使用相同 API 并指定 `EventPhase.Cache`。
 
 ## 输入、世界与表现
 
 独立的 `InputSystem` 把未被 UI 消费的 Godot 输入转换为世界 Action，也为今后的 UI 输入路由留出位置。`WorldManager` 是 ECS 的唯一外部写入入口：输入 Action、缓存状态同步 Action 排队后由 Godot 固定帧处理。初始化顺序为地图世界实体、角色实体。轻量 ECS 由整数实体 ID、组件仓库和固定顺序系统组成；首期移动系统按直线推进并接受权威位置修正。
 
-`MapManager` 内聚地图逻辑坐标、边界与可见格计算。`IsometricProjection` 在世界表现与地图点击边界做双向转换，ECS、配置、雷达和大地图继续使用逻辑坐标。地图表现将视口附近地块划为 8×8 格分块，各分块一次绘制 2:1 等轴菱形并复用画布命令；相机或视口跨越分块范围时只增删差异分块，不创建百万个瓦片节点。角色与摄像机使用同一投影。HUD、小地图、GM 和系统面板放在独立 `CanvasLayer`，不受世界摄像机变换影响，从 `RepoGameConfig`、`GameSession.RoleCache` 与本地设置读取各自所需的数据。GM 面板通过 `RepoSettings` 获取系统和当前角色设置文件路径，并交由桌面文件管理器定位。
+`MapManager` 内聚地图逻辑坐标、边界与可见格计算。`IsometricProjection` 在世界表现与地图点击边界做双向转换，ECS、配置、雷达和大地图继续使用逻辑坐标。地图表现将视口附近地块划为 8×8 格分块，各分块一次绘制 2:1 等轴菱形并复用画布命令；相机或视口跨越分块范围时只增删差异分块，不创建百万个瓦片节点。角色与摄像机使用同一投影。HUD、小地图、GM 和系统面板放在独立 `CanvasLayer`，不受世界摄像机变换影响，从 `GameServices.Config`、`Session` 与 `Setting` 读取所需数据。GM 面板从设置服务获取系统和当前角色设置路径，交由桌面文件管理器定位。
 
 角色数据的 `RoleGender` 随选角与会话缓存进入玩家 entity。`DataRoleComponent` 保存角色 ID 和性别，`DataActorComponent` 保存动作语义、逻辑朝向与显式动作请求版本；`MovementSystem` 根据实际移动切换跑步、到达后站立并保留朝向，`SetRoleMotionAction` 可请求其他基础身体动作并停止本地移动。角色属性同步按权威 revision 接纳，位置修正继续按移动确认序号过滤。`WorldManager.ActorState` 只提供不可变快照，不暴露可写组件。
 
-`ActorView.Present` 读取快照并投影位置和朝向，表现层的 `RepoActorAnimation` 按性别和动作缓存 `assets/characters` 下的 `DataActorAnimation` 原生资源。每个动作包含五方向 `SpriteFrames` 与原始定位点；节点围绕定位点镜像出其余三个方向。`AnimatedSprite2D` 独立推进显示时间；位置刷新不重启动画，改向保留帧进度。站立和跑步循环，其他动作播放一次后保持末帧；播放结束不改变世界逻辑。现阶段仅接入身体 13 个动作，不附加攻击、施法或骑乘效果。图集可通过 `tools/import_actor_animations.ps1` 从外部解码清单重建，项目运行与导出不依赖外部素材目录。
+`ActorView.Present` 读取快照并投影位置和朝向，表现层的 `AnimationService` 通过内部 `RepoActorAnimation` 按性别和动作缓存 `assets/characters` 下的 `DataActorAnimation` 原生资源。每个动作包含五方向 `SpriteFrames` 与原始定位点；节点围绕定位点镜像出其余三个方向。`AnimatedSprite2D` 独立推进显示时间；位置刷新不重启动画，改向保留帧进度。站立和跑步循环，其他动作播放一次后保持末帧；播放结束不改变世界逻辑。现阶段仅接入身体 13 个动作，不附加攻击、施法或骑乘效果。图集可通过 `tools/import_actor_animations.ps1` 从外部解码清单重建，项目运行与导出不依赖外部素材目录。
 
 ```text
-map.json -> RepoGameConfig.MapConfig -> 地图管理 / UI
-GameServices.Net.Send -> protobuf 字节 -> MockServer -> JSON 落地
-MockServer -> protobuf 字节 -> EventSystem(Cache) -> GameSession.RoleCache
-                                      -> EventSystem(Normal) -> UI / 同步 Action -> WorldManager -> ECS -> 世界表现
-Godot 输入 -> 等轴逆投影 -> InputSystem -> 移动 Action --------^
-本地设置 -> RepoSettings（当前系统与角色设置）-----------> UI
+map.json -> RepoGameConfig -> GameServices.Config -> World / 地图表现 / UI
+UI -> GameServices.Session -> GameServices.Net -> protobuf 字节 -> MockServer -> JSON
+MockServer -> protobuf 字节 -> EventSystem(Cache) -> Session / GameSession 缓存
+                           -> EventSystem(Normal) -> World 同步 Action -> ECS -> 只读表现快照
+                                                  -> UI 刷新
+Godot 输入 -> 等轴逆投影 -> GameServices.World -> InputSystem -> 移动 Action / 会话移动请求
+本地设置 -> RepoSettings -> GameServices.Setting -> UI
+动画资源 -> RepoActorAnimation -> GameServices.Animation -> ActorView
 ```
 
 ## 当前限制

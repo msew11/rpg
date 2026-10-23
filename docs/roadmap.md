@@ -18,6 +18,8 @@
 
 - [x] `GameServices.Net` 全局服务入口、显式注册与所有权句柄；主场景统一推进和释放网络，账号会话绑定创建时的服务，保留独立实例测试，覆盖启动失败清理与场景重建。
 
+- [x] 按功能聚合 Config、Setting、Net、Session、World、Animation 服务，统一 IService 契约；借鉴 Dalamud 的显式依赖和逆序卸载。Godot 节点通过 GameServices 调用业务，移除业务对象字段与逐层传参；设置状态归 SettingService，账号与世界协调归相应服务，覆盖非法登录、切角设置隔离和部分释放失败清理。
+
 ## 后续阶段（待确认）
 
 - 真实服务器连接方式、正式业务消息扩展、断线重连与认证安全性。
