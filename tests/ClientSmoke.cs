@@ -8,7 +8,9 @@ using Rpg.Const;
 using Rpg.Settings;
 using Rpg.Settings.Data;
 using Rpg.Server;
+using Rpg.Services;
 using Rpg.Session;
+using Rpg.Tests.Doubles;
 using Rpg.UI;
 using Rpg.World;
 using Rpg.World.Utils;
@@ -16,7 +18,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验证 openspec/specs/client-ui 的菜单流程、client-session 的选角失败恢复及 client-actor-presentation 的男女表现。</summary>
+/// <summary>验证 openspec/specs/client-ui 的菜单流程、client-session 的选角失败恢复、client-actor-presentation 的男女表现及 game-services 的启动清理与重建。</summary>
 public partial class ClientSmoke : Node
 {
     /// <summary>运行一次无界面场景集成检查并以退出码报告结果。</summary>
@@ -25,6 +27,17 @@ public partial class ClientSmoke : Node
         var temporary = Path.Combine(Path.GetTempPath(), "rpg-smoke-" + Guid.NewGuid());
         try
         {
+            // game-services 启动失败清理：预期报告一次受控错误，随后正常场景仍能初始化。
+            GD.Print("Checking expected startup failure: 模拟注册后启动失败");
+            var failed = new DoubleStartupFailureController();
+            AddChild(failed);
+            if (GameServices.IsInitialized || !failed.TransportDisposed || failed.CreatedNet?.IsDisposed != true)
+                throw new InvalidOperationException("注册后启动失败未释放全局服务及传输");
+            if (!failed.FindChildren("*", "Label", true, false).OfType<Label>()
+                    .Any(label => label.Text == "模拟注册后启动失败"))
+                throw new InvalidOperationException("启动失败未显示错误反馈");
+            failed.QueueFree();
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             var scene = GD.Load<PackedScene>("res://scenes/main.tscn");
             var main = scene.Instantiate<MainController>();
             main.ServerDirectory = Path.Combine(temporary, "server");
@@ -253,6 +266,30 @@ public partial class ClientSmoke : Node
             var finalHud = main.GetNode<GameHud>("HudLayer/GameHud");
             if (!finalHud.GetNode<PanelContainer>("hotbar2").Visible)
                 throw new InvalidOperationException("重新登录后未恢复角色设置");
+
+            // game-services 退出后重新启动：旧网络不可用，新场景可再次登录和选角。
+            var originalNet = GameServices.Net;
+            main.QueueFree();
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (GameServices.IsInitialized || !originalNet.IsDisposed)
+                throw new InvalidOperationException("主场景退出后全局服务未释放");
+            main = scene.Instantiate<MainController>();
+            main.ServerDirectory = Path.Combine(temporary, "server");
+            AddChild(main);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            typeof(MainController).GetField("_settings", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(main, new RepoSettings(temporary));
+            if (!GameServices.IsInitialized || ReferenceEquals(originalNet, GameServices.Net))
+                throw new InvalidOperationException("主场景重建未注册独立网络服务");
+            main.FindChildren("*", "Button", true, false).OfType<Button>()
+                .Single(button => button.Text == "登录").EmitSignal(Button.SignalName.Pressed);
+            await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
+            if (GetSession(main) is null) throw new InvalidOperationException("主场景重建后无法登录");
+            main.FindChildren("*", "Button", true, false).OfType<Button>()
+                .Single(button => button.Text.Contains("ID 1001")).EmitSignal(Button.SignalName.Pressed);
+            await WaitForHud(main);
+            finalHud = main.GetNode<GameHud>("HudLayer/GameHud");
             Click(finalHud.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text == "系统"));
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);

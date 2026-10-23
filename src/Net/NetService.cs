@@ -96,12 +96,18 @@ public sealed class NetService : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _transport.Received -= OnReceived;
-        _transport.Dispose();
-        _outbound.Clear();
-        _inbound.Clear();
-        Events.Dispose();
-        Error = null;
+        try
+        {
+            _transport.Received -= OnReceived;
+            _transport.Dispose();
+        }
+        finally
+        {
+            _outbound.Clear();
+            _inbound.Clear();
+            Events.Dispose();
+            Error = null;
+        }
     }
 
     /// <summary>接收方拥有独立字节，避免对端修改已入队数据。</summary>

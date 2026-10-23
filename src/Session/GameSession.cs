@@ -2,6 +2,7 @@ using System;
 using Godot;
 using Rpg.Net;
 using Rpg.Net.Message;
+using Rpg.Services;
 using Rpg.Session.Cache;
 using Rpg.Session.Data;
 
@@ -28,7 +29,10 @@ public sealed class GameSession : IDisposable
     /// <summary>供会话 UI 注册响应和推送的事件系统。</summary>
     public EventSystem Events => _net.Events;
 
-    /// <summary>仅在登录成功后创建账号会话，先转换摘要再建立未选角的角色缓存。</summary>
+    /// <summary>从全局入口绑定当前网络，后续服务重建不会改变本会话归属。</summary>
+    public GameSession(LoginRt response) : this(GameServices.Net, response) { }
+
+    /// <summary>借用显式网络创建账号会话，供独立实例与隔离测试使用。</summary>
     public GameSession(NetService net, LoginRt response)
     {
         ArgumentNullException.ThrowIfNull(net);
@@ -92,6 +96,7 @@ public sealed class GameSession : IDisposable
     private void EnsureActive()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(_net.IsDisposed, _net);
         if (_net.Generation != _generation) throw new InvalidOperationException("游戏会话已被替换");
     }
 }

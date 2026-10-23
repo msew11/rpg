@@ -6,9 +6,13 @@
 
 `RepoGameConfig` 在启动时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验，并独占持有已加载的配置。首期 `config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块及稀疏覆盖格；地图管理器与 UI 持有配置仓库，需要地图数据时从仓库读取，不另存 `MapConfig` 引用。文件名与配置类型不符、未知、重复或无效文件均阻止启动。配置与程序同包发布。
 
+`GameServices` 位于 `src/Services/`，使用 `Rpg.Services` 命名空间，通过只读 `GameServices.Net` 提供主线程网络访问。启动流程显式创建 `NetService` 并调用 `GameServices.Initialize(net)`，成功后接管网络并返回 `IDisposable` 所有权句柄；失败时网络仍由调用方释放。注册前访问、注册已释放实例及重复初始化明确报错，不隐式创建或替换服务。释放句柄先撤销入口再释放网络，重复释放不影响后续新注册。业务只借用服务，退出时由启动流程释放句柄；`NetService` 仍能独立创建供隔离测试使用。
+
 `NetService` 在登录页和角色世界都由主控制器固定帧推进，`Send(IMessage)` 在调用时序列化并入队，回调中新请求留到下一帧发送。`INetTransport` 隔离具体传输，当前 `MockTransport` 在同进程内连接 `MockServer`，双向只交换 protobuf 字节，不传递共享对象。真实连接以后实现新的传输适配器，世界与 UI 不接触传输细节。
 
-`MainController` 在收到成功 `LoginRt` 后创建账号级 `GameSession`，由其直接持有 `LoginCache` 和 `RoleCache`。`LoginCache` 构造时将首份响应转换为只读 `RoleSummaryPbData` 列表，后续登录结果通过缓存阶段处理；转换失败不建立会话或遗留订阅。选角界面只读取 `session.LoginCache.Roles`，不另存角色列表。`RoleCache` 在登录后即建立监听，选角前没有角色数据。
+`MainController` 在配置加载后创建网络并持有 `GameServices.Initialize` 返回的句柄，通过 `GameServices.Net` 注册监听、发送请求和固定帧推进。启动失败与场景退出共用清理流程，先释放会话和监听，再释放服务句柄；返回登录或选角时保留网络。`CreateNetService` 作为受保护的创建边界支持场景测试替换传输，未获得注册句柄的控制器不释放其他启动流程的服务。
+
+`MainController` 在收到成功 `LoginRt` 后通过 `new GameSession(response)` 创建账号级会话，由其直接持有 `LoginCache` 和 `RoleCache`。该构造从全局入口绑定创建时的网络，后续服务重建不会切换会话归属；旧网络释放后会话操作明确报错，延后释放旧会话不会重置新连接。显式 `GameSession(net, response)` 保留给独立实例与隔离测试。`LoginCache` 构造时将首份响应转换为只读 `RoleSummaryPbData` 列表，后续登录结果通过缓存阶段处理；转换失败不建立会话或遗留订阅。选角界面只读取 `session.LoginCache.Roles`，不另存角色列表。`RoleCache` 在登录后即建立监听，选角前没有角色数据。
 
 `GameSession.SelectRole()` 重置网络代次和角色数据，再发送选角请求；成功响应先初始化 `RoleCache`，再创建世界与 HUD。`LeaveRole()` 取消旧角色在途消息并清空 `RoleCache`，保留同一个账号会话和登录摘要。选角失败回到角色列表，返回登录才释放 `GameSession` 与两个缓存。移除 `DataCache` 中间容器与 `BagCache`；后续背包数据计划以 `BagPbData` 放入 `RoleCache`，当前不新增背包结构、协议或行为。
 
@@ -38,7 +42,7 @@ using var subscription = session.Events.Subscribe<MoveRt>(response =>
     if (response.Success)
         world.Enqueue(new SyncRoleAction(session.RoleCache.State));
 });
-net.Send(new Move { RoleId = session.RoleId, ActionId = 1, X = 16048, Y = 16016 });
+GameServices.Net.Send(new Move { RoleId = session.RoleId, ActionId = 1, X = 16048, Y = 16016 });
 ```
 
 ## 输入、世界与表现
@@ -53,7 +57,7 @@ net.Send(new Move { RoleId = session.RoleId, ActionId = 1, X = 16048, Y = 16016 
 
 ```text
 map.json -> RepoGameConfig.MapConfig -> 地图管理 / UI
-NetService.Send -> protobuf 字节 -> MockServer -> JSON 落地
+GameServices.Net.Send -> protobuf 字节 -> MockServer -> JSON 落地
 MockServer -> protobuf 字节 -> EventSystem(Cache) -> GameSession.RoleCache
                                       -> EventSystem(Normal) -> UI / 同步 Action -> WorldManager -> ECS -> 世界表现
 Godot 输入 -> 等轴逆投影 -> InputSystem -> 移动 Action --------^

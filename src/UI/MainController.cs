@@ -7,6 +7,7 @@ using Rpg.Input;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
+using Rpg.Services;
 using Rpg.Session;
 using Rpg.Settings;
 using Rpg.World;
@@ -21,8 +22,8 @@ public partial class MainController : Control
 {
     /// <summary>启动时加载并持有游戏配置的仓库。</summary>
     private RepoGameConfig _configRepo = null!;
-    /// <summary>覆盖登录和角色会话的常驻网络服务。</summary>
-    private NetService? _net;
+    /// <summary>本次启动拥有的常驻服务释放句柄。</summary>
+    private IDisposable? _servicesLifetime;
     /// <summary>主控制器拥有的常驻消息订阅。</summary>
     private readonly List<IDisposable> _subscriptions = [];
     /// <summary>登录或选角页的请求状态与错误反馈。</summary>
@@ -65,25 +66,28 @@ public partial class MainController : Control
             _configRepo = new RepoGameConfig();
             _configRepo.LoadGodot();
             var directory = string.IsNullOrEmpty(ServerDirectory) ? ProjectSettings.GlobalizePath("user://server") : ServerDirectory;
-            _net = new NetService(new MockTransport(new MockServer(directory)));
-            _net.Error += OnNetworkError;
-            _subscriptions.Add(_net.Events.Subscribe<LoginRt>(OnLoggedIn));
-            _subscriptions.Add(_net.Events.Subscribe<SelectRoleRt>(OnSelectedRole));
-            _subscriptions.Add(_net.Events.Subscribe<MoveRt>(OnMoved));
-            _subscriptions.Add(_net.Events.Subscribe<RoleStateNotice>(OnRoleNotice));
+            var net = CreateNetService(directory);
+            try { _servicesLifetime = GameServices.Initialize(net); }
+            catch { net.Dispose(); throw; }
+            GameServices.Net.Error += OnNetworkError;
+            _subscriptions.Add(GameServices.Net.Events.Subscribe<LoginRt>(OnLoggedIn));
+            _subscriptions.Add(GameServices.Net.Events.Subscribe<SelectRoleRt>(OnSelectedRole));
+            _subscriptions.Add(GameServices.Net.Events.Subscribe<MoveRt>(OnMoved));
+            _subscriptions.Add(GameServices.Net.Events.Subscribe<RoleStateNotice>(OnRoleNotice));
             ShowLogin();
         }
         catch (Exception error)
         {
+            ReleaseServices();
             GD.PushError(error.ToString());
-            ShowMessage("配置加载失败", error.Message);
+            ShowMessage("启动失败", error.Message);
         }
     }
 
     /// <summary>始终推进网络，再处理角色世界的 Action 与表现。</summary>
     public override void _PhysicsProcess(double delta)
     {
-        _net?.Tick(delta);
+        if (_servicesLifetime is not null) GameServices.Net.Tick(delta);
         if (_session is null || _world is null) return;
         _world.Tick(delta);
         if (_actor is not null && _world.ActorState is { } state) _actor.Present(state);
@@ -104,13 +108,25 @@ public partial class MainController : Control
     }
 
     /// <summary>关闭场景时释放角色、所有常驻监听及网络传输。</summary>
-    public override void _ExitTree()
+    public override void _ExitTree() => ReleaseServices();
+
+    /// <summary>集中创建传输，允许场景验收替换网络而无需修改全局入口。</summary>
+    protected virtual NetService CreateNetService(string directory) => new(new MockTransport(new MockServer(directory)));
+
+    /// <summary>启动失败与场景退出共用清理顺序，最终释放本次启动的服务句柄。</summary>
+    private void ReleaseServices()
     {
-        _hud?.ReleaseSubscriptions();
-        _session?.Dispose();
-        foreach (var subscription in _subscriptions) subscription.Dispose();
-        _subscriptions.Clear();
-        _net?.Dispose();
+        var lifetime = _servicesLifetime;
+        _servicesLifetime = null;
+        try
+        {
+            _hud?.ReleaseSubscriptions();
+            _session?.Dispose();
+            _session = null;
+            foreach (var subscription in _subscriptions) subscription.Dispose();
+            _subscriptions.Clear();
+        }
+        finally { lifetime?.Dispose(); }
     }
 
     /// <summary>展示用户名和密码输入及失败反馈。</summary>
@@ -133,7 +149,7 @@ public partial class MainController : Control
         {
             login.Disabled = true;
             _feedback!.Text = "正在连接模拟服务器…";
-            _net!.Send(new Login { Username = username.Text, Password = password.Text });
+            GameServices.Net.Send(new Login { Username = username.Text, Password = password.Text });
         };
         box.AddChild(login);
     }
@@ -176,7 +192,7 @@ public partial class MainController : Control
         if (_loginButton is null) return;
         _loginButton.Disabled = false;
         if (!response.Success) { _feedback!.Text = response.Error; return; }
-        _session = new GameSession(_net!, response);
+        _session = new GameSession(response);
         ShowRoles();
     }
 
@@ -276,7 +292,7 @@ public partial class MainController : Control
     {
         _hud?.ReleaseSubscriptions();
         if (_session is not null) _session.LeaveRole();
-        else _net?.ResetSession();
+        else if (_servicesLifetime is not null) GameServices.Net.ResetSession();
         _world = null;
         _map = null;
         _screen?.QueueFree();
@@ -309,7 +325,7 @@ public partial class MainController : Control
         return box;
     }
 
-    /// <summary>在配置加载失败时展示可读错误。</summary>
+    /// <summary>在启动失败时展示可读错误。</summary>
     private void ShowMessage(string title, string message)
     {
         var box = CenteredScreen(title);
