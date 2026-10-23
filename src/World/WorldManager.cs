@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Rpg.Const;
 using Rpg.World.Actions;
 using Rpg.World.Components;
 using Rpg.World.Systems;
@@ -94,10 +95,10 @@ public sealed class WorldManager
                 actor.MotionVersion++;
                 break;
             case SyncRoleAction sync:
-                if (!HasRole || sync.State.Role.RoleId != _entities.Get<DataRoleComponent>(_roleEntity).RoleId) return;
+                if (!HasRole || sync.State.RoleId != _entities.Get<DataRoleComponent>(_roleEntity).RoleId) return;
                 if (sync.State.Revision <= _lastRoleRevision) return;
                 _lastRoleRevision = sync.State.Revision;
-                _entities.Get<DataRoleComponent>(_roleEntity).Gender = sync.State.Role.Gender;
+                _entities.Get<DataRoleComponent>(_roleEntity).Gender = sync.State.Gender;
                 if (sync.State.AcknowledgedAction <= _lastConfirmedAction) return;
                 _lastConfirmedAction = sync.State.AcknowledgedAction;
                 _entities.Get<DataPositionComponent>(_roleEntity).Value =

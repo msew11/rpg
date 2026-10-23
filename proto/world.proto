@@ -1,0 +1,69 @@
+syntax = "proto3";
+package rpg;
+option csharp_namespace = "Rpg.Net.Message";
+
+import "role.proto";
+
+// 角色世界状态，双方转换为各自独立的数据类。
+message RoleWorldStatePb {
+  // 唯一角色 ID。
+  int64 role_id = 1;
+  // 角色显示名称。
+  string name = 2;
+  // 当前等级。
+  int32 level = 3;
+  // 当前生命值。
+  int32 health = 4;
+  // 生命上限。
+  int32 max_health = 5;
+  // 当前魔力。
+  int32 mana = 6;
+  // 魔力上限。
+  int32 max_mana = 7;
+  // 当前经验。
+  int32 experience = 8;
+  // 升级所需经验。
+  int32 next_experience = 9;
+  // 逻辑横坐标。
+  float x = 10;
+  // 逻辑纵坐标。
+  float y = 11;
+  // 基础身体性别。
+  RoleGenderPb gender = 12;
+  // 递增权威状态版本。
+  int64 revision = 13;
+  // 当前会话最后确认的移动序号。
+  int64 acknowledged_action = 14;
+}
+
+// 提交带序号的移动意图。
+message Move {
+  // 当前角色 ID。
+  int64 role_id = 1;
+  // 当前会话递增的移动序号。
+  int64 action_id = 2;
+  // 目标逻辑横坐标。
+  float x = 3;
+  // 目标逻辑纵坐标。
+  float y = 4;
+}
+
+// 延迟移动确认，落盘成功后才返回成功。
+message MoveRt {
+  // 是否成功。
+  bool success = 1;
+  // 失败原因。
+  string error = 2;
+  // 请求的角色 ID。
+  int64 role_id = 3;
+  // 请求的移动序号。
+  int64 action_id = 4;
+  // 成功后的权威角色状态。
+  RoleWorldStatePb state = 5;
+}
+
+// 服务端主动提交并落盘的角色状态。
+message RoleStateNotice {
+  // 最新权威快照。
+  RoleWorldStatePb state = 1;
+}

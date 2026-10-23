@@ -2,6 +2,8 @@ using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
 using Rpg.Session;
+using Rpg.Session.Cache;
+using Rpg.Session.Data;
 
 namespace ClientTests;
 
@@ -16,6 +18,10 @@ internal sealed class NetworkTestFixture : IDisposable
     public MockServer Server { get; }
     /// <summary>真实队列与事件网络管理器。</summary>
     public NetManager Net { get; }
+    /// <summary>登录成功后建立的账号会话，未登录或失败时为空。</summary>
+    public GameSession? Session { get; private set; }
+    /// <summary>当前账号会话持有的登录摘要缓存。</summary>
+    public LoginCache LoginCache => Session!.LoginCache;
     /// <summary>观察可诊断网络错误。</summary>
     public List<Exception> Errors { get; } = [];
 
@@ -29,30 +35,35 @@ internal sealed class NetworkTestFixture : IDisposable
         Net.Error += Errors.Add;
     }
 
-    /// <summary>提交登录并显式推进网络，将结果复制为客户端摘要。</summary>
-    public DataLoginResult Login(string username = "demo", string password = "demo")
+    /// <summary>结束旧账号后提交登录，成功才创建会话并从缓存读取摘要。</summary>
+    public (bool Success, string Error, IReadOnlyList<RoleSummaryPbData> Roles) Login(string username = "demo", string password = "demo")
     {
+        Session?.Dispose();
+        Session = null;
+        Net.ResetSession();
         LoginRt? response = null;
         using var subscription = Net.Events.Subscribe<LoginRt>(message => response = message);
         Net.Send(new Login { Username = username, Password = password });
         Net.Tick(0);
         Assert.NotNull(response);
-        return new DataLoginResult(response.Success, response.Error, response.Roles.Select(RoleMessageMapper.ToRole).ToArray());
+        if (response.Success) Session = new GameSession(Net, response);
+        return (response.Success, response.Error, Session?.LoginCache.Roles ?? []);
     }
 
-    /// <summary>在请求前建立会话监听并验证选角响应初始化缓存。</summary>
+    /// <summary>通过已有账号会话选角并验证响应初始化角色缓存。</summary>
     public GameSession SelectRole(long roleId)
     {
-        var session = new GameSession(roleId, Net);
-        Net.Send(new SelectRole { RoleId = roleId });
+        var session = Session ?? throw new InvalidOperationException("测试应先成功登录");
+        session.SelectRole(roleId);
         Net.Tick(0);
-        Assert.True(session.Cache.Role.IsInitialized);
+        Assert.True(session.RoleCache.IsInitialized);
         return session;
     }
 
     /// <summary>先释放所有通信资源，再删除自己创建的隔离目录。</summary>
     public void Dispose()
     {
+        Session?.Dispose();
         Net.Dispose();
         if (_ownsDirectory && Directory.Exists(DirectoryPath)) Directory.Delete(DirectoryPath, true);
     }

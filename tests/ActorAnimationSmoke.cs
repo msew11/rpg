@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Godot;
+using Rpg.Const;
 using Rpg.Config;
 using Rpg.Net;
 using Rpg.Net.Message;
@@ -28,22 +29,27 @@ public partial class ActorAnimationSmoke : Node
             config.LoadGodot();
             var repo = new RepoActorAnimation();
             using var net = new NetManager(new MockTransport(new MockServer(temporary)));
-            DataRole[] roles = [];
+            LoginRt? loginResponse = null;
             using var login = net.Events.Subscribe<LoginRt>(response =>
             {
                 Check(response.Success, response.Error);
-                roles = response.Roles.Select(RoleMessageMapper.ToRole).ToArray();
+                loginResponse = response;
             });
             net.Send(new Login { Username = "demo", Password = "demo" });
             net.Tick(0);
-            Check(roles.Length == 2, "登录未返回两个演示角色");
+            using var session = new GameSession(net, loginResponse!);
+            Check(session.LoginCache.Roles.Count == 2, "登录未返回两个演示角色");
             var actor = new ActorView();
             AddChild(actor);
             var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
             var facing = actor.GetNode<Node2D>("Facing");
             var total = 0;
-            foreach (var role in roles)
+            foreach (var summary in session.LoginCache.Roles)
             {
+                session.SelectRole(summary.RoleId);
+                net.Tick(0);
+                Check(session.RoleCache.IsInitialized, "选角未初始化角色世界状态");
+                var role = session.Role;
                 var world = new WorldManager();
                 world.Enqueue(new InitializeWorldAction(new MapManager(config)));
                 world.Enqueue(new InitializeRoleAction(role));

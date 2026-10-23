@@ -1,3 +1,4 @@
+using Rpg.Session.Data;
 using Google.Protobuf;
 using Rpg.Net;
 using Rpg.Net.Message;
@@ -8,15 +9,29 @@ namespace ClientTests;
 /// <summary>验证 openspec/specs/client-network 的字节、方向、队列与代次契约。</summary>
 public sealed class NetworkFoundationTests
 {
+    /// <summary>验证 client-session：登录摘要身份、名称、等级和性别不合法时拒绝转换。</summary>
+    [Theory]
+    [InlineData(0, "晨星", 1, RoleGenderPb.Male)]
+    [InlineData(1001, " ", 1, RoleGenderPb.Male)]
+    [InlineData(1001, "晨星", 0, RoleGenderPb.Male)]
+    [InlineData(1001, "晨星", 1, RoleGenderPb.Unspecified)]
+    [InlineData(1001, "晨星", 1, (RoleGenderPb)99)]
+    public void InvalidLoginSummaryIsRejected(long roleId, string name, int level, RoleGenderPb gender)
+    {
+        var summary = new RoleSummaryPb { RoleId = roleId, Name = name, Level = level, Gender = gender };
+        Assert.Throws<InvalidDataException>(() => RoleSummaryPbData.FromPb(summary));
+    }
+
     /// <summary>所有首批协议都能独立序列化并保留业务数据。</summary>
     [Fact]
     public void ProtocolsRoundTripAsIndependentObjects()
     {
-        var state = new DataRoleMessage { RoleId = 1001, Name = "晨星", Gender = RoleGenderMessage.Male,
+        var state = new RoleWorldStatePb { RoleId = 1001, Name = "晨星", Gender = RoleGenderPb.Male,
             X = 123.5f, Y = 456, Revision = 9, AcknowledgedAction = 3 };
+        var summary = new RoleSummaryPb { RoleId = 1001, Name = "晨星", Level = 1, Gender = RoleGenderPb.Male };
         IMessage[] messages = [new Login { Username = "demo", Password = "demo" },
             new SelectRole { RoleId = 1001 }, new Move { RoleId = 1001, ActionId = 3, X = 9, Y = 8 },
-            new LoginRt { Success = true, Roles = { state } },
+            new LoginRt { Success = true, Roles = { summary } },
             new SelectRoleRt { Success = true, RoleId = 1001, State = state },
             new MoveRt { Success = true, RoleId = 1001, ActionId = 3, State = state },
             new RoleStateNotice { State = state }];
@@ -41,9 +56,9 @@ public sealed class NetworkFoundationTests
         net.Error += errors.Add;
         using var subscription = net.Events.Subscribe<LoginRt>(_ => delivered++);
         transport.Inject([255]);
-        transport.Inject(new Envelope { Generation = 1, MessageType = "unknown" }.ToByteArray());
+        transport.Inject(new EnvelopePb { Generation = 1, MessageType = "unknown" }.ToByteArray());
         transport.Inject(MessageCodec.Encode(new Login(), 1, true));
-        transport.Inject(new Envelope { Generation = 1, MessageType = LoginRt.Descriptor.FullName,
+        transport.Inject(new EnvelopePb { Generation = 1, MessageType = LoginRt.Descriptor.FullName,
             Payload = ByteString.CopyFrom([255]) }.ToByteArray());
         net.Tick(0);
         Assert.Equal(4, errors.Count);

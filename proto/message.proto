@@ -1,0 +1,13 @@
+syntax = "proto3";
+package rpg;
+option csharp_namespace = "Rpg.Net.Message";
+
+// 包含协议类型、会话代次和序列化载荷的传输信封。
+message EnvelopePb {
+  // 显式协议表中的完整协议名。
+  string message_type = 1;
+  // 区分已结束会话和当前会话的递增代次。
+  int64 generation = 2;
+  // 业务消息的 protobuf 字节。
+  bytes payload = 3;
+}

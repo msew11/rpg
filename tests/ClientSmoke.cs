@@ -4,9 +4,11 @@ using System.Reflection;
 using System.IO;
 using System.Threading.Tasks;
 using Godot;
+using Rpg.Const;
 using Rpg.Settings;
 using Rpg.Settings.Data;
 using Rpg.Server;
+using Rpg.Session;
 using Rpg.UI;
 using Rpg.World;
 using Rpg.World.Utils;
@@ -39,9 +41,13 @@ public partial class ClientSmoke : Node
             if (!main.FindChildren("*", "Label", true, false).OfType<Label>()
                     .Any(label => label.Text.Contains("用户名或密码错误")))
                 throw new InvalidOperationException("错误凭据没有失败反馈");
+            if (GetSession(main) is not null) throw new InvalidOperationException("错误凭据创建了账号会话");
             loginFields[1].Text = "demo";
             loginButton.EmitSignal(Button.SignalName.Pressed);
             await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
+            var account = GetSession(main) ?? throw new InvalidOperationException("登录成功后未建立账号会话");
+            if (!account.LoginCache.IsLoggedIn || account.RoleCache.IsInitialized || account.RoleId != 0)
+                throw new InvalidOperationException("选角前账号摘要或空角色缓存不正确");
             var roleButton = main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text.Contains("ID 1001"));
             // client-session 选角失败场景：坏存档不建立世界，恢复文件后可重试。
@@ -50,7 +56,7 @@ public partial class ClientSmoke : Node
             File.WriteAllText(rolePath, "{broken");
             roleButton.EmitSignal(Button.SignalName.Pressed);
             await ToSignal(GetTree().CreateTimer(0.1), SceneTreeTimer.SignalName.Timeout);
-            AssertGameCleared(main);
+            AssertGameCleared(main, account);
             if (!main.FindChildren("*", "Label", true, false).OfType<Label>().Any(label => label.Text.Contains(rolePath)))
                 throw new InvalidOperationException("选角失败未显示存档错误");
             File.WriteAllText(rolePath, validRole);
@@ -170,7 +176,7 @@ public partial class ClientSmoke : Node
             Click(systemButton);
             Click(entries[1]);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            AssertGameCleared(main);
+            AssertGameCleared(main, account);
             var secondRole = main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text.Contains("ID 1002"));
             secondRole.EmitSignal(Button.SignalName.Pressed);
@@ -221,7 +227,7 @@ public partial class ClientSmoke : Node
             if (Math.Abs(savedMenu.X - RoleSetting.DefaultPositions()["menu"].X) < 0.001f)
                 throw new InvalidOperationException("菜单 HUD 拖动位置未保存");
 
-            // client-ui 返回登录场景：退出世界后可重新登录并进入独立角色会话。
+            // client-ui 返回登录场景：释放账号会话，重新登录建立新的账号会话。
             Click(secondSystem);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             var secondPopup = secondHud.GetNode<PanelContainer>("SystemMenuOverlay/SystemMenu");
@@ -232,11 +238,15 @@ public partial class ClientSmoke : Node
                 .OfType<Button>().ToArray();
             Click(secondEntries.Single(button => button.Text == "返回登陆"));
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            AssertGameCleared(main);
+            AssertGameCleared(main, null);
+            if (account.LoginCache.IsLoggedIn || account.RoleCache.IsInitialized)
+                throw new InvalidOperationException("返回登录后旧账号缓存未释放");
             var relogin = main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text == "登录");
             Click(relogin);
             await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
+            if (GetSession(main) is not { } nextAccount || ReferenceEquals(account, nextAccount))
+                throw new InvalidOperationException("重新登录没有建立新的账号会话");
             main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text.Contains("ID 1001")).EmitSignal(Button.SignalName.Pressed);
             await WaitForHud(main);
@@ -299,12 +309,17 @@ public partial class ClientSmoke : Node
             throw new InvalidOperationException("系统菜单未向上展开或超出了视口");
     }
 
-    /// <summary>验证 client-ui 返回页面场景已移除世界、HUD 和活动会话。</summary>
-    private static void AssertGameCleared(MainController main)
+    /// <summary>读取主控制器拥有的账号会话，用于验证 client-session 生命周期。</summary>
+    private static GameSession? GetSession(MainController main) => (GameSession?)typeof(MainController)
+        .GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(main);
+
+    /// <summary>验证世界与角色数据已清理，选角页保留原账号会话，登录页不保留会话。</summary>
+    private static void AssertGameCleared(MainController main, GameSession? expectedSession)
     {
         if (main.GetChildren().OfType<Node2D>().Any() || main.HasNode("HudLayer") ||
-            typeof(MainController).GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(main) is not null)
-            throw new InvalidOperationException("返回页面后旧世界、HUD 或会话仍然存在");
+            !ReferenceEquals(GetSession(main), expectedSession) ||
+            expectedSession is { } session && (session.RoleId != 0 || session.RoleCache.IsInitialized || !session.LoginCache.IsLoggedIn))
+            throw new InvalidOperationException("返回页面后世界、角色数据或账号会话生命周期不正确");
     }
 
     /// <summary>验证 client-ui 游戏 HUD 场景中的雷达始终贴近地图画面右上角。</summary>

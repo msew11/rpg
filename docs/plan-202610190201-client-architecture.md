@@ -18,9 +18,11 @@ flowchart TB
     ConfigRepo --> GameConfig["DataGameConfig<br/>组合地图等配置"]
 
     LoginUI["登录界面"] --> Mock["模拟状态源"]
-    Mock --> Roles["角色列表"]
-    Roles --> Session["GameSession"]
-    Session --> Cache["DataCache<br/>会话内权威状态与更新通知"]
+    Mock --> Session["登录成功后创建 GameSession"]
+    Session --> LoginCache["LoginCache<br/>角色摘要列表"]
+    LoginCache --> Roles["角色选择"]
+    Session --> Cache["RoleCache<br/>角色业务数据"]
+    Roles --> Cache
     Cache --> Sync["状态更新转 Action"]
 
     GodotInput["Godot 输入事件"] --> UIRoute["UI 优先消费输入"]
@@ -39,12 +41,12 @@ flowchart TB
 ```mermaid
 flowchart TB
     GameConfig["DataGameConfig<br/>组合地图等配置"] --> UI["世界外 HUD、地图与面板"]
-    Cache["DataCache<br/>会话内权威状态与更新通知"] --> UI
+    Cache["GameSession.RoleCache<br/>角色业务数据"] --> UI
     Settings["本地系统设置 / 角色设置"] --> UI
     UI --> GM["GM 面板<br/>设置文件路径与文件管理器入口"]
 ```
 
-`InputSystem` 独立于世界，UI 先消费自己的输入。未被 UI 消费的地图点击经等轴逆投影转换为逻辑坐标，再成为移动 Action。`WorldManager` 只接受 Action；输入和模拟源均不能直接修改 ECS。`DataCache` 保存模拟源返回的当前权威状态，ECS 保存世界逻辑状态。角色可即时预测移动，模拟源的确认或修正经 `DataCache → Action` 进入 ECS。
+`InputSystem` 独立于世界，UI 先消费自己的输入。未被 UI 消费的地图点击经等轴逆投影转换为逻辑坐标，再成为移动 Action。`WorldManager` 只接受 Action；输入和模拟源均不能直接修改 ECS。`RoleCache` 保存模拟源返回的当前角色权威状态，ECS 保存世界逻辑状态。角色可即时预测移动，模拟源的确认或修正经 `RoleCache → Action` 进入 ECS。
 
 ## 首期功能
 
@@ -57,7 +59,7 @@ flowchart TB
 ### 登录与会话
 
 - 演示账号为 `demo / demo`，支持成功与失败结果。登录成功返回至少两个不同 `role_id` 的角色。
-- 选角后创建 `GameSession` 及对应角色的 `DataCache`；切换角色释放旧会话并建立新会话。后续真实网络实现应替换状态源，不改变 UI 与 ECS 的数据边界。
+- 登录成功后创建账号级 `GameSession`，直接持有 `LoginCache` 与 `RoleCache`；切换角色复用账号会话与登录摘要，重置角色数据和网络代次，返回登录才释放整个会话。后续背包数据以 `BagPbData` 放入 `RoleCache`，具体字段和协议待定。
 
 ### ECS 世界与输入
 
@@ -70,7 +72,7 @@ flowchart TB
 - 角色头像及等级、生命值、魔力值、经验值位于左上角；小地图雷达位于地图画面右上角；底部默认显示一条 9 格技能栏。
 - 右下菜单顺序为**角色、背包、大地图、GM、系统**。角色面板显示示例属性；背包和技能格保持空状态；大地图显示当前位置；系统面板用于调整设置。
 - GM 面板显示系统设置文件和当前角色设置文件的绝对路径。点击对应按钮时，文件存在则在桌面文件管理器中定位该文件；文件缺失则打开其父目录。GM 首期没有独立设置文件，后续若需要 GM 设置，应与系统设置、角色设置分开建模和持久化。
-- HUD、地图面板和 GM 面板独立于 ECS 世界，游戏数据来自 `DataGameConfig` 与 `DataCache`。
+- HUD、地图面板和 GM 面板独立于 ECS 世界，游戏数据来自 `DataGameConfig` 与账号会话的 `RoleCache`。
 
 ### 本地设置
 

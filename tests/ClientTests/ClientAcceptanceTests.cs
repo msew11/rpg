@@ -1,3 +1,5 @@
+using Rpg.Session.Data;
+using Rpg.Const;
 using Godot;
 using Rpg.Config;
 using Rpg.Net.Message;
@@ -72,23 +74,35 @@ public sealed class ClientAcceptanceTests
         Assert.True((region.Right - region.Left + 1) * (region.Bottom - region.Top + 1) < 1500);
     }
 
-    /// <summary>固定账号成功、错误凭据失败，切换角色得到隔离缓存。</summary>
+    /// <summary>固定账号成功、错误凭据不建会话，切换角色复用账号会话并隔离角色数据。</summary>
     [Fact]
     public void LoginAndRoleSelectionCreateIsolatedCache()
     {
         using var source = new NetworkTestFixture();
+        Assert.Null(source.Session);
         Assert.False(source.Login("demo", "wrong").Success);
+        Assert.Null(source.Session);
         var result = source.Login("demo", "demo");
         Assert.True(result.Success);
         Assert.True(result.Roles.Count >= 2);
         Assert.NotEqual(result.Roles[0].RoleId, result.Roles[1].RoleId);
 
+        var account = source.Session!;
+        Assert.True(account.LoginCache.IsLoggedIn);
+        Assert.False(account.RoleCache.IsInitialized);
+        Assert.Equal(0, account.RoleId);
+        Assert.Throws<InvalidOperationException>(() => account.SubmitMove(1, Vector2.Zero));
         using var first = source.SelectRole(result.Roles[0].RoleId);
-        var firstCache = first.Cache;
-        first.Dispose();
+        var firstState = first.RoleCache.State;
+        first.LeaveRole();
+        Assert.False(account.RoleCache.IsInitialized);
+        Assert.Equal(0, account.RoleId);
         using var second = source.SelectRole(result.Roles[1].RoleId);
-        Assert.NotSame(firstCache, second.Cache);
-        Assert.Equal(result.Roles[1].RoleId, second.Cache.Role.State.Role.RoleId);
+        Assert.Same(account, second);
+        Assert.Same(first.RoleCache, second.RoleCache);
+        Assert.NotSame(firstState, second.RoleCache.State);
+        Assert.Same(result.Roles, second.LoginCache.Roles);
+        Assert.Equal(result.Roles[1].RoleId, second.RoleCache.State.RoleId);
     }
 
     /// <summary>网络延迟确认先更新缓存，旧版本不能回滚权威状态。</summary>
@@ -105,10 +119,10 @@ public sealed class ClientAcceptanceTests
         Assert.Equal(0, notifications);
         source.Net.Tick(0.3);
         Assert.Equal(1, notifications);
-        Assert.Equal(1, session.Cache.Role.State.AcknowledgedAction);
-        var current = session.Cache.Role.State;
-        session.Events.Publish(new RoleStateNotice { State = new DataRoleMessage { RoleId = session.RoleId, Revision = 0 } });
-        Assert.Same(current, session.Cache.Role.State);
+        Assert.Equal(1, session.RoleCache.State.AcknowledgedAction);
+        var current = session.RoleCache.State;
+        session.Events.Publish(new RoleStateNotice { State = new RoleWorldStatePb { RoleId = session.RoleId, Revision = 0 } });
+        Assert.Same(current, session.RoleCache.State);
         Assert.Equal(1, notifications);
     }
 
@@ -137,7 +151,7 @@ public sealed class WorldAcceptanceTests
     public void WorldActionOrderMovementAndCorrection()
     {
         var map = new MapManager(ConfigTestFixture.LoadDefault());
-        var role = new DataRole(1, "测试", 1, 10, 10, 10, 10, 0, 10, new Vector2(100, 100));
+        var role = new RoleWorldStatePbData(1, "测试", 1, 10, 10, 10, 10, 0, 10, new Vector2(100, 100), RoleGender.Male, 0, 0);
         var world = new WorldManager();
         world.Enqueue(new InitializeRoleAction(role));
         Assert.Throws<InvalidOperationException>(() => world.Tick(0));
@@ -155,12 +169,12 @@ public sealed class WorldAcceptanceTests
         Assert.Equal(new Vector2(100, 300), world.RoleTarget);
 
         var corrected = new Vector2(120, 110);
-        world.Enqueue(new SyncRoleAction(new DataRoleState(role, corrected, 1, 1)));
+        world.Enqueue(new SyncRoleAction(role with { Position = corrected, Revision = 1, AcknowledgedAction = 1 }));
         Assert.NotEqual(corrected, world.RolePosition);
         world.Tick(0);
         Assert.Equal(corrected, world.RolePosition);
         Assert.Equal(new Vector2(100, 300), world.RoleTarget);
-        world.Enqueue(new SyncRoleAction(new DataRoleState(role, new Vector2(999, 999), 2, 1)));
+        world.Enqueue(new SyncRoleAction(role with { Position = new Vector2(999, 999), Revision = 2, AcknowledgedAction = 1 }));
         world.Tick(0);
         Assert.Equal(corrected, world.RolePosition);
     }

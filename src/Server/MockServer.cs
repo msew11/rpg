@@ -112,7 +112,7 @@ public sealed class MockServer
         var response = new LoginRt();
         try
         {
-            foreach (var roleId in RepoServerRole.RoleIds) response.Roles.Add(ToMessage(_roles.Load(roleId)));
+            foreach (var roleId in RepoServerRole.RoleIds) response.Roles.Add(ToSummary(_roles.Load(roleId)));
             response.Success = _authenticated = true;
         }
         catch (Exception error) { response.Error = error.Message; response.Roles.Clear(); }
@@ -152,12 +152,19 @@ public sealed class MockServer
         _pending.Add(new DataPendingMove(request.ActionId, 0.45));
     }
 
-    /// <summary>仅在线路边界转换为协议对象，不向客户端共享服务端模型。</summary>
-    private static DataRoleMessage ToMessage(DataServerRole role) => new()
+    /// <summary>登录只返回选角页所需的角色摘要。</summary>
+    private static RoleSummaryPb ToSummary(DataServerRole role) => new()
+    {
+        RoleId = role.RoleId, Name = role.Name, Level = role.Level,
+        Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female
+    };
+
+    /// <summary>将完整角色世界状态复制为协议对象，不向客户端共享服务端模型。</summary>
+    private static RoleWorldStatePb ToMessage(DataServerRole role) => new()
     {
         RoleId = role.RoleId, Name = role.Name, Level = role.Level, Health = role.Health, MaxHealth = role.MaxHealth,
         Mana = role.Mana, MaxMana = role.MaxMana, Experience = role.Experience, NextExperience = role.NextExperience,
-        X = role.X, Y = role.Y, Gender = role.Gender == ServerRoleGender.Male ? RoleGenderMessage.Male : RoleGenderMessage.Female,
+        X = role.X, Y = role.Y, Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female,
         Revision = role.Revision, AcknowledgedAction = role.AcknowledgedAction
     };
 

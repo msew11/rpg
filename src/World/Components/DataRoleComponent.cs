@@ -1,4 +1,4 @@
-using Rpg.Session;
+using Rpg.Const;
 
 namespace Rpg.World.Components;
 

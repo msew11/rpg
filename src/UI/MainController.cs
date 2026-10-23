@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Godot;
+using Rpg.Const;
 using Rpg.Config;
 using Rpg.Input;
 using Rpg.Net;
@@ -33,10 +33,8 @@ public partial class MainController : Control
     public string ServerDirectory { get; set; } = "";
     /// <summary>本地系统与角色设置仓库。</summary>
     private RepoSettings _settings = null!;
-    /// <summary>选中角色的活动会话。</summary>
+    /// <summary>登录成功后建立、覆盖选角与角色切换的账号会话。</summary>
     private GameSession? _session;
-    /// <summary>本次成功登录的角色列表，供游戏内返回选角时复用。</summary>
-    private DataLoginResult? _loginResult;
     /// <summary>活动会话对应的 ECS 世界。</summary>
     private WorldManager? _world;
     /// <summary>当前地图的坐标与地块管理器。</summary>
@@ -119,7 +117,8 @@ public partial class MainController : Control
     private void ShowLogin()
     {
         ClearGame();
-        _loginResult = null;
+        _session?.Dispose();
+        _session = null;
         var box = CenteredScreen("网络 RPG 客户端 · 模拟登录");
         box.AddChild(Label("演示账号：demo / demo", 15));
         var username = new LineEdit { PlaceholderText = "用户名", Text = "demo", CustomMinimumSize = new Vector2(280, 36) };
@@ -139,15 +138,14 @@ public partial class MainController : Control
         box.AddChild(login);
     }
 
-    /// <summary>展示登录协议返回的角色列表及可选错误反馈。</summary>
-    private void ShowRoles(DataLoginResult result, string error = "")
+    /// <summary>读取登录缓存展示角色列表及可选错误反馈。</summary>
+    private void ShowRoles(string error = "")
     {
         ClearGame();
-        _loginResult = result;
         var box = CenteredScreen("选择角色");
         _feedback = Label(error, 14);
         box.AddChild(_feedback);
-        foreach (var role in result.Roles)
+        foreach (var role in _session!.LoginCache.Roles)
         {
             var button = new Button
             {
@@ -162,37 +160,37 @@ public partial class MainController : Control
         box.AddChild(back);
     }
 
-    /// <summary>先建立空缓存监听，再提交选角，成功响应前不创建世界。</summary>
+    /// <summary>由已有账号会话重置角色缓存并提交选角，成功响应前不创建世界。</summary>
     private void StartRole(long roleId)
     {
-        if (_session is not null) return;
-        _session = new GameSession(roleId, _net!);
+        if (_session is null || _session.RoleId != 0) return;
+        _session.SelectRole(roleId);
         if (_feedback is not null) _feedback.Text = "正在进入角色…";
         if (_screen is not null)
             foreach (var node in _screen.FindChildren("*", "Button", true, false)) ((Button)node).Disabled = true;
-        _net!.Send(new SelectRole { RoleId = roleId });
     }
 
-    /// <summary>将登录协议复制为客户端角色摘要，失败时保留登录界面。</summary>
+    /// <summary>登录成功后创建账号会话并装入摘要，失败时保留登录界面。</summary>
     private void OnLoggedIn(LoginRt response)
     {
         if (_loginButton is null) return;
         _loginButton.Disabled = false;
         if (!response.Success) { _feedback!.Text = response.Error; return; }
-        ShowRoles(new DataLoginResult(true, "", response.Roles.Select(RoleMessageMapper.ToRole).ToArray()));
+        _session = new GameSession(_net!, response);
+        ShowRoles();
     }
 
-    /// <summary>缓存初始化成功后才创建世界；选角失败释放待建立会话。</summary>
+    /// <summary>缓存初始化成功后创建世界；选角失败只重置角色数据并保留账号会话。</summary>
     private void OnSelectedRole(SelectRoleRt response)
     {
         if (_session is null || response.RoleId != _session.RoleId) return;
         if (!response.Success)
         {
-            if (_loginResult is { } result) ShowRoles(result, response.Error);
+            if (_session.LoginCache.IsLoggedIn) ShowRoles(response.Error);
             else ShowLogin();
             return;
         }
-        if (!_session.Cache.Role.IsInitialized) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
+        if (!_session.RoleCache.IsInitialized) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
         BuildRoleWorld();
     }
 
@@ -230,10 +228,10 @@ public partial class MainController : Control
         _hud.QuitRequested += QuitGame;
     }
 
-    /// <summary>结束角色会话并返回本次登录的角色列表。</summary>
+    /// <summary>结束角色世界并返回选角，保留同一个账号会话。</summary>
     private void ReturnToRoles()
     {
-        if (_loginResult is { } result) ShowRoles(result);
+        if (_session?.LoginCache.IsLoggedIn == true) ShowRoles();
         else ShowLogin();
     }
 
@@ -261,25 +259,24 @@ public partial class MainController : Control
     /// <summary>只向世界提交客户端独立快照，不直接写 ECS。</summary>
     private void EnqueueCachedRole()
     {
-        if (_session?.Cache.Role.IsInitialized == true) _world?.Enqueue(new SyncRoleAction(_session.Cache.Role.State));
+        if (_session?.RoleCache.IsInitialized == true) _world?.Enqueue(new SyncRoleAction(_session.RoleCache.State));
     }
 
     /// <summary>显示编解码及传输错误，选角阶段失败时恢复可操作的角色列表。</summary>
     private void OnNetworkError(Exception error)
     {
-        if (_session is not null && _world is null && _loginResult is { } result) ShowRoles(result, error.Message);
+        if (_session is not null && _world is null && _session.LoginCache.IsLoggedIn) ShowRoles(error.Message);
         else if (_feedback is not null) _feedback.Text = error.Message;
         else _hud?.ShowNetworkError(error.Message);
         if (_loginButton is not null) _loginButton.Disabled = false;
     }
 
-    /// <summary>清理旧界面、世界及会话订阅。</summary>
+    /// <summary>清理旧界面、世界和角色数据，保留账号会话与登录摘要。</summary>
     private void ClearGame()
     {
         _hud?.ReleaseSubscriptions();
-        if (_session is not null) _session.Dispose();
+        if (_session is not null) _session.LeaveRole();
         else _net?.ResetSession();
-        _session = null;
         _world = null;
         _map = null;
         _screen?.QueueFree();

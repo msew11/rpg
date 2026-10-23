@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using Rpg.Session;
+using Rpg.Const;
 
 namespace Rpg.World.Views;
 

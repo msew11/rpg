@@ -20,7 +20,7 @@ public partial class GameHud : Control
     private readonly List<Control> _panels = [];
     /// <summary>当前游戏配置仓库。</summary>
     private RepoGameConfig _configRepo = null!;
-    /// <summary>当前角色会话。</summary>
+    /// <summary>当前已选角的账号会话。</summary>
     private GameSession _session = null!;
     /// <summary>当前 HUD 拥有的服务器消息监听。</summary>
     private readonly List<IDisposable> _messageSubscriptions = [];
@@ -474,10 +474,9 @@ public partial class GameHud : Control
     /// <summary>从会话缓存刷新角色数值和地图位置。</summary>
     private void RefreshData()
     {
-        var state = _session.Cache.Role.State;
-        var role = state.Role;
-        _portraitText.Text = $"● {role.Name}  Lv.{role.Level}\n生命 {role.Health}/{role.MaxHealth}\n魔力 {role.Mana}/{role.MaxMana}\n经验 {role.Experience}/{role.NextExperience}";
-        _characterText.Text = $"角色 ID：{role.RoleId}\n等级：{role.Level}\n生命：{role.Health}/{role.MaxHealth}\n魔力：{role.Mana}/{role.MaxMana}\n经验：{role.Experience}/{role.NextExperience}";
+        var state = _session.RoleCache.State;
+        _portraitText.Text = $"● {state.Name}  Lv.{state.Level}\n生命 {state.Health}/{state.MaxHealth}\n魔力 {state.Mana}/{state.MaxMana}\n经验 {state.Experience}/{state.NextExperience}";
+        _characterText.Text = $"角色 ID：{state.RoleId}\n等级：{state.Level}\n生命：{state.Health}/{state.MaxHealth}\n魔力：{state.Mana}/{state.MaxMana}\n经验：{state.Experience}/{state.NextExperience}";
         var mapConfig = _configRepo.MapConfig;
         _mapText.Text = $"地图：{mapConfig.Id}  {mapConfig.Width}×{mapConfig.Height}\n位置：{state.Position.X:0}, {state.Position.Y:0}";
         _miniMap.RolePosition = state.Position;

@@ -24,7 +24,7 @@ public static class MessageCodec
         var registry = request ? Requests : Responses;
         if (!registry.ContainsKey(message.Descriptor.FullName))
             throw new InvalidDataException($"未注册或方向错误的协议：{message.Descriptor.FullName}");
-        return new Envelope
+        return new EnvelopePb
         {
             MessageType = message.Descriptor.FullName,
             Generation = generation,
@@ -33,11 +33,11 @@ public static class MessageCodec
     }
 
     /// <summary>解析信封，业务载荷留待会话代次检查之后解析。</summary>
-    public static Envelope ReadEnvelope(byte[] bytes)
+    public static EnvelopePb ReadEnvelope(byte[] bytes)
     {
         try
         {
-            var envelope = Envelope.Parser.ParseFrom(bytes);
+            var envelope = EnvelopePb.Parser.ParseFrom(bytes);
             if (envelope.Generation <= 0 || string.IsNullOrWhiteSpace(envelope.MessageType))
                 throw new InvalidDataException("协议缺少有效类型或会话代次");
             return envelope;
@@ -46,7 +46,7 @@ public static class MessageCodec
     }
 
     /// <summary>仅使用允许方向的协议表解析业务字节。</summary>
-    public static IMessage ReadPayload(Envelope envelope, bool request)
+    public static IMessage ReadPayload(EnvelopePb envelope, bool request)
     {
         var registry = request ? Requests : Responses;
         if (!registry.TryGetValue(envelope.MessageType, out var parser))

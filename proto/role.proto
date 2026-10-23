@@ -1,0 +1,13 @@
+syntax = "proto3";
+package rpg;
+option csharp_namespace = "Rpg.Net.Message";
+
+// 角色基础身体性别；未指定值不作为有效角色数据。
+enum RoleGenderPb {
+  // 缺失或未知性别。
+  ROLE_GENDER_PB_UNSPECIFIED = 0;
+  // 男性身体。
+  ROLE_GENDER_PB_MALE = 1;
+  // 女性身体。
+  ROLE_GENDER_PB_FEMALE = 2;
+}

@@ -1,4 +1,5 @@
 using Godot;
+using Rpg.Const;
 
 namespace Rpg.World.Components;
 

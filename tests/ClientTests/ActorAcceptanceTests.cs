@@ -1,3 +1,5 @@
+using Rpg.Const;
+using Rpg.Session.Data;
 using Godot;
 using Rpg.Net.Message;
 using Rpg.Session;
@@ -19,13 +21,13 @@ public sealed class ActorAcceptanceTests
         Assert.Equal(gender, source.Login("demo", "demo").Roles.Single(role => role.RoleId == roleId).Gender);
         using var session = source.SelectRole(roleId);
         var world = CreateWorld(session.Role);
-        Assert.Equal(gender, session.Cache.Role.State.Role.Gender);
+        Assert.Equal(gender, session.RoleCache.State.Gender);
         Assert.Equal(gender, world.ActorState!.Gender);
-        using var subscription = session.Events.Subscribe<MoveRt>(_ => world.Enqueue(new SyncRoleAction(session.Cache.Role.State)));
+        using var subscription = session.Events.Subscribe<MoveRt>(_ => world.Enqueue(new SyncRoleAction(session.RoleCache.State)));
         session.SubmitMove(1, session.Role.Position + new Vector2(100, 0));
         source.Net.Tick(0.5);
         world.Tick(0);
-        Assert.Equal(gender, session.Cache.Role.State.Role.Gender);
+        Assert.Equal(gender, session.RoleCache.State.Gender);
         Assert.Equal(gender, world.ActorState.Gender);
     }
 
@@ -34,7 +36,8 @@ public sealed class ActorAcceptanceTests
     public void MovementSelectsMotionAndRetainsFacingOnStop()
     {
         using var source = new NetworkTestFixture();
-        var role = source.Login().Roles[0];
+        using var session = source.SelectRole(source.Login().Roles[0].RoleId);
+        var role = session.Role;
         var world = CreateWorld(role);
         var initial = world.ActorState!;
         Assert.Equal(RoleMotion.Stand, initial.Motion);
@@ -49,7 +52,7 @@ public sealed class ActorAcceptanceTests
         world.Enqueue(new MoveAction(2, turnStart + new Vector2(0, 100)));
         world.Tick(0.1);
         Assert.Equal(Vector2.Down, world.ActorState.Facing);
-        world.Enqueue(new SyncRoleAction(new DataRoleState(role, turnStart + new Vector2(0, 50), 1, 1)));
+        world.Enqueue(new SyncRoleAction(role with { Position = turnStart + new Vector2(0, 50), Revision = 1, AcknowledgedAction = 1 }));
         world.Tick(0);
         Assert.Equal(RoleMotion.Run, world.ActorState.Motion);
         Assert.Equal(Vector2.Down, world.ActorState.Facing);
@@ -67,13 +70,14 @@ public sealed class ActorAcceptanceTests
     public void AuthorityGenderUsesRevisionRatherThanMovementAcknowledgement()
     {
         using var source = new NetworkTestFixture();
-        var role = source.Login().Roles[0];
+        using var session = source.SelectRole(source.Login().Roles[0].RoleId);
+        var role = session.Role;
         var world = CreateWorld(role);
-        world.Enqueue(new SyncRoleAction(new DataRoleState(role with { Gender = RoleGender.Female }, role.Position, 2, 0)));
+        world.Enqueue(new SyncRoleAction(role with { Gender = RoleGender.Female, Revision = 2, AcknowledgedAction = 0 }));
         world.Tick(0);
         Assert.Equal(RoleGender.Female, world.ActorState!.Gender);
-        world.Enqueue(new SyncRoleAction(new DataRoleState(role, role.Position + Vector2.One, 1, 1)));
-        world.Enqueue(new SyncRoleAction(new DataRoleState(role with { RoleId = 123 }, role.Position, 3, 2)));
+        world.Enqueue(new SyncRoleAction(role with { Position = role.Position + Vector2.One, Revision = 1, AcknowledgedAction = 1 }));
+        world.Enqueue(new SyncRoleAction(role with { RoleId = 123, Revision = 3, AcknowledgedAction = 2 }));
         world.Tick(0);
         Assert.Equal(RoleGender.Female, world.ActorState.Gender);
         Assert.Equal(role.Position, world.RolePosition);
@@ -84,7 +88,8 @@ public sealed class ActorAcceptanceTests
     public void NonMovementMotionsStayLogicalUntilNextCommand()
     {
         using var source = new NetworkTestFixture();
-        var role = source.Login().Roles[1];
+        using var session = source.SelectRole(source.Login().Roles[1].RoleId);
+        var role = session.Role;
         var world = CreateWorld(role);
         foreach (var motion in Enum.GetValues<RoleMotion>().Except([RoleMotion.Stand, RoleMotion.Run]))
         {
@@ -110,7 +115,7 @@ public sealed class ActorAcceptanceTests
     }
 
     /// <summary>使用真实地图配置初始化一个不创建表现节点的玩家世界。</summary>
-    private static WorldManager CreateWorld(DataRole role)
+    private static WorldManager CreateWorld(RoleWorldStatePbData role)
     {
         var world = new WorldManager();
         world.Enqueue(new InitializeWorldAction(new MapManager(ConfigTestFixture.LoadDefault())));

@@ -1,4 +1,4 @@
-namespace Rpg.World;
+namespace Rpg.Const;
 
 /// <summary>玩家实体的动作语义，不包含帧、资源或播放时间。</summary>
 public enum RoleMotion
