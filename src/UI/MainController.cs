@@ -21,8 +21,8 @@ public partial class MainController : Control
 {
     /// <summary>启动时加载并持有游戏配置的仓库。</summary>
     private RepoGameConfig _configRepo = null!;
-    /// <summary>覆盖登录和角色会话的常驻网络管理器。</summary>
-    private NetManager? _net;
+    /// <summary>覆盖登录和角色会话的常驻网络服务。</summary>
+    private NetService? _net;
     /// <summary>主控制器拥有的常驻消息订阅。</summary>
     private readonly List<IDisposable> _subscriptions = [];
     /// <summary>登录或选角页的请求状态与错误反馈。</summary>
@@ -65,7 +65,7 @@ public partial class MainController : Control
             _configRepo = new RepoGameConfig();
             _configRepo.LoadGodot();
             var directory = string.IsNullOrEmpty(ServerDirectory) ? ProjectSettings.GlobalizePath("user://server") : ServerDirectory;
-            _net = new NetManager(new MockTransport(new MockServer(directory)));
+            _net = new NetService(new MockTransport(new MockServer(directory)));
             _net.Error += OnNetworkError;
             _subscriptions.Add(_net.Events.Subscribe<LoginRt>(OnLoggedIn));
             _subscriptions.Add(_net.Events.Subscribe<SelectRoleRt>(OnSelectedRole));

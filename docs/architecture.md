@@ -6,7 +6,7 @@
 
 `RepoGameConfig` 在启动时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验，并独占持有已加载的配置。首期 `config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块及稀疏覆盖格；地图管理器与 UI 持有配置仓库，需要地图数据时从仓库读取，不另存 `MapConfig` 引用。文件名与配置类型不符、未知、重复或无效文件均阻止启动。配置与程序同包发布。
 
-`NetManager` 在登录页和角色世界都由主控制器固定帧推进，`Send(IMessage)` 在调用时序列化并入队，回调中新请求留到下一帧发送。`INetTransport` 隔离具体传输，当前 `MockTransport` 在同进程内连接 `MockServer`，双向只交换 protobuf 字节，不传递共享对象。真实连接以后实现新的传输适配器，世界与 UI 不接触传输细节。
+`NetService` 在登录页和角色世界都由主控制器固定帧推进，`Send(IMessage)` 在调用时序列化并入队，回调中新请求留到下一帧发送。`INetTransport` 隔离具体传输，当前 `MockTransport` 在同进程内连接 `MockServer`，双向只交换 protobuf 字节，不传递共享对象。真实连接以后实现新的传输适配器，世界与 UI 不接触传输细节。
 
 `MainController` 在收到成功 `LoginRt` 后创建账号级 `GameSession`，由其直接持有 `LoginCache` 和 `RoleCache`。`LoginCache` 构造时将首份响应转换为只读 `RoleSummaryPbData` 列表，后续登录结果通过缓存阶段处理；转换失败不建立会话或遗留订阅。选角界面只读取 `session.LoginCache.Roles`，不另存角色列表。`RoleCache` 在登录后即建立监听，选角前没有角色数据。
 
@@ -14,9 +14,9 @@
 
 所有功能缓存位于 `src/Session/Cache/`，使用 `Rpg.Session.Cache` 命名空间并继承 `CacheBase`。子类通过受保护的 `Subscribe<T>()` 注册缓存阶段监听；基类私有持有订阅集合，幂等取消订阅后调用一次可重写的 `OnDispose()`，释放后禁止新增订阅。所有 `PbData` 类统一放在 `src/Session/Data/`，使用 `Rpg.Session.Data` 命名空间；各类在自己的文件内提供静态 `FromPb(pb)` 与实例 `ToPb()`，集中校验和复制数据，双向转换不共享可变协议对象。
 
-`NetManager.Events` 是位于 Session 模块的实例化 `EventSystem`：具体类型监听返回 `IDisposable` 句柄，固定先执行 `EventPhase.Cache` 再执行普通监听，各阶段按注册顺序。`RoleCache` 监听 `SelectRoleRt`、`MoveRt`、`RoleStateNotice`，将 `RoleWorldStatePb` 重新组装为不可变 `RoleWorldStatePbData` 后保存，按角色 ID 与 revision 过滤。角色属性、性别、逻辑位置及权威版本直接作为 `RoleWorldStatePbData` 的构造参数与属性，不再嵌套 `DataRole`；`GameSession.Role` 直接返回此缓存快照，UI 和世界协调器读取同一数据结构，世界更新仍转为 Action。
+`NetService.Events` 是位于 Session 模块的实例化 `EventSystem`：具体类型监听返回 `IDisposable` 句柄，固定先执行 `EventPhase.Cache` 再执行普通监听，各阶段按注册顺序。`RoleCache` 监听 `SelectRoleRt`、`MoveRt`、`RoleStateNotice`，将 `RoleWorldStatePb` 重新组装为不可变 `RoleWorldStatePbData` 后保存，按角色 ID 与 revision 过滤。角色属性、性别、逻辑位置及权威版本直接作为 `RoleWorldStatePbData` 的构造参数与属性，不再嵌套 `DataRole`；`GameSession.Role` 直接返回此缓存快照，UI 和世界协调器读取同一数据结构，世界更新仍转为 Action。
 
-事件分发采用单条消息的监听快照：新增监听处理后续消息，已取消监听立即跳过，嵌套发布排队。缓存监听失败报告错误并跳过该消息的普通阶段；普通监听失败不阻止其他监听。网络及监听错误通过 `NetManager.Error` 报告并显示在登录/选角页或 HUD。离开角色时立即解除 HUD 监听并清空角色数据，账号缓存监听保留到账号会话释放；网络重置递增信封代次、清理队列及服务端未确认移动，旧消息不能进入后续角色。常驻登录监听保留到主控制器释放。
+事件分发采用单条消息的监听快照：新增监听处理后续消息，已取消监听立即跳过，嵌套发布排队。缓存监听失败报告错误并跳过该消息的普通阶段；普通监听失败不阻止其他监听。网络及监听错误通过 `NetService.Error` 报告并显示在登录/选角页或 HUD。离开角色时立即解除 HUD 监听并清空角色数据，账号缓存监听保留到账号会话释放；网络重置递增信封代次、清理队列及服务端未确认移动，旧消息不能进入后续角色。常驻登录监听保留到主控制器释放。
 
 本地设置与上述两类数据分离：系统设置保存在 `user://settings/system.json`；角色设置按 `role_id` 保存在 `user://settings/roles/`。`RepoSettings` 持有当前系统和选中角色设置，集中修改与保存；选角时加载对应角色设置。UI 只读取当前值并请求修改，窗口、声音和 HUD 的实际呈现仍由 UI 应用。设置仅控制本机显示、声音和 HUD 布局，不作为服务器权威数据。
 
@@ -53,7 +53,7 @@ net.Send(new Move { RoleId = session.RoleId, ActionId = 1, X = 16048, Y = 16016 
 
 ```text
 map.json -> RepoGameConfig.MapConfig -> 地图管理 / UI
-NetManager.Send -> protobuf 字节 -> MockServer -> JSON 落地
+NetService.Send -> protobuf 字节 -> MockServer -> JSON 落地
 MockServer -> protobuf 字节 -> EventSystem(Cache) -> GameSession.RoleCache
                                       -> EventSystem(Normal) -> UI / 同步 Action -> WorldManager -> ECS -> 世界表现
 Godot 输入 -> 等轴逆投影 -> InputSystem -> 移动 Action --------^

@@ -7,7 +7,7 @@ using Rpg.Session;
 namespace Rpg.Net;
 
 /// <summary>管理请求队列、protobuf 字节和按类型分发的服务器消息。</summary>
-public sealed class NetManager : IDisposable
+public sealed class NetService : IDisposable
 {
     /// <summary>当前使用的可替换传输。</summary>
     private readonly INetTransport _transport;
@@ -17,7 +17,7 @@ public sealed class NetManager : IDisposable
     private readonly Queue<byte[]> _inbound = new();
     /// <summary>当前网络会话代次。</summary>
     private long _generation = 1;
-    /// <summary>是否已释放网络管理器。</summary>
+    /// <summary>是否已释放网络服务。</summary>
     private bool _disposed;
     /// <summary>是否正在推进，避免回调重入固定帧。</summary>
     private bool _ticking;
@@ -26,13 +26,13 @@ public sealed class NetManager : IDisposable
     public EventSystem Events { get; } = new();
     /// <summary>用于会话所有权检查的当前代次。</summary>
     internal long Generation => _generation;
-    /// <summary>允许会话在网络管理器释放后安全清理。</summary>
+    /// <summary>允许会话在网络服务释放后安全清理。</summary>
     internal bool IsDisposed => _disposed;
     /// <summary>报告编解码、传输和监听错误。</summary>
     public event Action<Exception>? Error;
 
     /// <summary>绑定传输并建立首个会话代次。</summary>
-    public NetManager(INetTransport transport)
+    public NetService(INetTransport transport)
     {
         _transport = transport;
         _transport.ResetSession(_generation);
@@ -52,7 +52,7 @@ public sealed class NetManager : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
-        if (_ticking) throw new InvalidOperationException("NetManager 不允许重入 Tick");
+        if (_ticking) throw new InvalidOperationException("NetService 不允许重入 Tick");
         _ticking = true;
         try
         {

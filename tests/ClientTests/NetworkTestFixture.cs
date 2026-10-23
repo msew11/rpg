@@ -16,8 +16,8 @@ internal sealed class NetworkTestFixture : IDisposable
     public string DirectoryPath { get; }
     /// <summary>测试可调用主动推送入口的独立服务端。</summary>
     public MockServer Server { get; }
-    /// <summary>真实队列与事件网络管理器。</summary>
-    public NetManager Net { get; }
+    /// <summary>真实队列与事件网络服务。</summary>
+    public NetService Net { get; }
     /// <summary>登录成功后建立的账号会话，未登录或失败时为空。</summary>
     public GameSession? Session { get; private set; }
     /// <summary>当前账号会话持有的登录摘要缓存。</summary>
@@ -31,7 +31,7 @@ internal sealed class NetworkTestFixture : IDisposable
         _ownsDirectory = directory is null;
         DirectoryPath = directory ?? Path.Combine(Path.GetTempPath(), "rpg-network-" + Guid.NewGuid());
         Server = new MockServer(DirectoryPath);
-        Net = new NetManager(new MockTransport(Server));
+        Net = new NetService(new MockTransport(Server));
         Net.Error += Errors.Add;
     }
 

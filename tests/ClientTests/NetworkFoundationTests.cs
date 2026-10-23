@@ -50,7 +50,7 @@ public sealed class NetworkFoundationTests
     public void InvalidPacketsReportErrorsAndDoNotDispatch()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetManager(transport);
+        using var net = new NetService(transport);
         var errors = new List<Exception>();
         var delivered = 0;
         net.Error += errors.Add;
@@ -71,7 +71,7 @@ public sealed class NetworkFoundationTests
     public void SendsAndReceivesAreQueuedAndFreezeMutableRequests()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetManager(transport);
+        using var net = new NetService(transport);
         var callbacks = 0;
         using var subscription = net.Events.Subscribe<LoginRt>(_ => { callbacks++; net.Send(new SelectRole { RoleId = 1001 }); });
         var request = new Login { Username = "demo", Password = "demo" };
@@ -95,7 +95,7 @@ public sealed class NetworkFoundationTests
     public void SessionResetDiscardsOldQueuedAndInFlightMessages()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetManager(transport);
+        using var net = new NetService(transport);
         var calls = 0;
         using var subscription = net.Events.Subscribe<LoginRt>(_ => calls++);
         net.Send(new Login());
@@ -204,7 +204,7 @@ internal sealed class DoubleNetTransport : INetTransport
 {
     /// <summary>捕获发送方冻结的字节。</summary>
     public List<byte[]> Sent { get; } = [];
-    /// <summary>向网络管理器提交测试字节。</summary>
+    /// <summary>向网络服务提交测试字节。</summary>
     public event Action<byte[]>? Received;
     /// <summary>记录发送数据，不执行任何业务逻辑。</summary>
     public void Send(byte[] packet) => Sent.Add((byte[])packet.Clone());

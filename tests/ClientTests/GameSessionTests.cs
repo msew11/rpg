@@ -13,7 +13,7 @@ public sealed class GameSessionTests
     public void InvalidInitialLoginDoesNotCreateSessionOrLeaveSubscriptions()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetManager(transport);
+        using var net = new NetService(transport);
         net.Send(new Login { Username = "demo", Password = "demo" });
         Assert.Throws<InvalidOperationException>(() => new GameSession(net, new LoginRt { Error = "登录失败" }));
         var invalid = new LoginRt { Success = true, Roles = { new RoleSummaryPb { RoleId = 1001 } } };
@@ -31,7 +31,7 @@ public sealed class GameSessionTests
     public void ReenteringSameRoleRejectsOldPacketsWhileKeepingLoginCache()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetManager(transport);
+        using var net = new NetService(transport);
         using var session = new GameSession(net, new LoginRt { Success = true });
         var loginCache = session.LoginCache;
         var state = new RoleWorldStatePb
@@ -73,7 +73,7 @@ public sealed class GameSessionTests
     public void DisposingReplacedAccountDoesNotResetNewSession()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetManager(transport);
+        using var net = new NetService(transport);
         using var previous = new GameSession(net, new LoginRt { Success = true });
         using var current = new GameSession(net, new LoginRt { Success = true });
         Assert.Throws<InvalidOperationException>(() => previous.SelectRole(1001));

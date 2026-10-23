@@ -2,7 +2,7 @@ using System;
 
 namespace Rpg.Net;
 
-/// <summary>隔离网络管理器与具体字节传输，所有方法在主线程调用。</summary>
+/// <summary>隔离网络服务与具体字节传输，所有方法在主线程调用。</summary>
 public interface INetTransport : IDisposable
 {
     /// <summary>接收一份完整且不再修改的服务器信封字节。</summary>

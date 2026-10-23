@@ -14,7 +14,7 @@
 - [x] 地图配置文件、数据类型一一对应，由 `RepoGameConfig` 持有已加载配置。
 - [x] 地图管理器和界面统一通过 `RepoGameConfig` 访问地图配置。
 - [x] 角色性别从会话数据接入玩家 entity；ECS 动作与逻辑朝向通过只读快照驱动男女基础身体的 13 个动作、八方向表现，点击移动接入跑步与站立。
-- [x] NetManager 与 protobuf 请求/响应/推送、进程内 MockServer、按角色 JSON 持久化；登录返回角色摘要，选角加载完整世界状态，纯协议数据类型以 Pb 结尾，接收后组装为独立 PbData，集中于 Session/Data 并内聚双向转换；协议按公共、登录、世界拆分；登录后创建 GameSession，直接持有 LoginCache 与 RoleCache，切角保留账号摘要并重置角色数据，Session 事件缓存优先并隔离旧会话消息。
+- [x] NetService 与 protobuf 请求/响应/推送、进程内 MockServer、按角色 JSON 持久化；登录返回角色摘要，选角加载完整世界状态，纯协议数据类型以 Pb 结尾，接收后组装为独立 PbData，集中于 Session/Data 并内聚双向转换；协议按公共、登录、世界拆分；登录后创建 GameSession，直接持有 LoginCache 与 RoleCache，切角保留账号摘要并重置角色数据，Session 事件缓存优先并隔离旧会话消息。
 
 ## 后续阶段（待确认）
 

@@ -10,8 +10,8 @@ namespace Rpg.Session;
 /// <summary>登录成功后的账号会话，统一持有登录摘要与当前角色缓存。</summary>
 public sealed class GameSession : IDisposable
 {
-    /// <summary>本会话借用的常驻网络管理器。</summary>
-    private readonly NetManager _net;
+    /// <summary>本会话借用的常驻网络服务。</summary>
+    private readonly NetService _net;
     /// <summary>当前账号会话拥有的网络代次，选角与离开角色时递增。</summary>
     private long _generation;
     /// <summary>是否已结束此账号会话。</summary>
@@ -29,7 +29,7 @@ public sealed class GameSession : IDisposable
     public EventSystem Events => _net.Events;
 
     /// <summary>仅在登录成功后创建账号会话，先转换摘要再建立未选角的角色缓存。</summary>
-    public GameSession(NetManager net, LoginRt response)
+    public GameSession(NetService net, LoginRt response)
     {
         ArgumentNullException.ThrowIfNull(net);
         ArgumentNullException.ThrowIfNull(response);

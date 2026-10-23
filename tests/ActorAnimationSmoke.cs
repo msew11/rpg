@@ -28,7 +28,7 @@ public partial class ActorAnimationSmoke : Node
             var config = new RepoGameConfig();
             config.LoadGodot();
             var repo = new RepoActorAnimation();
-            using var net = new NetManager(new MockTransport(new MockServer(temporary)));
+            using var net = new NetService(new MockTransport(new MockServer(temporary)));
             LoginRt? loginResponse = null;
             using var login = net.Events.Subscribe<LoginRt>(response =>
             {
