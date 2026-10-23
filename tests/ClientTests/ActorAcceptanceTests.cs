@@ -1,4 +1,5 @@
 using Godot;
+using Rpg.Net.Message;
 using Rpg.Session;
 using Rpg.World;
 using Rpg.World.Actions;
@@ -14,17 +15,17 @@ public sealed class ActorAcceptanceTests
     [InlineData(1002, RoleGender.Female)]
     public void GenderFlowsFromSessionIntoEntity(long roleId, RoleGender gender)
     {
-        var source = new MockStateSource();
+        using var source = new NetworkTestFixture();
         Assert.Equal(gender, source.Login("demo", "demo").Roles.Single(role => role.RoleId == roleId).Gender);
         using var session = source.SelectRole(roleId);
         var world = CreateWorld(session.Role);
-        Assert.Equal(gender, session.Cache.Role.Role.Gender);
+        Assert.Equal(gender, session.Cache.Role.State.Role.Gender);
         Assert.Equal(gender, world.ActorState!.Gender);
-        session.Cache.RoleChanged += state => world.Enqueue(new SyncRoleAction(state));
+        using var subscription = session.Events.Subscribe<MoveRt>(_ => world.Enqueue(new SyncRoleAction(session.Cache.Role.State)));
         session.SubmitMove(1, session.Role.Position + new Vector2(100, 0));
-        session.Advance(0.5);
+        source.Net.Tick(0.5);
         world.Tick(0);
-        Assert.Equal(gender, session.Cache.Role.Role.Gender);
+        Assert.Equal(gender, session.Cache.Role.State.Role.Gender);
         Assert.Equal(gender, world.ActorState.Gender);
     }
 
@@ -32,7 +33,8 @@ public sealed class ActorAcceptanceTests
     [Fact]
     public void MovementSelectsMotionAndRetainsFacingOnStop()
     {
-        var role = new MockStateSource().Login("demo", "demo").Roles[0];
+        using var source = new NetworkTestFixture();
+        var role = source.Login().Roles[0];
         var world = CreateWorld(role);
         var initial = world.ActorState!;
         Assert.Equal(RoleMotion.Stand, initial.Motion);
@@ -64,7 +66,8 @@ public sealed class ActorAcceptanceTests
     [Fact]
     public void AuthorityGenderUsesRevisionRatherThanMovementAcknowledgement()
     {
-        var role = new MockStateSource().Login("demo", "demo").Roles[0];
+        using var source = new NetworkTestFixture();
+        var role = source.Login().Roles[0];
         var world = CreateWorld(role);
         world.Enqueue(new SyncRoleAction(new DataRoleState(role with { Gender = RoleGender.Female }, role.Position, 2, 0)));
         world.Tick(0);
@@ -80,7 +83,8 @@ public sealed class ActorAcceptanceTests
     [Fact]
     public void NonMovementMotionsStayLogicalUntilNextCommand()
     {
-        var role = new MockStateSource().Login("demo", "demo").Roles[1];
+        using var source = new NetworkTestFixture();
+        var role = source.Login().Roles[1];
         var world = CreateWorld(role);
         foreach (var motion in Enum.GetValues<RoleMotion>().Except([RoleMotion.Stand, RoleMotion.Run]))
         {

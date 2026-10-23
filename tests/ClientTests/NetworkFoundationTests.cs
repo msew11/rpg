@@ -1,0 +1,204 @@
+using Google.Protobuf;
+using Rpg.Net;
+using Rpg.Net.Message;
+using Rpg.Session;
+
+namespace ClientTests;
+
+/// <summary>验证 openspec/specs/client-network 的字节、方向、队列与代次契约。</summary>
+public sealed class NetworkFoundationTests
+{
+    /// <summary>所有首批协议都能独立序列化并保留业务数据。</summary>
+    [Fact]
+    public void ProtocolsRoundTripAsIndependentObjects()
+    {
+        var state = new DataRoleMessage { RoleId = 1001, Name = "晨星", Gender = RoleGenderMessage.Male,
+            X = 123.5f, Y = 456, Revision = 9, AcknowledgedAction = 3 };
+        IMessage[] messages = [new Login { Username = "demo", Password = "demo" },
+            new SelectRole { RoleId = 1001 }, new Move { RoleId = 1001, ActionId = 3, X = 9, Y = 8 },
+            new LoginRt { Success = true, Roles = { state } },
+            new SelectRoleRt { Success = true, RoleId = 1001, State = state },
+            new MoveRt { Success = true, RoleId = 1001, ActionId = 3, State = state },
+            new RoleStateNotice { State = state }];
+        for (var index = 0; index < messages.Length; index++)
+        {
+            var envelope = MessageCodec.ReadEnvelope(MessageCodec.Encode(messages[index], 7, index < 3));
+            var decoded = MessageCodec.ReadPayload(envelope, index < 3);
+            Assert.Equal(7, envelope.Generation);
+            Assert.Equal(messages[index], decoded);
+            Assert.NotSame(messages[index], decoded);
+        }
+    }
+
+    /// <summary>未知类型、错误方向和损坏字节均阻止业务分发。</summary>
+    [Fact]
+    public void InvalidPacketsReportErrorsAndDoNotDispatch()
+    {
+        using var transport = new DoubleNetTransport();
+        using var net = new NetManager(transport);
+        var errors = new List<Exception>();
+        var delivered = 0;
+        net.Error += errors.Add;
+        using var subscription = net.Events.Subscribe<LoginRt>(_ => delivered++);
+        transport.Inject([255]);
+        transport.Inject(new Envelope { Generation = 1, MessageType = "unknown" }.ToByteArray());
+        transport.Inject(MessageCodec.Encode(new Login(), 1, true));
+        transport.Inject(new Envelope { Generation = 1, MessageType = LoginRt.Descriptor.FullName,
+            Payload = ByteString.CopyFrom([255]) }.ToByteArray());
+        net.Tick(0);
+        Assert.Equal(4, errors.Count);
+        Assert.Equal(0, delivered);
+        Assert.Throws<InvalidDataException>(() => net.Send(new LoginRt()));
+    }
+
+    /// <summary>Send 冻结请求，收到的响应只在 Tick 分发，回调中的新请求留到下一帧。</summary>
+    [Fact]
+    public void SendsAndReceivesAreQueuedAndFreezeMutableRequests()
+    {
+        using var transport = new DoubleNetTransport();
+        using var net = new NetManager(transport);
+        var callbacks = 0;
+        using var subscription = net.Events.Subscribe<LoginRt>(_ => { callbacks++; net.Send(new SelectRole { RoleId = 1001 }); });
+        var request = new Login { Username = "demo", Password = "demo" };
+        net.Send(request);
+        request.Username = "changed";
+        Assert.Empty(transport.Sent);
+        net.Tick(0);
+        var decoded = Assert.IsType<Login>(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(transport.Sent[0]), true));
+        Assert.Equal("demo", decoded.Username);
+        transport.Inject(MessageCodec.Encode(new LoginRt { Success = true }, 1, false));
+        Assert.Equal(0, callbacks);
+        net.Tick(0);
+        Assert.Equal(1, callbacks);
+        Assert.Single(transport.Sent);
+        net.Tick(0);
+        Assert.Equal(2, transport.Sent.Count);
+    }
+
+    /// <summary>重置会话丢弃未发送请求和已经在途的旧代次响应。</summary>
+    [Fact]
+    public void SessionResetDiscardsOldQueuedAndInFlightMessages()
+    {
+        using var transport = new DoubleNetTransport();
+        using var net = new NetManager(transport);
+        var calls = 0;
+        using var subscription = net.Events.Subscribe<LoginRt>(_ => calls++);
+        net.Send(new Login());
+        net.ResetSession();
+        transport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
+        net.Tick(0);
+        Assert.Empty(transport.Sent);
+        Assert.Equal(0, calls);
+        transport.Inject(MessageCodec.Encode(new LoginRt(), 2, false));
+        net.Tick(0);
+        Assert.Equal(1, calls);
+    }
+}
+
+/// <summary>验证 openspec/specs/session-events 的优先级、生命周期、重入与异常场景。</summary>
+public sealed class SessionEventTests
+{
+    /// <summary>先注册的 UI 也能读到所有缓存监听处理后的值。</summary>
+    [Fact]
+    public void AllCachesRunBeforeEarlierRegisteredUi()
+    {
+        using var events = new EventSystem();
+        var order = new List<string>();
+        var value = 0;
+        using var ui = events.Subscribe<int>(_ => { Assert.Equal(2, value); order.Add("ui"); });
+        using var first = events.Subscribe<int>(_ => { value++; order.Add("cache1"); }, EventPhase.Cache);
+        using var second = events.Subscribe<int>(_ => { value++; order.Add("cache2"); }, EventPhase.Cache);
+        events.Publish(1);
+        Assert.Equal(new[] { "cache1", "cache2", "ui" }, order);
+    }
+
+    /// <summary>快照不包含新监听，并会跳过分发中取消的旧监听。</summary>
+    [Fact]
+    public void RegistrationAndDisposalDuringDispatchRespectSnapshot()
+    {
+        using var events = new EventSystem();
+        IDisposable? removed = null;
+        IDisposable? added = null;
+        var order = new List<string>();
+        using var first = events.Subscribe<int>(_ =>
+        {
+            order.Add("first");
+            removed!.Dispose();
+            added ??= events.Subscribe<int>(_ => order.Add("added"));
+        });
+        removed = events.Subscribe<int>(_ => order.Add("removed"));
+        events.Publish(1);
+        Assert.Equal(new[] { "first" }, order);
+        events.Publish(2);
+        Assert.Equal(new[] { "first", "first", "added" }, order);
+        added?.Dispose();
+        added?.Dispose();
+    }
+
+    /// <summary>缓存回调的嵌套发布不会抢在当前 UI 前执行。</summary>
+    [Fact]
+    public void ReentrantMessagesWaitForCurrentNormalPhase()
+    {
+        using var events = new EventSystem();
+        var order = new List<string>();
+        using var cache = events.Subscribe<int>(value =>
+        {
+            order.Add($"cache{value}");
+            if (value == 1) events.Publish(2);
+        }, EventPhase.Cache);
+        using var ui = events.Subscribe<int>(value => order.Add($"ui{value}"));
+        events.Publish(1);
+        Assert.Equal(new[] { "cache1", "ui1", "cache2", "ui2" }, order);
+    }
+
+    /// <summary>缓存异常跳过 UI，普通异常不阻断其他监听或后续消息。</summary>
+    [Fact]
+    public void ListenerFailuresAreIsolatedByPhase()
+    {
+        using var events = new EventSystem();
+        var errors = 0;
+        var calls = 0;
+        events.Error += _ => errors++;
+        events.Error += _ => throw new InvalidOperationException("错误观察者异常");
+        using var cache = events.Subscribe<int>(value => { if (value == 1) throw new InvalidOperationException("缓存失败"); }, EventPhase.Cache);
+        using var badUi = events.Subscribe<int>(_ => throw new InvalidOperationException("UI 失败"));
+        using var goodUi = events.Subscribe<int>(_ => calls++);
+        events.Publish(1);
+        Assert.Equal(0, calls);
+        events.Publish(2);
+        Assert.Equal(1, calls);
+        Assert.Equal(2, errors);
+    }
+
+    /// <summary>会话重置中止旧消息剩余监听并清理嵌套消息。</summary>
+    [Fact]
+    public void ResetDuringDispatchInvalidatesCurrentSnapshotAndQueue()
+    {
+        using var events = new EventSystem();
+        var calls = 0;
+        using var cache = events.Subscribe<int>(_ => { events.Publish("old"); events.ResetPending(); }, EventPhase.Cache);
+        using var ui = events.Subscribe<int>(_ => calls++);
+        using var nested = events.Subscribe<string>(_ => calls++);
+        events.Publish(1);
+        Assert.Equal(0, calls);
+    }
+}
+
+/// <summary>服务于 client-network 字节边界契约的可控传输替身。</summary>
+internal sealed class DoubleNetTransport : INetTransport
+{
+    /// <summary>捕获发送方冻结的字节。</summary>
+    public List<byte[]> Sent { get; } = [];
+    /// <summary>向网络管理器提交测试字节。</summary>
+    public event Action<byte[]>? Received;
+    /// <summary>记录发送数据，不执行任何业务逻辑。</summary>
+    public void Send(byte[] packet) => Sent.Add((byte[])packet.Clone());
+    /// <summary>此替身不需要时间推进。</summary>
+    public void Tick(double delta) { }
+    /// <summary>保留已发送记录供断言，代次由信封验证。</summary>
+    public void ResetSession(long generation) { }
+    /// <summary>模拟在途服务器信封到达。</summary>
+    public void Inject(byte[] packet) => Received?.Invoke(packet);
+    /// <summary>释放接收订阅。</summary>
+    public void Dispose() => Received = null;
+}

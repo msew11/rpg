@@ -1,8 +1,12 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using Rpg.Config;
+using Rpg.Net;
+using Rpg.Net.Message;
+using Rpg.Server;
 using Rpg.Session;
 using Rpg.World;
 using Rpg.World.Actions;
@@ -17,18 +21,28 @@ public partial class ActorAnimationSmoke : Node
     /// <summary>在 Godot 内载入真实资源并检查玩家世界到动画节点的契约。</summary>
     public override async void _Ready()
     {
+        var temporary = Path.Combine(Path.GetTempPath(), "rpg-actor-smoke-" + Guid.NewGuid());
         try
         {
             var config = new RepoGameConfig();
             config.LoadGodot();
             var repo = new RepoActorAnimation();
-            var source = new MockStateSource();
+            using var net = new NetManager(new MockTransport(new MockServer(temporary)));
+            DataRole[] roles = [];
+            using var login = net.Events.Subscribe<LoginRt>(response =>
+            {
+                Check(response.Success, response.Error);
+                roles = response.Roles.Select(RoleMessageMapper.ToRole).ToArray();
+            });
+            net.Send(new Login { Username = "demo", Password = "demo" });
+            net.Tick(0);
+            Check(roles.Length == 2, "登录未返回两个演示角色");
             var actor = new ActorView();
             AddChild(actor);
             var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
             var facing = actor.GetNode<Node2D>("Facing");
             var total = 0;
-            foreach (var role in source.Login("demo", "demo").Roles)
+            foreach (var role in roles)
             {
                 var world = new WorldManager();
                 world.Enqueue(new InitializeWorldAction(new MapManager(config)));
@@ -126,6 +140,10 @@ public partial class ActorAnimationSmoke : Node
         {
             GD.PushError(error.ToString());
             GetTree().Quit(1);
+        }
+        finally
+        {
+            if (Directory.Exists(temporary)) Directory.Delete(temporary, true);
         }
     }
 

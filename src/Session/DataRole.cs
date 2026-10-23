@@ -11,5 +11,5 @@ public sealed record DataRole(long RoleId, string Name, int Level, int Health, i
 /// <summary>会话持有的最新权威角色状态。</summary>
 public sealed record DataRoleState(DataRole Role, Vector2 Position, long Revision, long AcknowledgedAction);
 
-/// <summary>模拟登录的结果及可选角色。</summary>
+/// <summary>客户端独立持有的登录结果及可选角色摘要。</summary>
 public sealed record DataLoginResult(bool Success, string Error, IReadOnlyList<DataRole> Roles);

@@ -1,7 +1,12 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using Rpg.Config;
 using Rpg.Input;
+using Rpg.Net;
+using Rpg.Net.Message;
+using Rpg.Server;
 using Rpg.Session;
 using Rpg.Settings;
 using Rpg.World;
@@ -16,8 +21,16 @@ public partial class MainController : Control
 {
     /// <summary>启动时加载并持有游戏配置的仓库。</summary>
     private RepoGameConfig _configRepo = null!;
-    /// <summary>当前使用的登录和状态来源。</summary>
-    private readonly IStateSource _source = new MockStateSource();
+    /// <summary>覆盖登录和角色会话的常驻网络管理器。</summary>
+    private NetManager? _net;
+    /// <summary>主控制器拥有的常驻消息订阅。</summary>
+    private readonly List<IDisposable> _subscriptions = [];
+    /// <summary>登录或选角页的请求状态与错误反馈。</summary>
+    private Label? _feedback;
+    /// <summary>响应到达前防止重复登录的按钮。</summary>
+    private Button? _loginButton;
+    /// <summary>可注入的服务端存档目录；空值使用 user://server。</summary>
+    public string ServerDirectory { get; set; } = "";
     /// <summary>本地系统与角色设置仓库。</summary>
     private RepoSettings _settings = null!;
     /// <summary>选中角色的活动会话。</summary>
@@ -53,6 +66,13 @@ public partial class MainController : Control
         {
             _configRepo = new RepoGameConfig();
             _configRepo.LoadGodot();
+            var directory = string.IsNullOrEmpty(ServerDirectory) ? ProjectSettings.GlobalizePath("user://server") : ServerDirectory;
+            _net = new NetManager(new MockTransport(new MockServer(directory)));
+            _net.Error += OnNetworkError;
+            _subscriptions.Add(_net.Events.Subscribe<LoginRt>(OnLoggedIn));
+            _subscriptions.Add(_net.Events.Subscribe<SelectRoleRt>(OnSelectedRole));
+            _subscriptions.Add(_net.Events.Subscribe<MoveRt>(OnMoved));
+            _subscriptions.Add(_net.Events.Subscribe<RoleStateNotice>(OnRoleNotice));
             ShowLogin();
         }
         catch (Exception error)
@@ -62,11 +82,11 @@ public partial class MainController : Control
         }
     }
 
-    /// <summary>推进会话模拟源和 Action 驱动的 ECS。</summary>
+    /// <summary>始终推进网络，再处理角色世界的 Action 与表现。</summary>
     public override void _PhysicsProcess(double delta)
     {
+        _net?.Tick(delta);
         if (_session is null || _world is null) return;
-        _session.Advance(delta);
         _world.Tick(delta);
         if (_actor is not null && _world.ActorState is { } state) _actor.Present(state);
         if (_camera is not null && _world.HasRole) _camera.Position = IsometricProjection.ToScreen(_world.RolePosition);
@@ -85,8 +105,15 @@ public partial class MainController : Control
         GetViewport().SetInputAsHandled();
     }
 
-    /// <summary>关闭场景时释放会话订阅。</summary>
-    public override void _ExitTree() => _session?.Dispose();
+    /// <summary>关闭场景时释放角色、所有常驻监听及网络传输。</summary>
+    public override void _ExitTree()
+    {
+        _hud?.ReleaseSubscriptions();
+        _session?.Dispose();
+        foreach (var subscription in _subscriptions) subscription.Dispose();
+        _subscriptions.Clear();
+        _net?.Dispose();
+    }
 
     /// <summary>展示用户名和密码输入及失败反馈。</summary>
     private void ShowLogin()
@@ -99,31 +126,27 @@ public partial class MainController : Control
         var password = new LineEdit { PlaceholderText = "密码", Secret = true, Text = "demo" };
         box.AddChild(username);
         box.AddChild(password);
-        var error = Label("", 14);
-        box.AddChild(error);
+        _feedback = Label("", 14);
+        box.AddChild(_feedback);
         var login = new Button { Text = "登录", CustomMinimumSize = new Vector2(180, 38) };
+        _loginButton = login;
         login.Pressed += () =>
         {
             login.Disabled = true;
-            error.Text = "正在连接模拟状态源…";
-            GetTree().CreateTimer(0.25).Timeout += () =>
-            {
-                if (!IsInsideTree()) return;
-                var result = _source.Login(username.Text, password.Text);
-                login.Disabled = false;
-                if (!result.Success) error.Text = result.Error;
-                else ShowRoles(result);
-            };
+            _feedback!.Text = "正在连接模拟服务器…";
+            _net!.Send(new Login { Username = username.Text, Password = password.Text });
         };
         box.AddChild(login);
     }
 
-    /// <summary>展示模拟源返回的角色列表。</summary>
-    private void ShowRoles(DataLoginResult result)
+    /// <summary>展示登录协议返回的角色列表及可选错误反馈。</summary>
+    private void ShowRoles(DataLoginResult result, string error = "")
     {
         ClearGame();
         _loginResult = result;
         var box = CenteredScreen("选择角色");
+        _feedback = Label(error, 14);
+        box.AddChild(_feedback);
         foreach (var role in result.Roles)
         {
             var button = new Button
@@ -139,17 +162,53 @@ public partial class MainController : Control
         box.AddChild(back);
     }
 
-    /// <summary>为选中角色建立独立会话并依次初始化世界和角色。</summary>
+    /// <summary>先建立空缓存监听，再提交选角，成功响应前不创建世界。</summary>
     private void StartRole(long roleId)
     {
-        ClearGame();
-        _session = _source.SelectRole(roleId);
+        if (_session is not null) return;
+        _session = new GameSession(roleId, _net!);
+        if (_feedback is not null) _feedback.Text = "正在进入角色…";
+        if (_screen is not null)
+            foreach (var node in _screen.FindChildren("*", "Button", true, false)) ((Button)node).Disabled = true;
+        _net!.Send(new SelectRole { RoleId = roleId });
+    }
+
+    /// <summary>将登录协议复制为客户端角色摘要，失败时保留登录界面。</summary>
+    private void OnLoggedIn(LoginRt response)
+    {
+        if (_loginButton is null) return;
+        _loginButton.Disabled = false;
+        if (!response.Success) { _feedback!.Text = response.Error; return; }
+        ShowRoles(new DataLoginResult(true, "", response.Roles.Select(RoleMessageMapper.ToRole).ToArray()));
+    }
+
+    /// <summary>缓存初始化成功后才创建世界；选角失败释放待建立会话。</summary>
+    private void OnSelectedRole(SelectRoleRt response)
+    {
+        if (_session is null || response.RoleId != _session.RoleId) return;
+        if (!response.Success)
+        {
+            if (_loginResult is { } result) ShowRoles(result, response.Error);
+            else ShowLogin();
+            return;
+        }
+        if (!_session.Cache.Role.IsInitialized) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
+        BuildRoleWorld();
+    }
+
+    /// <summary>使用选角响应更新后的缓存依次初始化世界和角色表现。</summary>
+    private void BuildRoleWorld()
+    {
+        var roleId = _session!.RoleId;
+        _screen?.QueueFree();
+        _screen = null;
+        _feedback = null;
+        _loginButton = null;
         _world = new WorldManager();
         _map = new MapManager(_configRepo);
         _world.Enqueue(new InitializeWorldAction(_map));
         _world.Enqueue(new InitializeRoleAction(_session.Role));
         _world.Tick(0);
-        _session.Cache.RoleChanged += OnCacheRoleChanged;
 
         _worldVisual = new Node2D { Name = "WorldVisual" };
         AddChild(_worldVisual);
@@ -185,22 +244,48 @@ public partial class MainController : Control
         GetTree().Quit();
     }
 
-    /// <summary>将缓存中的权威状态变更转化为 ECS Action。</summary>
-    private void OnCacheRoleChanged(DataRoleState state) => _world?.Enqueue(new SyncRoleAction(state));
+    /// <summary>移动成功后读取已更新缓存转为 Action，失败时向 HUD 反馈。</summary>
+    private void OnMoved(MoveRt response)
+    {
+        if (_session is null || response.RoleId != _session.RoleId) return;
+        if (!response.Success) { _hud?.ShowNetworkError(response.Error); return; }
+        EnqueueCachedRole();
+    }
+
+    /// <summary>主动推送也必须经已更新的角色缓存进入世界。</summary>
+    private void OnRoleNotice(RoleStateNotice notice)
+    {
+        if (_session is not null && notice.State?.RoleId == _session.RoleId) EnqueueCachedRole();
+    }
+
+    /// <summary>只向世界提交客户端独立快照，不直接写 ECS。</summary>
+    private void EnqueueCachedRole()
+    {
+        if (_session?.Cache.Role.IsInitialized == true) _world?.Enqueue(new SyncRoleAction(_session.Cache.Role.State));
+    }
+
+    /// <summary>显示编解码及传输错误，选角阶段失败时恢复可操作的角色列表。</summary>
+    private void OnNetworkError(Exception error)
+    {
+        if (_session is not null && _world is null && _loginResult is { } result) ShowRoles(result, error.Message);
+        else if (_feedback is not null) _feedback.Text = error.Message;
+        else _hud?.ShowNetworkError(error.Message);
+        if (_loginButton is not null) _loginButton.Disabled = false;
+    }
 
     /// <summary>清理旧界面、世界及会话订阅。</summary>
     private void ClearGame()
     {
-        if (_session is not null)
-        {
-            _session.Cache.RoleChanged -= OnCacheRoleChanged;
-            _session.Dispose();
-            _session = null;
-        }
+        _hud?.ReleaseSubscriptions();
+        if (_session is not null) _session.Dispose();
+        else _net?.ResetSession();
+        _session = null;
         _world = null;
         _map = null;
         _screen?.QueueFree();
         _screen = null;
+        _feedback = null;
+        _loginButton = null;
         _hudLayer?.QueueFree();
         _hudLayer = null;
         _hud = null;

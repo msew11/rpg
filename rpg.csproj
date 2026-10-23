@@ -6,8 +6,12 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="JsonSchema.Net" Version="9.4.1" />
+    <PackageReference Include="Google.Protobuf" Version="3.36.2" />
+    <PackageReference Include="Grpc.Tools" Version="2.84.0" PrivateAssets="All" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="tests/ClientTests/**/*.cs" />
+    <Compile Remove="src/Net/Message/**/*.cs" />
+    <Protobuf Include="proto/**/*.proto" ProtoRoot="proto" OutputDir="src\Net\Message" GrpcServices="None" />
   </ItemGroup>
 </Project>

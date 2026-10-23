@@ -1,5 +1,6 @@
 using Godot;
 using Rpg.Config;
+using Rpg.Net.Message;
 using Rpg.Session;
 using Rpg.Settings;
 using Rpg.Settings.Data;
@@ -75,7 +76,7 @@ public sealed class ClientAcceptanceTests
     [Fact]
     public void LoginAndRoleSelectionCreateIsolatedCache()
     {
-        var source = new MockStateSource();
+        using var source = new NetworkTestFixture();
         Assert.False(source.Login("demo", "wrong").Success);
         var result = source.Login("demo", "demo");
         Assert.True(result.Success);
@@ -87,24 +88,27 @@ public sealed class ClientAcceptanceTests
         first.Dispose();
         using var second = source.SelectRole(result.Roles[1].RoleId);
         Assert.NotSame(firstCache, second.Cache);
-        Assert.Equal(result.Roles[1].RoleId, second.Cache.Role.Role.RoleId);
+        Assert.Equal(result.Roles[1].RoleId, second.Cache.Role.State.Role.RoleId);
     }
 
-    /// <summary>状态源延迟确认先更新缓存，旧版本不会再次通知。</summary>
+    /// <summary>网络延迟确认先更新缓存，旧版本不能回滚权威状态。</summary>
     [Fact]
     public void DelayedAuthorityUpdateLandsInCache()
     {
-        var source = new MockStateSource();
+        using var source = new NetworkTestFixture();
+        source.Login();
         using var session = source.SelectRole(1001);
         var notifications = 0;
-        session.Cache.RoleChanged += _ => notifications++;
+        using var subscription = session.Events.Subscribe<MoveRt>(_ => notifications++);
         session.SubmitMove(1, session.Role.Position + new Vector2(100, 0));
-        session.Advance(0.2);
+        source.Net.Tick(0.2);
         Assert.Equal(0, notifications);
-        session.Advance(0.3);
+        source.Net.Tick(0.3);
         Assert.Equal(1, notifications);
-        Assert.Equal(1, session.Cache.Role.AcknowledgedAction);
-        Assert.False(session.Cache.Apply(session.Cache.Role with { Revision = 0 }));
+        Assert.Equal(1, session.Cache.Role.State.AcknowledgedAction);
+        var current = session.Cache.Role.State;
+        session.Events.Publish(new RoleStateNotice { State = new DataRoleMessage { RoleId = session.RoleId, Revision = 0 } });
+        Assert.Same(current, session.Cache.Role.State);
         Assert.Equal(1, notifications);
     }
 

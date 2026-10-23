@@ -2,9 +2,11 @@ using System;
 using System.Linq;
 using System.Reflection;
 using System.IO;
+using System.Threading.Tasks;
 using Godot;
 using Rpg.Settings;
 using Rpg.Settings.Data;
+using Rpg.Server;
 using Rpg.UI;
 using Rpg.World;
 using Rpg.World.Utils;
@@ -12,7 +14,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验证 openspec/specs/client-ui 的系统上拉菜单、返回与退出，以及 client-actor-presentation 的男女玩家表现流程。</summary>
+/// <summary>验证 openspec/specs/client-ui 的菜单流程、client-session 的选角失败恢复及 client-actor-presentation 的男女表现。</summary>
 public partial class ClientSmoke : Node
 {
     /// <summary>运行一次无界面场景集成检查并以退出码报告结果。</summary>
@@ -23,6 +25,7 @@ public partial class ClientSmoke : Node
         {
             var scene = GD.Load<PackedScene>("res://scenes/main.tscn");
             var main = scene.Instantiate<MainController>();
+            main.ServerDirectory = Path.Combine(temporary, "server");
             AddChild(main);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             typeof(MainController).GetField("_settings", BindingFlags.Instance | BindingFlags.NonPublic)!
@@ -41,8 +44,21 @@ public partial class ClientSmoke : Node
             await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
             var roleButton = main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text.Contains("ID 1001"));
+            // client-session 选角失败场景：坏存档不建立世界，恢复文件后可重试。
+            var rolePath = new RepoServerRole(main.ServerDirectory).GetRolePath(1001);
+            var validRole = File.ReadAllText(rolePath);
+            File.WriteAllText(rolePath, "{broken");
             roleButton.EmitSignal(Button.SignalName.Pressed);
-            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree().CreateTimer(0.1), SceneTreeTimer.SignalName.Timeout);
+            AssertGameCleared(main);
+            if (!main.FindChildren("*", "Label", true, false).OfType<Label>().Any(label => label.Text.Contains(rolePath)))
+                throw new InvalidOperationException("选角失败未显示存档错误");
+            File.WriteAllText(rolePath, validRole);
+            roleButton = main.FindChildren("*", "Button", true, false).OfType<Button>()
+                .Single(button => button.Text.Contains("ID 1001"));
+            if (roleButton.Disabled) throw new InvalidOperationException("选角失败后角色按钮未恢复");
+            roleButton.EmitSignal(Button.SignalName.Pressed);
+            await WaitForHud(main);
             var hud = main.GetChildren().OfType<CanvasLayer>().Single(layer => layer.Name == "HudLayer")
                 .GetChildren().OfType<GameHud>().Single();
             AssertRadarTopRight(hud);
@@ -158,7 +174,7 @@ public partial class ClientSmoke : Node
             var secondRole = main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text.Contains("ID 1002"));
             secondRole.EmitSignal(Button.SignalName.Pressed);
-            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await WaitForHud(main);
             var secondHud = main.GetChildren().OfType<CanvasLayer>().Single(layer => layer.Name == "HudLayer")
                 .GetChildren().OfType<GameHud>().Single();
             AssertBodyResource(main.GetChildren().OfType<Node2D>().Single()
@@ -223,7 +239,7 @@ public partial class ClientSmoke : Node
             await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
             main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text.Contains("ID 1001")).EmitSignal(Button.SignalName.Pressed);
-            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await WaitForHud(main);
             var finalHud = main.GetNode<GameHud>("HudLayer/GameHud");
             if (!finalHud.GetNode<PanelContainer>("hotbar2").Visible)
                 throw new InvalidOperationException("重新登录后未恢复角色设置");
@@ -231,7 +247,6 @@ public partial class ClientSmoke : Node
                 .Single(button => button.Text == "系统"));
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             // client-ui 退出游戏场景：必须由菜单使本次 Godot 进程正常结束，后续帧继续执行则判定失败。
-            Directory.Delete(temporary, true);
             GD.Print("Client smoke passed. Checking system menu exit...");
             Click(finalHud.GetNode("SystemMenuOverlay/SystemMenu").FindChildren("*", "Button", true, false)
                 .OfType<Button>().Single(button => button.Text == "退出游戏"));
@@ -248,6 +263,18 @@ public partial class ClientSmoke : Node
         {
             if (Directory.Exists(temporary)) Directory.Delete(temporary, true);
         }
+    }
+
+    /// <summary>等待固定帧选角响应创建 HUD，覆盖 client-session 的异步初始化顺序。</summary>
+    private async Task WaitForHud(MainController main)
+    {
+        for (var frame = 0; frame < 120 && !main.HasNode("HudLayer/GameHud"); frame++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
+        if (!main.HasNode("HudLayer/GameHud")) throw new InvalidOperationException("选角响应后未建立 HUD");
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }
 
     /// <summary>通过真实视口鼠标事件点击控件中心，覆盖菜单输入路由。</summary>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Godot;
 using Rpg.Config;
+using Rpg.Net.Message;
 using Rpg.Session;
 using Rpg.Settings;
 
@@ -21,6 +22,10 @@ public partial class GameHud : Control
     private RepoGameConfig _configRepo = null!;
     /// <summary>当前角色会话。</summary>
     private GameSession _session = null!;
+    /// <summary>当前 HUD 拥有的服务器消息监听。</summary>
+    private readonly List<IDisposable> _messageSubscriptions = [];
+    /// <summary>显示可恢复的网络或服务端错误。</summary>
+    private Label _networkError = null!;
     /// <summary>本地设置仓库。</summary>
     private RepoSettings _settings = null!;
     /// <summary>头像区域中的角色状态文字。</summary>
@@ -75,13 +80,19 @@ public partial class GameHud : Control
         BuildSystemMenu();
         ApplyLayout();
         RefreshData();
-        _session.Cache.RoleChanged += OnRoleChanged;
+        _networkError = Text("", 14);
+        _networkError.Name = "NetworkError";
+        _networkError.Position = new Vector2(16, 140);
+        _networkError.MouseFilter = MouseFilterEnum.Ignore;
+        AddChild(_networkError);
+        _messageSubscriptions.Add(_session.Events.Subscribe<MoveRt>(OnMoved));
+        _messageSubscriptions.Add(_session.Events.Subscribe<RoleStateNotice>(OnRoleNotice));
     }
 
     /// <summary>退出界面时保存未提交的拖动位置并释放会话订阅。</summary>
     public override void _ExitTree()
     {
-        if (_session is not null) _session.Cache.RoleChanged -= OnRoleChanged;
+        ReleaseSubscriptions();
         if (_dragging is not null) _settings.SaveCurrentRole();
     }
 
@@ -463,7 +474,7 @@ public partial class GameHud : Control
     /// <summary>从会话缓存刷新角色数值和地图位置。</summary>
     private void RefreshData()
     {
-        var state = _session.Cache.Role;
+        var state = _session.Cache.Role.State;
         var role = state.Role;
         _portraitText.Text = $"● {role.Name}  Lv.{role.Level}\n生命 {role.Health}/{role.MaxHealth}\n魔力 {role.Mana}/{role.MaxMana}\n经验 {role.Experience}/{role.NextExperience}";
         _characterText.Text = $"角色 ID：{role.RoleId}\n等级：{role.Level}\n生命：{role.Health}/{role.MaxHealth}\n魔力：{role.Mana}/{role.MaxMana}\n经验：{role.Experience}/{role.NextExperience}";
@@ -475,8 +486,27 @@ public partial class GameHud : Control
         _largeMap.QueueRedraw();
     }
 
-    /// <summary>响应缓存变化并更新世界外 UI。</summary>
-    private void OnRoleChanged(DataRoleState state) => RefreshData();
+    /// <summary>读取移动响应在缓存阶段更新后的快照。</summary>
+    private void OnMoved(MoveRt response)
+    {
+        if (response.Success && response.RoleId == _session.RoleId) RefreshData();
+    }
+
+    /// <summary>读取角色推送在缓存阶段更新后的快照。</summary>
+    private void OnRoleNotice(RoleStateNotice notice)
+    {
+        if (notice.State?.RoleId == _session.RoleId) RefreshData();
+    }
+
+    /// <summary>在界面上保留服务器或传输失败原因。</summary>
+    public void ShowNetworkError(string error) => _networkError.Text = error;
+
+    /// <summary>在返回页面时立即解除监听，不等待 QueueFree 执行。</summary>
+    public void ReleaseSubscriptions()
+    {
+        foreach (var subscription in _messageSubscriptions) subscription.Dispose();
+        _messageSubscriptions.Clear();
+    }
 
     /// <summary>把保存的主音量应用到 Godot 音频总线。</summary>
     public void ApplyVolume()

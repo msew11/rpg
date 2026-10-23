@@ -2,24 +2,15 @@ using System;
 
 namespace Rpg.Session;
 
-/// <summary>保存当前会话从状态源获得的最新权威数据。</summary>
-public sealed class DataCache
+/// <summary>组合当前会话各功能模块的服务器权威缓存。</summary>
+public sealed class DataCache : IDisposable
 {
-    /// <summary>状态变化后通知世界协调器与界面。</summary>
-    public event Action<DataRoleState>? RoleChanged;
+    /// <summary>当前角色模块缓存。</summary>
+    public RoleCache Role { get; }
 
-    /// <summary>当前角色的最新权威状态。</summary>
-    public DataRoleState Role { get; private set; }
+    /// <summary>在发送选角前建立功能模块的优先监听。</summary>
+    public DataCache(long roleId, EventSystem events) => Role = new RoleCache(roleId, events);
 
-    /// <summary>以选中角色的初始状态建立缓存。</summary>
-    public DataCache(DataRole role) => Role = new DataRoleState(role, role.Position, 0, 0);
-
-    /// <summary>只接纳版本更新的状态并发出通知。</summary>
-    public bool Apply(DataRoleState state)
-    {
-        if (state.Revision <= Role.Revision) return false;
-        Role = state;
-        RoleChanged?.Invoke(state);
-        return true;
-    }
+    /// <summary>统一释放组合模块的订阅。</summary>
+    public void Dispose() => Role.Dispose();
 }
