@@ -193,9 +193,9 @@ public partial class GameHud : Control
         var entries = new VBoxContainer();
         _systemMenu.AddChild(entries);
         AddSystemMenuItem(entries, "系统设置", () => TogglePanel("系统设置"));
-        AddSystemMenuItem(entries, "退出游戏", () => QuitRequested?.Invoke());
-        AddSystemMenuItem(entries, "返回登录", () => LoginRequested?.Invoke());
         AddSystemMenuItem(entries, "返回角色选择", () => ChangeRoleRequested?.Invoke());
+        AddSystemMenuItem(entries, "返回登陆", () => LoginRequested?.Invoke());
+        AddSystemMenuItem(entries, "退出游戏", () => QuitRequested?.Invoke());
     }
 
     /// <summary>添加先收起菜单再执行操作的条目。</summary>

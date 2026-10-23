@@ -105,7 +105,7 @@ public partial class ClientSmoke : Node
             var entries = popup.FindChildren("*", "Button", true, false).OfType<Button>().ToArray();
             var systemPanel = hud.GetChildren().OfType<PanelContainer>().Single(panel => panel.Name == "系统设置");
             if (!overlay.Visible || systemPanel.Visible ||
-                !entries.Select(button => button.Text).SequenceEqual(["系统设置", "退出游戏", "返回登录", "返回角色选择"]))
+                !entries.Select(button => button.Text).SequenceEqual(["系统设置", "返回角色选择", "返回登陆", "退出游戏"]))
                 throw new InvalidOperationException("系统按钮未展开指定顺序的四项菜单，或直接打开了设置");
             AssertSystemMenuBounds(hud, systemButton, popup);
             Click(systemButton);
@@ -152,7 +152,7 @@ public partial class ClientSmoke : Node
             if (new RepoSettings(temporary).LoadRole(1002).VisibleHotbars[1])
                 throw new InvalidOperationException("角色设置互相污染");
             Click(systemButton);
-            Click(entries[3]);
+            Click(entries[1]);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             AssertGameCleared(main);
             var secondRole = main.FindChildren("*", "Button", true, false).OfType<Button>()
@@ -214,7 +214,7 @@ public partial class ClientSmoke : Node
                 throw new InvalidOperationException("拖动 HUD 后系统上拉框未跟随系统按钮");
             var secondEntries = secondHud.GetNode("SystemMenuOverlay/SystemMenu").FindChildren("*", "Button", true, false)
                 .OfType<Button>().ToArray();
-            Click(secondEntries.Single(button => button.Text == "返回登录"));
+            Click(secondEntries.Single(button => button.Text == "返回登陆"));
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             AssertGameCleared(main);
             var relogin = main.FindChildren("*", "Button", true, false).OfType<Button>()
