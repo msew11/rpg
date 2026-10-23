@@ -2,7 +2,7 @@
 
 ## 数据和生命周期
 
-`RepoGameConfig` 在启动时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验，并持有已加载的配置。首期 `config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块及稀疏覆盖格；文件名与配置类型不符、未知、重复或无效文件均阻止启动。配置与程序同包发布。
+`RepoGameConfig` 在启动时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验，并独占持有已加载的配置。首期 `config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块及稀疏覆盖格；地图管理器与 UI 持有配置仓库，需要地图数据时从仓库读取，不另存 `MapConfig` 引用。文件名与配置类型不符、未知、重复或无效文件均阻止启动。配置与程序同包发布。
 
 模拟状态源处理演示登录和移动确认。登录返回角色列表；选角后 `GameSession` 持有该角色的 `DataCache`。缓存保存最新权威状态并发出更新通知。以后真实网络适配器应在会话边界替换模拟状态源，不把传输细节交给世界或 UI。
 

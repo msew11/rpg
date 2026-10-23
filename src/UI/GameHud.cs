@@ -124,7 +124,7 @@ public partial class GameHud : Control
         var radarBox = new VBoxContainer();
         radarPanel.AddChild(radarBox);
         radarBox.AddChild(Text("小地图", 15));
-        _miniMap = new MiniMapControl { CustomMinimumSize = new Vector2(150, 145), Map = _configRepo.MapConfig };
+        _miniMap = new MiniMapControl { CustomMinimumSize = new Vector2(150, 145), ConfigRepo = _configRepo };
         radarBox.AddChild(_miniMap);
 
         for (var bar = 1; bar <= 3; bar++)
@@ -187,7 +187,7 @@ public partial class GameHud : Control
         var mapPanel = CreatePanel("大地图", new Vector2(440, 440));
         _mapText = Text("", 14);
         mapPanel.AddChild(_mapText);
-        _largeMap = new MiniMapControl { CustomMinimumSize = new Vector2(390, 340), Map = _configRepo.MapConfig };
+        _largeMap = new MiniMapControl { CustomMinimumSize = new Vector2(390, 340), ConfigRepo = _configRepo };
         mapPanel.AddChild(_largeMap);
 
         var gm = CreatePanel("GM", new Vector2(590, 255));

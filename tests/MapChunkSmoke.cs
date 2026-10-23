@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
-using Rpg.Config.Data;
+using Rpg.Config;
 using Rpg.World;
 using Rpg.World.Utils;
 using Rpg.World.Views;
@@ -19,11 +19,9 @@ public partial class MapChunkSmoke : Node
         {
             var viewport = new SubViewport { Size = new Vector2I(1280, 720), Disable3D = true };
             AddChild(viewport);
-            var map = new MapManager(new MapConfig
-            {
-                Kind = "map", Id = "test", Width = 1000, Height = 1000,
-                TileSize = 32, DefaultTile = "ground"
-            });
+            var configRepo = new RepoGameConfig();
+            configRepo.LoadGodot();
+            var map = new MapManager(configRepo);
             var view = new MapView { Map = map };
             viewport.AddChild(view);
             var camera = new Camera2D { Position = IsometricProjection.ToScreen(new Vector2(16016, 16016)) };

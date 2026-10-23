@@ -1,6 +1,5 @@
 using Godot;
 using Rpg.Config;
-using Rpg.Config.Data;
 using Rpg.Session;
 using Rpg.Settings;
 using Rpg.Settings.Data;
@@ -17,7 +16,7 @@ public sealed class ClientAcceptanceTests
     [Fact]
     public void ConfigLoadsAllFilesAndRejectsUnknownType()
     {
-        var root = FindRoot();
+        var root = ConfigTestFixture.FindRoot();
         var repo = new RepoGameConfig();
         Assert.Throws<InvalidOperationException>(() => _ = repo.MapConfig);
         repo.Load(Path.Combine(root, "config"), Path.Combine(root, "schemas"));
@@ -25,7 +24,7 @@ public sealed class ClientAcceptanceTests
         Assert.Equal(1000, repo.MapConfig.Height);
         Assert.Equal(32, repo.MapConfig.TileSize);
         Assert.Equal("map", repo.MapConfig.Id);
-        var map = new MapManager(repo.MapConfig);
+        var map = new MapManager(repo);
         Assert.Equal("accent", map.TileAt(505, 500));
         Assert.Equal("ground", map.TileAt(1, 1));
 
@@ -67,11 +66,7 @@ public sealed class ClientAcceptanceTests
     [Fact]
     public void MapVisibleRegionDoesNotExpandWholeWorld()
     {
-        var map = new MapManager(new MapConfig
-        {
-            Kind = "map", Id = "test", Width = 1000, Height = 1000, TileSize = 32,
-            DefaultTile = "ground"
-        });
+        var map = new MapManager(ConfigTestFixture.LoadDefault());
         var region = map.VisibleTiles(new Rect2(16000, 16000, 1280, 720));
         Assert.True((region.Right - region.Left + 1) * (region.Bottom - region.Top + 1) < 1500);
     }
@@ -113,14 +108,6 @@ public sealed class ClientAcceptanceTests
         Assert.Equal(1, notifications);
     }
 
-    /// <summary>从测试输出目录向上寻找项目根目录。</summary>
-    private static string FindRoot()
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current is not null && !File.Exists(Path.Combine(current.FullName, "rpg.csproj")))
-            current = current.Parent;
-        return current?.FullName ?? throw new DirectoryNotFoundException("找不到项目根目录");
-    }
 }
 
 /// <summary>验证 openspec/specs/client-ecs-world 的 Action、重定目标与校正场景。</summary>
@@ -145,11 +132,7 @@ public sealed class WorldAcceptanceTests
     [Fact]
     public void WorldActionOrderMovementAndCorrection()
     {
-        var map = new MapManager(new MapConfig
-        {
-            Kind = "map", Id = "test", Width = 1000, Height = 1000, TileSize = 32,
-            DefaultTile = "ground"
-        });
+        var map = new MapManager(ConfigTestFixture.LoadDefault());
         var role = new DataRole(1, "测试", 1, 10, 10, 10, 10, 0, 10, new Vector2(100, 100));
         var world = new WorldManager();
         world.Enqueue(new InitializeRoleAction(role));
@@ -246,5 +229,27 @@ public sealed class SettingsAcceptanceTests
                 reopened.LoadRole(1001).HudPositions["portrait"].X);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+}
+
+/// <summary>为 openspec/specs/client-config-map 的地图场景加载真实配置仓库。</summary>
+internal static class ConfigTestFixture
+{
+    /// <summary>载入项目自带的地图配置。</summary>
+    internal static RepoGameConfig LoadDefault()
+    {
+        var root = FindRoot();
+        var repo = new RepoGameConfig();
+        repo.Load(Path.Combine(root, "config"), Path.Combine(root, "schemas"));
+        return repo;
+    }
+
+    /// <summary>从测试输出目录向上寻找项目根目录。</summary>
+    internal static string FindRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null && !File.Exists(Path.Combine(current.FullName, "rpg.csproj")))
+            current = current.Parent;
+        return current?.FullName ?? throw new DirectoryNotFoundException("找不到项目根目录");
     }
 }

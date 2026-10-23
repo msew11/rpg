@@ -23,20 +23,21 @@ public partial class MapChunkView : Node2D
         _left = left;
         _top = top;
         _chunkSize = chunkSize;
-        var tileSize = map.Config.TileSize;
+        var tileSize = map.ConfigRepo.MapConfig.TileSize;
         Position = IsometricProjection.ToScreen(new Vector2(left * tileSize, top * tileSize));
     }
 
     /// <summary>只绘制地图范围内属于该分块的等轴地块。</summary>
     public override void _Draw()
     {
-        var size = _map.Config.TileSize;
-        var right = Math.Min(_left + _chunkSize, _map.Config.Width);
-        var bottom = Math.Min(_top + _chunkSize, _map.Config.Height);
+        var config = _map.ConfigRepo.MapConfig;
+        var size = config.TileSize;
+        var right = Math.Min(_left + _chunkSize, config.Width);
+        var bottom = Math.Min(_top + _chunkSize, config.Height);
         for (var y = _top; y < bottom; y++)
         for (var x = _left; x < right; x++)
         {
-            var accent = _map.TileAt(x, y) != _map.Config.DefaultTile;
+            var accent = _map.TileAt(x, y) != config.DefaultTile;
             var checker = ((x + y) & 1) == 0;
             var color = accent ? new Color("607c96") : checker ? new Color("263a45") : new Color("2b414b");
             var origin = new Vector2((x - _left) * size, (y - _top) * size);

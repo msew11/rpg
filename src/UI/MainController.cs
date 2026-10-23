@@ -141,7 +141,7 @@ public partial class MainController : Control
         ClearGame();
         _session = _source.SelectRole(roleId);
         _world = new WorldManager();
-        _map = new MapManager(_configRepo.MapConfig);
+        _map = new MapManager(_configRepo);
         _world.Enqueue(new InitializeWorldAction(_map));
         _world.Enqueue(new InitializeRoleAction(_session.Role));
         _world.Tick(0);

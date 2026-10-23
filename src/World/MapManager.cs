@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using Rpg.Config.Data;
+using Rpg.Config;
 
 namespace Rpg.World;
 
@@ -11,33 +11,34 @@ public sealed class MapManager
     /// <summary>由稀疏覆盖格建立的快速查询表。</summary>
     private readonly Dictionary<(int X, int Y), string> _overrides = new();
 
-    /// <summary>该管理器使用的地图配置。</summary>
-    public MapConfig Config { get; }
+    /// <summary>提供地图配置的仓库。</summary>
+    public RepoGameConfig ConfigRepo { get; }
 
     /// <summary>构建稀疏地块索引。</summary>
-    public MapManager(MapConfig config)
+    public MapManager(RepoGameConfig configRepo)
     {
-        Config = config;
-        foreach (var tile in config.Overrides)
+        ConfigRepo = configRepo;
+        foreach (var tile in configRepo.MapConfig.Overrides)
             _overrides[(tile.X, tile.Y)] = tile.Tile;
     }
 
     /// <summary>将世界位置限制在地图范围内。</summary>
     public Vector2 Clamp(Vector2 position) => new(
-        Mathf.Clamp(position.X, 0, Config.Width * Config.TileSize - 1),
-        Mathf.Clamp(position.Y, 0, Config.Height * Config.TileSize - 1));
+        Mathf.Clamp(position.X, 0, ConfigRepo.MapConfig.Width * ConfigRepo.MapConfig.TileSize - 1),
+        Mathf.Clamp(position.Y, 0, ConfigRepo.MapConfig.Height * ConfigRepo.MapConfig.TileSize - 1));
 
     /// <summary>按格坐标读取地块类型。</summary>
-    public string TileAt(int x, int y) => _overrides.GetValueOrDefault((x, y), Config.DefaultTile);
+    public string TileAt(int x, int y) => _overrides.GetValueOrDefault((x, y), ConfigRepo.MapConfig.DefaultTile);
 
     /// <summary>给出覆盖指定世界矩形的有效格子范围。</summary>
     public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area)
     {
-        var size = Config.TileSize;
+        var config = ConfigRepo.MapConfig;
+        var size = config.TileSize;
         return (
-            Math.Clamp((int)Math.Floor(area.Position.X / size), 0, Config.Width - 1),
-            Math.Clamp((int)Math.Floor(area.Position.Y / size), 0, Config.Height - 1),
-            Math.Clamp((int)Math.Ceiling(area.End.X / size), 0, Config.Width - 1),
-            Math.Clamp((int)Math.Ceiling(area.End.Y / size), 0, Config.Height - 1));
+            Math.Clamp((int)Math.Floor(area.Position.X / size), 0, config.Width - 1),
+            Math.Clamp((int)Math.Floor(area.Position.Y / size), 0, config.Height - 1),
+            Math.Clamp((int)Math.Ceiling(area.End.X / size), 0, config.Width - 1),
+            Math.Clamp((int)Math.Ceiling(area.End.Y / size), 0, config.Height - 1));
     }
 }
