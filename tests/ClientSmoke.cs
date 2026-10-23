@@ -12,7 +12,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验证 openspec/specs/client-ui 的 Godot 场景可创建完整游戏 HUD。</summary>
+/// <summary>验证 openspec/specs/client-ui 与 client-actor-presentation 的 HUD 和男女玩家表现流程。</summary>
 public partial class ClientSmoke : Node
 {
     /// <summary>运行一次无界面场景集成检查并以退出码报告结果。</summary>
@@ -58,6 +58,7 @@ public partial class ClientSmoke : Node
                 throw new InvalidOperationException("世界或角色实体未初始化");
             if (actor.Position != IsometricProjection.ToScreen(manager.RolePosition))
                 throw new InvalidOperationException("角色表现未使用等轴投影");
+            AssertBodyResource(actor, "male");
             var click = new InputEventMouseButton
             {
                 ButtonIndex = MouseButton.Left,
@@ -73,6 +74,9 @@ public partial class ClientSmoke : Node
                 throw new InvalidOperationException("地图点击未转为世界 Action");
             if (manager.RoleTarget.Value.DistanceTo(expectedTarget) > 2)
                 throw new InvalidOperationException("等轴地图点击未还原为逻辑移动目标");
+            if (manager.ActorState!.Motion != RoleMotion.Run ||
+                !actor.GetNode<AnimatedSprite2D>("Facing/Body").IsPlaying())
+                throw new InvalidOperationException("点击移动未驱动玩家跑步动画");
             var characterButton = hud.FindChildren("*", "Button", true, false).OfType<Button>()
                 .First(button => button.Text == "角色");
             characterButton.EmitSignal(Button.SignalName.Pressed);
@@ -131,6 +135,8 @@ public partial class ClientSmoke : Node
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             var secondHud = main.GetChildren().OfType<CanvasLayer>().Single(layer => layer.Name == "HudLayer")
                 .GetChildren().OfType<GameHud>().Single();
+            AssertBodyResource(main.GetChildren().OfType<Node2D>().Single()
+                .GetChildren().OfType<ActorView>().Single(), "female");
             var secondHotbar = secondHud.GetChildren().OfType<PanelContainer>()
                 .Single(panel => panel.Name == "hotbar2");
             if (secondHotbar.Visible)
@@ -178,5 +184,14 @@ public partial class ClientSmoke : Node
             Math.Abs(radar.Position.Y - 16) > 1 ||
             radar.Position.X < 0 || radar.Position.Y < 0)
             throw new InvalidOperationException("小地图雷达未位于地图画面右上角");
+    }
+
+    /// <summary>验证 client-actor-presentation 的选角流程使用对应性别的真实身体图集。</summary>
+    private static void AssertBodyResource(ActorView actor, string gender)
+    {
+        var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+        var texture = body.SpriteFrames.GetFrameTexture(body.Animation, body.Frame) as AtlasTexture;
+        if (texture?.Atlas is null || !texture.Atlas.ResourcePath.Contains($"/characters/{gender}/"))
+            throw new InvalidOperationException("选角后没有使用对应性别的身体资源");
     }
 }

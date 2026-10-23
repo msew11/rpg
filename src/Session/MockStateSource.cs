@@ -10,8 +10,8 @@ public sealed class MockStateSource : IStateSource
     /// <summary>演示账号可选择的角色。</summary>
     private readonly List<DataRole> _roles =
     [
-        new(1001, "晨星", 5, 86, 100, 42, 60, 240, 500, new Vector2(16016, 16016)),
-        new(1002, "流光", 3, 64, 80, 75, 90, 120, 300, new Vector2(16144, 16080))
+        new(1001, "晨星", 5, 86, 100, 42, 60, 240, 500, new Vector2(16016, 16016), RoleGender.Male),
+        new(1002, "流光", 3, 64, 80, 75, 90, 120, 300, new Vector2(16144, 16080), RoleGender.Female)
     ];
     /// <summary>尚未到达确认时间的移动意图。</summary>
     private readonly List<PendingMove> _pending = [];

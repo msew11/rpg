@@ -66,7 +66,7 @@ public partial class MainController : Control
         if (_session is null || _world is null) return;
         _session.Advance(delta);
         _world.Tick(delta);
-        if (_actor is not null && _world.HasRole) _actor.Position = IsometricProjection.ToScreen(_world.RolePosition);
+        if (_actor is not null && _world.ActorState is { } state) _actor.Present(state);
         if (_camera is not null && _world.HasRole) _camera.Position = IsometricProjection.ToScreen(_world.RolePosition);
     }
 
@@ -124,7 +124,7 @@ public partial class MainController : Control
         {
             var button = new Button
             {
-                Text = $"{role.Name} · Lv.{role.Level} · ID {role.RoleId}",
+                Text = $"{role.Name} · {(role.Gender == RoleGender.Male ? "男" : "女")} · Lv.{role.Level} · ID {role.RoleId}",
                 CustomMinimumSize = new Vector2(320, 48)
             };
             button.Pressed += () => StartRole(role.RoleId);
@@ -152,6 +152,7 @@ public partial class MainController : Control
         _worldVisual.AddChild(new MapView { Map = _map, Name = "MapView" });
         _actor = new ActorView { Name = "ActorView", Position = IsometricProjection.ToScreen(_world.RolePosition) };
         _worldVisual.AddChild(_actor);
+        _actor.Present(_world.ActorState!);
         _camera = new Camera2D { Name = "WorldCamera", Position = IsometricProjection.ToScreen(_world.RolePosition), Enabled = true };
         _worldVisual.AddChild(_camera);
 

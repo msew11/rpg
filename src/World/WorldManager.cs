@@ -22,6 +22,8 @@ public sealed class WorldManager
     private int _roleEntity;
     /// <summary>最后应用的权威确认序号。</summary>
     private long _lastConfirmedAction;
+    /// <summary>已接纳的角色属性权威版本。</summary>
+    private long _lastRoleRevision;
 
     /// <summary>当前世界是否已创建地图实体。</summary>
     public bool HasWorld => _worldEntity != 0;
@@ -33,6 +35,19 @@ public sealed class WorldManager
     public Vector2? RoleTarget => HasRole ? _entities.Get<DataMovementComponent>(_roleEntity).Target : null;
     /// <summary>已应用的最新确认意图序号。</summary>
     public long LastConfirmedAction => _lastConfirmedAction;
+
+    /// <summary>复制玩家逻辑状态供表现读取，不暴露可写组件。</summary>
+    public DataActorState? ActorState
+    {
+        get
+        {
+            if (!HasRole) return null;
+            var role = _entities.Get<DataRoleComponent>(_roleEntity);
+            var actor = _entities.Get<DataActorComponent>(_roleEntity);
+            return new DataActorState(role.RoleId, role.Gender, RolePosition,
+                actor.Motion, actor.Facing, actor.MotionVersion);
+        }
+    }
 
     /// <summary>追加由输入或会话层转换的 Action。</summary>
     public void Enqueue(WorldAction action) => _actions.Enqueue(action);
@@ -54,20 +69,35 @@ public sealed class WorldManager
                 _entities.Clear();
                 _roleEntity = 0;
                 _lastConfirmedAction = 0;
+                _lastRoleRevision = 0;
                 _worldEntity = _entities.Create(new DataMapComponent(world.Map));
                 break;
             case InitializeRoleAction role:
                 if (!HasWorld) throw new InvalidOperationException("必须先初始化世界实体");
-                _roleEntity = _entities.Create(new DataRoleComponent(role.Role.RoleId),
-                    new DataPositionComponent(role.Role.Position), new DataMovementComponent());
+                _lastRoleRevision = 0;
+                _lastConfirmedAction = 0;
+                _roleEntity = _entities.Create(new DataRoleComponent(role.Role.RoleId, role.Role.Gender),
+                    new DataPositionComponent(role.Role.Position), new DataMovementComponent(), new DataActorComponent());
                 break;
             case MoveAction move:
                 if (!HasRole) return;
                 var map = _entities.Get<DataMapComponent>(_worldEntity).Map;
                 _entities.Get<DataMovementComponent>(_roleEntity).Target = map.Clamp(move.Destination);
                 break;
+            case SetRoleMotionAction motion:
+                if (!HasRole || motion.RoleId != _entities.Get<DataRoleComponent>(_roleEntity).RoleId) return;
+                if (!Enum.IsDefined(motion.Motion) || motion.Motion is RoleMotion.Run or RoleMotion.Stand)
+                    throw new ArgumentException("站立与跑步由移动系统维护，动作请求必须使用有效的非移动动作");
+                _entities.Get<DataMovementComponent>(_roleEntity).Target = null;
+                var actor = _entities.Get<DataActorComponent>(_roleEntity);
+                actor.Motion = motion.Motion;
+                actor.MotionVersion++;
+                break;
             case SyncRoleAction sync:
                 if (!HasRole || sync.State.Role.RoleId != _entities.Get<DataRoleComponent>(_roleEntity).RoleId) return;
+                if (sync.State.Revision <= _lastRoleRevision) return;
+                _lastRoleRevision = sync.State.Revision;
+                _entities.Get<DataRoleComponent>(_roleEntity).Gender = sync.State.Role.Gender;
                 if (sync.State.AcknowledgedAction <= _lastConfirmedAction) return;
                 _lastConfirmedAction = sync.State.AcknowledgedAction;
                 _entities.Get<DataPositionComponent>(_roleEntity).Value =

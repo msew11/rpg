@@ -1,0 +1,143 @@
+[gd_resource type="Resource" script_class="DataActorAnimation" load_steps=24 format=3]
+
+[ext_resource type="Script" path="res://src/World/Views/DataActorAnimation.cs" id="1"]
+[ext_resource type="Texture2D" path="res://assets/characters/female/die.png" id="2"]
+
+[sub_resource type="AtlasTexture" id="Frame_0_0"]
+atlas = ExtResource("2")
+region = Rect2(0, 0, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_0_1"]
+atlas = ExtResource("2")
+region = Rect2(68, 0, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_0_2"]
+atlas = ExtResource("2")
+region = Rect2(136, 0, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_0_3"]
+atlas = ExtResource("2")
+region = Rect2(204, 0, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_1_0"]
+atlas = ExtResource("2")
+region = Rect2(0, 83, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_1_1"]
+atlas = ExtResource("2")
+region = Rect2(68, 83, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_1_2"]
+atlas = ExtResource("2")
+region = Rect2(136, 83, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_1_3"]
+atlas = ExtResource("2")
+region = Rect2(204, 83, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_2_0"]
+atlas = ExtResource("2")
+region = Rect2(0, 166, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_2_1"]
+atlas = ExtResource("2")
+region = Rect2(68, 166, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_2_2"]
+atlas = ExtResource("2")
+region = Rect2(136, 166, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_2_3"]
+atlas = ExtResource("2")
+region = Rect2(204, 166, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_3_0"]
+atlas = ExtResource("2")
+region = Rect2(0, 249, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_3_1"]
+atlas = ExtResource("2")
+region = Rect2(68, 249, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_3_2"]
+atlas = ExtResource("2")
+region = Rect2(136, 249, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_3_3"]
+atlas = ExtResource("2")
+region = Rect2(204, 249, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_4_0"]
+atlas = ExtResource("2")
+region = Rect2(0, 332, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_4_1"]
+atlas = ExtResource("2")
+region = Rect2(68, 332, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_4_2"]
+atlas = ExtResource("2")
+region = Rect2(136, 332, 68, 83)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="Frame_4_3"]
+atlas = ExtResource("2")
+region = Rect2(204, 332, 68, 83)
+filter_clip = true
+
+[sub_resource type="SpriteFrames" id="Animations"]
+animations = [
+{"frames": [
+{"duration": 1.0, "texture": SubResource("Frame_0_0")},
+{"duration": 1.0, "texture": SubResource("Frame_0_1")},
+{"duration": 1.0, "texture": SubResource("Frame_0_2")},
+{"duration": 1.0, "texture": SubResource("Frame_0_3")}
+], "loop": false, "name": &"dir0", "speed": 10.0},
+{"frames": [
+{"duration": 1.0, "texture": SubResource("Frame_1_0")},
+{"duration": 1.0, "texture": SubResource("Frame_1_1")},
+{"duration": 1.0, "texture": SubResource("Frame_1_2")},
+{"duration": 1.0, "texture": SubResource("Frame_1_3")}
+], "loop": false, "name": &"dir1", "speed": 10.0},
+{"frames": [
+{"duration": 1.0, "texture": SubResource("Frame_2_0")},
+{"duration": 1.0, "texture": SubResource("Frame_2_1")},
+{"duration": 1.0, "texture": SubResource("Frame_2_2")},
+{"duration": 1.0, "texture": SubResource("Frame_2_3")}
+], "loop": false, "name": &"dir2", "speed": 10.0},
+{"frames": [
+{"duration": 1.0, "texture": SubResource("Frame_3_0")},
+{"duration": 1.0, "texture": SubResource("Frame_3_1")},
+{"duration": 1.0, "texture": SubResource("Frame_3_2")},
+{"duration": 1.0, "texture": SubResource("Frame_3_3")}
+], "loop": false, "name": &"dir3", "speed": 10.0},
+{"frames": [
+{"duration": 1.0, "texture": SubResource("Frame_4_0")},
+{"duration": 1.0, "texture": SubResource("Frame_4_1")},
+{"duration": 1.0, "texture": SubResource("Frame_4_2")},
+{"duration": 1.0, "texture": SubResource("Frame_4_3")}
+], "loop": false, "name": &"dir4", "speed": 10.0}
+]
+
+[resource]
+script = ExtResource("1")
+Frames = SubResource("Animations")
+Anchor = Vector2(34, 72)
