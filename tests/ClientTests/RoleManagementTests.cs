@@ -20,7 +20,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
     [Fact]
     public void ManagementRequiresAuthenticatedRoleList()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         CreateRoleRt? created = null;
         DeleteRoleRt? deleted = null;
         using var create = EventBus.Subscribe<CreateRoleRt>(response => created = response);
@@ -45,7 +45,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
     [Fact]
     public void FailedCreateCanRetryWithoutPartialRole()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         var blocked = Path.Combine(fixture.DirectoryPath, "1003.json");
         Directory.CreateDirectory(blocked);
@@ -68,7 +68,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
     [Fact]
     public void MalformedManagementResponseDoesNotPublishPartialList()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         var before = fixture.Session!.Roles;
         var delivered = false;
@@ -90,17 +90,18 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
     public void CreateHeadFlowsThroughWorldAndRestart(RoleGender gender, int headId)
     {
         using var fixture = new NetworkTestFixture(EventBus);
-        fixture.Login();
+        Assert.Empty(fixture.Login().Roles);
+        Assert.Empty(fixture.Login().Roles);
         var session = fixture.Session!;
         var observed = false;
         using var listener = EventBus.Subscribe<CreateRoleRt>(response =>
         {
             Assert.True(response.Success, response.Error);
-            Assert.Equal(3, session.Roles.Count);
+            Assert.Single(session.Roles);
             observed = true;
         });
         session.CreateRole("  新角色  ", gender, headId);
-        Assert.Equal(2, session.Roles.Count);
+        Assert.Empty(session.Roles);
         fixture.Net.Tick(0);
         Assert.True(observed);
         var summary = session.Roles.Single(role => role.Name == "新角色");
@@ -125,7 +126,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
     [Fact]
     public void DeleteAllSurvivesRestartAndAllowsCreate()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         foreach (var role in fixture.Session!.Roles.ToArray())
         {
@@ -156,7 +157,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
     [InlineData("新角色", 75)]
     public void InvalidCreatePreservesList(string name, int headId)
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         var before = fixture.Session!.Roles;
         CreateRoleRt? result = null;
@@ -175,7 +176,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
     [Fact]
     public void FailedDeletePreservesFileAndCache()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         var path = new RepoServerRole(fixture.DirectoryPath).GetRolePath(1001);
         var original = File.ReadAllText(path);
@@ -200,7 +201,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
     [Fact]
     public void LegacyHeadAndNewProtocolAreCompatible()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         var path = new RepoServerRole(fixture.DirectoryPath).GetRolePath(1001);
         var json = JsonNode.Parse(File.ReadAllText(path))!.AsObject();

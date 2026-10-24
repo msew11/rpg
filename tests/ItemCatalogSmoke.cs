@@ -38,6 +38,7 @@ public partial class ItemCatalogSmoke : Node
                         && entry.Sha256.Length == 64, "素材区域或溯源数据无效：" + entry.Id);
             }
             main = new DoubleMainController { SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server") };
+            RoleTestData.Seed(main.ServerDirectory);
             AddChild(main);
             await Frame();
             main.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "登录")

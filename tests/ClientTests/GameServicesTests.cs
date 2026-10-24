@@ -46,7 +46,11 @@ public sealed class GameServicesTests
             GameServices.Session.Login("demo", "demo");
             GameServices.Net.Tick(0);
             Assert.True(GameServices.Session.IsLoggedIn);
-            Assert.True(File.Exists(Path.Combine(env.ServerDirectory, "1001.json")));
+            Assert.Empty(GameServices.Session.Roles);
+            GameServices.Session.CreateRole("目录验收", Rpg.Const.RoleGender.Male, 1);
+            GameServices.Net.Tick(0);
+            var created = Assert.Single(GameServices.Session.Roles);
+            Assert.True(File.Exists(Path.Combine(env.ServerDirectory, $"{created.RoleId}.json")));
             lifetime.Dispose();
             Assert.True(env.IsDisposed);
             Assert.Throws<InvalidOperationException>(() => GameServices.Env);
@@ -119,6 +123,7 @@ public sealed class GameServicesTests
         try
         {
             var serverDirectory = Path.Combine(directory, "server");
+            Rpg.Tests.RoleTestData.Seed(serverDirectory);
             var server = new MockServer(serverDirectory);
             using var net = new NetService(new MockTransport(server), eventBus);
             var env = ConfigTestFixture.CreateEnv(Path.Combine(directory, "settings"));

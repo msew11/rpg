@@ -42,7 +42,7 @@ public sealed class LoginCacheTests : RegisteredServiceTestScope
     [Fact]
     public void FailedAndMalformedResponsesClearPreviousAccountAndAllowRetry()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         Assert.True(fixture.Login().Success);
         var previous = fixture.LoginCache;
         Assert.False(fixture.Login("demo", "wrong").Success);
@@ -75,7 +75,7 @@ public sealed class LoginCacheTests : RegisteredServiceTestScope
     [Fact]
     public void LoginCacheSurvivesRoleSessionsUntilClearedOrDisposed()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         var login = fixture.Login();
         var account = fixture.Session!;
         var roles = fixture.LoginCache.Roles;

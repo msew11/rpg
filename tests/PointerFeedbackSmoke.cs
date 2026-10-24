@@ -23,6 +23,7 @@ public partial class PointerFeedbackSmoke : Node
             var image = GD.Load<Texture2D>("res://assets/pointer/circle.png").GetImage();
             Check(image.GetSize() == new Vector2I(68, 41) && image.GetPixel(64, 20).A > 0, "circle 缺少右侧图块");
             main = new DoubleMainController { SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server") };
+            RoleTestData.Seed(main.ServerDirectory);
             AddChild(main);
             await Frames();
             Click(new Vector2(10, 10));

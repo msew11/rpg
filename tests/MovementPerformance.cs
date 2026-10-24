@@ -26,6 +26,7 @@ public partial class MovementPerformance : Node
                 SettingsDirectory = Path.Combine(directory, "settings"),
                 ServerDirectory = Path.Combine(directory, "server")
             };
+            RoleTestData.Seed(main.ServerDirectory);
             AddChild(main);
             GameServices.Session.Login("demo", "demo");
             await Until(() => GameServices.Session.IsLoggedIn);

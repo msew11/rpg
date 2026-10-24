@@ -80,7 +80,7 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void LoginAndRoleSelectionCreateIsolatedCache()
     {
-        using var source = new NetworkTestFixture(EventBus);
+        using var source = new NetworkTestFixture(EventBus, seedRoles: true);
         Assert.Null(source.Session);
         Assert.False(source.Login("demo", "wrong").Success);
         Assert.Null(source.Session);
@@ -111,7 +111,7 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void DelayedAuthorityUpdateLandsInCache()
     {
-        using var source = new NetworkTestFixture(EventBus);
+        using var source = new NetworkTestFixture(EventBus, seedRoles: true);
         source.Login();
         using var session = source.SelectRole(1001);
         var notifications = 0;

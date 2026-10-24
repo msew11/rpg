@@ -41,7 +41,7 @@
 
 `dotnet build rpg.csproj` 使用仅构建依赖 `Grpc.Tools 2.84.0` 自动生成 `src/Net/Message/Message.cs`、`Role.cs`、`Login.cs` 和 `World.cs`，运行依赖为 `Google.Protobuf 3.36.2`，未启用 gRPC。生成 C# 与 proto 一起提交，中文协议注释写在 proto，不直接修改生成文件。SDK 排除生成目录的默认编译项，再由 protobuf 构建目标添加，避免重复编译。
 
-`src/Server` 的 `MockServer` 使用 `src/Server/Data` 下的独立 `DataServerRole` 和服务端性别枚举，不引用客户端模型或 Godot。`RepoServerRole` 按角色 ID 保存到 `user://server/<roleId>.json`；服务端目录统一来自环境服务，测试通过内部环境构造使用临时目录。首次初始化时补齐缺失的两个演示角色，并写入 initialized 标记；之后缺失角色报错，删除通过原子写入 IsDeleted 墓碑实现，角色编号保留且不会重启复活。创建使用递增新编号，名字去首尾空白并限制 1—16 个字符、拒绝控制字符及重名；头型限定性别内 1—74。旧 JSON 缺失 HeadId 默认 1；旧协议 head_id=0 以默认 1 展示。初始化标记、墓碑及角色文件仅由 MockServer 所属仓库管理；损坏数据、身份不符或写入失败明确报错，不静默覆盖。保存先写同目录临时文件并刷盘，再替换目标文件，成功后才提交内存状态并返回响应或 Notice。
+`src/Server` 的 `MockServer` 使用 `src/Server/Data` 下的独立 `DataServerRole` 和服务端性别枚举，不引用客户端模型或 Godot。`RepoServerRole` 按角色 ID 保存到 `user://server/<roleId>.json`；服务端目录统一来自环境服务，测试通过内部环境构造使用临时目录。全新存档登录返回空角色列表，不生成演示角色；读取缺失角色直接报错，删除通过原子写入 IsDeleted 墓碑实现，角色编号保留且不会重启复活。创建使用递增新编号，名字去首尾空白并限制 1—16 个字符、拒绝控制字符及重名；头型限定性别内 1—74。旧 JSON 缺失 HeadId 默认 1；旧协议 head_id=0 以默认 1 展示。不再创建或依赖 initialized 标记，已有标记不影响读取且保留原样；已有角色不会自动删除或补齐。墓碑及角色文件仅由 MockServer 所属仓库管理；损坏数据、身份不符或写入失败明确报错，不静默覆盖。保存先写同目录临时文件并刷盘，再替换目标文件，成功后才提交内存状态并返回响应或 Notice。
 
 模拟移动保留每秒 180 逻辑单位、0.45 秒确认及横向 3 单位校正偏差。仅保存已确认/推送状态，不保存会话结束时仍待确认的移动；选角恢复位置和 revision，移动确认序号重置为 0，供新世界使用。`PublishRoleState` 提供服务端主动更新入口，保存成功后发送 Notice，不添加产品操作面板。JSON 存储仅面向单实例进程内 Mock，不提供多进程写入协调。
 

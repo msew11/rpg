@@ -59,6 +59,7 @@ public partial class ClientSmoke : Node
             var main = new DoubleMainController();
             main.ServerDirectory = Path.Combine(temporary, "server");
             main.SettingsDirectory = temporary;
+            RoleTestData.Seed(main.ServerDirectory);
             AddChild(main);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             var loginFields = main.FindChildren("*", "LineEdit", true, false).OfType<LineEdit>().ToArray();

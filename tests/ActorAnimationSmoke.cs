@@ -27,6 +27,7 @@ public partial class ActorAnimationSmoke : Node
         var temporary = Path.Combine(Path.GetTempPath(), "rpg-actor-smoke-" + Guid.NewGuid());
         try
         {
+            RoleTestData.Seed(temporary);
             using var services = GameServicesTestFactory.Register(new EnvService(Path.Combine(temporary, "settings"), temporary));
             var config = GameServices.Config;
             var repo = new AnimationService();
@@ -40,7 +41,7 @@ public partial class ActorAnimationSmoke : Node
             net.Send(new Login { Username = "demo", Password = "demo" });
             net.Tick(0);
             using var session = new SessionService(net, loginResponse!);
-            Check(session.LoginCache.Roles.Count == 2, "登录未返回两个演示角色");
+            Check(session.LoginCache.Roles.Count == 2, "登录未返回预先准备的两个角色");
             var actor = new ActorView();
             AddChild(actor);
             var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");

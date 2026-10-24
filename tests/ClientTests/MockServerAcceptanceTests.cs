@@ -17,7 +17,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void LoginReturnsSummariesAndSelectionLoadsLatestWorldState()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         LoginRt? loginResponse = null;
         using var loginListener = EventBus.Subscribe<LoginRt>(response => loginResponse = response);
         var login = fixture.Login();
@@ -55,7 +55,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [InlineData("notice")]
     public void CachedWorldDataDoesNotRetainProtocolObjects(string source)
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         RoleWorldStatePb? initialMessage = null;
         using var selected = EventBus.Subscribe<SelectRoleRt>(response => initialMessage = response.State.Clone());
@@ -107,7 +107,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void ConfirmedMovementPersistsBeforeResponseAndSurvivesRestart()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         var repo = new RepoServerRole(fixture.DirectoryPath);
         var otherRole = repo.Load(1002);
@@ -150,7 +150,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void NoticeCommitsBeforeEarlierUiAndDoesNotShareMutableData()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         SessionService? session = null;
         var notices = 0;
@@ -179,7 +179,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void RoleCacheRejectsOldForeignAndMalformedStates()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         RoleWorldStatePb? selectedState = null;
         using var selectedResponse = EventBus.Subscribe<SelectRoleRt>(message => selectedState = message.State.Clone());
@@ -205,7 +205,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void ReenteringSameRoleDiscardsDelayedWorkAndOldSubscriptions()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         using var first = fixture.SelectRole(1001);
         var initial = first.RoleCache.State;
@@ -233,7 +233,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void LeavingSessionDiscardsUnsentMovement()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         using var first = fixture.SelectRole(1001);
         var initial = first.Role.Position;
@@ -275,7 +275,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [InlineData("{}")]
     public void CorruptFilesFailWithoutOverwriting(string corrupted)
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         var path = new RepoServerRole(fixture.DirectoryPath).GetRolePath(1001);
         File.WriteAllText(path, corrupted);
@@ -302,7 +302,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [InlineData("gender")]
     public void InvalidStoredFieldsAreDiagnosed(string field)
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         var repo = new RepoServerRole(fixture.DirectoryPath);
         var original = repo.Load(1001);
@@ -322,7 +322,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void FailedMovementSavePreservesConfirmedStateAndOriginalFile()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         using var session = fixture.SelectRole(1001);
         var repo = new RepoServerRole(fixture.DirectoryPath);
@@ -352,7 +352,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void FailedNoticeSaveDoesNotPublishOrCommit()
     {
-        using var fixture = new NetworkTestFixture(EventBus);
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         using var session = fixture.SelectRole(1001);
         var repo = new RepoServerRole(fixture.DirectoryPath);

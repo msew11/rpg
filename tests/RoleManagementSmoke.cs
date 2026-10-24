@@ -31,13 +31,8 @@ public partial class RoleManagementSmoke : Node
             await Frames();
             var selection = (RoleSelectionControl)main.FindChild("RoleSelectionPage", true, false);
             AssertLayout(selection, "ReturnLogin");
-            Press(main, "SelectRole1002");
-            Check(!GameServices.World.HasWorld && GameServices.Session.RoleId == 0, "列表选择直接进入了角色");
-            var selectedActor = (ActorView)selection.FindChild("PreviewActor", true, false);
-            Check(ReferenceEquals(selectedActor.GetNode<Sprite2D>("Facing/Head").Texture,
-                GameServices.Animation.GetHead(RoleGender.Female, 1).Frames[4]), "选角未展示选中角色");
-            Press(selection, "RotateClockwise");
-            await Capture("role-selection-preview.png");
+            Check(GameServices.Session.Roles.Count == 0, "全新存档登录生成了角色");
+            Check(main.FindChild("OpenCreateRole", true, false) is Button { Disabled: false }, "首次空列表无法创建");
             Press(main, "OpenCreateRole");
             await Frames();
             var page = main.FindChild("CreateRolePage", true, false) as RoleCreateControl
@@ -109,10 +104,10 @@ public partial class RoleManagementSmoke : Node
             await Frames();
             Press(page, "SubmitCreate");
             var nameDialog = (ConfirmationDialog)page.FindChild("RoleNameDialog", true, false);
-            Check(nameDialog.Visible && GameServices.Session.Roles.Count == 2, "提示命名时已发送创建请求");
+            Check(nameDialog.Visible && GameServices.Session.Roles.Count == 0, "提示命名时已发送创建请求");
             nameDialog.EmitSignal(ConfirmationDialog.SignalName.Canceled);
             nameDialog.Hide();
-            Check(GameServices.Session.Roles.Count == 2, "取消命名仍创建了角色");
+            Check(GameServices.Session.Roles.Count == 0, "取消命名仍创建了角色");
             Press(page, "SubmitCreate");
             Press(page, "ConfirmCreate");
             var name = (LineEdit)page.FindChild("RoleName", true, false);
@@ -126,12 +121,19 @@ public partial class RoleManagementSmoke : Node
             await Frames();
             var role = GameServices.Session.Roles.Single(value => value.Name == "分层预览验收");
             Check(role.HeadId == 74 && role.Gender == RoleGender.Female, "创建没有保存草稿外观");
+            selection = (RoleSelectionControl)main.FindChild("RoleSelectionPage", true, false);
+            Press(main, $"SelectRole{role.RoleId}");
+            var selectedActor = (ActorView)selection.FindChild("PreviewActor", true, false);
+            Check(ReferenceEquals(selectedActor.GetNode<Sprite2D>("Facing/Head").Texture,
+                GameServices.Animation.GetHead(RoleGender.Female, 74).Frames[4]), "选角未展示新创建的角色");
+            Press(selection, "RotateClockwise");
+            await Capture("role-selection-preview.png");
             Press(main, $"DeleteRole{role.RoleId}");
             await Frame();
             var dialog = (ConfirmationDialog)main.FindChild("ConfirmDeleteRole", true, false);
             dialog.EmitSignal(ConfirmationDialog.SignalName.Canceled);
             await Frame();
-            Check(GameServices.Session.Roles.Count == 3, "取消确认仍删除了角色");
+            Check(GameServices.Session.Roles.Count == 1, "取消确认仍删除了角色");
             Press(main, $"SelectRole{role.RoleId}");
             Check(!GameServices.World.HasWorld, "预览角色时创建了世界");
             Press(main, "EnterRole");

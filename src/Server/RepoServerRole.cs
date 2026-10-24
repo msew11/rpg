@@ -14,30 +14,22 @@ public sealed class RepoServerRole
     private readonly string _directory;
     /// <summary>便于调试查看的 JSON 写入设置。</summary>
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-    /// <summary>演示账号拥有的角色 ID，不暴露可写集合。</summary>
-    public static System.Collections.Generic.IReadOnlyList<long> RoleIds { get; } = Array.AsReadOnly(new long[] { 1001, 1002 });
 
     /// <summary>绑定存储目录，延迟到具体请求时创建文件。</summary>
     public RepoServerRole(string directory) => _directory = Path.GetFullPath(directory);
 
-    /// <summary>获取已知演示角色的存档路径。</summary>
+    /// <summary>获取指定角色的存档路径。</summary>
     public string GetRolePath(long roleId)
     {
         if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
         return Path.Combine(_directory, $"{roleId}.json");
     }
 
-    /// <summary>读取并验证角色；仅缺失文件时保存初始状态。</summary>
+    /// <summary>读取并验证已有角色；缺失时报告错误，不生成存档。</summary>
     public DataServerRole Load(long roleId)
     {
         var path = GetRolePath(roleId);
-        if (!File.Exists(path) && !Directory.Exists(path))
-        {
-            if (File.Exists(Path.Combine(_directory, "initialized"))) throw new InvalidDataException("角色不存在");
-            var initial = InitialRole(roleId);
-            Save(initial);
-            return initial;
-        }
+        if (!File.Exists(path) && !Directory.Exists(path)) throw new InvalidDataException("角色不存在");
         try
         {
             var role = JsonSerializer.Deserialize<DataServerRole>(File.ReadAllText(path))
@@ -80,24 +72,10 @@ public sealed class RepoServerRole
         }
     }
 
-    /// <summary>仅首次初始化补齐演示角色；已初始化后缺失数据不会自动复活。</summary>
-    private void EnsureInitialized()
-    {
-        var marker = Path.Combine(_directory, "initialized");
-        if (File.Exists(marker)) return;
-        foreach (var id in RoleIds)
-        {
-            var path = GetRolePath(id);
-            if (!File.Exists(path) && !Directory.Exists(path)) Save(InitialRole(id));
-        }
-        // 标记只在两个初始角色均已存在后创建；失败可以安全重试。
-        File.WriteAllText(marker, "1");
-    }
-
     /// <summary>读取完整账号列表，墓碑不再成为可选择的角色。</summary>
     public IReadOnlyList<DataServerRole> List()
     {
-        EnsureInitialized();
+        Directory.CreateDirectory(_directory);
         var roles = new List<DataServerRole>();
         foreach (var id in StoredIds())
         {
@@ -129,10 +107,12 @@ public sealed class RepoServerRole
             throw new ArgumentException("角色名字已存在");
         if (!Enum.IsDefined(gender) || headId is < 1 or > 74) throw new ArgumentException("性别或头型无效");
         var id = checked(StoredIds().DefaultIfEmpty(1002).Max() + 1);
-        var role = InitialRole(gender == ServerRoleGender.Male ? 1001 : 1002) with
+        var role = new DataServerRole
         {
             RoleId = id, Name = name, Gender = gender, HeadId = headId, Level = 1,
-            Health = 100, MaxHealth = 100, Mana = 60, MaxMana = 60, Experience = 0, NextExperience = 500
+            Health = 100, MaxHealth = 100, Mana = 60, MaxMana = 60, Experience = 0, NextExperience = 500,
+            X = gender == ServerRoleGender.Male ? 16016 : 16144,
+            Y = gender == ServerRoleGender.Male ? 16016 : 16080
         };
         Save(role);
         return role;
@@ -141,7 +121,6 @@ public sealed class RepoServerRole
     /// <summary>原子写入墓碑，失败保留原角色；删除编号不再复用。</summary>
     public void Delete(long roleId)
     {
-        EnsureInitialized();
         var role = Load(roleId);
         Save(role with { IsDeleted = true });
     }
@@ -163,14 +142,4 @@ public sealed class RepoServerRole
             role.HeadId < 1 || role.HeadId > 74 || role.Revision < 0 || role.AcknowledgedAction < 0)
             throw new InvalidDataException("角色存档包含无效字段");
     }
-
-    /// <summary>仅为演示账号的两个既有角色提供初始值。</summary>
-    private static DataServerRole InitialRole(long roleId) => roleId switch
-    {
-        1001 => new DataServerRole { RoleId = 1001, Name = "晨星", Level = 5, Health = 86, MaxHealth = 100,
-            Mana = 42, MaxMana = 60, Experience = 240, NextExperience = 500, X = 16016, Y = 16016, Gender = ServerRoleGender.Male },
-        1002 => new DataServerRole { RoleId = 1002, Name = "流光", Level = 3, Health = 64, MaxHealth = 80,
-            Mana = 75, MaxMana = 90, Experience = 120, NextExperience = 300, X = 16144, Y = 16080, Gender = ServerRoleGender.Female },
-        _ => throw new ArgumentException("角色不存在", nameof(roleId))
-    };
 }
