@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using Rpg.Net;
+using Rpg.Config;
+using Rpg.Services;
+using Rpg.Settings;
 using Rpg.UI;
 
 namespace Rpg.Tests.Doubles;
@@ -15,8 +18,15 @@ public partial class DoubleStartupFailureController : MainController
     /// <summary>底层传输是否随启动失败被释放。</summary>
     public bool TransportDisposed => _transport.IsDisposed;
 
-    /// <summary>替换网络创建边界，首次构造成功，注册后的登录页初始化失败。</summary>
-    protected override NetService CreateNetService(string directory) => CreatedNet = new NetService(_transport);
+    /// <summary>注册测试服务组，登录页重置网络时触发启动失败。</summary>
+    protected override IDisposable InitializeServices()
+    {
+        var environment = new EnvironmentService(Path.Combine(Path.GetTempPath(), "rpg-startup-" + Guid.NewGuid()));
+        var config = new ConfigService(environment);
+        var setting = new SettingService(environment);
+        CreatedNet = new NetService(_transport);
+        return GameServices.Register(environment, config, setting, CreatedNet);
+    }
 
     /// <summary>第一次会话重置成功，后续重置触发受控的启动异常。</summary>
     private sealed class DoubleStartupTransport : INetTransport

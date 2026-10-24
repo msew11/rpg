@@ -3,9 +3,7 @@
 ## Purpose
 
 定义会话内基于消息类型的监听契约，保证所有缓存处理完成后界面和世界才读取状态，同时明确注册、释放、重入以及异常行为，使调用顺序不依赖界面和缓存的创建顺序。
-
 ## Requirements
-
 ### Requirement: 缓存优先的类型监听
 事件系统 SHALL 提供按具体类型注册的可释放监听，同一消息先执行全部缓存监听再执行普通监听；每阶段内按注册顺序执行。
 
@@ -36,7 +34,7 @@
 - **THEN** 其他普通监听仍被调用且错误可被观察
 
 ### Requirement: 唯一全局事件服务
-客户端 SHALL 只由 GameServices 创建一个实现 IService 的 EventService，并以只读 Events 入口提供给网络、会话、缓存、世界和 UI；消费者 SHALL 不创建私有事件系统，不经网络或缓存构造参数逐层传递。事件服务 SHALL 在消费者之前就绪，整体退出时最后释放；初始化前及释放后访问明确失败。监听异常 SHALL 通过 Events.Error 报告。
+客户端 SHALL 只由 GameServices 创建一个实现 IService 的 EventService，并以只读 Events 入口提供给网络、会话、缓存、世界和 UI；消费者 SHALL 不创建私有事件系统，不经网络或缓存构造参数逐层传递。事件服务 SHALL 在消费者之前就绪，整体退出时在所有消费者之后、环境服务之前释放；初始化前及释放后访问明确失败。监听异常 SHALL 通过 Events.Error 报告。
 
 #### Scenario: 网络与缓存共享事件域
 - **WHEN** 网络分发响应，缓存和 UI 通过 GameServices.Events 订阅

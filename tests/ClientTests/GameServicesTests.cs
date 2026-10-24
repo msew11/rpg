@@ -11,6 +11,72 @@ namespace ClientTests;
 /// <summary>验证 openspec/specs/game-services 的全局访问、所有权及独立实例契约；同类测试串行执行。</summary>
 public sealed class GameServicesTests
 {
+    /// <summary>验证 game-services 的正式启动无参，公开服务构造只声明服务依赖。</summary>
+    [Fact]
+    public void PublicInitializationAndConstructorsExposeOnlyServiceDependencies()
+    {
+        var initialize = Assert.Single(typeof(GameServices).GetMethods()
+            .Where(method => method.Name == nameof(GameServices.Initialize)));
+        Assert.Empty(initialize.GetParameters());
+        var services = typeof(Service).Assembly.GetTypes()
+            .Where(type => !type.IsAbstract && typeof(IService).IsAssignableFrom(type));
+        foreach (var type in services)
+            foreach (var constructor in type.GetConstructors())
+                Assert.All(constructor.GetParameters(), parameter =>
+                    Assert.True(typeof(IService).IsAssignableFrom(parameter.ParameterType), type.Name));
+    }
+
+    /// <summary>验证 game-services 的隔离环境同时控制配置、设置和模拟服务端，且随整组释放。</summary>
+    [Fact]
+    public void EnvironmentControlsDirectoriesAndEndsWithItsConsumers()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "rpg-environment-" + Guid.NewGuid());
+        using var environment = ConfigTestFixture.CreateEnvironment(Path.Combine(directory, "settings"),
+            Path.Combine(directory, "server"));
+        try
+        {
+            Assert.Throws<InvalidOperationException>(() => GameServices.Environment);
+            using var lifetime = GameServices.Register(environment);
+            Assert.Same(environment, GameServices.Environment);
+            Assert.Equal(1000, GameServices.Config.MapConfig.Width);
+            GameServices.Setting.SetResolution(1600, 900);
+            Assert.True(File.Exists(Path.Combine(environment.SettingsDirectory, "system.json")));
+            GameServices.Session.Login("demo", "demo");
+            GameServices.Net.Tick(0);
+            Assert.True(GameServices.Session.IsLoggedIn);
+            Assert.True(File.Exists(Path.Combine(environment.ServerDirectory, "1001.json")));
+            lifetime.Dispose();
+            Assert.True(environment.IsDisposed);
+            Assert.Throws<InvalidOperationException>(() => GameServices.Environment);
+            using var nextEnvironment = ConfigTestFixture.CreateEnvironment(environment.SettingsDirectory, environment.ServerDirectory);
+            using var next = GameServices.Register(nextEnvironment);
+            lifetime.Dispose();
+            Assert.Same(nextEnvironment, GameServices.Environment);
+            Assert.Equal(1600, GameServices.Setting.Width);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    /// <summary>验证 game-services 的早期配置失败与后续网络构造失败都会清理环境，允许重试。</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ConstructionFailureReleasesEnvironmentAndAllowsRestart(bool failConfig)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "rpg-environment-failure-" + Guid.NewGuid());
+        var root = ConfigTestFixture.FindRoot();
+        using var environment = new EnvironmentService(directory, "",
+            failConfig ? Path.Combine(directory, "missing") : Path.Combine(root, "config"),
+            Path.Combine(root, "schemas"));
+        Assert.ThrowsAny<Exception>(() => GameServices.Register(environment));
+        Assert.True(environment.IsDisposed);
+        Assert.False(GameServices.IsInitialized);
+        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
+        using var nextEnvironment = ConfigTestFixture.CreateEnvironment(directory, Path.Combine(directory, "server"));
+        using var next = GameServices.Register(nextEnvironment);
+        Assert.Same(nextEnvironment, GameServices.Environment);
+    }
+
     /// <summary>验证 game-services 与 client-session 的非法登录摘要不会触发界面成功回调，且合法重试可恢复。</summary>
     [Fact]
     public void InvalidLoginStateStopsUiNotificationAndAllowsValidRetry()
@@ -51,8 +117,9 @@ public sealed class GameServicesTests
             var serverDirectory = Path.Combine(directory, "server");
             var server = new MockServer(serverDirectory);
             using var net = new NetService(new MockTransport(server));
-            var setting = new SettingService(Path.Combine(directory, "settings"));
-            using var services = GameServices.Initialize(ConfigTestFixture.LoadDefault(), setting, net);
+            var environment = ConfigTestFixture.CreateEnvironment(Path.Combine(directory, "settings"));
+            var setting = new SettingService(environment);
+            using var services = GameServices.Register(environment, new ConfigService(environment), setting, net);
             var errors = new List<Exception>();
             GameServices.Events.Error += errors.Add;
             var observedLogin = false;
@@ -114,9 +181,10 @@ public sealed class GameServicesTests
         try
         {
             var config = ConfigTestFixture.LoadDefault();
-            var setting = new SettingService(directory);
+            var environment = ConfigTestFixture.CreateEnvironment(directory);
+            var setting = new SettingService(environment);
             var net = new NetService(new DoubleLifetimeTransport { FailDispose = true });
-            using var services = GameServices.Initialize(config, setting, net);
+            using var services = GameServices.Register(environment, config, setting, net);
             var session = GameServices.Session;
             var world = GameServices.World;
             var animation = GameServices.Animation;
@@ -148,9 +216,10 @@ public sealed class GameServicesTests
         try
         {
             var config = ConfigTestFixture.LoadDefault();
-            var setting = new SettingService(directory);
+            var environment = ConfigTestFixture.CreateEnvironment(directory);
+            var setting = new SettingService(environment);
             var net = new NetService(new DoubleNetTransport());
-            using var services = GameServices.Initialize(config, setting, net);
+            using var services = GameServices.Register(environment, config, setting, net);
             setting.SelectRole(1001);
             setting.SetHudPosition("portrait", 0.3f, 0.4f);
             File.WriteAllText(directory, "阻止创建设置目录");
@@ -403,7 +472,7 @@ public sealed class GameServicesTests
     public void AllServicesExposeDisposalStateThroughCommonContract()
     {
         using var lifetime = Register(new NetService(new DoubleNetTransport()));
-        IService[] services = [GameServices.Config, GameServices.Setting, GameServices.Events,
+        IService[] services = [GameServices.Environment, GameServices.Config, GameServices.Setting, GameServices.Events,
             GameServices.Net, GameServices.Session, GameServices.World, GameServices.Animation];
         Assert.All(services, service => Assert.False(service.IsDisposed));
         lifetime.Dispose();
@@ -415,10 +484,11 @@ public sealed class GameServicesTests
     /// <summary>创建完整服务组，注册失败时释放仍归调用方的配置和设置。</summary>
     private static IDisposable Register(NetService net)
     {
-        var config = ConfigTestFixture.LoadDefault();
-        var setting = new SettingService(Path.Combine(Path.GetTempPath(), "rpg-services-" + Guid.NewGuid()));
-        try { return GameServices.Initialize(config, setting, net); }
-        catch { setting.Dispose(); config.Dispose(); throw; }
+        var environment = ConfigTestFixture.CreateEnvironment(Path.Combine(Path.GetTempPath(), "rpg-services-" + Guid.NewGuid()));
+        var config = new ConfigService(environment);
+        var setting = new SettingService(environment);
+        try { return GameServices.Register(environment, config, setting, net); }
+        catch { setting.Dispose(); config.Dispose(); environment.Dispose(); throw; }
     }
 
     /// <summary>服务于 game-services 释放契约的计数传输，可模拟关闭失败。</summary>

@@ -27,10 +27,10 @@ public sealed class NetService : Service
     public event Action<Exception>? Error;
 
     /// <summary>在服务内部初始化当前阶段的进程内传输。</summary>
-    public NetService(string serverDirectory) : this(new MockTransport(new MockServer(serverDirectory))) { }
+    public NetService(EnvironmentService environment) : this(new MockTransport(new MockServer(environment.ServerDirectory))) { }
 
-    /// <summary>绑定传输并建立首个会话代次。</summary>
-    public NetService(INetTransport transport)
+    /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>
+    internal NetService(INetTransport transport)
     {
         _transport = transport;
         _transport.ResetSession(_generation);

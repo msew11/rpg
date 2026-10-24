@@ -15,11 +15,14 @@ namespace Rpg.Config;
 /// <summary>扫描、校验并组合打包的 JSON 游戏配置。</summary>
 public sealed class ConfigService : Service
 {
-    /// <summary>启动时在服务内部加载打包配置。</summary>
-    public ConfigService() => LoadGodot();
-
-    /// <summary>从独立目录初始化配置，供配置工具和隔离测试使用。</summary>
-    public ConfigService(string configDirectory, string schemaDirectory) => Load(configDirectory, schemaDirectory);
+    /// <summary>从环境指定的资源包或磁盘目录加载配置及配套校验规则。</summary>
+    public ConfigService(EnvironmentService environment)
+    {
+        ObjectDisposedException.ThrowIf(environment.IsDisposed, environment);
+        if (environment.ConfigDirectory.StartsWith("res://", StringComparison.Ordinal))
+            LoadGodot(environment.ConfigDirectory, environment.SchemaDirectory);
+        else Load(environment.ConfigDirectory, environment.SchemaDirectory);
+    }
 
     /// <summary>最近一次成功加载的地图配置。</summary>
     private MapConfig? _mapConfig;
@@ -48,12 +51,12 @@ public sealed class ConfigService : Service
     }
 
     /// <summary>从 Godot 资源包递归读取配置，支持编辑器和导出程序。</summary>
-    private void LoadGodot(string configDirectory = "res://config")
+    private void LoadGodot(string configDirectory, string schemaDirectory)
     {
         ThrowIfDisposed();
         var files = new List<(string Path, string Text)>();
         Scan(configDirectory, files);
-        var schema = FileAccess.GetFileAsString("res://schemas/map.schema.json");
+        var schema = FileAccess.GetFileAsString($"{schemaDirectory}/map.schema.json");
         if (string.IsNullOrWhiteSpace(schema)) throw new InvalidDataException("地图 Schema 不存在或为空");
         _mapConfig = LoadDocuments(files, schema);
     }

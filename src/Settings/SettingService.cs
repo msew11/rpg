@@ -22,10 +22,11 @@ public sealed class SettingService : Service
     /// <summary>当前角色设置是否有未保存的修改。</summary>
     private bool _roleDirty;
 
-    /// <summary>从指定目录载入本次启动的系统设置。</summary>
-    public SettingService(string root)
+    /// <summary>从环境指定的目录载入本次启动的系统设置。</summary>
+    public SettingService(EnvironmentService environment)
     {
-        _root = root;
+        ObjectDisposedException.ThrowIf(environment.IsDisposed, environment);
+        _root = environment.SettingsDirectory;
         _systemSetting = LoadSystem();
     }
 

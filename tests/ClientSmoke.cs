@@ -27,6 +27,23 @@ public partial class ClientSmoke : Node
         var temporary = Path.Combine(Path.GetTempPath(), "rpg-smoke-" + Guid.NewGuid());
         try
         {
+            // game-services 无参启动：默认环境统一目录，重复启动不会替换本次服务。
+            using (var defaults = GameServices.Initialize())
+            {
+                var environment = GameServices.Environment;
+                if (environment.ConfigDirectory != "res://config" || environment.SchemaDirectory != "res://schemas" ||
+                    environment.SettingsDirectory != ProjectSettings.GlobalizePath("user://settings") ||
+                    environment.ServerDirectory != ProjectSettings.GlobalizePath("user://server"))
+                    throw new InvalidOperationException("无参启动未使用统一的默认环境");
+                try
+                {
+                    GameServices.Initialize();
+                    throw new Exception("重复启动未被拒绝");
+                }
+                catch (InvalidOperationException) { }
+                if (!ReferenceEquals(environment, GameServices.Environment))
+                    throw new InvalidOperationException("重复启动替换了环境");
+            }
             // game-services 启动失败清理：预期报告一次受控错误，随后正常场景仍能初始化。
             GD.Print("Checking expected startup failure: 模拟注册后启动失败");
             var failed = new DoubleStartupFailureController();
@@ -38,8 +55,7 @@ public partial class ClientSmoke : Node
                 throw new InvalidOperationException("启动失败未显示错误反馈");
             failed.QueueFree();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            var scene = GD.Load<PackedScene>("res://scenes/main.tscn");
-            var main = scene.Instantiate<MainController>();
+            var main = new DoubleMainController();
             main.ServerDirectory = Path.Combine(temporary, "server");
             main.SettingsDirectory = temporary;
             AddChild(main);
@@ -180,7 +196,7 @@ public partial class ClientSmoke : Node
             var volume = tabs.FindChildren("*", "HSlider", true, false).OfType<HSlider>().Single();
             volume.Value = 40;
             saveButtons[1].EmitSignal(Button.SignalName.Pressed);
-            var persistedSystem = new SettingService(temporary);
+            var persistedSystem = new SettingService(new EnvironmentService(temporary));
             if (persistedSystem.Width != 1600 || Math.Abs(persistedSystem.MasterVolume - 0.4f) > 0.001f)
                 throw new InvalidOperationException("显示或声音设置未保存");
             var secondBar = tabs.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
@@ -279,7 +295,7 @@ public partial class ClientSmoke : Node
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (GameServices.IsInitialized || !originalNet.IsDisposed)
                 throw new InvalidOperationException("主场景退出后全局服务未释放");
-            main = scene.Instantiate<MainController>();
+            main = new DoubleMainController();
             main.ServerDirectory = Path.Combine(temporary, "server");
             main.SettingsDirectory = temporary;
             AddChild(main);

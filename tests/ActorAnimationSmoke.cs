@@ -28,11 +28,10 @@ public partial class ActorAnimationSmoke : Node
         var temporary = Path.Combine(Path.GetTempPath(), "rpg-actor-smoke-" + Guid.NewGuid());
         try
         {
-            var config = new ConfigService();
+            using var services = GameServices.Register(new EnvironmentService(Path.Combine(temporary, "settings"), temporary));
+            var config = GameServices.Config;
             var repo = new AnimationService();
-            using var net = new NetService(new MockTransport(new MockServer(temporary)));
-            using var services = GameServices.Initialize(config,
-                new SettingService(Path.Combine(temporary, "settings")), net);
+            var net = GameServices.Net;
             LoginRt? loginResponse = null;
             using var login = GameServices.Events.Subscribe<LoginRt>(response =>
             {

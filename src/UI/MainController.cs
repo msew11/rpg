@@ -21,10 +21,6 @@ public partial class MainController : Control
     private Label? _feedback;
     /// <summary>响应到达前防止重复登录的按钮。</summary>
     private Button? _loginButton;
-    /// <summary>可注入的本地设置目录；空值使用 user://settings。</summary>
-    public string SettingsDirectory { get; set; } = "";
-    /// <summary>可注入的服务端存档目录；空值使用 user://server。</summary>
-    public string ServerDirectory { get; set; } = "";
     /// <summary>登录或选角页面。</summary>
     private CanvasLayer? _screen;
     /// <summary>地图、角色和摄像机的表现根节点。</summary>
@@ -44,11 +40,7 @@ public partial class MainController : Control
         MouseFilter = MouseFilterEnum.Ignore;
         try
         {
-            var settingsDirectory = string.IsNullOrEmpty(SettingsDirectory)
-                ? ProjectSettings.GlobalizePath("user://settings") : SettingsDirectory;
-            var serverDirectory = string.IsNullOrEmpty(ServerDirectory)
-                ? ProjectSettings.GlobalizePath("user://server") : ServerDirectory;
-            _servicesLifetime = GameServices.Initialize(settingsDirectory, serverDirectory, CreateNetService);
+            _servicesLifetime = InitializeServices();
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;
             GameServices.Events.Error += OnNetworkError;
@@ -87,8 +79,8 @@ public partial class MainController : Control
     /// <summary>关闭场景时释放角色、所有常驻监听及网络传输。</summary>
     public override void _ExitTree() => ReleaseServices();
 
-    /// <summary>集中创建传输，允许场景验收替换网络而无需修改全局入口。</summary>
-    protected virtual NetService CreateNetService(string directory) => new(directory);
+    /// <summary>启动完整服务组，场景测试可覆盖整组初始化以隔离环境。</summary>
+    protected virtual IDisposable InitializeServices() => GameServices.Initialize();
 
     /// <summary>启动失败与场景退出共用清理顺序，最终释放本次启动的服务句柄。</summary>
     private void ReleaseServices()
