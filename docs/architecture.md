@@ -95,6 +95,12 @@ Godot 输入 -> 等轴逆投影 -> GameServices.World -> 移动 Action / 会话�
 动画资源 -> GameServices.Animation -> ActorView
 ```
 
+## 鼠标与地面点击反馈
+
+`MainController` 启动时设置 `assets/pointer/normal.png` 为普通硬件鼠标，使用原配置热点 (2, 2)，退出场景时恢复。`tools/import_pointer_feedback.py --source <art_export目录>` 严格解码 IANI v1 图块与帧数；Normal 按原配置 holdframe=1 取首帧，circle 拼出完整 68×41 单帧画布，来源和哈希记录在 `assets/pointer/source.json`。运行不依赖外部素材目录。
+
+世界接受地面左键移动后，`MainController` 在逆投影所得世界坐标创建 `GroundClickView`，完整光圈按原始尺寸居中显示在地图上方、角色下方；Tween 在 0.5 秒内淡出并释放，连续点击分别完成反馈，退出世界随父节点清理。UI 消费输入、右键和松开均不创建反馈。circle 的原版用途尚未确认，淡出时长为本项目表现参数。`tests/pointer_feedback_smoke.tscn` 纳入完整检查，验证资源完整性、真实视口点击、摄像机移动、淡出释放和 UI 输入隔离；硬件鼠标的实际屏幕显示需要 Windows 图形窗口目视验收。
+
 ## GM 道具素材图鉴
 
 GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 面板互斥。控件首次打开读取 `res://assets/items/catalog.json` 图片索引及 `definitions.json` 具名道具快照；默认道具清单模式按照参考导出页的 `display_category` 分为武器、防具／饰品、其他装备、宠物、收集品、消耗品，再按父类型内的 `type_code/type_name` 筛选子类型，支持名称、ID和说明搜索。素材预览模式保留四个图片来源分类与来源编号搜索。两种模式每页至多创建48个条目，按需加载图集，详情独立滚动；切换父类型重置子类型，切换模式、分类或查询重置分页和详情。不增加业务服务、配置种类或会话状态。正式运行及 Windows 导出只依赖项目内资源，导出预设包含素材及道具目录 JSON。

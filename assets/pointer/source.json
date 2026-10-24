@@ -1,0 +1,33 @@
+{
+  "resources": [
+    {
+      "source": "res/uires/cursor/Normal.gsa",
+      "sha256": "124b74ffd2b4edfb380ebaae928fcee28d55342d9c5e2ab8829db67561513567",
+      "frames": 2,
+      "width": 41,
+      "height": 35,
+      "output": "normal.png",
+      "selected_frame": 0
+    },
+    {
+      "source": "res/effect/circle.gsa",
+      "sha256": "01917bdd506791e1e429b9fbd942dc7881e0dc264980d327ca4cd67632ebfdb9",
+      "frames": 1,
+      "width": 68,
+      "height": 41,
+      "output": "circle.png",
+      "selected_frame": 0
+    }
+  ],
+  "cursor_config": {
+    "source": "res/uires/uiroot.lua",
+    "sha256": "41aabdd8387aa12bfbe44477408eff4217f44f429106108d13d10121752341cc",
+    "hotspot": [
+      2,
+      2
+    ],
+    "holdframe": 1
+  },
+  "circle_fade_seconds": 0.5,
+  "note": "circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。"
+}

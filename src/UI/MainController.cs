@@ -38,12 +38,14 @@ public partial class MainController : Control
     /// <summary>隔离世界摄像机变换的 HUD 画布层。</summary>
     private CanvasLayer? _hudLayer;
 
-    /// <summary>加载配置和设置，随后展示模拟登录界面。</summary>
+    /// <summary>设置普通鼠标，加载配置和设置，随后展示模拟登录界面。</summary>
     public override void _Ready()
     {
         MouseFilter = MouseFilterEnum.Ignore;
         try
         {
+            Input.SetCustomMouseCursor(GD.Load<Texture2D>("res://assets/pointer/normal.png"),
+                Input.CursorShape.Arrow, new Vector2(2, 2));
             _servicesLifetime = InitializeServices();
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;
@@ -75,17 +77,24 @@ public partial class MainController : Control
             _camera.Position = IsometricProjection.ToScreen(GameServices.World.RolePosition);
     }
 
-    /// <summary>将未被 UI 消费的地图点击转为移动 Action。</summary>
+    /// <summary>将未被 UI 消费的地图点击转为移动 Action，并在点击世界位置显示光圈。</summary>
     public override void _UnhandledInput(InputEvent input)
     {
         if (_servicesLifetime is null || _worldVisual is null || input is not InputEventMouseButton click) return;
         var projectedPosition = GetViewport().GetCanvasTransform().AffineInverse() * click.Position;
         if (GameServices.World.HandleInput(input, IsometricProjection.ToLogical(projectedPosition)))
+        {
+            _worldVisual.AddChild(new GroundClickView { Position = projectedPosition });
             GetViewport().SetInputAsHandled();
+        }
     }
 
-    /// <summary>关闭场景时释放角色、所有常驻监听及网络传输。</summary>
-    public override void _ExitTree() => ReleaseServices();
+    /// <summary>关闭场景时恢复鼠标并释放角色、所有常驻监听及网络传输。</summary>
+    public override void _ExitTree()
+    {
+        Input.SetCustomMouseCursor(null);
+        ReleaseServices();
+    }
 
     /// <summary>启动完整服务组，场景测试可覆盖整组初始化以隔离环境。</summary>
     protected virtual IDisposable InitializeServices() => GameServices.Initialize();
@@ -265,7 +274,7 @@ public partial class MainController : Control
         _worldVisual = new Node2D { Name = "WorldVisual" };
         AddChild(_worldVisual);
         _worldVisual.AddChild(new MapView { Name = "MapView" });
-        _actor = new ActorView { Name = "ActorView", Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
+        _actor = new ActorView { Name = "ActorView", ZIndex = 2, Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
         _worldVisual.AddChild(_actor);
         _actor.Present(GameServices.World.ActorState!);
         _camera = new Camera2D { Name = "WorldCamera", Position = IsometricProjection.ToScreen(GameServices.World.RolePosition), Enabled = true };

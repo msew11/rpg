@@ -60,6 +60,8 @@ if ($Tests) {
     Invoke-GodotCheck 'role management' @('--headless', '--path', $projectPath, 'res://tests/role_management_smoke.tscn')
     # 图鉴验收覆盖全部素材目录及实际 GM 分类浏览交互。
     Invoke-GodotCheck 'item catalog' @('--headless', '--path', $projectPath, 'res://tests/item_catalog_smoke.tscn')
+    # 指针与点地反馈验收覆盖完整图块、真实输入隔离及淡出释放。
+    Invoke-GodotCheck 'pointer feedback' @('--headless', '--path', $projectPath, 'res://tests/pointer_feedback_smoke.tscn')
 }
 
 if ($ExportWindows) {
