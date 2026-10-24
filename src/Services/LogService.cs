@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
 using Google.Protobuf;
+using Rpg.Config;
 using Godot;
 
 namespace Rpg.Services;
@@ -12,6 +13,11 @@ namespace Rpg.Services;
 /// <summary>统一通信与文件提交日志，只为指定的消息标记着色。</summary>
 public sealed class LogService : Service
 {
+    /// <summary>正式运行绑定环境开关；独立格式测试可不绑定环境并始终开启。</summary>
+    private readonly EnvService? _env;
+    /// <summary>当前是否允许生成日志内容，网络层据此跳过日志专用解码。</summary>
+    public bool Enabled => !IsDisposed && (_env?.ConsoleLogEnabled ?? true);
+
     /// <summary>富文本输出端，测试可替换为文本收集器。</summary>
     private readonly Action<string> _output;
     /// <summary>IO 使用纯文本输出，避免文件内容被解析为富文本。</summary>
@@ -21,12 +27,17 @@ public sealed class LogService : Service
     /// <summary>消息 JSON 字符串禁止富文本标记，数组结构保持原样。</summary>
     private static readonly JsonSerializerOptions MessageJsonOptions = CreateMessageJsonOptions();
 
-    /// <summary>正式运行将日志送入 Godot 控制台。</summary>
-    public LogService() : this(text => GD.PrintRich(text), text => GD.Print(text)) { }
-
-    /// <summary>隔离验收注入输出端，不依赖 Godot 运行时。</summary>
-    internal LogService(Action<string> output, Action<string>? plainOutput = null)
+    /// <summary>正式运行绑定环境开关，将日志送入 Godot 控制台。</summary>
+    public LogService(EnvService env) : this(text => GD.PrintRich(text), text => GD.Print(text), env)
     {
+        ArgumentNullException.ThrowIfNull(env);
+        ObjectDisposedException.ThrowIf(env.IsDisposed, env);
+    }
+
+    /// <summary>隔离验收注入输出端；不绑定环境时常开，便于独立验证格式。</summary>
+    internal LogService(Action<string> output, Action<string>? plainOutput = null, EnvService? env = null)
+    {
+        _env = env;
         _output = output ?? throw new ArgumentNullException(nameof(output));
         _plainOutput = plainOutput ?? output;
     }
@@ -35,8 +46,13 @@ public sealed class LogService : Service
     public void Request(IMessage message) => Message("Request", "green", message);
 
     /// <summary>按协议 Notice 后缀区分推送与响应，只将对应标记设为橙色。</summary>
-    public void Receive(IMessage message) => Message(message.Descriptor.Name.EndsWith("Notice", StringComparison.Ordinal)
-        ? "Notice" : "Response", "#ffa500", message);
+    public void Receive(IMessage message)
+    {
+        ThrowIfDisposed();
+        if (!Enabled) return;
+        Message(message.Descriptor.Name.EndsWith("Notice", StringComparison.Ordinal)
+            ? "Notice" : "Response", "#ffa500", message);
+    }
 
     /// <summary>记录客户端设置成功提交的目标文件及单行 JSON。</summary>
     public void ClientIO(string filename, string content) => FileMessage("Client", filename, content);
@@ -51,6 +67,7 @@ public sealed class LogService : Service
     private void Message(string tag, string color, IMessage message)
     {
         ThrowIfDisposed();
+        if (!Enabled) return;
         using var json = JsonDocument.Parse(JsonFormatter.Default.Format(message));
         var content = JsonSerializer.Serialize(json.RootElement, MessageJsonOptions);
         Write($"[Client][color={color}][{tag}][/color]{message.Descriptor.Name}{content}");
@@ -68,6 +85,7 @@ public sealed class LogService : Service
     private void FileMessage(string source, string filename, string content)
     {
         ThrowIfDisposed();
+        if (!Enabled) return;
         Write($"[{source}][IO][{Path.GetFileName(filename)}]{CompactJson(content)}", false);
     }
 

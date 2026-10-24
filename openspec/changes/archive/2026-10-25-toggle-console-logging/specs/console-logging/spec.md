@@ -1,0 +1,46 @@
+## ADDED Requirements
+### Requirement: 运行期日志开关
+GM 面板 SHALL 提供控制台日志开关，状态保存在 EnvService 内存中，默认关闭且不得持久化。同一次运行重建 HUD 或切换会话 SHALL 保留标记，新建环境 SHALL 恢复关闭。关闭时 SHALL 不输出 LogService 管理的通信与 IO 日志，不补发历史日志，不执行日志专用的请求解码、JSON 格式化、压缩与字符串拼接；业务解析、写盘及错误报告 SHALL 继续正常运行。
+
+#### Scenario: 默认关闭与即时切换
+- **WHEN** 新环境启动，用户在 GM 中开启日志再关闭
+- **THEN** 默认无通信与 IO 日志，开启后只记录后续操作，关闭后立即停止且不改变业务结果
+
+#### Scenario: 内存生命周期
+- **WHEN** 已开启日志后重建 HUD，再重新启动环境
+- **THEN** 同一环境的 HUD 仍显示开启，新环境恢复关闭，存档不包含该标记
+
+#### Scenario: 关闭时避免内容生成
+- **WHEN** 关闭日志后执行通信和写盘
+- **THEN** 跳过日志专用格式化及解码，仍完成通信与必要的存档序列化
+
+## MODIFIED Requirements
+### Requirement: 通信日志与标记着色
+日志开启时，客户端 SHALL 在调用传输发送前输出 `[Client][Request]{协议名及消息内容}`，当前代次响应和主动推送解析成功后、发布前分别输出 `[Client][Response]{协议名及消息内容}` 和 `[Client][Notice]{协议名及消息内容}`。仅 `[Request]` SHALL 为绿色，仅 `[Response]` 与 `[Notice]` SHALL 为橙色；来源、内容及 IO 日志 SHALL 保持默认颜色，动态内容不得作为富文本标记执行。
+
+#### Scenario: 冻结请求与有效接收
+- **WHEN** 请求入队后被原调用方修改，随后固定帧成功发送并接收响应或推送
+- **THEN** 日志记录实际发送的冻结数据及对应类型，响应和推送正确分类，只有指定标记着色
+
+#### Scenario: 无效或取消消息
+- **WHEN** 请求在发送前被会话重置取消，或收到损坏数据或旧代次数据
+- **THEN** 不输出该消息的成功收发日志
+
+#### Scenario: 同步服务端写盘顺序
+- **WHEN** 请求通过同步传输触发服务器成功写盘并返回响应或推送
+- **THEN** Request 日志先于 Server IO，随后记录 Notice 或 Response
+
+#### Scenario: 发送尝试失败
+- **WHEN** 已打印 Request 后底层传输发送抛出异常
+- **THEN** 保留该次冻结请求的 Request 日志并沿用网络错误报告，不将 Request 视为发送成功凭据
+
+### Requirement: 成功写盘日志
+日志开启时，客户端设置和服务端角色 JSON 成功提交后 SHALL 分别输出 `[Client][IO][filename]{内容}` 和 `[Server][IO][filename]{内容}`，filename 为目标文件名，内容为实际写入 JSON 的紧凑单行表示，去除排版缩进与换行，保留字符串值，不改变存档文件的格式。临时文件 SHALL 不单独记录，读取和失败提交 SHALL 不记录成功 IO，日志输出异常 SHALL 不改变业务结果。
+
+#### Scenario: 系统与角色设置和角色存档
+- **WHEN** 系统设置、角色 HUD 设置或服务器角色状态成功替换目标文件
+- **THEN** 各输出一次正确来源、目标文件名和实际内容的紧凑单行 JSON 日志
+
+#### Scenario: 写入失败及日志端失败
+- **WHEN** 目标文件无法替换，或成功提交后日志输出端抛异常
+- **THEN** 写入失败不输出成功 IO，输出端失败不将成功提交变成失败

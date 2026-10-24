@@ -54,7 +54,7 @@ public static class GameServices
         {
             var env = new EnvService();
             created.Add(env);
-            var log = new LogService();
+            var log = new LogService(env);
             created.Add(log);
             var eventBus = new EventBusService();
             created.Add(eventBus);

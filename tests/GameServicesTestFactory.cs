@@ -22,7 +22,7 @@ internal static class GameServicesTestFactory
         var created = new List<IService> { env };
         try
         {
-            var log = new LogService();
+            var log = new LogService(env);
             created.Add(log);
             var eventBus = new EventBusService();
             created.Add(eventBus);

@@ -13,6 +13,82 @@ namespace ClientTests;
 /// <summary>验证 openspec/specs/console-logging 的局部颜色、实际收发与成功文件提交日志。</summary>
 public sealed class LogServiceTests
 {
+    /// <summary>console-logging：默认关闭且不访问消息或解析日志 JSON，开关只保留在当前环境。</summary>
+    [Fact]
+    public void EnvironmentToggleSkipsFormattingAndResetsWithNewEnvironment()
+    {
+        using var env = new EnvService("");
+        var lines = new List<string>();
+        using var log = new LogService(lines.Add, env: env);
+        Assert.False(env.ConsoleLogEnabled);
+        Assert.False(log.Enabled);
+        log.Request(null!);
+        log.Receive(null!);
+        log.ClientIO("settings.json", "无效 JSON");
+        log.ServerIO("role.json", "无效 JSON");
+        Assert.Empty(lines);
+        env.ConsoleLogEnabled = true;
+        Assert.True(log.Enabled);
+        log.Request(new Login());
+        log.Receive(new LoginRt());
+        log.ClientIO("settings.json", "{}");
+        log.ServerIO("role.json", "{}");
+        Assert.Equal(4, lines.Count);
+        env.ConsoleLogEnabled = false;
+        log.Request(null!);
+        log.Receive(null!);
+        log.ClientIO("settings.json", "无效 JSON");
+        log.ServerIO("role.json", "无效 JSON");
+        env.ConsoleLogEnabled = true;
+        Assert.Equal(4, lines.Count);
+        using var restarted = new EnvService(env.SettingsDirectory);
+        Assert.False(restarted.ConsoleLogEnabled);
+    }
+
+    /// <summary>console-logging：关闭时真实传输和存档继续运行，开启后仅记录后续操作。</summary>
+    [Fact]
+    public void DisabledLoggingPreservesNetworkAndPersistence()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rpg-log-toggle-" + Guid.NewGuid());
+        using var env = new EnvService(Path.Combine(root, "settings"));
+        var lines = new List<string>();
+        using var log = new LogService(lines.Add, env: env);
+        using var events = new EventBusService();
+        using var net = new NetService(new MockTransport(new MockServer(Path.Combine(root, "server"),
+            new Rpg.Server.Data.DataServerBagRules(8, 5, []), log.ServerIO)), events, log);
+        using var settings = new SettingService(env, log);
+        var responses = new List<CreateRoleRt>();
+        using var subscription = events.Subscribe<CreateRoleRt>(responses.Add);
+        try
+        {
+            net.Send(new Login { Username = "demo", Password = "demo" });
+            net.Send(new CreateRole { Name = "关闭日志", Gender = RoleGenderPb.Male, HeadId = 1 });
+            net.Tick(0);
+            Assert.True(Assert.Single(responses).Success);
+            Assert.Single(Directory.GetFiles(Path.Combine(root, "server"), "*.role.json"));
+            Assert.Single(Directory.GetFiles(Path.Combine(root, "server"), "*.bag.json"));
+            settings.SetMasterVolume(0.4f);
+            Assert.True(File.Exists(settings.SystemPath));
+            Assert.DoesNotContain("ConsoleLogEnabled", File.ReadAllText(settings.SystemPath));
+            Assert.Empty(lines);
+            env.ConsoleLogEnabled = true;
+            settings.SetMasterVolume(0.5f);
+            Assert.StartsWith("[Client][IO]", Assert.Single(lines));
+            net.Send(new CreateRole { Name = "开启日志", Gender = RoleGenderPb.Female, HeadId = 1 });
+            net.Tick(0);
+            Assert.Equal(5, lines.Count);
+            Assert.Equal(2, responses.Count);
+            Assert.True(responses[1].Success);
+            env.ConsoleLogEnabled = false;
+            net.Send(new CreateRole { Name = "再次关闭", Gender = RoleGenderPb.Male, HeadId = 1 });
+            net.Tick(0);
+            Assert.Equal(5, lines.Count);
+            Assert.Equal(3, responses.Count);
+            Assert.True(responses[2].Success);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
     /// <summary>只有指定标记着色，动态内容不能覆盖颜色或注入富文本。</summary>
     [Fact]
     public void OnlySpecifiedTagsAreColored()

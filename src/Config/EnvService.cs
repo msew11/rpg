@@ -6,6 +6,9 @@ namespace Rpg.Config;
 /// <summary>集中持有本次启动的资源与持久化目录，先于使用目录的服务创建。</summary>
 public sealed class EnvService : Service
 {
+    /// <summary>本次运行是否输出通信与 IO 控制台日志，默认关闭且不持久化。</summary>
+    public bool ConsoleLogEnabled { get; set; }
+
     /// <summary>打包或独立的客户端配置目录。</summary>
     public string ConfigDirectory { get; }
     /// <summary>与配置配套的 JSON Schema 目录。</summary>

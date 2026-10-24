@@ -289,6 +289,13 @@ public partial class GameHud : Control
         mapPanel.AddChild(_largeMap);
 
         var gm = CreatePanel("GM", new Vector2(400, 0));
+        var consoleLog = new CheckButton
+        {
+            Name = "ConsoleLogEnabled", Text = "控制台日志",
+            ButtonPressed = GameServices.Env.ConsoleLogEnabled
+        };
+        consoleLog.Toggled += enabled => GameServices.Env.ConsoleLogEnabled = enabled;
+        gm.AddChild(consoleLog);
         var gmActions = new HBoxContainer { Name = "GmActions" };
         gm.AddChild(gmActions);
         var openUserData = new Button

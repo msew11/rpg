@@ -8,8 +8,8 @@
 
 | 服务 | 拥有的状态和行为 | 内部依赖 |
 | --- | --- | --- |
-| `EnvService Env` | 统一持有配置、Schema、设置与模拟服务端目录 | 无依赖根服务 |
-| `LogService Log` | 通信与成功文件提交的控制台日志，仅指定消息标记着色 | 无依赖；使用 Godot PrintRich |
+| `EnvService Env` | 统一持有配置、Schema、设置与模拟服务端目录，以及内存日志开关 | 无依赖根服务 |
+| `LogService Log` | 通信与成功文件提交的控制台日志，仅指定消息标记着色 | 构造绑定 Env；使用 Godot PrintRich |
 | `ConfigService Config` | 构造时加载、校验并持有配置 | Env；具体 CfgCache 统一读取 JSON 与 Schema |
 | `SettingService Setting` | 构造时加载系统设置，内部持有角色设置并修改、保存 | Env、Log；私有 JSON 读写方法 |
 | `EventBusService EventBus` | 唯一类型事件域、缓存优先分发、监听错误与订阅生命周期 | 内部监听集合与重入队列 |
@@ -166,7 +166,9 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 
 ## 控制台日志
 
-`GameServices.Log` 持有 `LogService`，在 Env 后创建、Env 前释放。NetService 与 SettingService 通过构造绑定；MockServer 与 RepoServerRole 通过提交回调输出，不依赖 Godot。请求在调用传输发送前记录，表示发送尝试，传输失败仍保留并沿用网络错误报告；当前代次响应和推送在解析成功后、发布前记录。三类消息分别使用 `[Client][Request]`、`[Client][Response]`、`[Client][Notice]` 前缀并附协议名和 protobuf JSON；只有 Request 标记为绿色、Response/Notice 标记为橙色。成功提交设置和服务端角色 JSON 使用 `[Client][IO][filename]` 与 `[Server][IO][filename]`，附实际写入 JSON 的紧凑单行表示，文件格式保持原样；读取、失败和临时文件不输出 IO。消息 JSON 字符串中的方括号使用 Unicode 转义，IO 走纯文本输出，输出故障不改变业务结果。
+`GameServices.Log` 持有 `LogService`，在 Env 后创建、Env 前释放，构造绑定 EnvService。GM 面板的“控制台日志”开关直接修改 `Env.ConsoleLogEnabled`，默认关闭，仅保存在当前环境内存中，重建 HUD 保留，重启恢复关闭。关闭时跳过日志专用的请求解码、消息序列化、IO 压缩和字符串拼接，不补发历史日志；消息接口直接接收 IMessage，IO 复用业务写盘文本，无需为每条日志分配内容回调。必要的业务解析、存档序列化和错误报告不受影响。
+
+NetService 与 SettingService 通过构造绑定；MockServer 与 RepoServerRole 通过提交回调输出，不依赖 Godot。日志开启时，请求在调用传输发送前记录，表示发送尝试，传输失败仍保留并沿用网络错误报告；当前代次响应和推送在解析成功后、发布前记录。三类消息分别使用 `[Client][Request]`、`[Client][Response]`、`[Client][Notice]` 前缀并附协议名和 protobuf JSON；只有 Request 标记为绿色、Response/Notice 标记为橙色。成功提交设置和服务端角色 JSON 使用 `[Client][IO][filename]` 与 `[Server][IO][filename]`，附实际写入 JSON 的紧凑单行表示，文件格式保持原样；读取、失败和临时文件不输出 IO。消息 JSON 字符串中的方括号使用 Unicode 转义，IO 走纯文本输出，输出故障不改变业务结果。
 
 ## 服务端领域存档
 

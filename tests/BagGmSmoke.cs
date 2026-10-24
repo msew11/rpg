@@ -31,6 +31,7 @@ public partial class BagGmSmoke : Node
             ResizeViewport(new Vector2I(1920, 1080));
             await Frames();
             CheckHudLayout(main, chat);
+            await CheckConsoleLogToggle(main);
             await CheckChatHints(chat, input, results);
 
             input.Text = "  /item 1012 2  ";
@@ -133,6 +134,7 @@ public partial class BagGmSmoke : Node
             await Frames();
             CheckHudLayout(main, chat);
 
+            GameServices.Env.ConsoleLogEnabled = true;
             main.QueueFree();
             await Frames();
             // 重启使用隔离配置，覆盖缺失键和未知图标键的占位回退。
@@ -147,6 +149,9 @@ public partial class BagGmSmoke : Node
             File.WriteAllText(itemPath, definitions.ToJsonString());
             main = await StartMain(directory, configDirectory);
             Check(GameServices.Session.Bag.Items.Count == 4, "重启后物品丢失");
+            var restartedLog = (CheckButton)main.FindChild("ConsoleLogEnabled", true, false);
+            Check(!GameServices.Env.ConsoleLogEnabled && !restartedLog.ButtonPressed && !GameServices.Log.Enabled,
+                "日志开关被持久化或重启未恢复关闭");
             PressTitle(main, "背包");
             await Frames();
             var restoredBag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
@@ -172,6 +177,34 @@ public partial class BagGmSmoke : Node
             GetTree().Quit(1);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    /// <summary>console-logging：通过真实 GM 控件验证默认值、点击切换、HUD 重建和输入隔离。</summary>
+    private async Task CheckConsoleLogToggle(Node main)
+    {
+        var toggle = (CheckButton)main.FindChild("ConsoleLogEnabled", true, false);
+        Check(!toggle.ButtonPressed && !GameServices.Env.ConsoleLogEnabled && !GameServices.Log.Enabled,
+            "日志未默认关闭");
+        PressTitle(main, "GM");
+        await Frames();
+        var target = GameServices.World.RoleTarget;
+        Click(toggle.GetGlobalRect().GetCenter());
+        await Frames();
+        Check(toggle.ButtonPressed && GameServices.Env.ConsoleLogEnabled && GameServices.Log.Enabled,
+            "GM 日志开关没有立即开启");
+        Check(target == GameServices.World.RoleTarget, "日志开关点击穿透世界");
+        var rebuilt = new GameHud { Visible = false };
+        AddChild(rebuilt);
+        await Frames();
+        Check(((CheckButton)rebuilt.FindChild("ConsoleLogEnabled", true, false)).ButtonPressed,
+            "重建 HUD 未保留环境日志标记");
+        rebuilt.QueueFree();
+        await Frames();
+        Click(toggle.GetGlobalRect().GetCenter());
+        await Frames();
+        Check(!GameServices.Env.ConsoleLogEnabled && !GameServices.Log.Enabled, "日志没有立即关闭");
+        PressTitle(main, "GM");
+        await Frames();
     }
 
     /// <summary>验收 gm-item 上下文提示：真实点击与按键补全、格式颜色、灰字隔离和视口边界。</summary>
