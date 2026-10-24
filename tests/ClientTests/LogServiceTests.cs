@@ -78,9 +78,9 @@ public sealed class LogServiceTests
         Assert.Equal(3, lines.Count);
     }
 
-    /// <summary>底层发送失败只报告网络错误，不输出成功请求日志。</summary>
+    /// <summary>发送失败仍保留请求尝试，且先于网络错误报告。</summary>
     [Fact]
-    public void FailedSendDoesNotLogSuccessfulRequest()
+    public void FailedSendLogsAttemptBeforeError()
     {
         var lines = new List<string>();
         using var log = new LogService(lines.Add);
@@ -88,11 +88,45 @@ public sealed class LogServiceTests
         using var transport = new DoubleNetTransport { FailSend = true };
         using var net = new NetService(transport, events, log);
         var errors = new List<Exception>();
-        net.Error += errors.Add;
+        net.Error += error =>
+        {
+            Assert.Contains("[Request]", Assert.Single(lines));
+            errors.Add(error);
+        };
         net.Send(new Login());
         net.Tick(0);
-        Assert.Empty(lines);
+        Assert.Contains("[Request]", Assert.Single(lines));
         Assert.Single(errors);
+    }
+
+    /// <summary>验证 console-logging 的发送前记录场景：同步服务器写盘必须排在请求之后、响应之前。</summary>
+    [Fact]
+    public void RequestPrecedesSynchronousServerIoAndResponse()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rpg-log-order-" + Guid.NewGuid());
+        var lines = new List<string>();
+        using var log = new LogService(lines.Add);
+        using var events = new EventBusService();
+        using var net = new NetService(new MockTransport(new MockServer(root,
+            new Rpg.Server.Data.DataServerBagRules(8, 5, []), log.ServerIO)), events, log);
+        try
+        {
+            net.Send(new Login { Username = "demo", Password = "demo" });
+            net.Tick(0);
+            lines.Clear();
+            net.Send(new CreateRole { Name = "顺序测试", Gender = RoleGenderPb.Male, HeadId = 1 });
+            Assert.Empty(lines);
+            net.Tick(0);
+            Assert.Equal(4, lines.Count);
+            Assert.StartsWith("[Client][color=green][Request][/color]CreateRole{", lines[0]);
+            Assert.StartsWith("[Server][IO][", lines[1]);
+            Assert.Contains(".bag.json]", lines[1]);
+            Assert.StartsWith("[Server][IO][", lines[2]);
+            Assert.Contains(".role.json]", lines[2]);
+            Assert.StartsWith("[Client][color=#ffa500][Response][/color]CreateRoleRt{", lines[3]);
+            Assert.Contains("\"success\":true", lines[3]);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
     /// <summary>系统与角色设置、服务器存档只在提交后记录实际 JSON，失败及读取不记 IO。</summary>

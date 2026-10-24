@@ -31,7 +31,7 @@ public sealed class LogService : Service
         _plainOutput = plainOutput ?? output;
     }
 
-    /// <summary>记录实际发送的请求，只有请求标记为绿色。</summary>
+    /// <summary>在传输发送前记录请求尝试，只有请求标记为绿色。</summary>
     public void Request(IMessage message) => Message("Request", "green", message);
 
     /// <summary>按协议 Notice 后缀区分推送与响应，只将对应标记设为橙色。</summary>

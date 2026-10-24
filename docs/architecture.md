@@ -166,7 +166,7 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 
 ## 控制台日志
 
-`GameServices.Log` 持有 `LogService`，在 Env 后创建、Env 前释放。NetService 与 SettingService 通过构造绑定；MockServer 与 RepoServerRole 通过提交回调输出，不依赖 Godot。成功发送和当前代次解析成功的消息分别使用 `[Client][Request]`、`[Client][Response]`、`[Client][Notice]` 前缀并附协议名和 protobuf JSON；只有 Request 标记为绿色、Response/Notice 标记为橙色。成功提交设置和服务端角色 JSON 使用 `[Client][IO][filename]` 与 `[Server][IO][filename]`，附实际写入 JSON 的紧凑单行表示，文件格式保持原样；读取、失败和临时文件不输出 IO。消息 JSON 字符串中的方括号使用 Unicode 转义，IO 走纯文本输出，输出故障不改变业务结果。
+`GameServices.Log` 持有 `LogService`，在 Env 后创建、Env 前释放。NetService 与 SettingService 通过构造绑定；MockServer 与 RepoServerRole 通过提交回调输出，不依赖 Godot。请求在调用传输发送前记录，表示发送尝试，传输失败仍保留并沿用网络错误报告；当前代次响应和推送在解析成功后、发布前记录。三类消息分别使用 `[Client][Request]`、`[Client][Response]`、`[Client][Notice]` 前缀并附协议名和 protobuf JSON；只有 Request 标记为绿色、Response/Notice 标记为橙色。成功提交设置和服务端角色 JSON 使用 `[Client][IO][filename]` 与 `[Server][IO][filename]`，附实际写入 JSON 的紧凑单行表示，文件格式保持原样；读取、失败和临时文件不输出 IO。消息 JSON 字符串中的方括号使用 Unicode 转义，IO 走纯文本输出，输出故障不改变业务结果。
 
 ## 服务端领域存档
 

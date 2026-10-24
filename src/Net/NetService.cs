@@ -75,8 +75,8 @@ public sealed class NetService : Service
                 try
                 {
                     var message = MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), true);
-                    _transport.Send(packet);
                     Log.Request(message);
+                    _transport.Send(packet);
                 }
                 catch (Exception error) { ReportError(error); }
                 if (IsDisposed) return;
