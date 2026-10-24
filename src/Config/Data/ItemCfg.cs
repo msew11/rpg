@@ -16,4 +16,6 @@ public sealed class ItemCfg
     public int SubCategory { get; init; }
     /// <summary>单个堆叠允许的最大数量。</summary>
     public int MaxStack { get; init; }
+    /// <summary>客户端图集素材键，空值或未找到时显示占位图。</summary>
+    public string IconAssetId { get; init; } = "";
 }

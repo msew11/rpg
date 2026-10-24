@@ -134,6 +134,8 @@ public sealed class RepoServerRole
     public static void Validate(DataServerRole role)
     {
         ArgumentNullException.ThrowIfNull(role);
+        if (role.BagExtraRows < 0 || role.Bag is null) throw new InvalidDataException("角色背包字段无效");
+        role.Bag.Validate();
         if (role.RoleId <= 0 || string.IsNullOrWhiteSpace(role.Name) || role.Level <= 0 ||
             role.MaxHealth <= 0 || role.Health < 0 || role.Health > role.MaxHealth ||
             role.MaxMana < 0 || role.Mana < 0 || role.Mana > role.MaxMana ||

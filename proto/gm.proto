@@ -1,0 +1,23 @@
+syntax = "proto3";
+package rpg;
+option csharp_namespace = "Rpg.Net.Message";
+
+// 当前角色提交的开发期 GM 命令。
+message Gm {
+  // 必须与服务端当前角色一致。
+  int64 role_id = 1;
+  // 去掉开头斜杠的命令和参数。
+  string command = 2;
+}
+
+// 命令执行结果，只作反馈，不承载背包状态。
+message GmRt {
+  // 请求所属角色。
+  int64 role_id = 1;
+  // 原始命令文本。
+  string command = 2;
+  // 是否已执行并成功持久化。
+  bool success = 3;
+  // 供聊天区域显示的普通文本。
+  string message = 4;
+}

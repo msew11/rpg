@@ -1,9 +1,58 @@
 [
-  { "id": 1012, "name": "测试长剑", "category": 1, "subCategory": 2, "maxStack": 1 },
-  { "id": 1013, "name": "测试双手剑", "category": 1, "subCategory": 4, "maxStack": 1 },
-  { "id": 1014, "name": "测试盾牌", "category": 2, "subCategory": 105, "maxStack": 1 },
-  { "id": 1015, "name": "测试木杖", "category": 1, "subCategory": 16, "maxStack": 1 },
-  { "id": 1016, "name": "测试枪", "category": 1, "subCategory": 1, "maxStack": 1 },
-  { "id": 1017, "name": "测试拳刃", "category": 1, "subCategory": 8, "maxStack": 1 },
-  { "id": 1018, "name": "测试飞刀", "category": 1, "subCategory": 32, "maxStack": 1 }
+  {
+    "id": 1012,
+    "name": "测试长剑",
+    "category": 1,
+    "subCategory": 2,
+    "maxStack": 1,
+    "iconAssetId": "item/itempic/itempic1001"
+  },
+  {
+    "id": 1013,
+    "name": "测试双手剑",
+    "category": 1,
+    "subCategory": 4,
+    "maxStack": 1,
+    "iconAssetId": "item/itempic/itempic1501"
+  },
+  {
+    "id": 1014,
+    "name": "测试盾牌",
+    "category": 2,
+    "subCategory": 105,
+    "maxStack": 1,
+    "iconAssetId": "item/itempic/itempic1102"
+  },
+  {
+    "id": 1015,
+    "name": "测试木杖",
+    "category": 1,
+    "subCategory": 16,
+    "maxStack": 1,
+    "iconAssetId": "item/itempic/itempic1301"
+  },
+  {
+    "id": 1016,
+    "name": "测试枪",
+    "category": 1,
+    "subCategory": 1,
+    "maxStack": 1,
+    "iconAssetId": "item/itempic/itempic1601"
+  },
+  {
+    "id": 1017,
+    "name": "测试拳刃",
+    "category": 1,
+    "subCategory": 8,
+    "maxStack": 1,
+    "iconAssetId": "item/itempic/itempic1801"
+  },
+  {
+    "id": 1018,
+    "name": "测试飞刀",
+    "category": 1,
+    "subCategory": 32,
+    "maxStack": 1,
+    "iconAssetId": "item/itempic/itempic1903"
+  }
 ]

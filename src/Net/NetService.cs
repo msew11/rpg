@@ -2,9 +2,11 @@ using Rpg.Config;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Google.Protobuf;
 using Rpg.Services;
 using Rpg.Server;
+using Rpg.Server.Data;
 
 namespace Rpg.Net;
 
@@ -30,7 +32,10 @@ public sealed class NetService : Service
     public event Action<Exception>? Error;
 
     /// <summary>在服务内部初始化当前阶段的进程内传输。</summary>
-    public NetService(EnvService env, EventBusService eventBus) : this(new MockTransport(new MockServer(env.ServerDirectory)), eventBus) { }
+    public NetService(EnvService env, EventBusService eventBus, ConfigService config)
+        : this(new MockTransport(new MockServer(env.ServerDirectory,
+            new DataServerBagRules(config.Basic.Value.BagColumns, config.Basic.Value.BagRows,
+                config.Item.Items.Values.Select(item => new DataServerItemDefinition(item.Id, item.Name, item.MaxStack))))), eventBus) { }
 
     /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>
     internal NetService(INetTransport transport, EventBusService eventBus)

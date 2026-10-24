@@ -62,6 +62,8 @@ if ($Tests) {
     Invoke-GodotCheck 'item catalog' @('--headless', '--path', $projectPath, 'res://tests/item_catalog_smoke.tscn')
     # 指针与点地反馈验收覆盖完整图块、真实输入隔离及淡出释放。
     Invoke-GodotCheck 'pointer feedback' @('--headless', '--path', $projectPath, 'res://tests/pointer_feedback_smoke.tscn')
+    # 背包与 GM 通过真实聊天、图标格子和重启存档验收。
+    Invoke-GodotCheck 'bag and GM' @('--headless', '--path', $projectPath, 'res://tests/bag_gm_smoke.tscn')
 }
 
 if ($ExportWindows) {

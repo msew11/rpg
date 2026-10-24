@@ -32,6 +32,8 @@ public sealed class SessionService : Service
     public IReadOnlyList<RoleSummaryPbData> Roles => _login?.Roles ?? Array.Empty<RoleSummaryPbData>();
     /// <summary>当前权威角色快照。</summary>
     public RoleWorldStatePbData Role => IsLoggedIn ? RoleCache.State : throw new InvalidOperationException("尚未登录");
+    /// <summary>选角成功后的完整只读背包。</summary>
+    public BagPbData Bag => HasRole ? RoleCache.Bag : throw new InvalidOperationException("尚未进入角色");
     /// <summary>账号缓存供缓存契约验证，节点通过 Roles 和 IsLoggedIn 读取。</summary>
     internal LoginCache LoginCache => _login ?? throw new InvalidOperationException("尚未登录");
     /// <summary>角色缓存供缓存契约验证，节点通过 Role 和 HasRole 读取。</summary>
@@ -135,6 +137,14 @@ public sealed class SessionService : Service
         EnsureActive();
         if (!HasRole) throw new InvalidOperationException("选角成功后才能提交移动");
         _net.Send(new Move { RoleId = RoleId, ActionId = actionId, X = target.X, Y = target.Y });
+    }
+
+    /// <summary>提交去除开头斜杠的 GM 文本，最终参数与身份由服务端验证。</summary>
+    public void SendGm(string command)
+    {
+        EnsureActive();
+        if (!HasRole) throw new InvalidOperationException("请先进入角色");
+        _net.Send(new Gm { RoleId = RoleId, Command = command });
     }
 
     /// <summary>释放账号缓存，保留服务本身供重新登录。</summary>

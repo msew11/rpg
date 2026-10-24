@@ -35,6 +35,7 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
 
         var temporary = Path.Combine(Path.GetTempPath(), "rpg-config-test-" + Guid.NewGuid());
         Directory.CreateDirectory(temporary);
+        File.Copy(Path.Combine(root, "config", "basic.json"), Path.Combine(temporary, "basic.json"));
         File.WriteAllText(Path.Combine(temporary, "item.json"), "[]");
         try
         {

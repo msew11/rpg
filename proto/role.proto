@@ -2,6 +2,8 @@ syntax = "proto3";
 package rpg;
 option csharp_namespace = "Rpg.Net.Message";
 
+import "bag.proto";
+
 // 角色基础身体性别；未指定值不作为有效角色数据。
 enum RoleGenderPb {
   // 缺失或未知性别。
@@ -58,6 +60,8 @@ message RoleWorldStatePb {
   int64 acknowledged_action = 14;
   // 性别内头型编号，0 兼容旧版默认头型。
   int32 head_id = 15;
+  // 角色增加的背包行数，旧数据默认为零。
+  int32 bag_extra_rows = 16;
 }
 
 // 请求进入指定角色会话。
@@ -76,6 +80,8 @@ message SelectRoleRt {
   int64 role_id = 3;
   // 成功后的初始角色状态。
   RoleWorldStatePb state = 4;
+  // 独立于世界状态的初始完整背包。
+  BagPb bag = 5;
 }
 
 // 在选角列表创建角色。

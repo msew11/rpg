@@ -131,6 +131,7 @@ public sealed class CfgCacheTests : IDisposable
         File.WriteAllText(Path.Combine(_directory, "map.json"),
             """{"id":"map","width":1000,"height":1000,"tileSize":32,"defaultTile":"ground","overrides":[""" + tiles + "]}");
         File.WriteAllText(Path.Combine(_directory, "item.json"), "[]");
+        File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "basic.json"), Path.Combine(_directory, "basic.json"));
         using var env = new EnvService("", configDirectory: _directory,
             schemaDirectory: Path.Combine(ConfigTestFixture.FindRoot(), "schemas"));
         // Schema 不放在配置扫描目录，测试专用文件也不参与正式扫描。

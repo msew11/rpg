@@ -124,7 +124,7 @@ public sealed class GameServicesTests
         {
             var serverDirectory = Path.Combine(directory, "server");
             Rpg.Tests.RoleTestData.Seed(serverDirectory);
-            var server = new MockServer(serverDirectory);
+            var server = new MockServer(serverDirectory, new Rpg.Server.Data.DataServerBagRules(8, 5, []));
             using var net = new NetService(new MockTransport(server), eventBus);
             var env = ConfigTestFixture.CreateEnv(Path.Combine(directory, "settings"));
             var setting = new SettingService(env);

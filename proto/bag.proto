@@ -1,0 +1,31 @@
+syntax = "proto3";
+package rpg;
+option csharp_namespace = "Rpg.Net.Message";
+
+// 角色持有的基础道具实例，不重复传递静态配置。
+message ItemPb {
+  // 角色内唯一且不复用的实例编号。
+  int64 instance_id = 1;
+  // 道具配置编号。
+  int32 item_id = 2;
+  // 从零开始、按行排列的格子编号。
+  int32 slot_index = 3;
+  // 当前堆叠数量，装备为一。
+  int32 count = 4;
+}
+
+// 独立版本的完整背包快照，空格不存记录。
+message BagPb {
+  // 每次成功变更递增的背包版本。
+  int64 revision = 1;
+  // 当前持有的全部物品实例。
+  repeated ItemPb items = 2;
+}
+
+// 持久化成功后发送的完整背包。
+message BagChangedNotice {
+  // 快照所属角色。
+  int64 role_id = 1;
+  // 最新完整背包快照。
+  BagPb bag = 2;
+}

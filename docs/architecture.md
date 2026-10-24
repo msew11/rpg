@@ -12,20 +12,20 @@
 | `ConfigService Config` | 构造时加载、校验并持有配置 | Env；具体 CfgCache 统一读取 JSON 与 Schema |
 | `SettingService Setting` | 构造时加载系统设置，内部持有角色设置并修改、保存 | Env；私有 JSON 读写方法 |
 | `EventBusService EventBus` | 唯一类型事件域、缓存优先分发、监听错误与订阅生命周期 | 内部监听集合与重入队列 |
-| `NetService Net` | protobuf 请求队列、固定帧收发及解码后发布消息 | Env、EventBus；内部 `INetTransport`，通过绑定的 EventBus 实例发布 |
+| `NetService Net` | protobuf 请求队列、固定帧收发及解码后发布消息 | Env、EventBus、Config；内部 `INetTransport`，通过绑定的 EventBus 实例发布 |
 | `SessionService Session` | 持有登录尝试的摘要与角色缓存，提交登录、选角和角色管理请求并提供快照 | `NetService`、内部 `LoginCache` 与 `RoleCache` |
 | `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部只读地图组件、`MapUtils`、`WorldManager` |
 | `AnimationService Animation` | 分别缓存身体动作与独立头部资源并解析朝向 | Godot 原生资源 |
 
-`ConfigService` 显式持有 `MapCfgCache Map` 和 `ItemCfgCache Item`，构造时按缓存类的文件标注读取平铺于 `res://config` 根目录的全部 JSON，拒绝子目录与未注册文件。单例数据通过 `GameServices.Config.Map.Value` 读取，多例通过 `GameServices.Config.Item.Items` 读取。配置缓存统一使用 `res://schemas` 中同名的 Draft 2020-12 JSON Schema 校验；原始加载只走 Godot `DirAccess` 与 `FileAccess`，不保留 System.IO 测试分支。地图工具复制为只读地图快照，UI 与分块通过服务读取。缺失、重复、未注册、无效配置或 Schema 导致启动抛异常；错误保留文件路径及原因。配置与程序同包发布，服务释放全部缓存，已取得的缓存引用也拒绝继续读取。配置及整组服务验收在 Godot headless 执行；普通 .NET 地图用例直接提供 `MapCfg` 纯数据。
+`ConfigService` 显式持有 `MapCfgCache Map`、`ItemCfgCache Item` 和 `BasicCfgCache Basic`，构造时按缓存类的文件标注读取平铺于 `res://config` 根目录的全部 JSON，拒绝子目录与未注册文件。单例数据通过 `GameServices.Config.Map.Value` 读取，多例通过 `GameServices.Config.Item.Items` 读取。配置缓存统一使用 `res://schemas` 中同名的 Draft 2020-12 JSON Schema 校验；原始加载只走 Godot `DirAccess` 与 `FileAccess`，不保留 System.IO 测试分支。地图工具复制为只读地图快照，UI 与分块通过服务读取。缺失、重复、未注册、无效配置或 Schema 导致启动抛异常；错误保留文件路径及原因。配置与程序同包发布，服务释放全部缓存，已取得的缓存引用也拒绝继续读取。配置及整组服务验收在 Godot headless 执行；普通 .NET 地图用例直接提供 `MapCfg` 纯数据。
 
-主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config、Setting 的公开构造只接收 Env，Net 接收 Env、EventBus，Session 接收 Net，World 接收 Config、Setting、Session，EventBus 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Env、EventBus、Config、Setting、Net、Session、World、Animation 顺序显式创建全部八个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、EventBus、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
+主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config、Setting 的公开构造只接收 Env，Net 接收 Env、EventBus、Config，Session 接收 Net，World 接收 Config、Setting、Session，EventBus 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Env、EventBus、Config、Setting、Net、Session、World、Animation 顺序显式创建全部八个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、EventBus、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
 
 `MainController` 只协调页面与表现：登录和选角按钮调用 Session 服务，成功后创建相应页面或世界表现；固定帧先推进 Net 再推进 World，再更新角色与摄像机。输入由节点完成视口逆投影，再交给 World 服务限制边界、分配移动序号并同时提交 ECS Action 与网络请求。控制器不再保存目录或网络工厂；`InitializeServices()` 只调用无参启动，场景测试替身覆盖整组初始化以使用独立环境和传输。启动失败和退出共用清理，先撤销 UI 监听、提交拖动设置，再释放服务句柄；未获得句柄的控制器不会释放其他启动流程的服务。
 
 `SessionService.Login` 在请求前清空旧账号、隔离网络代次并创建空的 `LoginCache` 与 `RoleCache`。`LoginCache` 自身在缓存阶段处理首份及后续 `LoginRt`，完整校验摘要后才标记已认证；服务不订阅响应，也不重置正在分发的成功响应。非法摘要不留下有效账号状态或部分数据，并阻止 UI 成功回调；当前尝试的空缓存保留托管订阅，重试、退出或服务释放时回收。UI 只读取 `GameServices.Session.Roles`、`RoleId`、`Role` 和状态标记；缓存容器与已有响应构造均为内部接口。服务绑定创建时的网络及账号代次，旧实例不能操作后来注册的网络或账号。
 
-选角复用账号会话，发送请求前清空角色缓存并隔离旧代次。`RoleCache` 成功初始化后，`MainController` 的选角回调显式调用 `WorldService.InitializeRole()`，先建立地图实体，再建立角色实体，并选择对应角色设置；随后 UI 创建表现。`MainController` 监听移动响应与主动推送，调用 `WorldService.SyncRole()`，由服务将当前缓存快照转为同步 Action，不允许节点直接写 ECS；同步不依赖 HUD 是否存在。选角失败保留账号摘要并恢复角色列表。返回选角清理世界、角色数据和当前角色设置，保留同一个账号；返回登录由 Session 服务释放账号缓存并清空账号状态，各服务仍常驻到场景结束。后续背包数据计划以 `BagPbData` 归入 `RoleCache`，当前没有 `DataCache`、独立 `BagCache` 或背包协议。
+选角复用账号会话，发送请求前清空角色缓存并隔离旧代次。`RoleCache` 成功初始化后，`MainController` 的选角回调显式调用 `WorldService.InitializeRole()`，先建立地图实体，再建立角色实体，并选择对应角色设置；随后 UI 创建表现。`MainController` 监听移动响应与主动推送，调用 `WorldService.SyncRole()`，由服务将当前缓存快照转为同步 Action，不允许节点直接写 ECS；同步不依赖 HUD 是否存在。选角失败保留账号摘要并恢复角色列表。返回选角清理世界、角色数据和当前角色设置，保留同一个账号；返回登录由 Session 服务释放账号缓存并清空账号状态，各服务仍常驻到场景结束。背包由 `RoleCache` 独立持有 `BagPbData`，不设置 `DataCache` 或独立 `BagCache`；选角原子初始化角色与背包，切角同时清空。
 
 所有功能缓存位于 `src/Session/Cache/`，继承 `CacheBase`，通过受保护的 `Subscribe<T>()` 注册缓存阶段监听，由基类私有集合托管句柄。释放幂等取消自身订阅并执行一次 `OnDispose()`，释放后禁止新增订阅。所有 `PbData` 类位于 `src/Session/Data/`，通过自身 `FromPb` 与 `ToPb` 校验、复制数据，不共享可变协议对象。`RoleWorldStatePbData` 直接持有角色属性、性别、逻辑位置、revision 和移动确认序号，不嵌套额外角色模型；World 与 UI 使用相同的不可变权威快照。
 
@@ -43,7 +43,7 @@
 - 多例数据恰有一个公开可读实例属性标注 `[CfgKey]`，其类型与 `TKey` 一致；支持整型和字符串等可用作字典键的类型，不隐式使用 `Id`。缺失、null 或重复主键抛异常。JSON 字段默认使用 camelCase，可用 `JsonPropertyName` 明确别名。
 - 每个文件配套 `schemas/xxx.schema.json`。`CfgCache` 统一读取、Schema 校验、异常诊断和生命周期；两个泛型基类决定对象或数组的解析与存储，具体缓存仅补充必要的跨字段校验。新增缓存后在 ConfigService 显式声明引用并加入统一加载集合，禁止添加按业务类型分派的解析分支。
 
-`config/map.json` 对应 `MapCfgCache : SingleCfgCache<MapCfg>`，保存地图标识、尺寸、瓦片规格、默认地块和稀疏覆盖格；缓存检查覆盖格边界及坐标唯一性。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，当前包含 1012—1018 七件测试装备。每行包含 `id`、`name`（名称）、`category`（大类）、`subCategory`（小类）、`maxStack`（可堆叠上限），`ItemCfg.Id` 标注 `[CfgKey]`。名称为非空字符串，数值字段均为 Int32，ID 和上限为正数，分类编号非负。已确认大类 1=武器、2=防具；七件装备分别为测试长剑（小类2）、测试双手剑（4）、测试盾牌（105，大类2）、测试木杖（16）、测试枪（1）、测试拳刃（8）、测试飞刀（32），堆叠上限均为1；其余大类及道具内容仍待确认，与 GM 图鉴数据独立管理。
+`config/map.json` 对应 `MapCfgCache : SingleCfgCache<MapCfg>`，保存地图标识、尺寸、瓦片规格、默认地块和稀疏覆盖格；缓存检查覆盖格边界及坐标唯一性。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，当前包含 1012—1018 七件测试装备。每行包含 `id`、`name`（名称）、`category`（大类）、`subCategory`（小类）、`maxStack`（可堆叠上限）、可选 `iconAssetId`（图集素材键），`ItemCfg.Id` 标注 `[CfgKey]`。名称为非空字符串，数值字段均为 Int32，ID 和上限为正数，分类编号非负。已确认大类 1=武器、2=防具；七件装备分别为测试长剑（小类2）、测试双手剑（4）、测试盾牌（105，大类2）、测试木杖（16）、测试枪（1）、测试拳刃（8）、测试飞刀（32），堆叠上限均为1；其余大类及道具内容仍待确认，与 GM 图鉴数据独立管理。
 
 ```csharp
 var map = GameServices.Config.Map.Value;
@@ -55,9 +55,9 @@ if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
 
 ## 协议与模拟服务端
 
-`proto/` 按业务声明消息：`message.proto` 定义公共信封，`role.proto` 定义角色共享枚举、摘要、完整状态和选角/创建/删除请求响应，`login.proto` 只定义登录请求响应，`world.proto` 定义移动请求响应及状态推送。请求无后缀、响应以 `Rt` 结尾、推送以 `Notice` 结尾，纯数据结构与枚举以 `Pb` 结尾。`LoginRt` 返回 `RoleSummaryPb` 列表，仅包含角色 ID、名称、等级、性别与头型，客户端转换为独立的 `RoleSummaryPbData`。`SelectRoleRt` 才返回完整角色世界状态 `RoleWorldStatePb`，移动响应与状态推送也使用该结构。信封与性别枚举分别为 `EnvelopePb`、`RoleGenderPb`。现有消息为 `Login/LoginRt`、`SelectRole/SelectRoleRt`、`CreateRole/CreateRoleRt`、`DeleteRole/DeleteRoleRt`、`Move/MoveRt`、`RoleStateNotice`。信封包含协议完整名称、会话代次与 payload；`MessageCodec` 显式注册并校验传输方向，未知或损坏消息报告错误而不分发。增加业务消息时同时更新 proto 和协议表，并在对应功能缓存注册处理方法。
+`proto/` 按业务声明消息：`message.proto` 定义公共信封，`role.proto` 定义角色共享枚举、摘要、完整状态和选角/创建/删除请求响应，`login.proto` 只定义登录请求响应，`world.proto` 定义移动请求响应及角色状态推送，`bag.proto` 定义 `ItemPb`、`BagPb`、`BagChangedNotice`，`gm.proto` 定义 `Gm/GmRt`。请求无后缀、响应以 `Rt` 结尾、推送以 `Notice` 结尾，纯数据结构与枚举以 `Pb` 结尾。`LoginRt` 返回 `RoleSummaryPb` 列表，仅包含角色 ID、名称、等级、性别与头型，客户端转换为独立的 `RoleSummaryPbData`。`SelectRoleRt` 才返回完整角色世界状态 `RoleWorldStatePb`，移动响应与状态推送也使用该结构。信封与性别枚举分别为 `EnvelopePb`、`RoleGenderPb`。现有消息为 `Login/LoginRt`、`SelectRole/SelectRoleRt`、`CreateRole/CreateRoleRt`、`DeleteRole/DeleteRoleRt`、`Move/MoveRt`、`RoleStateNotice`。信封包含协议完整名称、会话代次与 payload；`MessageCodec` 显式注册并校验传输方向，未知或损坏消息报告错误而不分发。增加业务消息时同时更新 proto 和协议表，并在对应功能缓存注册处理方法。
 
-`dotnet build rpg.csproj` 使用仅构建依赖 `Grpc.Tools 2.84.0` 自动生成 `src/Net/Message/Message.cs`、`Role.cs`、`Login.cs` 和 `World.cs`，运行依赖为 `Google.Protobuf 3.36.2`，未启用 gRPC。生成 C# 与 proto 一起提交，中文协议注释写在 proto，不直接修改生成文件。SDK 排除生成目录的默认编译项，再由 protobuf 构建目标添加，避免重复编译。
+`dotnet build rpg.csproj` 使用仅构建依赖 `Grpc.Tools 2.84.0` 自动生成 `src/Net/Message/Message.cs`、`Role.cs`、`Login.cs`、`World.cs`、`Bag.cs` 和 `Gm.cs`，运行依赖为 `Google.Protobuf 3.36.2`，未启用 gRPC。生成 C# 与 proto 一起提交，中文协议注释写在 proto，不直接修改生成文件。SDK 排除生成目录的默认编译项，再由 protobuf 构建目标添加，避免重复编译。
 
 `src/Server` 的 `MockServer` 使用 `src/Server/Data` 下的独立 `DataServerRole` 和服务端性别枚举，不引用客户端模型或 Godot。`RepoServerRole` 按角色 ID 保存到 `user://server/<roleId>.json`；服务端目录统一来自环境服务，测试通过内部环境构造使用临时目录。全新存档登录返回空角色列表，不生成演示角色；读取缺失角色直接报错，删除通过原子写入 IsDeleted 墓碑实现，角色编号保留且不会重启复活。创建使用递增新编号，名字去首尾空白并限制 1—16 个字符、拒绝控制字符及重名；头型限定性别内 1—74。旧 JSON 缺失 HeadId 默认 1；旧协议 head_id=0 以默认 1 展示。不再创建或依赖 initialized 标记，已有标记不影响读取且保留原样；已有角色不会自动删除或补齐。墓碑及角色文件仅由 MockServer 所属仓库管理；损坏数据、身份不符或写入失败明确报错，不静默覆盖。保存先写同目录临时文件并刷盘，再替换目标文件，成功后才提交内存状态并返回响应或 Notice。
 
@@ -128,6 +128,16 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 `python tools/import_item_definitions.py --source <item_export目录>` 从用户指定导出页同目录的 `items.json` 导入21,792条具名道具，输出 `definitions.json` 与 `definitions_source.json` 来源哈希证据。武器879、防具／饰品8,286、其他装备30、宠物1、收集品1,073、消耗品11,523；以来源表和行号作为唯一键，不合并重复ID。21,315条图标按 `icon_candidate` 路径精确关联现有素材，477条缺图记录保留并显示占位。详情保留名称、原始类型码、说明、背包归属、分类与子类型确认程度以及来源行。装备语义及子类型名称沿用来源推定，不将客户端区间0/1直接解释为武器/防具；图标保持候选性质，条目不代表当前服务器投放或已实现玩法。图鉴不提供背包和穿戴。
 
 `tests/item_catalog_smoke.tscn` 检查全部素材区域、六父类型与全部子类型数量和筛选、名称/ID/说明检索、项链区间误分类回归、重复行、缺图预览隔离、原素材模式、真实GM入口、分页、关闭重开、小窗口布局与输入隔离，纳入 `tools/test.ps1`；图形模式添加 `-- --capture-catalog` 可输出素材、剑类及项链分类截图到 `build/`。
+
+## 背包与聊天 GM
+
+`config/basic.json` 通过 `BasicCfgCache : SingleCfgCache<BasicCfg>` 加载，`Config.Basic.Value` 提供 8 列、5 行基础背包。角色 `BagExtraRows` 默认为 0，容量计算检查非负扩容和整数溢出。`NetService` 从构造绑定的 Config 复制 `DataServerBagRules` 与道具定义，MockServer 不引用客户端配置类或 Godot。
+
+服务端 `DataServerBag`（独立 Revision、NextInstanceId）和 `DataServerItem`（InstanceId、ItemId、SlotIndex、Count）嵌入角色 JSON，同一原子保存提交；旧存档默认为空背包和 0 增加行数。实例 ID 在角色内递增、不复用，格子从 0 开始按行排列。选角返回独立 BagPb，移动响应仅携带角色状态及增加行数；背包变更以带角色 ID 的完整 `BagChangedNotice` 推送。RoleCache 在 Cache 阶段校验整份容量、配置、数量与唯一性，构造不可变 BagPbData/ItemPbData，按独立版本替换；普通 UI 阶段读取 Session.Bag，旧角色与旧代次消息隔离。
+
+`ChatControl` 常驻 HUD 左下角，与互斥弹窗独立。回车或发送按钮提交去首尾空白的输入，斜杠开头转为去掉斜杠的 Gm 请求，普通文字仅提示“聊天暂未开放”。服务端仅支持 `/item <ItemId> [Count]`，默认数量 1，仅发给当前认证角色；按格子补满已有堆叠再占空格，遵守 MaxStack。全部数量放不下、参数错误或保存失败均不改变内存、存档、实例编号与版本。成功落盘后推送背包，再返回聊天普通文本反馈。移动确认基于最新角色数据保存，不覆盖物品。
+
+`BagControl` 点击打开时读取最新缓存，显示全部网格、图标和数量（含 1），悬停显示配置 Name；打开期间随 Notice 刷新。七件测试装备显式绑定现有图集素材键，缺失或未知图标显示占位；滚动区支持小窗口。`tests/bag_gm_smoke.tscn` 验证真实视口发送、回车、名称提示、输入隔离、关闭重开、缺图、小窗口和重启持久化；Windows 图形运行附加 `-- --capture-bag` 可保存 `build/bag-gm.png`。本轮不实现普通聊天、背包操作或装备属性。
 
 ## 当前限制
 

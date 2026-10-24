@@ -44,4 +44,8 @@ public sealed record DataServerRole
     public long Revision { get; init; }
     /// <summary>本次会话已经确认的移动序号。</summary>
     public long AcknowledgedAction { get; init; }
+    /// <summary>角色额外解锁的背包行数，旧存档为零。</summary>
+    public int BagExtraRows { get; init; }
+    /// <summary>随角色原子持久化的背包，旧存档为空背包。</summary>
+    public DataServerBag Bag { get; init; } = new();
 }

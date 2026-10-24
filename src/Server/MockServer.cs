@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Numerics;
 using Google.Protobuf;
 using Rpg.Net;
@@ -13,6 +15,8 @@ public sealed class MockServer
 {
     /// <summary>角色 JSON 存储边界。</summary>
     private readonly RepoServerRole _roles;
+    /// <summary>启动时复制的独立服务端背包规则。</summary>
+    private readonly DataServerBagRules _bagRules;
     /// <summary>当前会话待确认的移动。</summary>
     private readonly List<DataPendingMove> _pending = [];
     /// <summary>已成功落盘的当前角色状态。</summary>
@@ -31,7 +35,11 @@ public sealed class MockServer
     public event Action<byte[]>? Outgoing;
 
     /// <summary>绑定独立服务端存储目录。</summary>
-    public MockServer(string directory) => _roles = new RepoServerRole(directory);
+    public MockServer(string directory, DataServerBagRules bagRules)
+    {
+        _roles = new RepoServerRole(directory);
+        _bagRules = bagRules;
+    }
 
     /// <summary>结束角色模拟并更新代次；保留账号登录供返回选角使用。</summary>
     public void ResetSession(long generation)
@@ -54,6 +62,7 @@ public sealed class MockServer
             case CreateRole create: HandleCreateRole(create); break;
             case DeleteRole delete: HandleDeleteRole(delete); break;
             case Move move: HandleMove(move); break;
+            case Gm gm: HandleGm(gm); break;
         }
     }
 
@@ -96,6 +105,7 @@ public sealed class MockServer
     {
         if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色状态");
         var candidate = update with { Revision = checked(_current.Revision + 1), AcknowledgedAction = _current.AcknowledgedAction };
+        _bagRules.Validate(candidate);
         _roles.Save(candidate);
         _current = candidate;
         _position = _target = new Vector2(candidate.X, candidate.Y);
@@ -131,12 +141,14 @@ public sealed class MockServer
         {
             if (!_authenticated) throw new InvalidOperationException("请先登录");
             var role = _roles.Load(request.RoleId) with { AcknowledgedAction = 0 };
+            _bagRules.Validate(role);
             _pending.Clear();
             _lastAction = 0;
             _position = _target = new Vector2(role.X, role.Y);
             _current = role;
             response.Success = true;
             response.State = ToMessage(role);
+            response.Bag = ToBagMessage(role.Bag);
         }
         catch (Exception error) { response.Error = error.Message; }
         Send(response);
@@ -204,6 +216,81 @@ public sealed class MockServer
         _pending.Add(new DataPendingMove(request.ActionId, 0.45));
     }
 
+    /// <summary>解析 GM 并在候选副本上发放，持久化成功后才提交内存与反馈。</summary>
+    private void HandleGm(Gm request)
+    {
+        var response = new GmRt { RoleId = request.RoleId, Command = request.Command };
+        DataServerRole candidate;
+        try
+        {
+            if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
+                throw new InvalidOperationException("请先进入当前角色");
+            var args = request.Command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (args.Length == 0 || args[0] != "item") throw new ArgumentException("未知 GM 指令；用法：/item <道具ID> [数量]");
+            if (args.Length is < 2 or > 3 ||
+                !int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out var itemId) || itemId <= 0)
+                throw new ArgumentException("用法：/item <正整数道具ID> [正整数数量]");
+            var count = 1;
+            if (args.Length == 3 && (!int.TryParse(args[2], NumberStyles.None, CultureInfo.InvariantCulture, out count) || count <= 0))
+                throw new ArgumentException("道具数量必须是有效的正整数");
+            if (!_bagRules.Items.TryGetValue(itemId, out var definition)) throw new ArgumentException($"道具配置不存在：{itemId}");
+            _bagRules.Validate(_current);
+            var capacity = _bagRules.GetCapacity(_current.BagExtraRows);
+            var available = (long)(capacity - _current.Bag.Items.Count) * definition.MaxStack;
+            available += _current.Bag.Items.Where(item => item.ItemId == itemId).Sum(item => (long)definition.MaxStack - item.Count);
+            if (available < count) throw new InvalidOperationException("背包空间不足，本次未发放任何道具");
+            var items = _current.Bag.Items.OrderBy(item => item.SlotIndex).ToList();
+            var remaining = count;
+            for (var index = 0; index < items.Count && remaining > 0; index++)
+            {
+                var item = items[index];
+                if (item.ItemId != itemId) continue;
+                var added = Math.Min(remaining, definition.MaxStack - item.Count);
+                items[index] = item with { Count = item.Count + added };
+                remaining -= added;
+            }
+            var occupied = items.Select(item => item.SlotIndex).ToHashSet();
+            var nextId = _current.Bag.NextInstanceId;
+            for (var slot = 0; remaining > 0 && slot < capacity; slot++)
+            {
+                if (occupied.Contains(slot)) continue;
+                var added = Math.Min(remaining, definition.MaxStack);
+                items.Add(new DataServerItem(nextId, itemId, slot, added));
+                nextId = checked(nextId + 1);
+                remaining -= added;
+            }
+            candidate = _current with { Bag = new DataServerBag
+            {
+                Revision = checked(_current.Bag.Revision + 1), NextInstanceId = nextId,
+                Items = items.OrderBy(item => item.SlotIndex).ToList().AsReadOnly()
+            } };
+            _bagRules.Validate(candidate);
+            _roles.Save(candidate);
+            response.Success = true;
+            response.Message = $"已发放 {definition.Name}（{itemId}）× {count}";
+        }
+        catch (Exception error)
+        {
+            response.Message = error.Message;
+            Send(response);
+            return;
+        }
+        _current = candidate;
+        Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+        Send(response);
+    }
+
+    /// <summary>复制服务端实例为独立完整背包协议。</summary>
+    private static BagPb ToBagMessage(DataServerBag bag)
+    {
+        var message = new BagPb { Revision = bag.Revision };
+        message.Items.AddRange(bag.Items.Select(item => new ItemPb
+        {
+            InstanceId = item.InstanceId, ItemId = item.ItemId, SlotIndex = item.SlotIndex, Count = item.Count
+        }));
+        return message;
+    }
+
     /// <summary>登录只返回选角页所需的角色摘要。</summary>
     private static RoleSummaryPb ToSummary(DataServerRole role) => new()
     {
@@ -217,7 +304,7 @@ public sealed class MockServer
         RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId, Health = role.Health, MaxHealth = role.MaxHealth,
         Mana = role.Mana, MaxMana = role.MaxMana, Experience = role.Experience, NextExperience = role.NextExperience,
         X = role.X, Y = role.Y, Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female,
-        Revision = role.Revision, AcknowledgedAction = role.AcknowledgedAction
+            Revision = role.Revision, AcknowledgedAction = role.AcknowledgedAction, BagExtraRows = role.BagExtraRows
     };
 
     /// <summary>冻结响应为当前代次的字节交给传输层。</summary>

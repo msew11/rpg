@@ -52,6 +52,10 @@ public partial class GameHud : Control
     private Vector2 _lastViewport;
     /// <summary>延迟加载素材目录的独立道具图鉴。</summary>
     private ItemCatalogControl _itemCatalog = null!;
+    /// <summary>读取最新角色缓存的只读背包面板。</summary>
+    private BagControl _bag = null!;
+    /// <summary>独立于弹出面板显隐的聊天输入与 GM 反馈。</summary>
+    private ChatControl _chat = null!;
 
     /// <summary>需要返回角色选择界面时通知主控制器。</summary>
     public event Action? ChangeRoleRequested;
@@ -68,6 +72,8 @@ public partial class GameHud : Control
         MouseFilter = MouseFilterEnum.Ignore;
         BuildHud();
         BuildPanels();
+        _chat = new ChatControl();
+        AddChild(_chat);
         BuildSystemMenu();
         ApplyLayout();
         RefreshData();
@@ -78,6 +84,7 @@ public partial class GameHud : Control
         AddChild(_networkError);
         _subscriptions.Add(GameServices.EventBus.Subscribe<MoveRt>(OnMoved));
         _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStateNotice>(OnRoleNotice));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<BagChangedNotice>(OnBagNotice));
     }
 
     /// <summary>退出界面时保存未提交的拖动位置并释放会话订阅。</summary>
@@ -262,8 +269,9 @@ public partial class GameHud : Control
         changeRole.Pressed += () => ChangeRoleRequested?.Invoke();
         character.AddChild(changeRole);
 
-        var inventory = CreatePanel("背包", new Vector2(280, 190));
-        inventory.AddChild(Text("背包为空", 16));
+        _bag = new BagControl { Name = "背包", Visible = false };
+        AddChild(_bag);
+        _panels.Add(_bag);
 
         var mapPanel = CreatePanel("大地图", new Vector2(440, 440));
         _mapText = Text("", 14);
@@ -494,12 +502,19 @@ public partial class GameHud : Control
         if (notice.State?.RoleId == GameServices.Session.RoleId) RefreshData();
     }
 
+    /// <summary>在缓存阶段接纳背包后刷新已打开的格子。</summary>
+    private void OnBagNotice(BagChangedNotice notice)
+    {
+        if (notice.RoleId == GameServices.Session.RoleId) _bag.Refresh();
+    }
+
     /// <summary>在界面上保留服务器或传输失败原因。</summary>
     public void ShowNetworkError(string error) => _networkError.Text = error;
 
     /// <summary>在返回页面时立即解除监听，不等待 QueueFree 执行。</summary>
     public void ReleaseSubscriptions()
     {
+        _chat?.ReleaseSubscription();
         if (_dragging is not null && GameServices.IsInitialized)
         {
             GameServices.Setting.SaveCurrentRole();

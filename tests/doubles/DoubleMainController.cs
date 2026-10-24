@@ -12,8 +12,10 @@ public partial class DoubleMainController : MainController
     public string SettingsDirectory { get; set; } = "";
     /// <summary>本次场景验收的独立模拟服务端目录。</summary>
     public string ServerDirectory { get; set; } = "";
+    /// <summary>为配置与图标回归提供隔离配置目录，默认使用项目资源。</summary>
+    public string ConfigDirectory { get; set; } = "res://config";
 
     /// <summary>整组服务共享同一隔离环境，节点仅持有释放句柄。</summary>
     protected override IDisposable InitializeServices() => GameServicesTestFactory.Register(
-        new EnvService(SettingsDirectory, ServerDirectory));
+        new EnvService(SettingsDirectory, ServerDirectory, ConfigDirectory));
 }

@@ -58,7 +58,7 @@ public static class GameServices
             created.Add(config);
             var setting = new SettingService(env);
             created.Add(setting);
-            var net = new NetService(env, eventBus);
+            var net = new NetService(env, eventBus, config);
             created.Add(net);
             var session = new SessionService(net);
             created.Add(session);

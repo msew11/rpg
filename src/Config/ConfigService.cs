@@ -15,6 +15,8 @@ public sealed class ConfigService : Service
     private readonly MapCfgCache _map;
     /// <summary>本次启动拥有的多例道具缓存。</summary>
     private readonly ItemCfgCache _item;
+    /// <summary>本次启动拥有的单例基础参数缓存。</summary>
+    private readonly BasicCfgCache _basic;
     /// <summary>供统一加载和释放使用的缓存集合。</summary>
     private readonly CfgCache[] _caches;
 
@@ -30,13 +32,20 @@ public sealed class ConfigService : Service
         get { ThrowIfDisposed(); return _item; }
     }
 
+    /// <summary>已完成加载的基础单例缓存。</summary>
+    public BasicCfgCache Basic
+    {
+        get { ThrowIfDisposed(); return _basic; }
+    }
+
     /// <summary>显式建立具体缓存，统一加载；任一失败都回收已创建缓存并抛出异常。</summary>
     public ConfigService(EnvService env)
     {
         ObjectDisposedException.ThrowIf(env.IsDisposed, env);
         _map = new MapCfgCache();
         _item = new ItemCfgCache();
-        _caches = [_map, _item];
+        _basic = new BasicCfgCache();
+        _caches = [_map, _item, _basic];
         try { Load(env.ConfigDirectory, env.SchemaDirectory); }
         catch { Dispose(); throw; }
     }

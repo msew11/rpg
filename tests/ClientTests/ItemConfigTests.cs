@@ -20,6 +20,8 @@ public sealed class ItemConfigTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_directory, "config"));
         File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "map.json"),
             Path.Combine(_directory, "config", "map.json"));
+        File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "basic.json"),
+            Path.Combine(_directory, "config", "basic.json"));
         WriteTable("[]");
     }
 
