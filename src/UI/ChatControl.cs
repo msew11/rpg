@@ -46,12 +46,17 @@ public partial class ChatControl : PanelContainer
         _Process(0);
     }
 
-    /// <summary>将聊天区约束在视口左下角，不随弹出面板切换。</summary>
+    /// <summary>聊天底边与默认底栏齐平，空间不足时收窄以避让相邻技能栏。</summary>
     public override void _Process(double delta)
     {
         var viewport = GetViewportRect().Size;
-        Size = new Vector2(Mathf.Min(400, Mathf.Max(160, viewport.X - 32)), Mathf.Min(180, Mathf.Max(100, viewport.Y - 150)));
-        Position = new Vector2(16, Mathf.Max(16, viewport.Y - Size.Y - 85));
+        var width = Mathf.Min(400, Mathf.Max(160, viewport.X - 32));
+        var height = Mathf.Min(180, Mathf.Max(100, viewport.Y - 150));
+        var hotbar = GetParent().GetNodeOrNull<Control>("hotbar1");
+        if (hotbar is not null && hotbar.GetRect().End.Y > viewport.Y - 16 - height)
+            width = Mathf.Min(width, Mathf.Max(160, hotbar.Position.X - 24));
+        Size = new Vector2(width, height);
+        Position = new Vector2(16, Mathf.Max(16, viewport.Y - Size.Y - 16));
     }
 
     /// <summary>清理输入后提交 GM，普通文字仅提示本地未开放聊天。</summary>

@@ -4,6 +4,7 @@ using System.IO;
 using Godot;
 using Rpg.Services;
 using Rpg.Net.Message;
+using Rpg.Settings.Data;
 
 namespace Rpg.UI;
 
@@ -14,6 +15,8 @@ public partial class GameHud : Control
     private readonly Dictionary<string, PanelContainer> _movable = new();
     /// <summary>HUD 元素的拖动把手。</summary>
     private readonly Dictionary<string, Label> _handles = new();
+    /// <summary>识别旧存档中尚未调整的默认坐标，按内容计算初始布局。</summary>
+    private readonly Dictionary<string, HudPosition> _defaultPositions = RoleSetting.DefaultPositions();
     /// <summary>角色、背包、地图、GM 和系统弹出面板。</summary>
     private readonly List<Control> _panels = [];
     /// <summary>当前 HUD 拥有的服务器消息监听。</summary>
@@ -90,11 +93,17 @@ public partial class GameHud : Control
     /// <summary>退出界面时保存未提交的拖动位置并释放会话订阅。</summary>
     public override void _ExitTree() => ReleaseSubscriptions();
 
-    /// <summary>窗口变化后重新按相对坐标布局。</summary>
+    /// <summary>窗口或内容尺寸变化后重新收紧并排列 HUD。</summary>
     public override void _Process(double delta)
     {
         var size = GetViewportRect().Size;
-        if (size == _lastViewport) return;
+        if (size == _lastViewport)
+        {
+            var unchanged = true;
+            foreach (var panel in _movable.Values)
+                if (panel.Size != panel.GetCombinedMinimumSize()) { unchanged = false; break; }
+            if (unchanged) return;
+        }
         ApplyLayout();
     }
 
@@ -124,7 +133,7 @@ public partial class GameHud : Control
     /// <summary>创建头像、小地图、三条九格技能栏和系统菜单。</summary>
     private void BuildHud()
     {
-        var portrait = Movable("portrait", new Vector2(220, 130), "角色头像");
+        var portrait = Movable("portrait", "角色头像");
         var portraitRow = new HBoxContainer();
         portrait.AddChild(portraitRow);
         portraitRow.AddChild(new AvatarControl { CustomMinimumSize = new Vector2(64, 64) });
@@ -151,7 +160,7 @@ public partial class GameHud : Control
 
         for (var bar = 1; bar <= 3; bar++)
         {
-            var panel = Movable($"hotbar{bar}", new Vector2(432, 66), $"技能栏 {bar}");
+            var panel = Movable($"hotbar{bar}", $"技能栏 {bar}");
             var row = new HBoxContainer();
             panel.AddChild(row);
             for (var slot = 1; slot <= 9; slot++)
@@ -165,7 +174,7 @@ public partial class GameHud : Control
             _movable[$"hotbar{bar}"].Visible = GameServices.Setting.IsHotbarVisible(bar);
         }
 
-        var menu = Movable("menu", new Vector2(355, 65), "系统菜单");
+        var menu = Movable("menu", "系统菜单");
         var menuRow = new HBoxContainer();
         menu.AddChild(menuRow);
         foreach (var title in new[] { "角色", "背包", "大地图", "GM", "系统" })
@@ -243,9 +252,9 @@ public partial class GameHud : Control
     }
 
     /// <summary>创建一个可在 HUD 编辑模式拖动的元素。</summary>
-    private VBoxContainer Movable(string key, Vector2 minimum, string title)
+    private VBoxContainer Movable(string key, string title)
     {
-        var panel = new PanelContainer { Name = key, CustomMinimumSize = minimum };
+        var panel = new PanelContainer { Name = key };
         AddChild(panel);
         var box = new VBoxContainer();
         panel.AddChild(box);
@@ -326,7 +335,7 @@ public partial class GameHud : Control
     /// <summary>创建标题居左、关闭按钮靠右的弹出面板内容列。</summary>
     private VBoxContainer CreatePanel(string title, Vector2 minimum)
     {
-        var outer = new PanelContainer { CustomMinimumSize = minimum, Visible = false, MouseFilter = MouseFilterEnum.Stop };
+        var outer = new PanelContainer { CustomMinimumSize = new Vector2(minimum.X, 0), Visible = false, MouseFilter = MouseFilterEnum.Stop };
         outer.AnchorLeft = 0.5f;
         outer.AnchorTop = 0.5f;
         outer.AnchorRight = 0.5f;
@@ -426,6 +435,7 @@ public partial class GameHud : Control
         _editing = !_editing;
         _editButton.Text = _editing ? "完成 HUD 调整" : "进入 HUD 调整";
         foreach (var handle in _handles.Values) handle.Visible = _editing;
+        ApplyLayout();
         if (!_editing) { _dragging = null; GameServices.Setting.SaveCurrentRole(); }
     }
 
@@ -454,18 +464,31 @@ public partial class GameHud : Control
         GameServices.Setting.SetHudPosition(key, bounded.X / viewport.X, bounded.Y / viewport.Y);
     }
 
-    /// <summary>按保存的屏幕相对坐标排列并约束 HUD。</summary>
+    /// <summary>按内容收紧 HUD，默认底栏齐平并保留自定义相对坐标。</summary>
     private void ApplyLayout()
     {
         CloseSystemMenu();
         var viewport = GetViewportRect().Size;
         _lastViewport = viewport;
+        foreach (var panel in _movable.Values) panel.Size = panel.GetCombinedMinimumSize();
         foreach (var (key, panel) in _movable)
         {
             var position = GameServices.Setting.GetHudPosition(key);
+            var desired = new Vector2(position.X * viewport.X, position.Y * viewport.Y);
+            var initial = _defaultPositions[key];
+            if (position.X == initial.X && position.Y == initial.Y)
+            {
+                if (key == "menu") desired = viewport - panel.Size - new Vector2(16, 16);
+                else if (key.StartsWith("hotbar", StringComparison.Ordinal))
+                {
+                    var index = int.Parse(key[^1..]) - 1;
+                    desired = new Vector2((viewport.X - panel.Size.X) / 2,
+                        viewport.Y - 16 - panel.Size.Y - index * (panel.Size.Y + 4));
+                }
+            }
             panel.Position = new Vector2(
-                Mathf.Clamp(position.X * viewport.X, 0, Mathf.Max(0, viewport.X - panel.Size.X)),
-                Mathf.Clamp(position.Y * viewport.Y, 0, Mathf.Max(0, viewport.Y - panel.Size.Y)));
+                Mathf.Clamp(desired.X, 0, Mathf.Max(0, viewport.X - panel.Size.X)),
+                Mathf.Clamp(desired.Y, 0, Mathf.Max(0, viewport.Y - panel.Size.Y)));
         }
     }
 
@@ -473,7 +496,14 @@ public partial class GameHud : Control
     private void TogglePanel(string title)
     {
         foreach (var panel in _panels)
+        {
             panel.Visible = panel.Name == title ? !panel.Visible : false;
+            if (panel.Visible && panel != _bag && panel != _itemCatalog)
+            {
+                panel.Size = panel.GetCombinedMinimumSize();
+                panel.Position = -panel.Size / 2;
+            }
+        }
     }
 
     /// <summary>从会话缓存刷新角色数值和地图位置。</summary>

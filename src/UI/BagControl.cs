@@ -12,6 +12,12 @@ public partial class BagControl : PanelContainer
 {
     /// <summary>按基础配置列数排列的格子网格。</summary>
     private GridContainer _grid = null!;
+    /// <summary>计算标题与网格之间的主题间隔。</summary>
+    private VBoxContainer _column = null!;
+    /// <summary>参与面板自然尺寸计算的标题栏。</summary>
+    private HBoxContainer _header = null!;
+    /// <summary>在视口不足时承载完整网格的滚动区。</summary>
+    private ScrollContainer _scroll = null!;
     /// <summary>首次显示时加载的素材索引，不依赖 GM 图鉴窗口。</summary>
     private Dictionary<string, DataItemAsset>? _assets;
     /// <summary>已创建的固定格子，刷新只替换内容。</summary>
@@ -22,27 +28,39 @@ public partial class BagControl : PanelContainer
     {
         Name = "背包";
         MouseFilter = MouseFilterEnum.Stop;
-        var column = new VBoxContainer();
-        AddChild(column);
-        var header = new HBoxContainer();
-        column.AddChild(header);
-        header.AddChild(new Label { Text = "背包", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        _column = new VBoxContainer();
+        AddChild(_column);
+        _header = new HBoxContainer();
+        _column.AddChild(_header);
+        _header.AddChild(new Label { Text = "背包", SizeFlagsHorizontal = SizeFlags.ExpandFill });
         var close = new Button { Text = "关闭" };
         close.Pressed += Hide;
-        header.AddChild(close);
-        var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddChild(scroll);
+        _header.AddChild(close);
+        _scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _column.AddChild(_scroll);
         _grid = new GridContainer { Name = "BagGrid" };
-        scroll.AddChild(_grid);
+        _scroll.AddChild(_grid);
         VisibilityChanged += () => { if (Visible) Refresh(); };
         _Process(0);
     }
 
-    /// <summary>将面板保持在视口内，网格超出时由滚动区承载。</summary>
+    /// <summary>按标题和完整网格收紧面板，受视口限制时补足滚动条空间。</summary>
     public override void _Process(double delta)
     {
         var viewport = GetViewportRect().Size;
-        Size = new Vector2(Mathf.Min(480, Mathf.Max(120, viewport.X - 32)), Mathf.Min(370, Mathf.Max(100, viewport.Y - 32)));
+        var grid = _grid.GetCombinedMinimumSize();
+        var header = _header.GetCombinedMinimumSize();
+        var content = grid + _scroll.GetThemeStylebox("panel").GetMinimumSize();
+        var desired = new Vector2(Mathf.Max(header.X, content.X), header.Y + _column.GetThemeConstant("separation") + content.Y)
+            + GetThemeStylebox("panel").GetMinimumSize();
+        var available = (viewport - new Vector2(32, 32)).Max(Vector2.One);
+        var vertical = desired.Y > available.Y;
+        var horizontal = desired.X > available.X;
+        var barWidth = _scroll.GetVScrollBar().GetCombinedMinimumSize().X;
+        var barHeight = _scroll.GetHScrollBar().GetCombinedMinimumSize().Y;
+        if (vertical && desired.X + barWidth > available.X) horizontal = true;
+        if (horizontal && desired.Y + barHeight > available.Y) vertical = true;
+        Size = (desired + new Vector2(vertical ? barWidth : 0, horizontal ? barHeight : 0)).Min(available);
         Position = new Vector2(Mathf.Min(Mathf.Max(432, (viewport.X - Size.X) / 2), Mathf.Max(16, viewport.X - Size.X - 16)),
             (viewport.Y - Size.Y) / 2);
     }
