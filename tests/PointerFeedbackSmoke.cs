@@ -9,7 +9,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验收 openspec/specs/client-ui 的 Normal 指针、完整光圈、点击隔离及世界生命周期。</summary>
+/// <summary>验收 openspec/specs/client-ui 的 Normal 指针、光圈扩散涟漪、点击隔离及世界生命周期。</summary>
 public partial class PointerFeedbackSmoke : Node
 {
     /// <summary>通过真实视口输入和帧推进验证点击反馈，不访问正式用户存档。</summary>
@@ -43,15 +43,23 @@ public partial class PointerFeedbackSmoke : Node
             var expected = GetViewport().GetCanvasTransform().AffineInverse() * point;
             Click(point);
             var first = Circles(main).Single();
-            Check(first.GlobalPosition.IsEqualApprox(expected) && first.Centered && first.Scale == Vector2.One,
-                "光圈没有按原始尺寸中心对齐世界点击");
+            Check(first.GlobalPosition.IsEqualApprox(expected) && first.Centered && first.Scale == Vector2.One * 0.25f,
+                "光圈未从小尺寸开始或没有中心对齐世界点击");
             Check(first.Texture.GetSize() == new Vector2(68, 41), "运行光圈未加载完整纹理");
             Click(point + new Vector2(80, 30));
             var circles = Circles(main);
             Check(circles.Length == 2 && circles[0].GlobalPosition != circles[1].GlobalPosition, "连续点击没有独立反馈");
             await ToSignal(GetTree().CreateTimer(0.15), SceneTreeTimer.SignalName.Timeout);
             Check(first.Modulate.A is > 0 and < 1 && first.GlobalPosition.IsEqualApprox(expected), "光圈未淡出或随摄像机漂移");
-            await ToSignal(GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
+            var expandingScale = first.Scale.X;
+            var fadingAlpha = first.Modulate.A;
+            Check(expandingScale is > 0.25f and < 1.25f && Mathf.IsEqualApprox(first.Scale.Y, expandingScale),
+                "光圈未放大或椭圆比例改变");
+            await ToSignal(GetTree().CreateTimer(0.15), SceneTreeTimer.SignalName.Timeout);
+            Check(first.Scale.X > expandingScale && first.Scale.X < 1.25f
+                && Mathf.IsEqualApprox(first.Scale.Y, first.Scale.X) && first.Modulate.A < fadingAlpha
+                && first.GlobalPosition.IsEqualApprox(expected), "涟漪没有继续扩散淡出或中心漂移");
+            await ToSignal(GetTree().CreateTimer(0.35), SceneTreeTimer.SignalName.Timeout);
             Check(Circles(main).Length == 0 && !GodotObject.IsInstanceValid(first), "光圈播放后未释放");
 
             var target = GameServices.World.RoleTarget;
@@ -73,7 +81,7 @@ public partial class PointerFeedbackSmoke : Node
             await Frames();
             Check(!GodotObject.IsInstanceValid(pending) && Circles(main).Length == 0 && !GameServices.World.HasWorld,
                 "离开世界后残留点击光圈");
-            GD.Print("Pointer feedback smoke passed: Normal, complete circle, clicks, camera, fade, UI isolation, cleanup.");
+            GD.Print("Pointer feedback smoke passed: Normal, complete circle, expanding ripple, clicks, camera, fade, UI isolation, cleanup.");
             main.QueueFree();
             await Frames();
             main = null;
