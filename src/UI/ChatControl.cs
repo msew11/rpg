@@ -158,11 +158,19 @@ public partial class ChatControl : PanelContainer
         RefreshInput();
     }
 
-    /// <summary>候选使用上下键选择、Tab 补全、Escape 隐藏，回车沿用发送行为。</summary>
+    /// <summary>回车优先确认候选，无候选时补齐小键盘回车提交；消费已处理的按键。</summary>
     private void OnInputKey(InputEvent inputEvent)
     {
         if (inputEvent is not InputEventKey { Pressed: true } key || _input.HasImeText()) return;
-        if (!_suggestions.Visible) return;
+        if (!_suggestions.Visible)
+        {
+            if (key.Keycode == Key.KpEnter)
+            {
+                Submit();
+                AcceptEvent();
+            }
+            return;
+        }
         switch (key.Keycode)
         {
             case Key.Escape:
@@ -170,6 +178,8 @@ public partial class ChatControl : PanelContainer
                 _suggestions.Hide();
                 break;
             case Key.Tab:
+            case Key.Enter:
+            case Key.KpEnter:
                 CompleteCandidate(_candidates.GetSelectedItems().FirstOrDefault());
                 break;
             case Key.Up:

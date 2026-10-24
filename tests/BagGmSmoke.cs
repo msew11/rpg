@@ -48,7 +48,7 @@ public partial class BagGmSmoke : Node
             CheckSlot(grid, 0, "测试长剑");
             CheckSlot(grid, 1, "测试长剑");
             input.GrabFocus();
-            input.Text = "/item 1013";
+            SetChatInput(input, "/item 1013 ");
             using (var key = new InputEventKey { Keycode = Key.Enter, Pressed = true }) GetViewport().PushInput(key, true);
             using (var key = new InputEventKey { Keycode = Key.Enter, Pressed = false }) GetViewport().PushInput(key, true);
             await Frames();
@@ -66,8 +66,9 @@ public partial class BagGmSmoke : Node
             Check(results.GetParsedText().Contains("背包空间不足") && GameServices.Session.Bag.Revision == revision, "空间不足未保持整个背包不变");
 
             PressTitle(bag, "关闭");
-            input.Text = "/item 1014";
-            send.EmitSignal(Button.SignalName.Pressed);
+            input.GrabFocus();
+            SetChatInput(input, "/item 1014 1");
+            PushKey(Key.KpEnter);
             await Frames();
             PressTitle(main, "背包");
             await Frames();
@@ -226,6 +227,21 @@ public partial class BagGmSmoke : Node
         input.ReleaseFocus();
         Check(!popup.Visible && !hint.Visible, "失焦后提示未隐藏");
         input.GrabFocus();
+        // 两种回车都必须只确认当前阶段，并使用实际选中项而非固定第一项。
+        foreach (var enter in new[] { Key.Enter, Key.KpEnter })
+        {
+            SetChatInput(input, "/");
+            var history = results.GetParsedText();
+            PushKey(enter);
+            await Frames();
+            Check(input.Text == "/item " && popup.Visible && input.HasFocus(), "回车未确认命令候选：" + enter);
+            PushKey(Key.Down);
+            PushKey(enter);
+            await Frames();
+            Check(input.Text == "/item 1013 " && !popup.Visible && hint.Visible && input.HasFocus(), "回车未填入选中的道具：" + enter);
+            Check(results.GetParsedText() == history && GameServices.Session.Bag.Revision == revision,
+                "回车补全误发送命令：" + enter);
+        }
         SetChatInput(input, "/item ");
         ResizeViewport(new Vector2I(480, 270));
         await Frames();

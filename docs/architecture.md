@@ -139,6 +139,8 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 
 ## 背包与聊天 GM
 
+候选框显示时，主键盘回车与数字小键盘回车优先补全当前选中项并消费按键，不进入发送链路；候选隐藏后两种回车均可提交。`tests/bag_gm_smoke.tscn` 覆盖连续确认命令与非首个道具、聊天记录及背包版本不变，以及隐藏候选后的默认数量和显式数量提交。
+
 `config/basic.json` 通过 `BasicCfgCache : SingleCfgCache<BasicCfg>` 加载，`Config.Basic.Value` 提供 8 列、5 行基础背包。角色 `BagExtraRows` 默认为 0，容量计算检查非负扩容和整数溢出。`NetService` 从构造绑定的 Config 复制 `DataServerBagRules` 与道具定义，MockServer 不引用客户端配置类或 Godot。
 
 服务端 `DataServerBag`（独立 Revision、NextInstanceId）和 `DataServerItem`（InstanceId、ItemId、SlotIndex、Count）嵌入角色 JSON，同一原子保存提交；旧存档默认为空背包和 0 增加行数。实例 ID 在角色内递增、不复用，格子从 0 开始按行排列。选角返回独立 BagPb，移动响应仅携带角色状态及增加行数；背包变更以带角色 ID 的完整 `BagChangedNotice` 推送。RoleCache 在 Cache 阶段校验整份容量、配置、数量与唯一性，构造不可变 BagPbData/ItemPbData，按独立版本替换；普通 UI 阶段读取 Session.Bag，旧角色与旧代次消息隔离。
