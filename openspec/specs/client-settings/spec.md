@@ -20,3 +20,10 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 #### Scenario: 分辨率变化
 - **WHEN** 保存 HUD 布局后改变分辨率
 - **THEN** 可调元素保持在可视区域内
+
+### Requirement: 启动窗口居中
+客户端 SHALL 在启动并应用已保存的窗口分辨率后，将游戏窗口居中到当前所在显示器；嵌入运行时由引擎在宿主视口内居中。
+
+#### Scenario: 使用保存分辨率启动
+- **WHEN** 玩家打开独立游戏窗口
+- **THEN** 窗口使用保存的分辨率并在当前显示器中央显示

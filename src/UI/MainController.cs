@@ -367,12 +367,13 @@ public partial class MainController : Control
         box.AddChild(label);
     }
 
-    /// <summary>应用本地系统分辨率与音量。</summary>
+    /// <summary>应用本地系统分辨率与音量，并将启动窗口居中到当前显示器。</summary>
     private void ApplySystemSettings()
     {
         var width = Math.Clamp(GameServices.Setting.Width, 800, 3840);
         var height = Math.Clamp(GameServices.Setting.Height, 600, 2160);
         DisplayServer.WindowSetSize(new Vector2I(width, height));
+        GetWindow().MoveToCenter();
         var bus = AudioServer.GetBusIndex("Master");
         if (bus >= 0) AudioServer.SetBusVolumeLinear(bus, Mathf.Clamp(GameServices.Setting.MasterVolume, 0, 1));
     }
