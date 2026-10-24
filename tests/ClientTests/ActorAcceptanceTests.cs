@@ -1,3 +1,4 @@
+using Rpg.Config.Data;
 using Rpg.Services;
 using Rpg.Const;
 using Rpg.Session.Data;
@@ -120,7 +121,7 @@ public sealed class ActorAcceptanceTests : EventServiceTestScope
     private static WorldManager CreateWorld(RoleWorldStatePbData role)
     {
         var world = new WorldManager();
-        world.Enqueue(new InitializeWorldAction(MapSystem.CreateMap(ConfigTestFixture.LoadDefault().MapConfig)));
+        world.Enqueue(new InitializeWorldAction(MapSystem.CreateMap(new MapConfig { Width = 1000, Height = 1000, TileSize = 32 })));
         world.Enqueue(new InitializeRoleAction(role));
         world.Tick(0);
         return world;

@@ -10,6 +10,7 @@ using Rpg.Server;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/game-services 的全局访问、所有权及独立实例契约；同类测试串行执行。</summary>
+[Trait("Runtime", "Godot")]
 public sealed class GameServicesTests
 {
     /// <summary>验证 game-services 的正式启动无参，公开服务构造只声明服务依赖。</summary>

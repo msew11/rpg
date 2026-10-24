@@ -1,0 +1,5 @@
+<RunSettings>
+  <RunConfiguration>
+    <TestCaseFilter>Runtime!=Godot</TestCaseFilter>
+  </RunConfiguration>
+</RunSettings>

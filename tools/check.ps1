@@ -1,4 +1,4 @@
-param([switch]$ExportWindows)
+param([switch]$ExportWindows, [switch]$Tests)
 
 $ErrorActionPreference = 'Stop'
 
@@ -47,6 +47,15 @@ function Invoke-GodotCheck {
 
 Invoke-GodotCheck 'project import' @('--headless', '--path', $projectPath, '--editor', '--quit')
 Invoke-GodotCheck 'main scene' @('--headless', '--path', $projectPath, '--quit-after', '2')
+
+if ($Tests) {
+    Write-Host 'Running .NET tests...'
+    & dotnet test (Join-Path $projectPath 'tests\ClientTests\ClientTests.csproj') --nologo
+    if ($LASTEXITCODE -ne 0) { throw '.NET tests failed.' }
+    $testAssembly = Join-Path $projectPath 'tests\ClientTests\bin\Debug\net8.0\ClientTests.dll'
+    Invoke-GodotCheck 'Godot xUnit tests' @('--headless', '--path', $projectPath,
+        'res://tests/godot_test_host.tscn', '--', $testAssembly)
+}
 
 if ($ExportWindows) {
     $templateDir = Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'

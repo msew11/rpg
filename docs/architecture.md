@@ -17,7 +17,7 @@
 | `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部只读地图组件、`MapSystem`、`WorldManager` |
 | `AnimationService Animation` | 直接加载、缓存身体动画并解析朝向 | Godot 原生资源 |
 
-`ConfigService` 构造时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验并持有 `MapConfig`。地图系统通过服务取得配置并构建只读地图快照；分块和 UI 通过服务读取，不另存配置引用。`config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块与稀疏覆盖格。未知、重复、无效或文件名不匹配的配置阻止启动；配置与程序同包发布。原始加载方法为私有，构造只接收 `EnvironmentService`；内部环境构造允许隔离测试覆盖目录，配置和 Schema 使用同一环境。
+`ConfigService` 构造时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验并持有 `MapConfig`。地图系统通过服务取得配置并构建只读地图快照；分块和 UI 通过服务读取，不另存配置引用。`config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块与稀疏覆盖格。未知、重复、无效或文件名不匹配的配置阻止启动；配置与程序同包发布。原始加载方法为私有，构造只接收 `EnvironmentService`；配置和 Schema 使用同一环境，统一通过 Godot 的 `DirAccess` 与 `FileAccess` 读取，不按路径类型切换加载链路。配置加载及整组服务验收在 Godot headless 中复用现有 xUnit 用例，临时目录也通过相同 Godot API 读取。普通 .NET 用例直接提供地图等纯数据，不为测试在正式代码中增加加载分支或替代构造。
 
 主控制器调用无参 `GameServices.Initialize()`。无依赖的 `EnvironmentService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config、Setting、Net 的公开构造只接收 Environment，Session 接收 Net，World 接收 Config、Setting、Session，Events 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Environment、Events、Config、Setting、Net、Session、World、Animation 顺序显式创建全部八个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销业务入口，再按 Animation、World、Session、Net、Setting、Config、Events、Environment 顺序清理并撤销事件入口。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，独立事件测试通过 `RegisterEvents` 注册测试创建的实例；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
 
@@ -92,3 +92,7 @@ Godot 输入 -> 等轴逆投影 -> GameServices.World -> 移动 Action / 会话�
 ## 当前限制
 
 演示认证、状态确认和地图配色仅用于验证客户端链路；尚无真实网络、寻路、技能效果或背包操作。角色目前仅接入基础身体素材，不包含独立头部、发型、装备和坐骑；正式美术方向仍待确认。动作播放暂用每秒 10 帧，不代表玩法节奏。模拟服务端位置与客户端运动存在固定小偏差，用于检查校正路径。
+
+## 测试执行
+
+`powershell -ExecutionPolicy Bypass -File tools/test.ps1` 执行项目检查与完整测试：普通用例通过 `dotnet test` 运行；标记 `Runtime=Godot` 的配置和整组服务用例通过 headless 测试场景及现有 xUnit 运行器执行。`ClientTests.runsettings` 默认排除需要引擎的用例，单独运行 `dotnet test` 只执行普通部分。测试程序集及运行器依赖由测试场景加载，不加入正式项目依赖；失败或未发现 Godot 用例时返回非零退出码。

@@ -3,6 +3,7 @@ using Rpg.Session.Data;
 using Rpg.Const;
 using Godot;
 using Rpg.Config;
+using Rpg.Config.Data;
 using Rpg.Net.Message;
 using Rpg.Session;
 using Rpg.Settings;
@@ -19,6 +20,7 @@ public sealed class ClientAcceptanceTests : EventServiceTestScope
 {
     /// <summary>合法地图配置能组合为完整地图，未知配置会给出文件诊断。</summary>
     [Fact]
+    [Trait("Runtime", "Godot")]
     public void ConfigLoadsAllFilesAndRejectsUnknownType()
     {
         var root = ConfigTestFixture.FindRoot();
@@ -69,7 +71,7 @@ public sealed class ClientAcceptanceTests : EventServiceTestScope
     [Fact]
     public void MapVisibleRegionDoesNotExpandWholeWorld()
     {
-        var map = MapSystem.CreateMap(ConfigTestFixture.LoadDefault().MapConfig);
+        var map = MapSystem.CreateMap(new MapConfig { Width = 1000, Height = 1000, TileSize = 32 });
         var region = MapSystem.VisibleTiles(map, new Rect2(16000, 16000, 1280, 720));
         Assert.True((region.Right - region.Left + 1) * (region.Bottom - region.Top + 1) < 1500);
     }
@@ -150,7 +152,7 @@ public sealed class WorldAcceptanceTests
     [Fact]
     public void WorldActionOrderMovementAndCorrection()
     {
-        var map = MapSystem.CreateMap(ConfigTestFixture.LoadDefault().MapConfig);
+        var map = MapSystem.CreateMap(new MapConfig { Width = 1000, Height = 1000, TileSize = 32 });
         var role = new RoleWorldStatePbData(1, "测试", 1, 10, 10, 10, 10, 0, 10, new Vector2(100, 100), RoleGender.Male, 0, 0);
         var world = new WorldManager();
         world.Enqueue(new InitializeRoleAction(role));
@@ -258,18 +260,16 @@ internal static class ConfigTestFixture
         return new ConfigService(CreateEnvironment());
     }
 
-    /// <summary>为 game-services 与配置验收提供独立磁盘目录环境。</summary>
+    /// <summary>为 game-services 验收提供独立存档目录，配置使用正式资源路径。</summary>
     internal static EnvironmentService CreateEnvironment(string settingsDirectory = "", string serverDirectory = "")
     {
-        var root = FindRoot();
-        return new EnvironmentService(settingsDirectory, serverDirectory,
-            Path.Combine(root, "config"), Path.Combine(root, "schemas"));
+        return new EnvironmentService(settingsDirectory, serverDirectory);
     }
 
-    /// <summary>从测试输出目录向上寻找项目根目录。</summary>
+    /// <summary>从测试程序集目录向上寻找项目根目录。</summary>
     internal static string FindRoot()
     {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        var current = new DirectoryInfo(Path.GetDirectoryName(typeof(ConfigTestFixture).Assembly.Location)!);
         while (current is not null && !File.Exists(Path.Combine(current.FullName, "rpg.csproj")))
             current = current.Parent;
         return current?.FullName ?? throw new DirectoryNotFoundException("找不到项目根目录");

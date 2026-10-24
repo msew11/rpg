@@ -15,13 +15,11 @@ namespace Rpg.Config;
 /// <summary>扫描、校验并组合打包的 JSON 游戏配置。</summary>
 public sealed class ConfigService : Service
 {
-    /// <summary>从环境指定的资源包或磁盘目录加载配置及配套校验规则。</summary>
+    /// <summary>通过 Godot 从环境指定的目录加载配置及配套校验规则。</summary>
     public ConfigService(EnvironmentService environment)
     {
         ObjectDisposedException.ThrowIf(environment.IsDisposed, environment);
-        if (environment.ConfigDirectory.StartsWith("res://", StringComparison.Ordinal))
-            LoadGodot(environment.ConfigDirectory, environment.SchemaDirectory);
-        else Load(environment.ConfigDirectory, environment.SchemaDirectory);
+        Load(environment.ConfigDirectory, environment.SchemaDirectory);
     }
 
     /// <summary>最近一次成功加载的地图配置。</summary>
@@ -37,21 +35,8 @@ public sealed class ConfigService : Service
         }
     }
 
-    /// <summary>读取目录中的全部配置；任何未识别或无效文件都使加载失败。</summary>
-    private void Load(string configDirectory, string schemaDirectory)
-    {
-        ThrowIfDisposed();
-        if (!Directory.Exists(configDirectory))
-            throw new InvalidDataException($"配置目录不存在：{configDirectory}");
-
-        var files = Directory.GetFiles(configDirectory, "*.json", SearchOption.AllDirectories);
-        var mapConfig = LoadDocuments(files.Select(file => (file, File.ReadAllText(file))),
-            File.ReadAllText(Path.Combine(schemaDirectory, "map.schema.json")));
-        _mapConfig = mapConfig;
-    }
-
     /// <summary>从 Godot 资源包递归读取配置，支持编辑器和导出程序。</summary>
-    private void LoadGodot(string configDirectory, string schemaDirectory)
+    private void Load(string configDirectory, string schemaDirectory)
     {
         ThrowIfDisposed();
         var files = new List<(string Path, string Text)>();
