@@ -1,0 +1,528 @@
+{
+  "heads": {
+    "head0101.gsn": "e86476fde83c8cf356dd924a58f08c7d1f30e1d011552a1d6d3c70791801e97b",
+    "head0151.gsn": "f6ecfa001b717a629d8f8fc4a4ff0d59dbf16b034436f9468d8aa0b7a21a21e2"
+  },
+  "animations": [
+    {
+      "gender": "男性",
+      "motion": "stand",
+      "body": "npc14101.gsn",
+      "bodySha256": "1191a9346667b66c515c1d59e1b8dafb32b1a8f8f73a8722fea60f154dea92dc",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        23
+      ],
+      "bodyAnchor": [
+        23,
+        70
+      ],
+      "bodySize": [
+        46,
+        81
+      ],
+      "frameCount": 5
+    },
+    {
+      "gender": "男性",
+      "motion": "run",
+      "body": "npc14102.gsn",
+      "bodySha256": "fca82b35ef5ae201544a43f9cdc18d3a1154150d36759a9c9cc059806fd1eb7b",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        23
+      ],
+      "bodyAnchor": [
+        45,
+        77
+      ],
+      "bodySize": [
+        90,
+        88
+      ],
+      "frameCount": 40
+    },
+    {
+      "gender": "男性",
+      "motion": "sit",
+      "body": "npc14103.gsn",
+      "bodySha256": "e75cd7c34eaef28692f07375da38c9db360483ef0a68da5dfc203b46daf5eede",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        22
+      ],
+      "bodyAnchor": [
+        33,
+        52
+      ],
+      "bodySize": [
+        66,
+        60
+      ],
+      "frameCount": 5
+    },
+    {
+      "gender": "男性",
+      "motion": "die",
+      "body": "npc14104.gsn",
+      "bodySha256": "6dad29b7d1db27bae3ed14ba67e7b5c928f68fbd4f721cd3f9a54f8bd5435e9d",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        23
+      ],
+      "bodyAnchor": [
+        37,
+        63
+      ],
+      "bodySize": [
+        74,
+        72
+      ],
+      "frameCount": 15
+    },
+    {
+      "gender": "男性",
+      "motion": "attack1",
+      "body": "npc14105.gsn",
+      "bodySha256": "cd2ff839411559e8896375d37aedc34a9a4d73214954cce779ff36e2edbe274d",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        2
+      ],
+      "bodyAnchor": [
+        39,
+        98
+      ],
+      "bodySize": [
+        78,
+        112
+      ],
+      "frameCount": 45
+    },
+    {
+      "gender": "男性",
+      "motion": "attack2",
+      "body": "npc14106.gsn",
+      "bodySha256": "75151961ba382f47e2d043db84a86c4f4ba1b5fe36f71cedc635797eb718486b",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        23
+      ],
+      "bodyAnchor": [
+        48,
+        83
+      ],
+      "bodySize": [
+        96,
+        95
+      ],
+      "frameCount": 40
+    },
+    {
+      "gender": "男性",
+      "motion": "attack3",
+      "body": "npc14107.gsn",
+      "bodySha256": "fdd57f326f94fa2f991eefae738cf9c03fef11e556a6774f05ad11d9e6c5cc23",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        10
+      ],
+      "bodyAnchor": [
+        44,
+        91
+      ],
+      "bodySize": [
+        89,
+        105
+      ],
+      "frameCount": 45
+    },
+    {
+      "gender": "男性",
+      "motion": "magic",
+      "body": "npc14108.gsn",
+      "bodySha256": "51761ddf04945f895d6ec0ce2b3d03c3b2009903d21b0743e5a0f7ccf8fabd80",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        8
+      ],
+      "bodyAnchor": [
+        41,
+        90
+      ],
+      "bodySize": [
+        83,
+        103
+      ],
+      "frameCount": 40
+    },
+    {
+      "gender": "男性",
+      "motion": "prepare1",
+      "body": "npc14109.gsn",
+      "bodySha256": "00e3bde6b1f4dc09c894d81c7960395a8e6e54b6a365fa3c8af7f1875c025dc8",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        23
+      ],
+      "bodyAnchor": [
+        32,
+        73
+      ],
+      "bodySize": [
+        65,
+        84
+      ],
+      "frameCount": 20
+    },
+    {
+      "gender": "男性",
+      "motion": "prepare2",
+      "body": "npc14110.gsn",
+      "bodySha256": "45e744392a187bc15a50f943f80a7b4e0ba952949abddb114962dea08f5296b4",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        23
+      ],
+      "bodyAnchor": [
+        30,
+        75
+      ],
+      "bodySize": [
+        61,
+        86
+      ],
+      "frameCount": 20
+    },
+    {
+      "gender": "男性",
+      "motion": "prepare3",
+      "body": "npc14111.gsn",
+      "bodySha256": "faa15dd1fdc808d878b24694378d7bf586dca638e4091c318f9e810247e88e41",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        23
+      ],
+      "bodyAnchor": [
+        37,
+        71
+      ],
+      "bodySize": [
+        74,
+        82
+      ],
+      "frameCount": 20
+    },
+    {
+      "gender": "男性",
+      "motion": "hurt",
+      "body": "npc14112.gsn",
+      "bodySha256": "8e51e07318b2762eb6b23ce39808b3974e4c751f04c63d66d27801f560927ace",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        23
+      ],
+      "bodyAnchor": [
+        35,
+        68
+      ],
+      "bodySize": [
+        71,
+        78
+      ],
+      "frameCount": 5
+    },
+    {
+      "gender": "男性",
+      "motion": "ride",
+      "body": "npc14113.gsn",
+      "bodySha256": "2605739fa111b4195d2aebdd94fcd1f875d074030407675214fb83a159c84825",
+      "head": "head0101.gsn",
+      "shift": [
+        0,
+        23
+      ],
+      "bodyAnchor": [
+        37,
+        70
+      ],
+      "bodySize": [
+        74,
+        81
+      ],
+      "frameCount": 5
+    },
+    {
+      "gender": "女性",
+      "motion": "stand",
+      "body": "npc14201.gsn",
+      "bodySha256": "0b2e84721dc26614d213724cebed92c66a42f9b054e4bf0afa31f67c6b6c383f",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        22
+      ],
+      "bodyAnchor": [
+        22,
+        71
+      ],
+      "bodySize": [
+        44,
+        82
+      ],
+      "frameCount": 5
+    },
+    {
+      "gender": "女性",
+      "motion": "run",
+      "body": "npc14202.gsn",
+      "bodySha256": "0c4b1596beecab99005811669b2193873e9d2d2d827c6fc1a851ad0466d2e811",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        21
+      ],
+      "bodyAnchor": [
+        40,
+        73
+      ],
+      "bodySize": [
+        81,
+        84
+      ],
+      "frameCount": 40
+    },
+    {
+      "gender": "女性",
+      "motion": "sit",
+      "body": "npc14203.gsn",
+      "bodySha256": "69bf09831481195aa86a5f148d2de3e76e496e6589cb7e897721c980af7c6f70",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        20
+      ],
+      "bodyAnchor": [
+        21,
+        47
+      ],
+      "bodySize": [
+        43,
+        54
+      ],
+      "frameCount": 5
+    },
+    {
+      "gender": "女性",
+      "motion": "die",
+      "body": "npc14204.gsn",
+      "bodySha256": "b8d54581e7ef4ba50999b7e5144e8eada199e86616a950fd8771527140ba53e9",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        21
+      ],
+      "bodyAnchor": [
+        34,
+        72
+      ],
+      "bodySize": [
+        68,
+        83
+      ],
+      "frameCount": 20
+    },
+    {
+      "gender": "女性",
+      "motion": "attack1",
+      "body": "npc14205.gsn",
+      "bodySha256": "e2047db725bcf9c7d4688a4033ef7901fdf170ab39f882cc7564118e4c566a37",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        12
+      ],
+      "bodyAnchor": [
+        42,
+        90
+      ],
+      "bodySize": [
+        84,
+        103
+      ],
+      "frameCount": 40
+    },
+    {
+      "gender": "女性",
+      "motion": "attack2",
+      "body": "npc14206.gsn",
+      "bodySha256": "e6fa60ddaa0dfb59a8495bb298de06f90985f1620314ab0b866884dd127fa5e0",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        19
+      ],
+      "bodyAnchor": [
+        40,
+        76
+      ],
+      "bodySize": [
+        81,
+        87
+      ],
+      "frameCount": 35
+    },
+    {
+      "gender": "女性",
+      "motion": "attack3",
+      "body": "npc14207.gsn",
+      "bodySha256": "401814170b38e72b44830ba3d2a3ea68d4de85af88d1be60ce559cbdf1b52297",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        12
+      ],
+      "bodyAnchor": [
+        42,
+        83
+      ],
+      "bodySize": [
+        84,
+        95
+      ],
+      "frameCount": 40
+    },
+    {
+      "gender": "女性",
+      "motion": "magic",
+      "body": "npc14208.gsn",
+      "bodySha256": "8a2d2b2dc7efba76efa82e641ba768d34c5b7c05f95e58f03516cc7ca618442c",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        2
+      ],
+      "bodyAnchor": [
+        39,
+        95
+      ],
+      "bodySize": [
+        79,
+        109
+      ],
+      "frameCount": 45
+    },
+    {
+      "gender": "女性",
+      "motion": "prepare1",
+      "body": "npc14209.gsn",
+      "bodySha256": "30efe325227bd95c7b01df701b5cd873f4e19a24b6168cb741dfd01ec75f9b41",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        20
+      ],
+      "bodyAnchor": [
+        33,
+        74
+      ],
+      "bodySize": [
+        67,
+        85
+      ],
+      "frameCount": 20
+    },
+    {
+      "gender": "女性",
+      "motion": "prepare2",
+      "body": "npc14210.gsn",
+      "bodySha256": "ff82847b0a5238249940e579036431a375c47457f48123ceb9e7eadf094b1539",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        21
+      ],
+      "bodyAnchor": [
+        26,
+        73
+      ],
+      "bodySize": [
+        52,
+        84
+      ],
+      "frameCount": 20
+    },
+    {
+      "gender": "女性",
+      "motion": "prepare3",
+      "body": "npc14211.gsn",
+      "bodySha256": "d216551b64bd51d068ac27dfe1584ce5a664d4f3b087a025a99796a9bb78fc53",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        20
+      ],
+      "bodyAnchor": [
+        32,
+        70
+      ],
+      "bodySize": [
+        65,
+        80
+      ],
+      "frameCount": 20
+    },
+    {
+      "gender": "女性",
+      "motion": "hurt",
+      "body": "npc14212.gsn",
+      "bodySha256": "93fe928687a21e1b141461576e05e6ea0054768731a54fcd71c488629de75bd7",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        22
+      ],
+      "bodyAnchor": [
+        35,
+        70
+      ],
+      "bodySize": [
+        71,
+        80
+      ],
+      "frameCount": 5
+    },
+    {
+      "gender": "女性",
+      "motion": "ride",
+      "body": "npc14213.gsn",
+      "bodySha256": "b4129ccebf2a6eee592dd907658a82bbd5edee2be6cac0df8a010d0f029fe584",
+      "head": "head0151.gsn",
+      "shift": [
+        0,
+        20
+      ],
+      "bodyAnchor": [
+        37,
+        72
+      ],
+      "bodySize": [
+        74,
+        83
+      ],
+      "frameCount": 5
+    }
+  ]
+}

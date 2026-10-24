@@ -5,102 +5,102 @@
 
 [sub_resource type="AtlasTexture" id="Frame_0_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 0, 65, 84)
+region = Rect2(0, 0, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_0_1"]
 atlas = ExtResource("2")
-region = Rect2(65, 0, 65, 84)
+region = Rect2(65, 0, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_0_2"]
 atlas = ExtResource("2")
-region = Rect2(130, 0, 65, 84)
+region = Rect2(130, 0, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_0_3"]
 atlas = ExtResource("2")
-region = Rect2(195, 0, 65, 84)
+region = Rect2(195, 0, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_1_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 84, 65, 84)
+region = Rect2(0, 107, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_1_1"]
 atlas = ExtResource("2")
-region = Rect2(65, 84, 65, 84)
+region = Rect2(65, 107, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_1_2"]
 atlas = ExtResource("2")
-region = Rect2(130, 84, 65, 84)
+region = Rect2(130, 107, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_1_3"]
 atlas = ExtResource("2")
-region = Rect2(195, 84, 65, 84)
+region = Rect2(195, 107, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_2_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 168, 65, 84)
+region = Rect2(0, 214, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_2_1"]
 atlas = ExtResource("2")
-region = Rect2(65, 168, 65, 84)
+region = Rect2(65, 214, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_2_2"]
 atlas = ExtResource("2")
-region = Rect2(130, 168, 65, 84)
+region = Rect2(130, 214, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_2_3"]
 atlas = ExtResource("2")
-region = Rect2(195, 168, 65, 84)
+region = Rect2(195, 214, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_3_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 252, 65, 84)
+region = Rect2(0, 321, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_3_1"]
 atlas = ExtResource("2")
-region = Rect2(65, 252, 65, 84)
+region = Rect2(65, 321, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_3_2"]
 atlas = ExtResource("2")
-region = Rect2(130, 252, 65, 84)
+region = Rect2(130, 321, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_3_3"]
 atlas = ExtResource("2")
-region = Rect2(195, 252, 65, 84)
+region = Rect2(195, 321, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_4_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 336, 65, 84)
+region = Rect2(0, 428, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_4_1"]
 atlas = ExtResource("2")
-region = Rect2(65, 336, 65, 84)
+region = Rect2(65, 428, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_4_2"]
 atlas = ExtResource("2")
-region = Rect2(130, 336, 65, 84)
+region = Rect2(130, 428, 65, 107)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_4_3"]
 atlas = ExtResource("2")
-region = Rect2(195, 336, 65, 84)
+region = Rect2(195, 428, 65, 107)
 filter_clip = true
 
 [sub_resource type="SpriteFrames" id="Animations"]
@@ -140,4 +140,4 @@ animations = [
 [resource]
 script = ExtResource("1")
 Frames = SubResource("Animations")
-Anchor = Vector2(32, 73)
+Anchor = Vector2(32, 96)

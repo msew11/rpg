@@ -106,6 +106,7 @@ public partial class ActorAnimationSmoke : Node
                 }
             }
             Check(total == 605, $"动作资源帧不完整：{total}");
+            CheckDefaultHeads(repo);
 
             var run = new DataActorState(1001, RoleGender.Male, Vector2.Zero, RoleMotion.Run, Vector2.Right, 0);
             actor.Present(run);
@@ -152,6 +153,32 @@ public partial class ActorAnimationSmoke : Node
         finally
         {
             if (Directory.Exists(temporary)) Directory.Delete(temporary, true);
+        }
+    }
+
+    /// <summary>验证 client-actor-presentation 默认头部场景，防止漏导、裁剪偏移和世界锚点回归。</summary>
+    private static void CheckDefaultHeads(AnimationService animations)
+    {
+        // 取自目视核对后的左下方向头发像素；坐标相对世界锚点，独立于扩大后的画布。
+        var samples = new[]
+        {
+            (RoleGender.Male, RoleMotion.Stand, 0, new Vector2I(-3, -90), "bb8833ff", new Vector2(23, 93)),
+            (RoleGender.Male, RoleMotion.Run, 0, new Vector2I(-11, -81), "bb8833ff", new Vector2(45, 100)),
+            (RoleGender.Male, RoleMotion.Run, 7, new Vector2I(-10, -85), "bb8833ff", new Vector2(45, 100)),
+            (RoleGender.Female, RoleMotion.Stand, 0, new Vector2I(0, -91), "bb7722ff", new Vector2(22, 93)),
+            (RoleGender.Female, RoleMotion.Run, 0, new Vector2I(-8, -83), "bb7722ff", new Vector2(40, 94)),
+            (RoleGender.Female, RoleMotion.Run, 7, new Vector2I(-9, -85), "bb7722ff", new Vector2(40, 94))
+        };
+        foreach (var (gender, motion, frame, worldPixel, color, anchor) in samples)
+        {
+            var resource = animations.Get(gender, motion);
+            Check(resource.Anchor == anchor, $"组合画布未同步平移世界锚点：{gender}/{motion}");
+            var texture = (AtlasTexture)resource.Frames.GetFrameTexture("dir0", frame);
+            using var image = texture.GetImage();
+            var pixel = worldPixel + (Vector2I)resource.Anchor;
+            Check(pixel.X >= 0 && pixel.Y >= 0 && pixel.X < image.GetWidth() && pixel.Y < image.GetHeight(),
+                "头部像素超出组合画布");
+            Check(image.GetPixelv(pixel).ToHtml() == color, $"默认头部缺失或未随身体挂接：{gender}/{motion}/{frame}");
         }
     }
 

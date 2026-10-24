@@ -1,10 +1,16 @@
-﻿# 根据 art_export/基础角色_男女全部动作 的解码清单重建身体动画，不修改来源文件。
-param([Parameter(Mandatory = $true)][string]$SourcePath)
+﻿# 根据 art_export/基础角色_男女全部动作 的解码清单重建含默认头部的角色动画，不修改来源文件。
+param([Parameter(Mandatory = $true)][string]$SourcePath, [Parameter(Mandatory = $true)][string]$RawPath)
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 $sourceRoot = (Resolve-Path -LiteralPath $SourcePath).Path
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+if ($RawPath) {
+    $compositeRoot = Join-Path $projectRoot 'build/actor-composite-input'
+    & python (Join-Path $PSScriptRoot 'compose_actor_heads.py') --source $sourceRoot --raw $RawPath --output $compositeRoot
+    if ($LASTEXITCODE -ne 0) { throw '默认头部组合失败。' }
+    $sourceRoot = $compositeRoot
+}
 $animations = Get-Content -LiteralPath (Join-Path $sourceRoot 'animation_frames.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($animations.Count -ne 26) { throw '应提供男女各 13 个动作。' }
 $knownActions = @('stand', 'run', 'sit', 'die', 'attack1', 'attack2', 'attack3', 'magic', 'prepare1', 'prepare2', 'prepare3', 'hurt', 'ride')
@@ -77,4 +83,7 @@ foreach ($animation in $animations) {
     $total += $animation.frames.Count
 }
 if ($total -ne 605) { throw "总帧数与资源约定不一致：$total" }
+if ($RawPath) {
+    Copy-Item -LiteralPath (Join-Path $sourceRoot 'head_composition.json') -Destination (Join-Path $projectRoot 'assets/characters/head_composition.json')
+}
 Write-Host "已导入 $($animations.Count) 个动作，$total 帧。"

@@ -15,7 +15,7 @@
 | `NetService Net` | protobuf 请求队列、固定帧收发及解码后发布消息 | Env、EventBus；内部 `INetTransport`，通过绑定的 EventBus 实例发布 |
 | `SessionService Session` | 持有登录尝试的摘要与角色缓存，提交登录、选角请求并提供快照 | `NetService`、内部 `LoginCache` 与 `RoleCache` |
 | `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部只读地图组件、`MapUtils`、`WorldManager` |
-| `AnimationService Animation` | 直接加载、缓存身体动画并解析朝向 | Godot 原生资源 |
+| `AnimationService Animation` | 直接加载、缓存含默认头部的角色动画并解析朝向 | Godot 原生资源 |
 
 `ConfigService` 构造时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验并持有 `MapConfig`。地图工具通过服务取得配置并构建只读地图快照；分块和 UI 通过服务读取，不另存配置引用。`config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块与稀疏覆盖格。未知、重复、无效或文件名不匹配的配置阻止启动；配置与程序同包发布。原始加载方法为私有，构造只接收 `EnvService`；配置和 Schema 使用同一环境，统一通过 Godot 的 `DirAccess` 与 `FileAccess` 读取，不按路径类型切换加载链路。配置加载及整组服务验收在 Godot headless 中复用现有 xUnit 用例，临时目录也通过相同 Godot API 读取。普通 .NET 用例直接提供地图等纯数据，不为测试在正式代码中增加加载分支或替代构造。
 
@@ -76,7 +76,7 @@ internal sealed class DataPositionComponent
 
 角色数据的 `RoleGender` 随选角与会话缓存进入玩家 entity。`DataRoleComponent` 保存角色 ID 和性别，`DataActorComponent` 保存动作语义、逻辑朝向与显式动作请求版本；`MovementSystem` 根据实际移动切换跑步、到达后站立并保留朝向，`SetRoleMotionAction` 可请求其他基础身体动作并停止本地移动。角色属性同步按权威 revision 接纳，位置修正继续按移动确认序号过滤。`WorldManager.ActorState` 只提供不可变快照，不暴露可写组件。
 
-`ActorView.Present` 读取快照并投影位置和朝向，表现层的 `AnimationService` 直接按性别和动作缓存 `assets/characters` 下的 `DataActorAnimation` 原生资源。每个动作包含五方向 `SpriteFrames` 与原始定位点；节点围绕定位点镜像出其余三个方向。`AnimatedSprite2D` 独立推进显示时间；位置刷新不重启动画，改向保留帧进度。站立和跑步循环，其他动作播放一次后保持末帧；播放结束不改变世界逻辑。现阶段仅接入身体 13 个动作，不附加攻击、施法或骑乘效果。图集可通过 `tools/import_actor_animations.ps1` 从外部解码清单重建，项目运行与导出不依赖外部素材目录。
+`ActorView.Present` 读取快照并投影位置和朝向，表现层的 `AnimationService` 直接按性别和动作缓存 `assets/characters` 下的 `DataActorAnimation` 原生资源。每个动作包含五方向 `SpriteFrames` 与原始定位点；节点围绕定位点镜像出其余三个方向。`AnimatedSprite2D` 独立推进显示时间；位置刷新不重启动画，改向保留帧进度。站立和跑步循环，其他动作播放一次后保持末帧；播放结束不改变世界逻辑。现阶段接入男女默认头部（含配套头发）与身体的 13 个动作，不附加攻击、施法或骑乘效果。导入时按身体帧裁剪块内的头部挂接点及头部帧连接点组合，先将两者转换到各自画布坐标，再扩大画布并同步平移 Anchor，维持身体的世界定位。头身共用现有单张帧纹理和播放时钟，不增加 ECS 外观字段。图集可通过 `tools/import_actor_animations.ps1` 从外部解码清单重建，项目运行与导出不依赖外部素材目录。
 
 ```text
 map.json -> GameServices.Config -> World / 地图表现 / UI
@@ -91,7 +91,7 @@ Godot 输入 -> 等轴逆投影 -> GameServices.World -> 移动 Action / 会话�
 
 ## 当前限制
 
-演示认证、状态确认和地图配色仅用于验证客户端链路；尚无真实网络、寻路、技能效果或背包操作。角色目前仅接入基础身体素材，不包含独立头部、发型、装备和坐骑；正式美术方向仍待确认。动作播放暂用每秒 10 帧，不代表玩法节奏。模拟服务端位置与客户端运动存在固定小偏差，用于检查校正路径。
+演示认证、状态确认和地图配色仅用于验证客户端链路；尚无真实网络、寻路、技能效果或背包操作。角色目前接入基础身体与固定的默认头型，不提供运行时头型、发型选择、装备和坐骑；正式美术方向仍待确认。动作播放暂用每秒 10 帧，不代表玩法节奏。模拟服务端位置与客户端运动存在固定小偏差，用于检查校正路径。
 
 ## 测试执行
 

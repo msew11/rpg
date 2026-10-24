@@ -5,27 +5,27 @@
 
 [sub_resource type="AtlasTexture" id="Frame_0_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 0, 74, 83)
+region = Rect2(0, 0, 74, 103)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_1_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 83, 74, 83)
+region = Rect2(0, 103, 74, 103)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_2_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 166, 74, 83)
+region = Rect2(0, 206, 74, 103)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_3_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 249, 74, 83)
+region = Rect2(0, 309, 74, 103)
 filter_clip = true
 
 [sub_resource type="AtlasTexture" id="Frame_4_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 332, 74, 83)
+region = Rect2(0, 412, 74, 103)
 filter_clip = true
 
 [sub_resource type="SpriteFrames" id="Animations"]
@@ -50,4 +50,4 @@ animations = [
 [resource]
 script = ExtResource("1")
 Frames = SubResource("Animations")
-Anchor = Vector2(37, 72)
+Anchor = Vector2(37, 92)
