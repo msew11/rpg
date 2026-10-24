@@ -1,100 +1,170 @@
 using System;
 using Godot;
 using Rpg.Const;
-using Rpg.World;
-using Rpg.World.Utils;
-using Rpg.World.Views;
+using Rpg.Services;
 
 namespace Rpg.UI;
 
-/// <summary>创建角色的名字、性别、头型与独立八方向预览，不创建 ECS 世界。</summary>
-public partial class RoleCreateControl : VBoxContainer
+/// <summary>右侧平铺外观选项，男女各自保存草稿，在中央预览下方发起命名创建。</summary>
+public partial class RoleCreateControl : RoleScreenControl
 {
-    /// <summary>提交当前草稿，由主控制器调用会话服务。</summary>
+    /// <summary>命名确认后提交当前性别的角色草稿。</summary>
     public event Action<string, RoleGender, int>? Submitted;
-    /// <summary>放弃草稿并返回选角列表。</summary>
+    /// <summary>放弃创建并返回角色列表。</summary>
     public event Action? Cancelled;
-    /// <summary>角色名字输入。</summary>
+    /// <summary>当前正在编辑的身体性别。</summary>
+    private RoleGender _gender = RoleGender.Male;
+    /// <summary>男女独立的头型编号，切换不相互覆盖。</summary>
+    private readonly int[] _headIds = [1, 1];
+    /// <summary>男女独立的屏幕八方向预览索引。</summary>
+    private readonly int[] _directions = [2, 2];
+    /// <summary>男女独立的名字草稿，取消或请求失败时保留。</summary>
+    private readonly string[] _names = ["", ""];
+    /// <summary>当前是否正在等待服务器创建响应。</summary>
+    private bool _busy;
+    /// <summary>头型平铺网格，当前性别始终包含全部 74 款。</summary>
+    private readonly GridContainer _heads = new() { Name = "HeadGrid", Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+    /// <summary>头型列表的滚动窗口。</summary>
+    private readonly ScrollContainer _scroll = new() { Name = "HeadList", SizeFlagsVertical = SizeFlags.ExpandFill,
+        HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+    /// <summary>用于展示当前选中头型的标题。</summary>
+    private readonly Label _headTitle = new() { Name = "HeadTitle" };
+    /// <summary>名字输入窗口，确认才发送请求。</summary>
+    private readonly ConfirmationDialog _nameDialog = new() { Name = "RoleNameDialog", Title = "输入角色名",
+        OkButtonText = "确认创建", CancelButtonText = "取消", DialogHideOnOk = false };
+    /// <summary>命名窗口的输入控件。</summary>
     private readonly LineEdit _name = new() { Name = "RoleName", PlaceholderText = "角色名字（1—16 个字符）", MaxLength = 16 };
-    /// <summary>身体性别选项。</summary>
-    private readonly OptionButton _gender = new() { Name = "GenderChoice" };
-    /// <summary>当前性别的全部头型编号。</summary>
-    private readonly OptionButton _head = new() { Name = "HeadChoice" };
-    /// <summary>固定大小的预览窗口，身体与头部分层呈现。</summary>
-    private readonly PanelContainer _preview = new() { Name = "RolePreview", CustomMinimumSize = new Vector2(360, 220), ClipContents = true };
-    /// <summary>独立于世界和角色缓存的预览节点。</summary>
-    private readonly ActorView _actor = new() { Name = "PreviewActor", Scale = new Vector2(1.7f, 1.7f) };
-    /// <summary>请求状态或服务器失败信息。</summary>
-    private readonly Label _feedback = new() { Name = "CreateFeedback", AutowrapMode = TextServer.AutowrapMode.WordSmart };
-    /// <summary>屏幕八方向索引，初始面向下方。</summary>
-    private int _direction = 2;
+    /// <summary>命名窗口内部的失败反馈，避免被模态窗口遮挡。</summary>
+    private readonly Label _nameFeedback = new() { Name = "CreateFeedback", CustomMinimumSize = new Vector2(300, 0), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+    /// <summary>男女选择器的互斥分组。</summary>
+    private readonly ButtonGroup _genders = new();
 
-    /// <summary>建立创建表单，并将旋转按钮放在预览窗口下方。</summary>
+    /// <summary>建立右侧性别按钮、全部头型网格以及中央创建操作。</summary>
     public override void _Ready()
     {
-        AddChild(_name);
-        _gender.AddItem("男", 0);
-        _gender.AddItem("女", 1);
-        AddChild(_gender);
-        for (var id = 1; id <= 74; id++) _head.AddItem($"头型 {id:00} / 74", id);
-        var heads = new HBoxContainer();
-        AddChild(heads);
-        heads.AddChild(Button("上一款", "PreviousHead", () => SelectHead(-1)));
-        _head.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        heads.AddChild(_head);
-        heads.AddChild(Button("下一款", "NextHead", () => SelectHead(1)));
-        AddChild(_preview);
-        _preview.AddChild(_actor);
-        var rotation = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-        AddChild(rotation);
-        rotation.AddChild(Button("逆时针旋转", "RotateCounterclockwise", () => Rotate(-1)));
-        rotation.AddChild(Button("顺时针旋转", "RotateClockwise", () => Rotate(1)));
-        AddChild(_feedback);
-        AddChild(Button("创建角色", "SubmitCreate", () => Submitted?.Invoke(_name.Text, (RoleGender)_gender.Selected, _head.GetSelectedId())));
-        AddChild(Button("返回角色列表", "CancelCreate", () => Cancelled?.Invoke()));
-        _gender.ItemSelected += _ => Present();
-        _head.ItemSelected += _ => Present();
-        _preview.Resized += Present;
+        base._Ready();
+        RightContent.AddChild(new Label { Text = "性别" });
+        var genders = new HBoxContainer { Name = "GenderChoice" };
+        RightContent.AddChild(genders);
+        foreach (var gender in Enum.GetValues<RoleGender>())
+        {
+            var button = RolePreviewControl.ActionButton(gender == RoleGender.Male ? "男" : "女",
+                gender == RoleGender.Male ? "GenderMale" : "GenderFemale", () => ChooseGender(gender));
+            button.ToggleMode = true;
+            button.ButtonGroup = _genders;
+            button.ButtonPressed = gender == _gender;
+            button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            genders.AddChild(button);
+        }
+        RightContent.AddChild(_headTitle);
+        RightContent.AddChild(_scroll);
+        _scroll.AddChild(_heads);
+        Resized += ArrangeHeads;
+        BuildHeads();
+        Preview.DirectionChanged += direction => _directions[(int)_gender] = direction;
+        Preview.Actions.AddChild(RolePreviewControl.ActionButton("创建角色", "SubmitCreate", PromptName));
+        BackButton.Name = "CancelCreate";
+        BackButton.Text = "返回角色列表";
+        BackButton.Pressed += () => Cancelled?.Invoke();
+        AddChild(_nameDialog);
+        var form = new VBoxContainer { CustomMinimumSize = new Vector2(310, 0) };
+        _nameDialog.AddChild(form);
+        form.AddChild(new Label { Text = "请输入角色名" });
+        form.AddChild(_name);
+        form.AddChild(_nameFeedback);
+        _nameDialog.GetOkButton().Name = "ConfirmCreate";
+        _nameDialog.GetCancelButton().Name = "CancelName";
+        _nameDialog.Confirmed += Submit;
+        _nameDialog.Canceled += RememberName;
+        _name.TextSubmitted += _ => Submit();
         Present();
     }
 
-    /// <summary>等待响应时禁用表单，失败后保留草稿供修改重试。</summary>
+    /// <summary>创建请求期间禁用页面及命名控件，失败保留当前草稿和提示。</summary>
     public void SetBusy(bool busy, string message)
     {
+        _busy = busy;
         _name.Editable = !busy;
         foreach (var node in FindChildren("*", "BaseButton", true, false)) ((BaseButton)node).Disabled = busy;
-        _feedback.Text = message;
+        Feedback.Text = message;
+        _nameFeedback.Text = message;
     }
 
-    /// <summary>头型前后循环，切换时保留预览朝向。</summary>
-    private void SelectHead(int step)
+    /// <summary>切换性别时恢复对应头型、朝向和名字，不修改另一性别草稿。</summary>
+    private void ChooseGender(RoleGender gender)
     {
-        _head.Select(Mathf.PosMod(_head.Selected + step, 74));
+        if (_busy || gender == _gender) return;
+        RememberName();
+        _gender = gender;
+        _name.Text = _names[(int)_gender];
+        _scroll.ScrollVertical = 0;
+        BuildHeads();
         Present();
     }
 
-    /// <summary>在屏幕坐标系顺逆转动 45 度，八次回到原方向。</summary>
-    private void Rotate(int step)
+    /// <summary>每款头型使用独立缩略图按钮平铺，所有条目通过滚动可达。</summary>
+    private void BuildHeads()
     {
-        _direction = Mathf.PosMod(_direction + step, 8);
-        Present();
+        foreach (var child in _heads.GetChildren())
+        {
+            _heads.RemoveChild(child);
+            child.QueueFree();
+        }
+        var group = new ButtonGroup();
+        for (var id = 1; id <= 74; id++)
+        {
+            var headId = id;
+            var button = new Button { Name = $"HeadChoice{id}", ToggleMode = true, ButtonGroup = group,
+                ButtonPressed = id == _headIds[(int)_gender], CustomMinimumSize = new Vector2(64, 76),
+                TooltipText = $"头型 {id:00}" };
+            button.Pressed += () =>
+            {
+                _headIds[(int)_gender] = headId;
+                Present();
+            };
+            _heads.AddChild(button);
+            var column = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+            button.AddChild(column);
+            column.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 4);
+            column.AddChild(new TextureRect { Texture = GameServices.Animation.GetHead(_gender, id).Frames[4],
+                CustomMinimumSize = new Vector2(48, 48), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.Nearest,
+                MouseFilter = MouseFilterEnum.Ignore });
+            column.AddChild(new Label { Text = $"{id:00}", HorizontalAlignment = HorizontalAlignment.Center,
+                MouseFilter = MouseFilterEnum.Ignore });
+        }
+        ArrangeHeads();
     }
 
-    /// <summary>以预览窗口中的固定脚底位置呈现当前草稿，不访问世界服务。</summary>
+    /// <summary>按页面宽度选择三或四列，避免小窗口出现横向溢出。</summary>
+    private void ArrangeHeads() => _heads.Columns = Size.X < 1100 ? 3 : 4;
+
+    /// <summary>恢复当前性别独立的外观和方向。</summary>
     private void Present()
     {
-        if (!IsNodeReady()) return;
-        var facing = Vector2.FromAngle(_direction * Mathf.Pi / 4);
-        _actor.Present(new DataActorState(0, (RoleGender)_gender.Selected,
-            IsometricProjection.ToLogical(new Vector2(_preview.Size.X / 2, _preview.Size.Y - 20)),
-            RoleMotion.Stand, IsometricProjection.ToLogical(facing), 0, _head.GetSelectedId()));
+        _headTitle.Text = $"头型 · {_headIds[(int)_gender]:00} / 74";
+        Preview.ShowRole(_gender, _headIds[(int)_gender], 0, "角色预览", _directions[(int)_gender]);
     }
 
-    /// <summary>创建可被界面验收定位的按钮并绑定单次点击。</summary>
-    private static Button Button(string text, string name, Action action)
+    /// <summary>先提示命名，打开窗口本身不发送创建请求。</summary>
+    private void PromptName()
     {
-        var button = new Button { Text = text, Name = name, CustomMinimumSize = new Vector2(0, 34) };
-        button.Pressed += action;
-        return button;
+        if (_busy) return;
+        _name.Text = _names[(int)_gender];
+        _nameFeedback.Text = "";
+        _nameDialog.ResetSize();
+        _nameDialog.PopupCentered(new Vector2I(360, 190));
+        _name.GrabFocus();
     }
+
+    /// <summary>确认时记录当前名字草稿，等待 MainController 提交网络请求。</summary>
+    private void Submit()
+    {
+        if (_busy) return;
+        RememberName();
+        Submitted?.Invoke(_name.Text, _gender, _headIds[(int)_gender]);
+    }
+
+    /// <summary>取消、切换或提交时保留当前性别的名字草稿。</summary>
+    private void RememberName() => _names[(int)_gender] = _name.Text;
 }

@@ -29,13 +29,24 @@ public partial class RoleManagementSmoke : Node
             main.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "登录")
                 .EmitSignal(Button.SignalName.Pressed);
             await Frames();
+            var selection = (RoleSelectionControl)main.FindChild("RoleSelectionPage", true, false);
+            AssertLayout(selection, "ReturnLogin");
+            Press(main, "SelectRole1002");
+            Check(!GameServices.World.HasWorld && GameServices.Session.RoleId == 0, "列表选择直接进入了角色");
+            var selectedActor = (ActorView)selection.FindChild("PreviewActor", true, false);
+            Check(ReferenceEquals(selectedActor.GetNode<Sprite2D>("Facing/Head").Texture,
+                GameServices.Animation.GetHead(RoleGender.Female, 1).Frames[4]), "选角未展示选中角色");
+            Press(selection, "RotateClockwise");
+            await Capture("role-selection-preview.png");
             Press(main, "OpenCreateRole");
             await Frames();
             var page = main.FindChild("CreateRolePage", true, false) as RoleCreateControl
                 ?? throw new InvalidOperationException("创建页面未显示");
-            var actor = page.GetNode<ActorView>("RolePreview/PreviewActor");
+            AssertLayout(page, "CancelCreate");
+            var actor = (ActorView)page.FindChild("PreviewActor", true, false);
             var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
             var head = actor.GetNode<Sprite2D>("Facing/Head");
+            var preview = (RolePreviewControl)page.FindChild("RolePreview", true, false);
             Check(head.Texture is not null, "首次预览缺失头部");
             Check(!GameServices.World.HasWorld, "预览创建了 ECS 世界");
             var original = (body.Animation, actor.GetNode<Node2D>("Facing").Scale);
@@ -44,27 +55,74 @@ public partial class RoleManagementSmoke : Node
             Press(page, "RotateCounterclockwise");
             Press(page, "RotateClockwise");
             Check(original == (body.Animation, actor.GetNode<Node2D>("Facing").Scale), "顺逆旋转未抵消");
-            var choices = (OptionButton)page.FindChild("HeadChoice", true, false);
-            // OptionButton 位于头型行中，通过 FindChild 获取。
-            Check(choices.ItemCount == 74, "创建页没有提供全部头型");
-            choices.Select(73);
-            choices.EmitSignal(OptionButton.SignalName.ItemSelected, 73L);
-            var gender = page.GetNode<OptionButton>("GenderChoice");
-            gender.Select(1);
-            gender.EmitSignal(OptionButton.SignalName.ItemSelected, 1L);
-            Check(ReferenceEquals(head.Texture, GameServices.Animation.GetHead(RoleGender.Female, 74).Frames[4]), "性别或头型切换残留旧资源");
+            Check(page.FindChildren("*", "OptionButton", true, false).Count == 0, "创建页仍使用下拉菜单");
+            var choices = (GridContainer)page.FindChild("HeadGrid", true, false);
+            Check(choices.GetChildCount() == 74, "创建页没有平铺全部头型");
+            Press(page, "HeadChoice17");
+            Press(page, "RotateClockwise");
+            var maleDirection = preview.Direction;
+            Press(page, "GenderFemale");
+            await Frame();
+            Check(preview.Direction == 2, "女性继承了男性的朝向");
+            Check(ReferenceEquals(head.Texture, GameServices.Animation.GetHead(RoleGender.Female, 1).Frames[4]), "女性继承了男性头型");
+            Press(page, "HeadChoice74");
+            Press(page, "RotateCounterclockwise");
+            var femaleDirection = preview.Direction;
+            Press(page, "GenderMale");
+            await Frame();
+            Check(preview.Direction == maleDirection, "男性朝向未恢复");
+            Check(((Button)page.FindChild("HeadChoice17", true, false)).ButtonPressed, "男性头型被女性修改覆盖");
+            Press(page, "GenderFemale");
+            await Frame();
+            Check(preview.Direction == femaleDirection, "女性朝向未恢复");
+            Check(((Button)page.FindChild("HeadChoice74", true, false)).ButtonPressed, "女性头型未恢复");
+            // 取消命名后切换性别，两个名字草稿也必须独立。
             Press(page, "SubmitCreate");
-            Check(!page.GetNode<LineEdit>("RoleName").Editable, "请求期间输入未禁用");
+            var draftDialog = (ConfirmationDialog)page.FindChild("RoleNameDialog", true, false);
+            var draftName = (LineEdit)page.FindChild("RoleName", true, false);
+            draftName.Text = "女性草稿";
+            draftDialog.EmitSignal(ConfirmationDialog.SignalName.Canceled);
+            draftDialog.Hide();
+            Press(page, "GenderMale");
+            Press(page, "SubmitCreate");
+            Check(draftName.Text == "", "男性继承了女性的名字草稿");
+            draftName.Text = "男性草稿";
+            draftDialog.EmitSignal(ConfirmationDialog.SignalName.Canceled);
+            draftDialog.Hide();
+            Press(page, "GenderFemale");
+            Press(page, "SubmitCreate");
+            Check(draftName.Text == "女性草稿", "女性名字草稿被男性修改覆盖");
+            draftName.Text = "";
+            draftDialog.EmitSignal(ConfirmationDialog.SignalName.Canceled);
+            draftDialog.Hide();
+            await Capture("role-create-preview.png");
+            GetWindow().Size = new Vector2I(800, 600);
             await Frames();
-            Check(page.GetNode<LineEdit>("RoleName").Editable, "创建失败未恢复操作");
-            Check(page.GetNode<Label>("CreateFeedback").Text.Length > 0, "创建失败未显示原因");
-            page.GetNode<LineEdit>("RoleName").Text = "分层预览验收";
-            if (OS.GetCmdlineUserArgs().Contains("--capture-role"))
-            {
-                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-                GetViewport().GetTexture().GetImage().SavePng(ProjectSettings.GlobalizePath("res://build/role-create-preview.png"));
-            }
+            AssertLayout(page, "CancelCreate");
+            var scroll = (ScrollContainer)page.FindChild("HeadList", true, false);
+            var last = (Button)page.FindChild("HeadChoice74", true, false);
+            scroll.EnsureControlVisible(last);
+            await Frames();
+            Check(scroll.GetGlobalRect().Intersects(last.GetGlobalRect()), "末尾头型无法通过滚动到达");
+            await Capture("role-create-small.png");
+            GetWindow().Size = new Vector2I(1280, 720);
+            await Frames();
             Press(page, "SubmitCreate");
+            var nameDialog = (ConfirmationDialog)page.FindChild("RoleNameDialog", true, false);
+            Check(nameDialog.Visible && GameServices.Session.Roles.Count == 2, "提示命名时已发送创建请求");
+            nameDialog.EmitSignal(ConfirmationDialog.SignalName.Canceled);
+            nameDialog.Hide();
+            Check(GameServices.Session.Roles.Count == 2, "取消命名仍创建了角色");
+            Press(page, "SubmitCreate");
+            Press(page, "ConfirmCreate");
+            var name = (LineEdit)page.FindChild("RoleName", true, false);
+            Check(!name.Editable, "请求期间输入未禁用");
+            await Frames();
+            Check(name.Editable && nameDialog.Visible, "创建失败未保留命名窗口或恢复操作");
+            Check(((Label)page.FindChild("CreateFeedback", true, false)).Text.Length > 0, "创建失败未显示原因");
+            name.Text = "分层预览验收";
+            await Capture("role-name-prompt.png");
+            Press(page, "ConfirmCreate");
             await Frames();
             var role = GameServices.Session.Roles.Single(value => value.Name == "分层预览验收");
             Check(role.HeadId == 74 && role.Gender == RoleGender.Female, "创建没有保存草稿外观");
@@ -75,6 +133,8 @@ public partial class RoleManagementSmoke : Node
             await Frame();
             Check(GameServices.Session.Roles.Count == 3, "取消确认仍删除了角色");
             Press(main, $"SelectRole{role.RoleId}");
+            Check(!GameServices.World.HasWorld, "预览角色时创建了世界");
+            Press(main, "EnterRole");
             await Frames();
             Check(GameServices.World.ActorState?.HeadId == 74, "选角没有把头型交给世界");
             var hud = (GameHud)main.FindChild("GameHud", true, false);
@@ -149,11 +209,32 @@ public partial class RoleManagementSmoke : Node
         actor.QueueFree();
     }
 
+    /// <summary>核对右栏、中央操作与右下角返回的位置，防止小窗口遮挡。</summary>
+    private static void AssertLayout(RoleScreenControl page, string backName)
+    {
+        var right = page.GetNode<PanelContainer>("RightPanel");
+        var preview = page.GetNode<RolePreviewControl>("RolePreview");
+        var back = (Button)page.FindChild(backName, true, false);
+        Check(right.Position.X > page.Size.X / 2, "选项未位于屏幕右侧");
+        Check(preview.GetRect().End.X <= right.Position.X, "预览操作与右栏重叠");
+        Check(back.Position.Y >= right.GetRect().End.Y && back.GetRect().End.Y <= page.Size.Y, "返回按钮不在右下角");
+        Check(preview.GetRect().End.Y <= page.Size.Y, "中央操作超出窗口");
+    }
+
+    /// <summary>可选使用实际渲染输出选角、创建与命名页面供目视验收。</summary>
+    private async Task Capture(string file)
+    {
+        if (!OS.GetCmdlineUserArgs().Contains("--capture-role")) return;
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        GetViewport().GetTexture().GetImage().SavePng(ProjectSettings.GlobalizePath("res://build/" + file));
+    }
+
     /// <summary>模拟按钮点击，禁用状态不允许提交操作。</summary>
     private static void Press(Node root, string name)
     {
         var button = root.FindChild(name, true, false) as Button ?? throw new InvalidOperationException($"找不到按钮：{name}");
         Check(!button.Disabled, $"按钮未恢复：{name}");
+        if (button.ToggleMode) button.ButtonPressed = true;
         button.EmitSignal(Button.SignalName.Pressed);
     }
 

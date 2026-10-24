@@ -78,21 +78,23 @@ public partial class ClientSmoke : Node
             if (!GameServices.Session.IsLoggedIn || GameServices.Session.HasRole || GameServices.Session.RoleId != 0)
                 throw new InvalidOperationException("选角前账号摘要或空角色缓存不正确");
             var roleButton = main.FindChildren("*", "Button", true, false).OfType<Button>()
-                .Single(button => button.Text.Contains("ID 1001"));
+                .Single(button => button.Name == "SelectRole1001");
             // client-session 选角失败场景：坏存档不建立世界，恢复文件后可重试。
             var rolePath = new RepoServerRole(main.ServerDirectory).GetRolePath(1001);
             var validRole = File.ReadAllText(rolePath);
             File.WriteAllText(rolePath, "{broken");
             roleButton.EmitSignal(Button.SignalName.Pressed);
+            main.FindChild("EnterRole", true, false).EmitSignal(Button.SignalName.Pressed);
             await ToSignal(GetTree().CreateTimer(0.1), SceneTreeTimer.SignalName.Timeout);
             AssertGameCleared(main, account);
             if (!main.FindChildren("*", "Label", true, false).OfType<Label>().Any(label => label.Text.Contains(rolePath)))
                 throw new InvalidOperationException("选角失败未显示存档错误");
             File.WriteAllText(rolePath, validRole);
             roleButton = main.FindChildren("*", "Button", true, false).OfType<Button>()
-                .Single(button => button.Text.Contains("ID 1001"));
+                .Single(button => button.Name == "SelectRole1001");
             if (roleButton.Disabled) throw new InvalidOperationException("选角失败后角色按钮未恢复");
             roleButton.EmitSignal(Button.SignalName.Pressed);
+            main.FindChild("EnterRole", true, false).EmitSignal(Button.SignalName.Pressed);
             await WaitForHud(main);
             var hud = main.GetChildren().OfType<CanvasLayer>().Single(layer => layer.Name == "HudLayer")
                 .GetChildren().OfType<GameHud>().Single();
@@ -213,8 +215,9 @@ public partial class ClientSmoke : Node
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             AssertGameCleared(main, account);
             var secondRole = main.FindChildren("*", "Button", true, false).OfType<Button>()
-                .Single(button => button.Text.Contains("ID 1002"));
+                .Single(button => button.Name == "SelectRole1002");
             secondRole.EmitSignal(Button.SignalName.Pressed);
+            main.FindChild("EnterRole", true, false).EmitSignal(Button.SignalName.Pressed);
             await WaitForHud(main);
             var secondHud = main.GetChildren().OfType<CanvasLayer>().Single(layer => layer.Name == "HudLayer")
                 .GetChildren().OfType<GameHud>().Single();
@@ -283,7 +286,8 @@ public partial class ClientSmoke : Node
             if (GetAccountRoles() is not { } nextAccount || ReferenceEquals(account, nextAccount))
                 throw new InvalidOperationException("重新登录没有建立新的账号会话");
             main.FindChildren("*", "Button", true, false).OfType<Button>()
-                .Single(button => button.Text.Contains("ID 1001")).EmitSignal(Button.SignalName.Pressed);
+                .Single(button => button.Name == "SelectRole1001").EmitSignal(Button.SignalName.Pressed);
+            main.FindChild("EnterRole", true, false).EmitSignal(Button.SignalName.Pressed);
             await WaitForHud(main);
             var finalHud = main.GetNode<GameHud>("HudLayer/GameHud");
             if (!finalHud.GetNode<PanelContainer>("hotbar2").Visible)
@@ -332,7 +336,8 @@ public partial class ClientSmoke : Node
             await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
             if (GetAccountRoles() is null) throw new InvalidOperationException("主场景重建后无法登录");
             main.FindChildren("*", "Button", true, false).OfType<Button>()
-                .Single(button => button.Text.Contains("ID 1001")).EmitSignal(Button.SignalName.Pressed);
+                .Single(button => button.Name == "SelectRole1001").EmitSignal(Button.SignalName.Pressed);
+            main.FindChild("EnterRole", true, false).EmitSignal(Button.SignalName.Pressed);
             await WaitForHud(main);
             finalHud = main.GetNode<GameHud>("HudLayer/GameHud");
             Click(finalHud.FindChildren("*", "Button", true, false).OfType<Button>()

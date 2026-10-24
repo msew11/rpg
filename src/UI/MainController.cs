@@ -137,45 +137,25 @@ public partial class MainController : Control
     private void ShowRoles(string error = "")
     {
         ClearGame();
-        var box = CenteredScreen("选择角色");
-        _feedback = Label(error, 14);
-        box.AddChild(_feedback);
-        var scroll = new ScrollContainer { Name = "RoleList", CustomMinimumSize = new Vector2(460, 280),
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        box.AddChild(scroll);
-        var list = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        scroll.AddChild(list);
-        if (GameServices.Session.Roles.Count == 0) list.AddChild(Label("暂无角色，点击下方创建角色", 16));
-        foreach (var role in GameServices.Session.Roles)
-        {
-            var row = new HBoxContainer();
-            list.AddChild(row);
-            var button = new Button
-            {
-                Name = $"SelectRole{role.RoleId}",
-                Text = $"{role.Name} · {(role.Gender == RoleGender.Male ? "男" : "女")} · Lv.{role.Level} · 头型 {Math.Max(1, role.HeadId):00} · ID {role.RoleId}",
-                SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(350, 48)
-            };
-            button.Pressed += () => StartRole(role.RoleId);
-            row.AddChild(button);
-            var delete = new Button { Text = "删除", Name = $"DeleteRole{role.RoleId}" };
-            delete.Pressed += () => ConfirmDeleteRole(role.RoleId, role.Name);
-            row.AddChild(delete);
-        }
-        var create = new Button { Text = "创建角色", Name = "OpenCreateRole" };
-        create.Pressed += ShowCreateRole;
-        box.AddChild(create);
-        var back = new Button { Text = "返回登录" };
-        back.Pressed += ShowLogin;
-        box.AddChild(back);
+        _screen = new CanvasLayer { Name = "ScreenLayer", Layer = 10 };
+        AddChild(_screen);
+        var page = new RoleSelectionControl { Name = "RoleSelectionPage" };
+        page.EnterRequested += StartRole;
+        page.CreateRequested += ShowCreateRole;
+        page.DeleteRequested += ConfirmDeleteRole;
+        page.LoginRequested += ShowLogin;
+        _screen.AddChild(page);
+        _feedback = page.Feedback;
+        _feedback.Text = error;
     }
 
-    /// <summary>建立独立预览表单，服务器失败时保留输入。</summary>
+    /// <summary>建立右侧外观选项与中央预览，命名确认后提交创建。</summary>
     private void ShowCreateRole()
     {
         if (_roleRequestPending) return;
         ClearGame();
-        var box = CenteredScreen("创建角色");
+        _screen = new CanvasLayer { Name = "ScreenLayer", Layer = 10 };
+        AddChild(_screen);
         var page = new RoleCreateControl { Name = "CreateRolePage" };
         _createPage = page;
         page.Submitted += (name, gender, headId) =>
@@ -186,7 +166,7 @@ public partial class MainController : Control
             GameServices.Session.CreateRole(name, gender, headId);
         };
         page.Cancelled += () => ShowRoles();
-        box.AddChild(page);
+        _screen.AddChild(page);
     }
 
     /// <summary>只有确认窗口的确认操作才发送删除请求。</summary>
