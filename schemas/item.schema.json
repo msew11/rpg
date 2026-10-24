@@ -6,12 +6,14 @@
     "type": "object",
     "required": [
       "id",
+      "name",
       "category",
       "subCategory",
       "maxStack"
     ],
     "additionalProperties": false,
     "properties": {
+      "name": { "type": "string", "minLength": 1 },
       "id": {
         "type": "integer",
         "minimum": 1,

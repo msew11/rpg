@@ -43,7 +43,7 @@
 - 多例数据恰有一个公开可读实例属性标注 `[CfgKey]`，其类型与 `TKey` 一致；支持整型和字符串等可用作字典键的类型，不隐式使用 `Id`。缺失、null 或重复主键抛异常。JSON 字段默认使用 camelCase，可用 `JsonPropertyName` 明确别名。
 - 每个文件配套 `schemas/xxx.schema.json`。`CfgCache` 统一读取、Schema 校验、异常诊断和生命周期；两个泛型基类决定对象或数组的解析与存储，具体缓存仅补充必要的跨字段校验。新增缓存后在 ConfigService 显式声明引用并加入统一加载集合，禁止添加按业务类型分派的解析分支。
 
-`config/map.json` 对应 `MapCfgCache : SingleCfgCache<MapCfg>`，保存地图标识、尺寸、瓦片规格、默认地块和稀疏覆盖格；缓存检查覆盖格边界及坐标唯一性。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，当前为 `[]`。每行包含 `id`、`category`（大类）、`subCategory`（小类）、`maxStack`（可堆叠上限），`ItemCfg.Id` 标注 `[CfgKey]`。字段均为 Int32，ID 和上限为正数，分类编号非负；正式道具记录、分类含义和堆叠数值待确认，与 GM 图鉴数据独立管理。
+`config/map.json` 对应 `MapCfgCache : SingleCfgCache<MapCfg>`，保存地图标识、尺寸、瓦片规格、默认地块和稀疏覆盖格；缓存检查覆盖格边界及坐标唯一性。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，当前包含 1012—1018 七件测试装备。每行包含 `id`、`name`（名称）、`category`（大类）、`subCategory`（小类）、`maxStack`（可堆叠上限），`ItemCfg.Id` 标注 `[CfgKey]`。名称为非空字符串，数值字段均为 Int32，ID 和上限为正数，分类编号非负。已确认大类 1=武器、2=防具；七件装备分别为测试长剑（小类2）、测试双手剑（4）、测试盾牌（105，大类2）、测试木杖（16）、测试枪（1）、测试拳刃（8）、测试飞刀（32），堆叠上限均为1；其余大类及道具内容仍待确认，与 GM 图鉴数据独立管理。
 
 ```csharp
 var map = GameServices.Config.Map.Value;

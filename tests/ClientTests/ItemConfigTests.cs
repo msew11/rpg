@@ -12,7 +12,7 @@ public sealed class ItemConfigTests : IDisposable
     /// <summary>仅由本次用例拥有的临时配置和存储目录。</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-item-config-" + Guid.NewGuid());
     /// <summary>合法测试行，仅验证加载，不定义正式道具。</summary>
-    private const string Row = """{"id":1001,"category":2,"subCategory":3,"maxStack":99}""";
+    private const string Row = """{"name":"临时道具","id":1001,"category":2,"subCategory":3,"maxStack":99}""";
 
     /// <summary>在独立环境准备真实地图与空道具表。</summary>
     public ItemConfigTests()
@@ -23,16 +23,17 @@ public sealed class ItemConfigTests : IDisposable
         WriteTable("[]");
     }
 
-    /// <summary>多行读取场景：通过完整服务入口按 ID 读取四字段，并保持地图可用。</summary>
+    /// <summary>多行读取场景：通过完整服务入口按 ID 读取五字段，并保持地图可用。</summary>
     [Fact]
     public void LoadsRowsByIdThroughGameServices()
     {
-        WriteTable("[" + Row + "," + """{"id":1002,"category":0,"subCategory":0,"maxStack":1}""" + "]");
+        WriteTable("[" + Row + "," + """{"name":"临时道具","id":1002,"category":0,"subCategory":0,"maxStack":1}""" + "]");
         using var env = CreateEnv();
         using var registration = GameServicesTestFactory.Register(env);
         var items = GameServices.Config.Item.Items;
         Assert.Equal(2, items.Count);
         Assert.Equal(1001, items[1001].Id);
+        Assert.Equal("临时道具", items[1001].Name);
         Assert.Equal(2, items[1001].Category);
         Assert.Equal(3, items[1001].SubCategory);
         Assert.Equal(99, items[1001].MaxStack);
@@ -43,15 +44,48 @@ public sealed class ItemConfigTests : IDisposable
         Assert.Equal(1000, GameServices.Config.Map.Value.Width);
     }
 
-    /// <summary>空表场景：正式配置与临时配置均不自动补建道具。</summary>
+    /// <summary>空表场景：临时空配置不自动补建道具。</summary>
     [Fact]
-    public void EmptyTablesLoadWithoutInventingItems()
+    public void EmptyTableLoadsWithoutInventingItems()
     {
         using var env = CreateEnv();
         using var config = new ConfigService(env);
         Assert.Empty(config.Item.Items);
-        using var packaged = ConfigTestFixture.LoadDefault();
-        Assert.Empty(packaged.Item.Items);
+    }
+
+    /// <summary>验证 client-item-config 的指定测试装备配置，按 ID 读取名称、分类及上限。</summary>
+    [Fact]
+    public void PackagedTableContainsRequestedTestEquipment()
+    {
+        using var config = ConfigTestFixture.LoadDefault();
+        var expected = new[]
+        {
+            (1012, "测试长剑", 1, 2), (1013, "测试双手剑", 1, 4), (1014, "测试盾牌", 2, 105),
+            (1015, "测试木杖", 1, 16), (1016, "测试枪", 1, 1), (1017, "测试拳刃", 1, 8), (1018, "测试飞刀", 1, 32)
+        };
+        Assert.Equal(expected.Length, config.Item.Items.Count);
+        foreach (var (id, name, category, subCategory) in expected)
+        {
+            Assert.True(config.Item.Items.TryGetValue(id, out var item));
+            Assert.Equal(id, item.Id);
+            Assert.Equal(name, item.Name);
+            Assert.Equal(category, item.Category);
+            Assert.Equal(subCategory, item.SubCategory);
+            Assert.Equal(1, item.MaxStack);
+        }
+    }
+
+    /// <summary>验证 client-item-config 的无效名称场景，缺失、空值与错误类型均被拒绝。</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("null")]
+    [InlineData("\"\"")]
+    [InlineData("1")]
+    public void RejectsInvalidNames(string? nameJson)
+    {
+        var nameField = nameJson is null ? "" : ",\"name\":" + nameJson;
+        WriteTable("[{\"id\":1,\"category\":1,\"subCategory\":1,\"maxStack\":1" + nameField + "}]");
+        AssertInvalid("Schema");
     }
 
     /// <summary>只读与释放场景：映射不能增删改，服务释放后不可读取。</summary>
@@ -74,19 +108,19 @@ public sealed class ItemConfigTests : IDisposable
 
     /// <summary>记录无效场景：缺字段、错类型、非法范围和未知字段均阻止启动。</summary>
     [Theory]
-    [InlineData("""{"id":1,"category":0,"subCategory":0}""")]
-    [InlineData("""{"id":"1","category":0,"subCategory":0,"maxStack":1}""")]
-    [InlineData("""{"id":0,"category":0,"subCategory":0,"maxStack":1}""")]
-    [InlineData("""{"id":1,"category":-1,"subCategory":0,"maxStack":1}""")]
-    [InlineData("""{"id":1,"category":0,"subCategory":-1,"maxStack":1}""")]
-    [InlineData("""{"id":1,"category":0,"subCategory":0,"maxStack":0}""")]
-    [InlineData("""{"id":1,"category":0,"subCategory":0,"maxStack":-1}""")]
-    [InlineData("""{"id":1,"category":0,"subCategory":0,"maxStack":1.5}""")]
-    [InlineData("""{"id":2147483648,"category":0,"subCategory":0,"maxStack":1}""")]
-    [InlineData("""{"id":1,"category":2147483648,"subCategory":0,"maxStack":1}""")]
-    [InlineData("""{"id":1,"category":0,"subCategory":2147483648,"maxStack":1}""")]
-    [InlineData("""{"id":1,"category":0,"subCategory":0,"maxStack":2147483648}""")]
-    [InlineData("""{"id":1,"category":0,"subCategory":0,"maxStack":1,"name":"额外字段"}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0}""")]
+    [InlineData("""{"name":"临时道具","id":"1","category":0,"subCategory":0,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":0,"category":0,"subCategory":0,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":-1,"subCategory":0,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":-1,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0,"maxStack":0}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0,"maxStack":-1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0,"maxStack":1.5}""")]
+    [InlineData("""{"name":"临时道具","id":2147483648,"category":0,"subCategory":0,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":2147483648,"subCategory":0,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":2147483648,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0,"maxStack":2147483648}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0,"maxStack":1,"unexpected":"额外字段"}""")]
     [InlineData("null")]
     public void RejectsInvalidRows(string row)
     {
