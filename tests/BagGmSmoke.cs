@@ -31,6 +31,7 @@ public partial class BagGmSmoke : Node
             ResizeViewport(new Vector2I(1920, 1080));
             await Frames();
             CheckHudLayout(main, chat);
+            await CheckChatHints(chat, input, results);
 
             input.Text = "  /item 1012 2  ";
             Click(send.GetGlobalRect().GetCenter());
@@ -170,6 +171,102 @@ public partial class BagGmSmoke : Node
             GetTree().Quit(1);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    /// <summary>验收 gm-item 上下文提示：真实点击与按键补全、格式颜色、灰字隔离和视口边界。</summary>
+    private async Task CheckChatHints(ChatControl chat, LineEdit input, RichTextLabel results)
+    {
+        var popup = (PanelContainer)chat.FindChild("CommandSuggestions", true, false);
+        var candidates = (ItemList)chat.FindChild("CommandCandidates", true, false);
+        var hint = (Label)chat.FindChild("QuantityHint", true, false);
+        Check(input.PlaceholderText == "" && results.GetParsedText() == "", "仍有固定聊天提示");
+        input.GrabFocus();
+        PushKey(Key.Slash, '/');
+        await Frames();
+        Check(input.Text == "/" && popup.Visible && candidates.ItemCount == 1 && candidates.GetItemText(0).Contains("/item"), "斜杠未显示命令");
+        await CaptureChat("commands");
+        PushKey(Key.Tab);
+        await Frames();
+        Check(input.Text == "/item " && input.HasFocus(), "Tab 未补全或焦点丢失");
+        Check(candidates.ItemCount == GameServices.Config.Item.Items.Count, "可发放道具列表不完整");
+        await CaptureChat("items");
+        foreach (var item in GameServices.Config.Item.Items.Values)
+            Check(Enumerable.Range(0, candidates.ItemCount).Any(index => candidates.GetItemText(index) == $"{item.Id}  {item.Name}"), "道具 ID 或名称不匹配");
+        var target = GameServices.World.RoleTarget;
+        var revision = GameServices.Session.Bag.Revision;
+        var itemRect = candidates.GetItemRect(0);
+        Click(candidates.GlobalPosition + itemRect.GetCenter());
+        await Frames();
+        Check(input.Text == "/item 1012 " && input.HasFocus() && !popup.Visible, "鼠标补全道具失败");
+        Check(hint.Visible && hint.Text == "数量" && !input.Text.Contains("数量"), "数量灰字未显示或污染输入");
+        Check(hint.GetThemeColor("font_color").R == hint.GetThemeColor("font_color").G, "数量提示不是灰色");
+        Check(!input.HasThemeColorOverride("font_color"), "未显式输入数量就变绿");
+        await CaptureChat("quantity");
+        PushKey(Key.Key2, '2');
+        await Frames();
+        var validColor = input.GetThemeColor("font_color");
+        Check(input.Text == "/item 1012 2" && validColor.G > validColor.R && validColor.G > validColor.B && !hint.Visible, "有效命令未整行变绿或灰字未消失");
+        await CaptureChat("valid");
+        foreach (var text in new[] { "/item 1012 0", "/item 1012 -1", "/item 1012 +1", "/item 1012 abc",
+            "/item 1012 2147483648", "/item 9999 1", "/unknown 1012 1", "/item 1012 1 extra", "普通文字" })
+        {
+            SetChatInput(input, text);
+            Check(!input.HasThemeColorOverride("font_color") && !hint.Visible && !popup.Visible, "非法输入保留提示或绿色：" + text);
+        }
+        SetChatInput(input, " /item\t1012\t2 ");
+        Check(input.HasThemeColorOverride("font_color"), "合法首尾空白与分隔符校验不一致");
+        SetChatInput(input, "/item 1012");
+        Check(popup.Visible && candidates.ItemCount == 1, "ID 前缀未筛选");
+        PushKey(Key.Escape);
+        Check(!popup.Visible, "Escape 未隐藏候选");
+        SetChatInput(input, "/item ");
+        PushKey(Key.Down);
+        PushKey(Key.Tab);
+        Check(input.Text == "/item 1013 ", "上下键候选选择无效");
+        input.ReleaseFocus();
+        Check(!popup.Visible && !hint.Visible, "失焦后提示未隐藏");
+        input.GrabFocus();
+        SetChatInput(input, "/item ");
+        ResizeViewport(new Vector2I(480, 270));
+        await Frames();
+        await CaptureChat("small");
+        Check(popup.Visible && GetViewport().GetVisibleRect().Encloses(popup.GetGlobalRect()),
+            $"小窗口候选越界：显示 {popup.Visible}，视口 {GetViewport().GetVisibleRect()}，候选 {popup.GetGlobalRect()}，输入 {input.GetGlobalRect()}");
+        Check(popup.GetGlobalRect().End.Y <= input.GetGlobalRect().Position.Y, "候选遮挡输入框");
+        candidates.GetVScrollBar().Value = candidates.GetVScrollBar().MaxValue;
+        await Frames();
+        Check(candidates.GetItemRect(candidates.ItemCount - 1).End.Y <= candidates.Size.Y, "候选滚动后无法看到末项");
+        SetChatInput(input, "");
+        Check(!popup.Visible && !hint.Visible && !input.HasThemeColorOverride("font_color"), "清空未复位提示状态");
+        Check(GameServices.World.RoleTarget == target && GameServices.Session.Bag.Revision == revision, "候选操作穿透世界或提交命令");
+        ResizeViewport(new Vector2I(1920, 1080));
+        await Frames();
+    }
+
+    /// <summary>可选保存四个真实输入阶段，便于 Windows 图形模式复核。</summary>
+    private async Task CaptureChat(string stage)
+    {
+        if (!OS.GetCmdlineUserArgs().Contains("--capture-chat") || DisplayServer.GetName() == "headless") return;
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        Directory.CreateDirectory("build");
+        GetViewport().GetTexture().GetImage().SavePng($"build/chat-{stage}.png");
+    }
+
+    /// <summary>程序设置文本后模拟编辑通知，光标放在末尾以核对数量提示。</summary>
+    private static void SetChatInput(LineEdit input, string text)
+    {
+        input.Text = text;
+        input.CaretColumn = text.Length;
+        input.EmitSignal(LineEdit.SignalName.TextChanged, text);
+    }
+
+    /// <summary>通过实际视口分发完整按键，覆盖 GUI 焦点与输入消费。</summary>
+    private void PushKey(Key key, char unicode = '\0')
+    {
+        using var press = new InputEventKey { Keycode = key, Unicode = unicode, Pressed = true };
+        using var release = new InputEventKey { Keycode = key, Unicode = unicode, Pressed = false };
+        GetViewport().PushInput(press, true);
+        GetViewport().PushInput(release, true);
     }
 
     /// <summary>通过真实节点按钮登录并选择隔离存档角色。</summary>
