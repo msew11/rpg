@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Godot;
 using Rpg.Services;
 using Rpg.Net.Message;
@@ -289,19 +288,33 @@ public partial class GameHud : Control
         _largeMap = new MiniMapControl { CustomMinimumSize = new Vector2(390, 340) };
         mapPanel.AddChild(_largeMap);
 
-        var gm = CreatePanel("GM", new Vector2(590, 255));
-        AddSettingLocation(gm, "系统设置文件", GameServices.Setting.SystemPath);
-        AddSettingLocation(gm, "当前角色设置文件", GameServices.Setting.RolePath);
+        var gm = CreatePanel("GM", new Vector2(400, 0));
+        var gmActions = new HBoxContainer { Name = "GmActions" };
+        gm.AddChild(gmActions);
+        var openUserData = new Button
+        {
+            Name = "OpenUserDataDirectory",
+            Text = "打开用户数据目录",
+            TooltipText = "存放本地设置和模拟服务端存档的目录",
+            CustomMinimumSize = new Vector2(0, 44),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill
+        };
+        openUserData.Pressed += OpenUserDataDirectory;
+        gmActions.AddChild(openUserData);
         _itemCatalog = new ItemCatalogControl { Name = "ItemCatalog", Visible = false };
         AddChild(_itemCatalog);
         _panels.Add(_itemCatalog);
-        var openCatalog = new Button { Name = "OpenItemCatalog", Text = "查看道具图鉴" };
+        var openCatalog = new Button
+        {
+            Name = "OpenItemCatalog", Text = "查看道具图鉴",
+            CustomMinimumSize = new Vector2(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill
+        };
         openCatalog.Pressed += () =>
         {
             foreach (var panel in _panels) panel.Hide();
             _itemCatalog.Open();
         };
-        gm.AddChild(openCatalog);
+        gmActions.AddChild(openCatalog);
 
         var system = CreatePanel("系统设置", new Vector2(380, 390));
         var tabs = new TabContainer { CustomMinimumSize = new Vector2(345, 295) };
@@ -311,26 +324,11 @@ public partial class GameHud : Control
         BuildHudTab(tabs);
     }
 
-    /// <summary>显示设置文件位置，并提供文件管理器定位按钮。</summary>
-    private void AddSettingLocation(VBoxContainer panel, string title, string path)
+    /// <summary>动态解析应用用户数据根目录，在系统文件管理器中打开其内容。</summary>
+    private void OpenUserDataDirectory()
     {
-        panel.AddChild(Text(title, 15));
-        panel.AddChild(new LineEdit
-        {
-            Text = path,
-            Editable = false,
-            CustomMinimumSize = new Vector2(540, 34),
-            FocusMode = FocusModeEnum.None
-        });
-        var open = new Button { Text = $"打开{title}位置" };
-        open.Pressed += () =>
-        {
-            var exists = File.Exists(path);
-            var target = exists ? path : Path.GetDirectoryName(path)!;
-            if (!exists) Directory.CreateDirectory(target);
-            OS.ShellShowInFileManager(target, !exists);
-        };
-        panel.AddChild(open);
+        var error = OS.ShellShowInFileManager(ProjectSettings.GlobalizePath("user://"), true);
+        _networkError.Text = error == Error.Ok ? "" : $"无法打开用户数据目录：{error}";
     }
 
     /// <summary>创建标题居左、关闭按钮靠右的弹出面板内容列。</summary>

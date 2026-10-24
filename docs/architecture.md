@@ -127,6 +127,8 @@ Godot 输入 -> 等轴逆投影 -> GameServices.World -> 移动 Action / 会话�
 
 ## GM 道具素材图鉴
 
+GM 面板并排平铺“打开用户数据目录”和“查看道具图鉴”两个同级按钮，不再展示系统与角色设置文件路径。用户数据目录是 Godot `user://` 对应的应用可写数据根目录，存放本地设置和模拟服务端存档；点击时通过 `ProjectSettings.GlobalizePath("user://")` 动态解析，并由系统文件管理器打开目录内的内容，失败显示错误。
+
 GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 面板互斥。控件首次打开读取 `res://assets/items/catalog.json` 图片索引及 `definitions.json` 具名道具快照；默认道具清单模式按照参考导出页的 `display_category` 分为武器、防具／饰品、其他装备、宠物、收集品、消耗品，再按父类型内的 `type_code/type_name` 筛选子类型，支持名称、ID和说明搜索。素材预览模式保留四个图片来源分类与来源编号搜索。两种模式每页至多创建48个条目，按需加载图集，详情独立滚动；切换父类型重置子类型，切换模式、分类或查询重置分页和详情。不增加业务服务、配置种类或会话状态。正式运行及 Windows 导出只依赖项目内资源，导出预设包含素材及道具目录 JSON。
 
 `python tools/import_item_catalog.py --source <art_export目录>` 使用 Pillow 将四个源目录的全部 PNG 无损打包为28张2048×2048图集，保留来源相对路径、原始编号、SHA256、尺寸和透明裁剪偏移。素材目录共22,872条：道具小图标6,612、道具大图6,097、左手武器部件1,451、右手武器部件8,712。来源为 `item/item`、`item/itempic`、`avatar/weaponl`、`avatar/weaponr`；大小图分别保留，武器包含动作与方向变体且仅展示已解码首帧，不代表独立武器数量。
