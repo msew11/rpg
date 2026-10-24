@@ -1,0 +1,20 @@
+{
+  "Source": "item_export/items.json",
+  "Sha256": "b4e4fb1b25cfbbc7f58da1f14b2243c38c98447867706be6451350a760bc70f7",
+  "Count": 21792,
+  "CategoryCounts": {
+    "消耗品": 11523,
+    "宠物": 1,
+    "收集品": 1073,
+    "武器": 879,
+    "防具／饰品": 8286,
+    "其他装备": 30
+  },
+  "MissingIcons": 477,
+  "SourceFiles": {
+    "index.html": "9496cc2861d3a85c4dc2cbb09b23ad30cb86ca6dc782acf87e407a164d1a24d4",
+    "README.md": "0e9d1eda06f52421fefc5cae94fc0dca48027f72632baf933168b9bc1cc69750",
+    "summary.json": "c5b4877df4a111f72685d9116f3f1473e5caa485141753d8cf19fdfa59b0d8d5",
+    "classification_evidence.txt": "8c70c1d0962c9277fba79211b15d5643f02f9b00a054d4c510c96ba2a7f35089"
+  }
+}

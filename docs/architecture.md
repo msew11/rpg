@@ -97,11 +97,13 @@ Godot 输入 -> 等轴逆投影 -> GameServices.World -> 移动 Action / 会话�
 
 ## GM 道具素材图鉴
 
-GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 面板互斥。控件首次打开读取 `res://assets/items/catalog.json` 静态素材快照，按分类与来源编号筛选，每页至多创建 48 个条目，按需加载图集并显示原像素裁剪区域；不增加业务服务、配置种类或会话状态。正式运行及 Windows 导出只依赖项目内资源，导出预设显式包含素材目录 JSON。
+GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 面板互斥。控件首次打开读取 `res://assets/items/catalog.json` 图片索引及 `definitions.json` 具名道具快照；默认道具清单模式按照参考导出页的 `display_category` 分为武器、防具／饰品、其他装备、宠物、收集品、消耗品，再按父类型内的 `type_code/type_name` 筛选子类型，支持名称、ID和说明搜索。素材预览模式保留四个图片来源分类与来源编号搜索。两种模式每页至多创建48个条目，按需加载图集，详情独立滚动；切换父类型重置子类型，切换模式、分类或查询重置分页和详情。不增加业务服务、配置种类或会话状态。正式运行及 Windows 导出只依赖项目内资源，导出预设包含素材及道具目录 JSON。
 
-`python tools/import_item_catalog.py --source <art_export目录>` 使用 Pillow 将四个源目录的全部 PNG 无损打包为 28 张 2048×2048 图集，保留来源相对路径、原始编号、SHA256、尺寸和透明裁剪偏移。目录共 22,872 条：道具小图标 6,612、道具大图 6,097、左手武器部件 1,451、右手武器部件 8,712。分类来自 `item/item`、`item/itempic`、`avatar/weaponl`、`avatar/weaponr`；大小图分别保留，武器包含动作与方向变体且仅展示已解码首帧，不代表独立武器数量。缺少正式名称、装备类型及职业分类表，保持待定；图鉴不提供背包和穿戴。
+`python tools/import_item_catalog.py --source <art_export目录>` 使用 Pillow 将四个源目录的全部 PNG 无损打包为28张2048×2048图集，保留来源相对路径、原始编号、SHA256、尺寸和透明裁剪偏移。素材目录共22,872条：道具小图标6,612、道具大图6,097、左手武器部件1,451、右手武器部件8,712。来源为 `item/item`、`item/itempic`、`avatar/weaponl`、`avatar/weaponr`；大小图分别保留，武器包含动作与方向变体且仅展示已解码首帧，不代表独立武器数量。
 
-`tests/item_catalog_smoke.tscn` 检查全部素材区域、分类数量、真实 GM 入口、分页检索、详情、关闭重开、小窗口布局与输入隔离，纳入 `tools/test.ps1`；图形模式添加 `-- --capture-catalog` 可输出物品与武器预览截图到 `build/`。
+`python tools/import_item_definitions.py --source <item_export目录>` 从用户指定导出页同目录的 `items.json` 导入21,792条具名道具，输出 `definitions.json` 与 `definitions_source.json` 来源哈希证据。武器879、防具／饰品8,286、其他装备30、宠物1、收集品1,073、消耗品11,523；以来源表和行号作为唯一键，不合并重复ID。21,315条图标按 `icon_candidate` 路径精确关联现有素材，477条缺图记录保留并显示占位。详情保留名称、原始类型码、说明、背包归属、分类与子类型确认程度以及来源行。装备语义及子类型名称沿用来源推定，不将客户端区间0/1直接解释为武器/防具；图标保持候选性质，条目不代表当前服务器投放或已实现玩法。图鉴不提供背包和穿戴。
+
+`tests/item_catalog_smoke.tscn` 检查全部素材区域、六父类型与全部子类型数量和筛选、名称/ID/说明检索、项链区间误分类回归、重复行、缺图预览隔离、原素材模式、真实GM入口、分页、关闭重开、小窗口布局与输入隔离，纳入 `tools/test.ps1`；图形模式添加 `-- --capture-catalog` 可输出素材、剑类及项链分类截图到 `build/`。
 
 ## 当前限制
 
