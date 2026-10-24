@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text.Json;
 using Godot;
 using Rpg.Services;
+using Rpg.Net.Message;
 
 namespace Rpg.UI;
 
-/// <summary>从角色快照绘制图标与数量的只读背包，滚动网格适配小窗口。</summary>
+/// <summary>绘制权威背包快照并提交物品拖放，滚动网格适配小窗口。</summary>
 public partial class BagControl : PanelContainer
 {
     /// <summary>按基础配置列数排列的格子网格。</summary>
@@ -22,6 +23,12 @@ public partial class BagControl : PanelContainer
     private Dictionary<string, DataItemAsset>? _assets;
     /// <summary>已创建的固定格子，刷新只替换内容。</summary>
     private readonly List<PanelContainer> _slots = [];
+    /// <summary>展示移动响应错误，不覆盖角色或背包缓存。</summary>
+    private Label _moveStatus = null!;
+    /// <summary>面板拥有的物品移动结果订阅。</summary>
+    private IDisposable? _moveSubscription;
+    /// <summary>刷新或关闭面板后使旧拖放上下文失效。</summary>
+    private long _dragEpoch;
 
     /// <summary>创建标题、关闭按钮与双向滚动网格。</summary>
     public override void _Ready()
@@ -36,11 +43,15 @@ public partial class BagControl : PanelContainer
         var close = new Button { Text = "关闭" };
         close.Pressed += Hide;
         _header.AddChild(close);
+        _moveStatus = new Label { Name = "ItemMoveStatus", Visible = false,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart, MouseFilter = MouseFilterEnum.Ignore };
+        _column.AddChild(_moveStatus);
         _scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _column.AddChild(_scroll);
         _grid = new GridContainer { Name = "BagGrid" };
         _scroll.AddChild(_grid);
-        VisibilityChanged += () => { if (Visible) Refresh(); };
+        VisibilityChanged += () => { _dragEpoch++; if (IsVisibleInTree()) Refresh(); else CancelItemDrag(); };
+        _moveSubscription = GameServices.EventBus.Subscribe<MoveItemRt>(OnItemMoved);
         _Process(0);
     }
 
@@ -53,6 +64,7 @@ public partial class BagControl : PanelContainer
         var content = grid + _scroll.GetThemeStylebox("panel").GetMinimumSize();
         var desired = new Vector2(Mathf.Max(header.X, content.X), header.Y + _column.GetThemeConstant("separation") + content.Y)
             + GetThemeStylebox("panel").GetMinimumSize();
+        if (_moveStatus.Visible) desired.Y += _moveStatus.GetCombinedMinimumSize().Y + _column.GetThemeConstant("separation");
         var available = (viewport - new Vector2(32, 32)).Max(Vector2.One);
         var vertical = desired.Y > available.Y;
         var horizontal = desired.X > available.X;
@@ -69,6 +81,7 @@ public partial class BagControl : PanelContainer
     public void Refresh()
     {
         if (_grid is null || !Visible) return;
+        _dragEpoch++;
         var config = GameServices.Config;
         var capacity = config.Basic.Value.GetBagCapacity(GameServices.Session.Role.BagExtraRows);
         _grid.Columns = config.Basic.Value.BagColumns;
@@ -78,7 +91,8 @@ public partial class BagControl : PanelContainer
             _slots.Clear();
             for (var index = 0; index < capacity; index++)
             {
-                var slot = new PanelContainer { Name = $"Slot{index}", CustomMinimumSize = new Vector2(48, 48), MouseFilter = MouseFilterEnum.Stop };
+                var slot = new BagSlotControl { Bag = this, SlotIndex = index,
+                    Name = $"Slot{index}", CustomMinimumSize = new Vector2(48, 48), MouseFilter = MouseFilterEnum.Stop };
                 var style = new StyleBoxFlat { BgColor = new Color(0.10f, 0.13f, 0.17f), BorderColor = new Color(0.35f, 0.40f, 0.48f) };
                 style.SetBorderWidthAll(1);
                 slot.AddThemeStyleboxOverride("panel", style);
@@ -114,6 +128,88 @@ public partial class BagControl : PanelContainer
             count.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         }
     }
+
+    /// <summary>记录拖动开始时的角色、版本与实例，禁止空格创建拖放。</summary>
+    internal Variant CreateItemDrag(int sourceSlot)
+    {
+        if (!IsVisibleInTree() || !GameServices.Session.HasRole) return default;
+        var item = GameServices.Session.Bag.Items.FirstOrDefault(item => item.SlotIndex == sourceSlot);
+        if (item is null) return default;
+        ShowMoveStatus("");
+        return new Godot.Collections.Dictionary
+        {
+            ["panel"] = GetInstanceId(), ["epoch"] = _dragEpoch,
+            ["role"] = GameServices.Session.RoleId, ["revision"] = GameServices.Session.Bag.Revision,
+            ["instance"] = item.InstanceId
+        };
+    }
+
+    /// <summary>校验载荷来源与快照，不允许跨面板、跨角色或刷新前的拖放。</summary>
+    internal bool CanDropItem(Variant data, int targetSlot)
+    {
+        if (!IsVisibleInTree() || !GameServices.Session.HasRole || targetSlot < 0 || targetSlot >= _slots.Count ||
+            data.VariantType != Variant.Type.Dictionary) return false;
+        var payload = data.AsGodotDictionary();
+        foreach (var key in new[] { "panel", "epoch", "role", "revision", "instance" })
+            if (!payload.ContainsKey(key) || payload[key].VariantType != Variant.Type.Int) return false;
+        if (payload["panel"].AsUInt64() != GetInstanceId() || payload["role"].AsInt64() != GameServices.Session.RoleId) return false;
+        if (payload["epoch"].AsInt64() != _dragEpoch || payload["revision"].AsInt64() != GameServices.Session.Bag.Revision)
+        {
+            ShowMoveStatus("背包已更新，请重新拖动物品");
+            return false;
+        }
+        return
+            GameServices.Session.Bag.Items.Any(item => item.InstanceId == payload["instance"].AsInt64());
+    }
+
+    /// <summary>只发送仍有效的整份物品移动，权威快照到达前保留原图标与数量。</summary>
+    internal void DropItem(Variant data, int targetSlot)
+    {
+        if (!CanDropItem(data, targetSlot)) { ShowMoveStatus("背包已更新，请重新拖动物品"); return; }
+        var payload = data.AsGodotDictionary();
+        var instanceId = payload["instance"].AsInt64();
+        if (GameServices.Session.Bag.Items.Single(item => item.InstanceId == instanceId).SlotIndex == targetSlot) return;
+        try { GameServices.Session.MoveItem(instanceId, targetSlot, payload["revision"].AsInt64()); }
+        catch (Exception error) { ShowMoveStatus(error.Message); }
+    }
+
+    /// <summary>物品移动失败时显示原因，成功状态由缓存阶段的完整推送提供。</summary>
+    private void OnItemMoved(MoveItemRt response)
+    {
+        if (response.RoleId == GameServices.Session.RoleId) ShowMoveStatus(response.Success ? "" : response.Error);
+    }
+
+    /// <summary>以普通文本显示移动反馈，空文本不占用布局高度。</summary>
+    private void ShowMoveStatus(string message)
+    {
+        _moveStatus.Text = message;
+        _moveStatus.Visible = message.Length > 0;
+    }
+
+    /// <summary>HUD 离开时立即解除移动响应订阅并作废拖放。</summary>
+    public void ReleaseSubscription()
+    {
+        CancelItemDrag();
+        _dragEpoch++;
+        _moveSubscription?.Dispose();
+        _moveSubscription = null;
+    }
+
+    /// <summary>关闭或销毁面板前取消自身拖动，由视口释放原生预览。</summary>
+    private void CancelItemDrag()
+    {
+        if (!IsInsideTree()) return;
+        var viewport = GetViewport();
+        if (!viewport.GuiIsDragging()) return;
+        var data = viewport.GuiGetDragData();
+        if (data.VariantType != Variant.Type.Dictionary) return;
+        var payload = data.AsGodotDictionary();
+        if (payload.ContainsKey("panel") && payload["panel"].VariantType == Variant.Type.Int &&
+            payload["panel"].AsUInt64() == GetInstanceId()) viewport.GuiCancelDrag();
+    }
+
+    /// <summary>离树时幂等回收订阅与拖动上下文。</summary>
+    public override void _ExitTree() => ReleaseSubscription();
 
     /// <summary>按显式素材键取图集区域，缺失时由格子显示占位。</summary>
     private AtlasTexture? ResolveTexture(string id)

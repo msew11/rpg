@@ -29,3 +29,29 @@ message BagChangedNotice {
   // 最新完整背包快照。
   BagPb bag = 2;
 }
+
+// 将当前角色的一份道具移动至目标格，由服务端决定合并或交换。
+message MoveItem {
+  // 必须与当前选中角色一致。
+  int64 role_id = 1;
+  // 被拖动的道具实例编号。
+  int64 instance_id = 2;
+  // 从零开始的目标格子编号。
+  int32 target_slot_index = 3;
+  // 拖动开始时的背包版本，过期请求不得执行。
+  int64 expected_revision = 4;
+}
+
+// 移动执行结果，成功变更另经完整背包推送更新缓存。
+message MoveItemRt {
+  // 请求所属角色。
+  int64 role_id = 1;
+  // 请求的源实例编号。
+  int64 instance_id = 2;
+  // 请求的目标格子。
+  int32 target_slot_index = 3;
+  // 是否执行成功，拖回原格视为成功的无操作。
+  bool success = 4;
+  // 失败原因。
+  string error = 5;
+}

@@ -545,6 +545,7 @@ public partial class GameHud : Control
     public void ReleaseSubscriptions()
     {
         _chat?.ReleaseSubscription();
+        _bag?.ReleaseSubscription();
         if (_dragging is not null && GameServices.IsInitialized)
         {
             GameServices.Setting.SaveCurrentRole();

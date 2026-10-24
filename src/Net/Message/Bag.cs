@@ -28,14 +28,21 @@ namespace Rpg.Net.Message {
             "KAMSDwoHaXRlbV9pZBgCIAEoBRISCgpzbG90X2luZGV4GAMgASgFEg0KBWNv",
             "dW50GAQgASgFIjUKBUJhZ1BiEhAKCHJldmlzaW9uGAEgASgDEhoKBWl0ZW1z",
             "GAIgAygLMgsucnBnLkl0ZW1QYiI8ChBCYWdDaGFuZ2VkTm90aWNlEg8KB3Jv",
-            "bGVfaWQYASABKAMSFwoDYmFnGAIgASgLMgoucnBnLkJhZ1BiQhKqAg9ScGcu",
-            "TmV0Lk1lc3NhZ2ViBnByb3RvMw=="));
+            "bGVfaWQYASABKAMSFwoDYmFnGAIgASgLMgoucnBnLkJhZ1BiImYKCE1vdmVJ",
+            "dGVtEg8KB3JvbGVfaWQYASABKAMSEwoLaW5zdGFuY2VfaWQYAiABKAMSGQoR",
+            "dGFyZ2V0X3Nsb3RfaW5kZXgYAyABKAUSGQoRZXhwZWN0ZWRfcmV2aXNpb24Y",
+            "BCABKAMibQoKTW92ZUl0ZW1SdBIPCgdyb2xlX2lkGAEgASgDEhMKC2luc3Rh",
+            "bmNlX2lkGAIgASgDEhkKEXRhcmdldF9zbG90X2luZGV4GAMgASgFEg8KB3N1",
+            "Y2Nlc3MYBCABKAgSDQoFZXJyb3IYBSABKAlCEqoCD1JwZy5OZXQuTWVzc2Fn",
+            "ZWIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.ItemPb), global::Rpg.Net.Message.ItemPb.Parser, new[]{ "InstanceId", "ItemId", "SlotIndex", "Count" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.BagPb), global::Rpg.Net.Message.BagPb.Parser, new[]{ "Revision", "Items" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.BagChangedNotice), global::Rpg.Net.Message.BagChangedNotice.Parser, new[]{ "RoleId", "Bag" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.BagChangedNotice), global::Rpg.Net.Message.BagChangedNotice.Parser, new[]{ "RoleId", "Bag" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.MoveItem), global::Rpg.Net.Message.MoveItem.Parser, new[]{ "RoleId", "InstanceId", "TargetSlotIndex", "ExpectedRevision" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.MoveItemRt), global::Rpg.Net.Message.MoveItemRt.Parser, new[]{ "RoleId", "InstanceId", "TargetSlotIndex", "Success", "Error" }, null, null, null, null)
           }));
     }
     #endregion
@@ -843,6 +850,694 @@ namespace Rpg.Net.Message {
               Bag = new global::Rpg.Net.Message.BagPb();
             }
             input.ReadMessage(Bag);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 将当前角色的一份道具移动至目标格，由服务端决定合并或交换。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class MoveItem : pb::IMessage<MoveItem>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<MoveItem> _parser = new pb::MessageParser<MoveItem>(() => new MoveItem());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<MoveItem> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.Net.Message.BagReflection.Descriptor.MessageTypes[3]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveItem() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveItem(MoveItem other) : this() {
+      roleId_ = other.roleId_;
+      instanceId_ = other.instanceId_;
+      targetSlotIndex_ = other.targetSlotIndex_;
+      expectedRevision_ = other.expectedRevision_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveItem Clone() {
+      return new MoveItem(this);
+    }
+
+    /// <summary>Field number for the "role_id" field.</summary>
+    public const int RoleIdFieldNumber = 1;
+    private long roleId_;
+    /// <summary>
+    /// 必须与当前选中角色一致。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long RoleId {
+      get { return roleId_; }
+      set {
+        roleId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "instance_id" field.</summary>
+    public const int InstanceIdFieldNumber = 2;
+    private long instanceId_;
+    /// <summary>
+    /// 被拖动的道具实例编号。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long InstanceId {
+      get { return instanceId_; }
+      set {
+        instanceId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "target_slot_index" field.</summary>
+    public const int TargetSlotIndexFieldNumber = 3;
+    private int targetSlotIndex_;
+    /// <summary>
+    /// 从零开始的目标格子编号。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int TargetSlotIndex {
+      get { return targetSlotIndex_; }
+      set {
+        targetSlotIndex_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "expected_revision" field.</summary>
+    public const int ExpectedRevisionFieldNumber = 4;
+    private long expectedRevision_;
+    /// <summary>
+    /// 拖动开始时的背包版本，过期请求不得执行。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long ExpectedRevision {
+      get { return expectedRevision_; }
+      set {
+        expectedRevision_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as MoveItem);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(MoveItem other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RoleId != other.RoleId) return false;
+      if (InstanceId != other.InstanceId) return false;
+      if (TargetSlotIndex != other.TargetSlotIndex) return false;
+      if (ExpectedRevision != other.ExpectedRevision) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RoleId != 0L) hash ^= RoleId.GetHashCode();
+      if (InstanceId != 0L) hash ^= InstanceId.GetHashCode();
+      if (TargetSlotIndex != 0) hash ^= TargetSlotIndex.GetHashCode();
+      if (ExpectedRevision != 0L) hash ^= ExpectedRevision.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (InstanceId != 0L) {
+        output.WriteRawTag(16);
+        output.WriteInt64(InstanceId);
+      }
+      if (TargetSlotIndex != 0) {
+        output.WriteRawTag(24);
+        output.WriteInt32(TargetSlotIndex);
+      }
+      if (ExpectedRevision != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(ExpectedRevision);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (InstanceId != 0L) {
+        output.WriteRawTag(16);
+        output.WriteInt64(InstanceId);
+      }
+      if (TargetSlotIndex != 0) {
+        output.WriteRawTag(24);
+        output.WriteInt32(TargetSlotIndex);
+      }
+      if (ExpectedRevision != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(ExpectedRevision);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RoleId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(RoleId);
+      }
+      if (InstanceId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(InstanceId);
+      }
+      if (TargetSlotIndex != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(TargetSlotIndex);
+      }
+      if (ExpectedRevision != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(ExpectedRevision);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(MoveItem other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RoleId != 0L) {
+        RoleId = other.RoleId;
+      }
+      if (other.InstanceId != 0L) {
+        InstanceId = other.InstanceId;
+      }
+      if (other.TargetSlotIndex != 0) {
+        TargetSlotIndex = other.TargetSlotIndex;
+      }
+      if (other.ExpectedRevision != 0L) {
+        ExpectedRevision = other.ExpectedRevision;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 16: {
+            InstanceId = input.ReadInt64();
+            break;
+          }
+          case 24: {
+            TargetSlotIndex = input.ReadInt32();
+            break;
+          }
+          case 32: {
+            ExpectedRevision = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 16: {
+            InstanceId = input.ReadInt64();
+            break;
+          }
+          case 24: {
+            TargetSlotIndex = input.ReadInt32();
+            break;
+          }
+          case 32: {
+            ExpectedRevision = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 移动执行结果，成功变更另经完整背包推送更新缓存。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class MoveItemRt : pb::IMessage<MoveItemRt>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<MoveItemRt> _parser = new pb::MessageParser<MoveItemRt>(() => new MoveItemRt());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<MoveItemRt> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.Net.Message.BagReflection.Descriptor.MessageTypes[4]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveItemRt() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveItemRt(MoveItemRt other) : this() {
+      roleId_ = other.roleId_;
+      instanceId_ = other.instanceId_;
+      targetSlotIndex_ = other.targetSlotIndex_;
+      success_ = other.success_;
+      error_ = other.error_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveItemRt Clone() {
+      return new MoveItemRt(this);
+    }
+
+    /// <summary>Field number for the "role_id" field.</summary>
+    public const int RoleIdFieldNumber = 1;
+    private long roleId_;
+    /// <summary>
+    /// 请求所属角色。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long RoleId {
+      get { return roleId_; }
+      set {
+        roleId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "instance_id" field.</summary>
+    public const int InstanceIdFieldNumber = 2;
+    private long instanceId_;
+    /// <summary>
+    /// 请求的源实例编号。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long InstanceId {
+      get { return instanceId_; }
+      set {
+        instanceId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "target_slot_index" field.</summary>
+    public const int TargetSlotIndexFieldNumber = 3;
+    private int targetSlotIndex_;
+    /// <summary>
+    /// 请求的目标格子。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int TargetSlotIndex {
+      get { return targetSlotIndex_; }
+      set {
+        targetSlotIndex_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "success" field.</summary>
+    public const int SuccessFieldNumber = 4;
+    private bool success_;
+    /// <summary>
+    /// 是否执行成功，拖回原格视为成功的无操作。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Success {
+      get { return success_; }
+      set {
+        success_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "error" field.</summary>
+    public const int ErrorFieldNumber = 5;
+    private string error_ = "";
+    /// <summary>
+    /// 失败原因。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Error {
+      get { return error_; }
+      set {
+        error_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as MoveItemRt);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(MoveItemRt other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RoleId != other.RoleId) return false;
+      if (InstanceId != other.InstanceId) return false;
+      if (TargetSlotIndex != other.TargetSlotIndex) return false;
+      if (Success != other.Success) return false;
+      if (Error != other.Error) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RoleId != 0L) hash ^= RoleId.GetHashCode();
+      if (InstanceId != 0L) hash ^= InstanceId.GetHashCode();
+      if (TargetSlotIndex != 0) hash ^= TargetSlotIndex.GetHashCode();
+      if (Success != false) hash ^= Success.GetHashCode();
+      if (Error.Length != 0) hash ^= Error.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (InstanceId != 0L) {
+        output.WriteRawTag(16);
+        output.WriteInt64(InstanceId);
+      }
+      if (TargetSlotIndex != 0) {
+        output.WriteRawTag(24);
+        output.WriteInt32(TargetSlotIndex);
+      }
+      if (Success != false) {
+        output.WriteRawTag(32);
+        output.WriteBool(Success);
+      }
+      if (Error.Length != 0) {
+        output.WriteRawTag(42);
+        output.WriteString(Error);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (InstanceId != 0L) {
+        output.WriteRawTag(16);
+        output.WriteInt64(InstanceId);
+      }
+      if (TargetSlotIndex != 0) {
+        output.WriteRawTag(24);
+        output.WriteInt32(TargetSlotIndex);
+      }
+      if (Success != false) {
+        output.WriteRawTag(32);
+        output.WriteBool(Success);
+      }
+      if (Error.Length != 0) {
+        output.WriteRawTag(42);
+        output.WriteString(Error);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RoleId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(RoleId);
+      }
+      if (InstanceId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(InstanceId);
+      }
+      if (TargetSlotIndex != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(TargetSlotIndex);
+      }
+      if (Success != false) {
+        size += 1 + 1;
+      }
+      if (Error.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Error);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(MoveItemRt other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RoleId != 0L) {
+        RoleId = other.RoleId;
+      }
+      if (other.InstanceId != 0L) {
+        InstanceId = other.InstanceId;
+      }
+      if (other.TargetSlotIndex != 0) {
+        TargetSlotIndex = other.TargetSlotIndex;
+      }
+      if (other.Success != false) {
+        Success = other.Success;
+      }
+      if (other.Error.Length != 0) {
+        Error = other.Error;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 16: {
+            InstanceId = input.ReadInt64();
+            break;
+          }
+          case 24: {
+            TargetSlotIndex = input.ReadInt32();
+            break;
+          }
+          case 32: {
+            Success = input.ReadBool();
+            break;
+          }
+          case 42: {
+            Error = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 16: {
+            InstanceId = input.ReadInt64();
+            break;
+          }
+          case 24: {
+            TargetSlotIndex = input.ReadInt32();
+            break;
+          }
+          case 32: {
+            Success = input.ReadBool();
+            break;
+          }
+          case 42: {
+            Error = input.ReadString();
             break;
           }
         }

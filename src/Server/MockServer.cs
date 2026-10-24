@@ -63,6 +63,7 @@ public sealed class MockServer
             case DeleteRole delete: HandleDeleteRole(delete); break;
             case Move move: HandleMove(move); break;
             case Gm gm: HandleGm(gm); break;
+            case MoveItem moveItem: HandleMoveItem(moveItem); break;
         }
     }
 
@@ -277,6 +278,69 @@ public sealed class MockServer
         }
         _current = candidate;
         Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+        Send(response);
+    }
+
+    /// <summary>在独立候选背包内移动、合并或交换，原子保存成功后才发布快照。</summary>
+    private void HandleMoveItem(MoveItem request)
+    {
+        var response = new MoveItemRt { RoleId = request.RoleId, InstanceId = request.InstanceId,
+            TargetSlotIndex = request.TargetSlotIndex };
+        DataServerRole candidate;
+        try
+        {
+            if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
+                throw new InvalidOperationException("请先进入当前角色");
+            if (request.ExpectedRevision != _current.Bag.Revision)
+                throw new InvalidOperationException("背包已更新，请重新拖动物品");
+            _bagRules.Validate(_current);
+            if (request.TargetSlotIndex < 0 || request.TargetSlotIndex >= _bagRules.GetCapacity(_current.BagExtraRows))
+                throw new ArgumentException("目标格子超出背包范围");
+            var source = _current.Bag.Items.FirstOrDefault(item => item.InstanceId == request.InstanceId)
+                ?? throw new ArgumentException("源物品不存在");
+            if (source.SlotIndex == request.TargetSlotIndex)
+            {
+                response.Success = true;
+                Send(response);
+                return;
+            }
+            var target = _current.Bag.Items.FirstOrDefault(item => item.SlotIndex == request.TargetSlotIndex);
+            var items = _current.Bag.Items.ToList();
+            items.Remove(source);
+            if (target is null) items.Add(source with { SlotIndex = request.TargetSlotIndex });
+            else
+            {
+                items.Remove(target);
+                var maxStack = _bagRules.Items[source.ItemId].MaxStack;
+                if (source.ItemId == target.ItemId && target.Count < maxStack)
+                {
+                    var transferred = Math.Min(source.Count, maxStack - target.Count);
+                    items.Add(target with { Count = target.Count + transferred });
+                    if (source.Count > transferred) items.Add(source with { Count = source.Count - transferred });
+                }
+                else
+                {
+                    items.Add(source with { SlotIndex = target.SlotIndex });
+                    items.Add(target with { SlotIndex = source.SlotIndex });
+                }
+            }
+            candidate = _current with { Bag = _current.Bag with
+            {
+                Revision = checked(_current.Bag.Revision + 1),
+                Items = items.OrderBy(item => item.SlotIndex).ToArray()
+            } };
+            _bagRules.Validate(candidate);
+            _roles.Save(candidate);
+        }
+        catch (Exception error)
+        {
+            response.Error = error.Message;
+            Send(response);
+            return;
+        }
+        _current = candidate;
+        Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+        response.Success = true;
         Send(response);
     }
 

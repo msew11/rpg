@@ -55,7 +55,7 @@ if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
 
 ## 协议与模拟服务端
 
-`proto/` 按业务声明消息：`message.proto` 定义公共信封，`role.proto` 定义角色共享枚举、摘要、完整状态和选角/创建/删除请求响应，`login.proto` 只定义登录请求响应，`world.proto` 定义移动请求响应及角色状态推送，`bag.proto` 定义 `ItemPb`、`BagPb`、`BagChangedNotice`，`gm.proto` 定义 `Gm/GmRt`。请求无后缀、响应以 `Rt` 结尾、推送以 `Notice` 结尾，纯数据结构与枚举以 `Pb` 结尾。`LoginRt` 返回 `RoleSummaryPb` 列表，仅包含角色 ID、名称、等级、性别与头型，客户端转换为独立的 `RoleSummaryPbData`。`SelectRoleRt` 才返回完整角色世界状态 `RoleWorldStatePb`，移动响应与状态推送也使用该结构。信封与性别枚举分别为 `EnvelopePb`、`RoleGenderPb`。现有消息为 `Login/LoginRt`、`SelectRole/SelectRoleRt`、`CreateRole/CreateRoleRt`、`DeleteRole/DeleteRoleRt`、`Move/MoveRt`、`RoleStateNotice`。信封包含协议完整名称、会话代次与 payload；`MessageCodec` 显式注册并校验传输方向，未知或损坏消息报告错误而不分发。增加业务消息时同时更新 proto 和协议表，并在对应功能缓存注册处理方法。
+`proto/` 按业务声明消息：`message.proto` 定义公共信封，`role.proto` 定义角色共享枚举、摘要、完整状态和选角/创建/删除请求响应，`login.proto` 只定义登录请求响应，`world.proto` 定义移动请求响应及角色状态推送，`bag.proto` 定义 `ItemPb`、`BagPb`、`BagChangedNotice` 和 `MoveItem/MoveItemRt`，`gm.proto` 定义 `Gm/GmRt`。请求无后缀、响应以 `Rt` 结尾、推送以 `Notice` 结尾，纯数据结构与枚举以 `Pb` 结尾。`LoginRt` 返回 `RoleSummaryPb` 列表，仅包含角色 ID、名称、等级、性别与头型，客户端转换为独立的 `RoleSummaryPbData`。`SelectRoleRt` 才返回完整角色世界状态 `RoleWorldStatePb`，移动响应与状态推送也使用该结构。信封与性别枚举分别为 `EnvelopePb`、`RoleGenderPb`。现有消息为 `Login/LoginRt`、`SelectRole/SelectRoleRt`、`CreateRole/CreateRoleRt`、`DeleteRole/DeleteRoleRt`、`Move/MoveRt`、`RoleStateNotice`。信封包含协议完整名称、会话代次与 payload；`MessageCodec` 显式注册并校验传输方向，未知或损坏消息报告错误而不分发。增加业务消息时同时更新 proto 和协议表，并在对应功能缓存注册处理方法。
 
 `dotnet build rpg.csproj` 使用仅构建依赖 `Grpc.Tools 2.84.0` 自动生成 `src/Net/Message/Message.cs`、`Role.cs`、`Login.cs`、`World.cs`、`Bag.cs` 和 `Gm.cs`，运行依赖为 `Google.Protobuf 3.36.2`，未启用 gRPC。生成 C# 与 proto 一起提交，中文协议注释写在 proto，不直接修改生成文件。SDK 排除生成目录的默认编译项，再由 protobuf 构建目标添加，避免重复编译。
 
@@ -137,11 +137,13 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 
 `ChatControl` 常驻 HUD 左下角，与互斥弹窗独立。回车或发送按钮提交去首尾空白的输入，斜杠开头转为去掉斜杠的 Gm 请求，普通文字仅提示“聊天暂未开放”。服务端仅支持 `/item <ItemId> [Count]`，默认数量 1，仅发给当前认证角色；按格子补满已有堆叠再占空格，遵守 MaxStack。全部数量放不下、参数错误或保存失败均不改变内存、存档、实例编号与版本。成功落盘后推送背包，再返回聊天普通文本反馈。移动确认基于最新角色数据保存，不覆盖物品。
 
-`BagControl` 点击打开时读取最新缓存，显示全部网格、图标和数量（含 1），悬停显示配置 Name；打开期间随 Notice 刷新。七件测试装备显式绑定现有图集素材键，缺失或未知图标显示占位；滚动区支持小窗口。`tests/bag_gm_smoke.tscn` 验证真实视口发送、回车、名称提示、输入隔离、关闭重开、缺图、小窗口和重启持久化；Windows 图形运行附加 `-- --capture-bag` 可保存 `build/bag-gm.png`。本轮不实现普通聊天、背包操作或装备属性。
+`BagControl` 点击打开时读取最新缓存，显示全部网格、图标和数量（含 1），悬停显示配置 Name；打开期间随 Notice 刷新。七件测试装备显式绑定现有图集素材键，缺失或未知图标显示占位；滚动区支持小窗口。`tests/bag_gm_smoke.tscn` 验证真实视口发送、回车、名称提示、输入隔离、关闭重开、缺图、小窗口和重启持久化；Windows 图形运行附加 `-- --capture-bag` 可保存 `build/bag-gm.png`。暂不实现普通聊天、主动拆分、使用、丢弃、整理或装备属性。
+
+`BagSlotControl` 使用 Godot 原生鼠标左键拖放，复制图标和数量为预览；空格整份移动，同类未满目标优先合并，剩余留原格，其他目标交换。完全合并只移除耗尽源实例，不回收编号。`MoveItem` 携带角色、实例、目标格和拖动开始的背包版本，服务端校验后原子保存，再发送完整背包推送和 `MoveItemRt`；同格不保存或递增版本。UI 不乐观修改缓存，失败在背包显示原因，关闭、离树、刷新、切角和旧版本都会使原拖放失效。`tests/item_movement_smoke.tscn` 通过真实鼠标事件验证原生预览、空格移动、交换、部分/完全合并、取消、过期、480×270 下滚动到末格、失败反馈、世界输入隔离、切角及重启。
 
 ## 当前限制
 
-演示认证、状态确认和地图配色仅用于验证客户端链路；尚无真实网络、寻路、技能效果或背包操作。角色目前支持基础身体和创建时选择男女各 74 套头型，不提供创建后的改头、独立发型、装备和坐骑操作；正式美术方向仍待确认。动作播放暂用每秒 10 帧，不代表玩法节奏。模拟服务端位置与客户端运动存在固定小偏差，用于检查校正路径。
+演示认证、状态确认和地图配色仅用于验证客户端链路；尚无真实网络、寻路、技能效果或背包主动拆分、使用、丢弃与整理。角色目前支持基础身体和创建时选择男女各 74 套头型，不提供创建后的改头、独立发型、装备和坐骑操作；正式美术方向仍待确认。动作播放暂用每秒 10 帧，不代表玩法节奏。模拟服务端位置与客户端运动存在固定小偏差，用于检查校正路径。
 
 ## 测试执行
 

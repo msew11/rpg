@@ -64,6 +64,8 @@ if ($Tests) {
     Invoke-GodotCheck 'pointer feedback' @('--headless', '--path', $projectPath, 'res://tests/pointer_feedback_smoke.tscn')
     # 背包与 GM 通过真实聊天、图标格子和重启存档验收。
     Invoke-GodotCheck 'bag and GM' @('--headless', '--path', $projectPath, 'res://tests/bag_gm_smoke.tscn')
+    # 物品移动必须经过原生鼠标拖放，而非直接调用控件回调。
+    Invoke-GodotCheck 'item movement' @('--headless', '--path', $projectPath, 'res://tests/item_movement_smoke.tscn')
 }
 
 if ($ExportWindows) {

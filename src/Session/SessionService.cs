@@ -147,6 +147,15 @@ public sealed class SessionService : Service
         _net.Send(new Gm { RoleId = RoleId, Command = command });
     }
 
+    /// <summary>提交整份物品拖放，不预先修改缓存，服务端验证版本并决定合并或交换。</summary>
+    public void MoveItem(long instanceId, int targetSlotIndex, long expectedRevision)
+    {
+        EnsureActive();
+        if (!HasRole) throw new InvalidOperationException("请先进入角色");
+        _net.Send(new MoveItem { RoleId = RoleId, InstanceId = instanceId,
+            TargetSlotIndex = targetSlotIndex, ExpectedRevision = expectedRevision });
+    }
+
     /// <summary>释放账号缓存，保留服务本身供重新登录。</summary>
     public void Logout()
     {
