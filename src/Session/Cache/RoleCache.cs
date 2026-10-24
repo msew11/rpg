@@ -2,7 +2,6 @@ using Rpg.Session.Data;
 using System;
 using System.IO;
 using Rpg.Net.Message;
-using Rpg.Services;
 
 namespace Rpg.Session.Cache;
 
@@ -19,10 +18,7 @@ public sealed class RoleCache : CacheBase
     public RoleWorldStatePbData State => _state ?? throw new InvalidOperationException("角色缓存尚未初始化");
 
     /// <summary>登录后建立角色协议监听，选角前不持有角色数据。</summary>
-    public RoleCache() : this(GameServices.Events) { }
-
-    /// <summary>以显式事件域建立角色监听，不依赖全局测试注册。</summary>
-    internal RoleCache(EventService events) : base(events)
+    public RoleCache()
     {
         Subscribe<SelectRoleRt>(OnSelected);
         Subscribe<MoveRt>(OnMoved);

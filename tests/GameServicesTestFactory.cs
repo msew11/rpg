@@ -54,7 +54,7 @@ internal static class GameServicesTestFactory
         var created = new List<IService>();
         try
         {
-            var session = new SessionService(net, events);
+            var session = new SessionService(net);
             created.Add(session);
             var world = new WorldService(config, setting, session);
             created.Add(world);

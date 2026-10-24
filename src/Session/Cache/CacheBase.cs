@@ -11,25 +11,12 @@ public abstract class CacheBase : IDisposable
     private readonly List<IDisposable> _subscriptions = [];
     /// <summary>是否已释放缓存，防止重复清理或再次订阅。</summary>
     private bool _disposed;
-    /// <summary>当前缓存所属的事件域，构造后不再替换。</summary>
-    private readonly EventService _events;
-
-    /// <summary>公开缓存默认使用当前完整注册中的事件域。</summary>
-    protected CacheBase() : this(GameServices.Events) { }
-
-    /// <summary>内部组装显式绑定事件域，不建立额外全局状态。</summary>
-    internal CacheBase(EventService events)
-    {
-        ArgumentNullException.ThrowIfNull(events);
-        ObjectDisposedException.ThrowIf(events.IsDisposed, events);
-        _events = events;
-    }
 
     /// <summary>在缓存阶段订阅协议，并自动托管订阅句柄。</summary>
     protected void Subscribe<T>(Action<T> handler)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _subscriptions.Add(_events.Subscribe(handler, EventPhase.Cache));
+        _subscriptions.Add(GameServices.Events.Subscribe(handler, EventPhase.Cache));
     }
 
     /// <summary>幂等释放全部订阅，再执行子类额外清理。</summary>

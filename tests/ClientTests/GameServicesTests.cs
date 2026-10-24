@@ -325,9 +325,9 @@ public sealed class GameServicesTests
         GameServices.Net.Tick(0);
     }
 
-    /// <summary>借用者提前释放网络时入口报错，注册所有者仍需释放句柄才能再次启动。</summary>
+    /// <summary>验证 game-services：网络提前释放不改变注册状态，业务操作负责拒绝已释放实例。</summary>
     [Fact]
-    public void ExternallyDisposedNetworkIsNeverReturnedAsActive()
+    public void ExternallyDisposedNetworkKeepsRegistrationUntilOwnerDisposes()
     {
         using var events = new EventService();
         var net = new NetService(new DoubleNetTransport(), events);
@@ -339,10 +339,29 @@ public sealed class GameServicesTests
         using var subscription = GameServices.Events.Subscribe<int>(_ => calls++);
         GameServices.Events.Publish(1);
         Assert.Equal(1, calls);
-        Assert.False(GameServices.IsInitialized);
-        Assert.Throws<ObjectDisposedException>(() => GameServices.Net);
+        Assert.True(GameServices.IsInitialized);
+        Assert.Same(net, GameServices.Net);
+        Assert.Throws<ObjectDisposedException>(() => GameServices.Net.Send(new Login()));
         using var other = new NetService(new DoubleNetTransport(), events);
         Assert.Throws<InvalidOperationException>(() => Register(other, events));
+    }
+
+    /// <summary>验证 game-services：事件入口与其他入口统一返回注册实例，已释放操作由服务拒绝。</summary>
+    [Fact]
+    public void ExternallyDisposedEventsKeepRegistrationUntilOwnerDisposes()
+    {
+        using var lifetime = Register(new DoubleNetTransport());
+        var events = GameServices.Events;
+        var net = GameServices.Net;
+        events.Dispose();
+        Assert.True(GameServices.IsInitialized);
+        Assert.Same(events, GameServices.Events);
+        Assert.Same(net, GameServices.Net);
+        Assert.Throws<ObjectDisposedException>(() => GameServices.Events.Subscribe<int>(_ => { }));
+        Assert.Throws<ObjectDisposedException>(() => GameServices.Events.Publish(1));
+        lifetime.Dispose();
+        Assert.False(GameServices.IsInitialized);
+        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
     }
 
     /// <summary>传输释放异常也必须撤销入口，避免阻止后续启动。</summary>
@@ -368,14 +387,14 @@ public sealed class GameServicesTests
     public void ExplicitNetworksKeepRequestQueuesAndShareEventService()
     {
         using var events = new EventService();
-        Assert.Throws<InvalidOperationException>(() => new SessionService(GameServices.Net, GameServices.Events, new LoginRt { Success = true }));
+        Assert.Throws<InvalidOperationException>(() => new SessionService(GameServices.Net, new LoginRt { Success = true }));
         using var globalTransport = new DoubleNetTransport();
         using var services = Register(new NetService(globalTransport, events), events);
         Assert.Same(events, GameServices.Events);
-        using var globalSession = new SessionService(GameServices.Net, GameServices.Events, new LoginRt { Success = true });
+        using var globalSession = new SessionService(GameServices.Net, new LoginRt { Success = true });
         using var isolatedTransport = new DoubleNetTransport();
         using var isolated = new NetService(isolatedTransport, GameServices.Events);
-        using var isolatedSession = new SessionService(isolated, GameServices.Events, new LoginRt { Success = true });
+        using var isolatedSession = new SessionService(isolated, new LoginRt { Success = true });
         globalSession.SelectRole(1001);
         isolatedSession.SelectRole(1002);
         GameServices.Net.Tick(0);
@@ -395,12 +414,12 @@ public sealed class GameServicesTests
     public void OldGlobalSessionCannotOperateOrResetRestartedNetwork()
     {
         using var oldServices = Register(new DoubleNetTransport());
-        using var oldSession = new SessionService(GameServices.Net, GameServices.Events, new LoginRt { Success = true });
+        using var oldSession = new SessionService(GameServices.Net, new LoginRt { Success = true });
         oldServices.Dispose();
         using var transport = new DoubleNetTransport();
         using var currentServices = Register(transport);
         var currentEvents = GameServices.Events;
-        using var currentSession = new SessionService(GameServices.Net, GameServices.Events, new LoginRt { Success = true });
+        using var currentSession = new SessionService(GameServices.Net, new LoginRt { Success = true });
         currentSession.SelectRole(1002);
         Assert.Throws<ObjectDisposedException>(() => oldSession.SelectRole(1001));
         Assert.Throws<ObjectDisposedException>(() => oldSession.LeaveRole());
@@ -425,7 +444,7 @@ public sealed class GameServicesTests
         GameServices.Net.Send(new Login());
         using (var isolatedTransport = new DoubleNetTransport())
         using (var isolated = new NetService(isolatedTransport, GameServices.Events))
-        using (var session = new SessionService(isolated, GameServices.Events, new LoginRt { Success = true }))
+        using (var session = new SessionService(isolated, new LoginRt { Success = true }))
         {
             session.SelectRole(1002);
             isolated.Tick(0);

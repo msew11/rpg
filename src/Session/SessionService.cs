@@ -14,8 +14,6 @@ public sealed class SessionService : Service
 {
     /// <summary>本次启动绑定的网络。</summary>
     private readonly NetService _net;
-    /// <summary>供账号缓存使用的同次启动事件服务。</summary>
-    private readonly EventService _events;
     /// <summary>登录尝试时建立，由缓存自身处理响应的账号摘要。</summary>
     private LoginCache? _login;
     /// <summary>登录尝试时建立，选角后接纳状态的角色缓存。</summary>
@@ -39,26 +37,23 @@ public sealed class SessionService : Service
     internal RoleCache RoleCache => _role ?? throw new InvalidOperationException("尚未登录");
 
     /// <summary>绑定本次启动的网络，不注册协议监听。</summary>
-    public SessionService(NetService net, EventService events)
+    public SessionService(NetService net)
     {
         ArgumentNullException.ThrowIfNull(net);
-        ArgumentNullException.ThrowIfNull(events);
-        ObjectDisposedException.ThrowIf(events.IsDisposed, events);
         _net = net;
-        _events = events;
         _generation = net.Generation;
     }
 
     /// <summary>从独立网络和已有响应建立账号，用于隔离协议测试。</summary>
-    internal SessionService(NetService net, EventService events, LoginRt response) : this(net, events)
+    internal SessionService(NetService net, LoginRt response) : this(net)
     {
         ArgumentNullException.ThrowIfNull(response);
         if (!response.Success) throw new InvalidOperationException("登录成功后才能建立账号");
-        var login = new LoginCache(events, response);
+        var login = new LoginCache(response);
         try
         {
             ResetNetwork();
-            _role = new RoleCache(events);
+            _role = new RoleCache();
             _login = login;
         }
         catch { login.Dispose(); throw; }
@@ -69,10 +64,10 @@ public sealed class SessionService : Service
     {
         Logout();
         ResetNetwork();
-        var login = new LoginCache(_events);
+        var login = new LoginCache();
         try
         {
-            _role = new RoleCache(_events);
+            _role = new RoleCache();
             _login = login;
             _net.Send(new Login { Username = username, Password = password });
         }

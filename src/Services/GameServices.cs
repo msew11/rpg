@@ -15,8 +15,8 @@ public static class GameServices
 {
     /// <summary>本次启动的整体注册，释放前禁止替换。</summary>
     private static Registration? _current;
-    /// <summary>全部入口是否已注册且网络尚未释放。</summary>
-    public static bool IsInitialized => _current is not null && !_current.Net.IsDisposed;
+    /// <summary>完整服务组是否已经注册。</summary>
+    public static bool IsInitialized => _current is not null;
     /// <summary>当前完整注册，不将其他服务的可用性绑定到网络状态。</summary>
     private static Registration Current
     {
@@ -32,26 +32,10 @@ public static class GameServices
     public static ConfigService Config => Current.Config;
     /// <summary>当前系统与角色本地设置。</summary>
     public static SettingService Setting => Current.Setting;
-    /// <summary>当前启动的事件域，与其他服务统一持有且独立检查释放状态。</summary>
-    public static EventService Events
-    {
-        get
-        {
-            var events = Current.Events;
-            ObjectDisposedException.ThrowIf(events.IsDisposed, events);
-            return events;
-        }
-    }
+    /// <summary>当前完整注册中的事件域。</summary>
+    public static EventService Events => Current.Events;
     /// <summary>固定帧网络请求与消息分发。</summary>
-    public static NetService Net
-    {
-        get
-        {
-            var net = Current.Net;
-            ObjectDisposedException.ThrowIf(net.IsDisposed, net);
-            return net;
-        }
-    }
+    public static NetService Net => Current.Net;
     /// <summary>账号与当前角色会话。</summary>
     public static SessionService Session => Current.Session;
     /// <summary>地图、输入意图和角色世界。</summary>
@@ -76,7 +60,7 @@ public static class GameServices
             created.Add(setting);
             var net = new NetService(environment, events);
             created.Add(net);
-            var session = new SessionService(net, events);
+            var session = new SessionService(net);
             created.Add(session);
             var world = new WorldService(config, setting, session);
             created.Add(world);

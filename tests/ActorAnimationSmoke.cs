@@ -39,7 +39,7 @@ public partial class ActorAnimationSmoke : Node
             });
             net.Send(new Login { Username = "demo", Password = "demo" });
             net.Tick(0);
-            using var session = new SessionService(net, GameServices.Events, loginResponse!);
+            using var session = new SessionService(net, loginResponse!);
             Check(session.LoginCache.Roles.Count == 2, "登录未返回两个演示角色");
             var actor = new ActorView();
             AddChild(actor);

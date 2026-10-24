@@ -10,7 +10,8 @@ using Rpg.Session;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/mock-server、client-session 的真实请求、落盘、推送与生命周期。</summary>
-public sealed class MockServerAcceptanceTests : EventServiceTestScope
+[Trait("Runtime", "Godot")]
+public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
 {
     /// <summary>验证 client-session：登录只提供独立摘要，选角才加载最新的完整世界状态。</summary>
     [Fact]

@@ -5,7 +5,8 @@ using Rpg.Session.Cache;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-session 的缓存优先监听与统一释放契约。</summary>
-public sealed class CacheBaseTests : EventServiceTestScope
+[Trait("Runtime", "Godot")]
+public sealed class CacheBaseTests : RegisteredServiceTestScope
 {
     /// <summary>子类订阅默认先于已有普通监听执行，普通监听可立即读取更新结果。</summary>
     [Fact]
@@ -15,7 +16,7 @@ public sealed class CacheBaseTests : EventServiceTestScope
         var value = 0;
         var observed = 0;
         using var ordinary = events.Subscribe<int>(_ => observed = value);
-        using var cache = new DoubleCache(Events);
+        using var cache = new DoubleCache();
         cache.Listen<int>(message => value = message);
         events.Publish(42);
         Assert.Equal(42, observed);
@@ -26,8 +27,8 @@ public sealed class CacheBaseTests : EventServiceTestScope
     public void DisposeReleasesOwnedSubscriptionsAndRunsCleanupOnce()
     {
         var events = Events;
-        using var released = new DoubleCache(Events);
-        using var active = new DoubleCache(Events);
+        using var released = new DoubleCache();
+        using var active = new DoubleCache();
         var releasedCalls = 0;
         var activeCalls = 0;
         released.Listen<int>(_ => releasedCalls++);
@@ -46,14 +47,27 @@ public sealed class CacheBaseTests : EventServiceTestScope
         Assert.Throws<ObjectDisposedException>(() => released.Listen<int>(_ => releasedCalls++));
     }
 
+    /// <summary>验证 session-events：订阅需要完整注册，撤销入口后仍可通过原句柄释放缓存。</summary>
+    [Fact]
+    public void SubscriptionsRequireRegistrationButCleanupDoesNot()
+    {
+        using var cache = new DoubleCache();
+        cache.Listen<int>(_ => { });
+        Dispose();
+        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
+        cache.Dispose();
+        cache.Dispose();
+        Assert.Equal(1, cache.CleanupCalls);
+        Assert.Throws<ObjectDisposedException>(() => cache.Listen<int>(_ => { }));
+        using var unregistered = new DoubleCache();
+        Assert.Throws<InvalidOperationException>(() => unregistered.Listen<int>(_ => { }));
+    }
+
     /// <summary>提供受控订阅入口与额外清理计数，服务 CacheBase 生命周期契约。</summary>
     private sealed class DoubleCache : CacheBase
     {
         /// <summary>额外清理钩子的实际执行次数。</summary>
         public int CleanupCalls { get; private set; }
-
-        /// <summary>绑定测试持有的事件域。</summary>
-        public DoubleCache(EventService events) : base(events) { }
 
         /// <summary>通过基类入口托管测试需要的协议订阅。</summary>
         public void Listen<T>(Action<T> handler) => Subscribe(handler);

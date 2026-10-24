@@ -12,7 +12,8 @@ using Rpg.World.Utils;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-session 与 client-actor-presentation 的无节点角色逻辑场景。</summary>
-public sealed class ActorAcceptanceTests : EventServiceTestScope
+[Trait("Runtime", "Godot")]
+public sealed class ActorAcceptanceTests : RegisteredServiceTestScope
 {
     /// <summary>男女角色的性别从登录、会话和确认缓存进入玩家 entity。</summary>
     [Theory]

@@ -6,7 +6,7 @@
 ## Requirements
 ### Requirement: 显式注册与统一访问
 
-客户端 SHALL 提供只读的全局 Environment、Config、Setting、Events、Net、Session、World、Animation 服务入口。启动流程显式注册全部服务后，调用方无需逐层传递业务对象即可读取状态、提交业务操作、发送请求和订阅消息；初始化前访问 SHALL 明确报错，不得隐式创建实例。服务未释放时再次注册 SHALL 被拒绝且不替换原实例；空对象和已释放实例 SHALL 不可注册。
+客户端 SHALL 提供只读的全局 Environment、Config、Setting、Events、Net、Session、World、Animation 服务入口。启动流程显式注册全部服务后，调用方无需逐层传递业务对象即可读取状态、提交业务操作、发送请求和订阅消息；初始化前访问 SHALL 明确报错，不得隐式创建实例。全部入口 SHALL 仅检查完整注册是否存在，不单独检查实例释放状态；IsInitialized SHALL 仅表示完整注册存在，业务操作由服务自身检查释放状态。服务未释放时再次注册 SHALL 被拒绝且不替换原实例；空对象和已释放实例 SHALL 不可注册。
 
 #### Scenario: 注册前后访问
 - **WHEN** 业务在注册前访问入口，随后启动流程注册有效网络服务
@@ -30,10 +30,10 @@
 
 ### Requirement: 会话绑定与独立实例
 
-账号会话 SHALL 仅通过构造显式绑定创建时的网络与事件服务，不得在服务内从全局入口获取依赖。全局服务释放或重新建立后，旧会话 SHALL 不能向新网络发送请求，其延后释放不影响新会话。网络服务和会话 SHALL 继续支持显式实例创建；显式网络保留各自请求队列，事件分发统一使用构造传入的同一 EventService，不得创建独立事件域。
+账号会话 SHALL 仅通过构造显式绑定创建时的网络服务，不得在服务内从全局入口获取依赖。全局服务释放或重新建立后，旧会话 SHALL 不能向新网络发送请求，其延后释放不影响新会话。网络服务和会话 SHALL 继续支持显式实例创建；显式网络保留各自请求队列，事件分发统一使用构造传入的同一 EventService，不得创建独立事件域。
 
 #### Scenario: 全局会话与独立测试并存
-- **WHEN** 显式传入已注册网络和事件服务创建账号会话，同时以显式独立网络创建另一个会话
+- **WHEN** 显式传入已注册网络创建账号会话，同时以显式独立网络创建另一个会话
 - **THEN** 两者使用各自网络请求队列并共享唯一事件服务，独立网络的创建和释放不替换或释放全局事件服务
 
 #### Scenario: 重启后旧会话延后释放
@@ -71,7 +71,7 @@ IService SHALL 提供只读 IsDisposed 契约，全部业务服务 SHALL 通过 
 - **THEN** 对应服务最终 IsDisposed 为 true，其余服务仍继续清理，设置退出保存与旧会话隔离行为保持不变
 
 ### Requirement: 环境参数统一管理
-客户端 SHALL 由无依赖的 EnvironmentService 统一持有配置、Schema、设置与模拟服务端目录，通过 GameServices.Environment 只读访问。正式启动 SHALL 使用无参 GameServices.Initialize()；配置与设置服务公开构造 SHALL 只接收 EnvironmentService；网络服务 SHALL 显式接收 EnvironmentService 与 EventService，账号服务 SHALL 显式接收 NetService 与 EventService；其他正式服务构造 SHALL 只接收前置服务依赖。全部正式服务的构造 SHALL 集中在无参 Initialize 方法体内，按 Environment、Events、Config、Setting、Net、Session、World、Animation 的顺序显式书写；Register 和注册句柄构造 SHALL 只接收现成实例，不再创建服务，不引入容器、反射或自动排序。内部测试 SHALL 能覆盖环境目录和网络传输，不增加正式启动参数。
+客户端 SHALL 由无依赖的 EnvironmentService 统一持有配置、Schema、设置与模拟服务端目录，通过 GameServices.Environment 只读访问。正式启动 SHALL 使用无参 GameServices.Initialize()；配置与设置服务公开构造 SHALL 只接收 EnvironmentService；网络服务 SHALL 显式接收 EnvironmentService 与 EventService，账号服务 SHALL 显式接收 NetService；其他正式服务构造 SHALL 只接收前置服务依赖。全部正式服务的构造 SHALL 集中在无参 Initialize 方法体内，按 Environment、Events、Config、Setting、Net、Session、World、Animation 的顺序显式书写；Register 和注册句柄构造 SHALL 只接收现成实例，不再创建服务，不引入容器、反射或自动排序。内部测试 SHALL 能覆盖环境目录和网络传输，不增加正式启动参数。
 
 #### Scenario: 无参启动与默认目录
 - **WHEN** 主场景调用 GameServices.Initialize()
@@ -98,4 +98,4 @@ IService SHALL 提供只读 IsDisposed 契约，全部业务服务 SHALL 通过 
 
 #### Scenario: 网络单独释放
 - **WHEN** 网络被提前释放而整体注册仍存在
-- **THEN** 网络入口拒绝访问，事件入口仍返回同一未释放实例，整体所有者仍可完成清理
+- **THEN** 所有入口仍返回各自注册实例，IsInitialized 仍为 true；网络业务操作抛出已释放错误，事件仍能分发，整体所有者仍可完成清理

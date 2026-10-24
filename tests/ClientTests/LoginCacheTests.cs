@@ -7,7 +7,8 @@ using Rpg.Session.Data;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-session 的登录摘要缓存、异常响应与跨角色生命周期。</summary>
-public sealed class LoginCacheTests : EventServiceTestScope
+[Trait("Runtime", "Godot")]
+public sealed class LoginCacheTests : RegisteredServiceTestScope
 {
     /// <summary>早注册的普通监听读取已转换的摘要，修改协议或集合不能污染缓存。</summary>
     [Fact]
@@ -17,7 +18,7 @@ public sealed class LoginCacheTests : EventServiceTestScope
         LoginCache? cache = null;
         IReadOnlyList<RoleSummaryPbData>? observed = null;
         using var listener = events.Subscribe<LoginRt>(_ => observed = cache!.Roles);
-        using var loginCache = cache = new LoginCache(Events);
+        using var loginCache = cache = new LoginCache();
         Assert.False(cache.IsLoggedIn);
         Assert.Empty(cache.Roles);
         var response = new LoginRt

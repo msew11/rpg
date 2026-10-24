@@ -15,7 +15,8 @@ using Rpg.World.Utils;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-config-map 与 client-session 的配置及会话场景。</summary>
-public sealed class ClientAcceptanceTests : EventServiceTestScope
+[Trait("Runtime", "Godot")]
+public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
 {
     /// <summary>合法地图配置能组合为完整地图，未知配置会给出文件诊断。</summary>
     [Fact]

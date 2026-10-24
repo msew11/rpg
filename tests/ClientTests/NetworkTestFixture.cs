@@ -51,7 +51,7 @@ internal sealed class NetworkTestFixture : IDisposable
         Net.Send(new Login { Username = username, Password = password });
         Net.Tick(0);
         Assert.NotNull(response);
-        if (response.Success) Session = new SessionService(Net, _events, response);
+        if (response.Success) Session = new SessionService(Net, response);
         return (response.Success, response.Error, Session?.LoginCache.Roles ?? []);
     }
 
