@@ -10,24 +10,25 @@
 | --- | --- | --- |
 | `ConfigService Config` | 构造时加载、校验并持有配置 | 内部 JSON 与 Schema 读取方法 |
 | `SettingService Setting` | 构造时加载系统设置，内部持有角色设置并修改、保存 | 私有 JSON 读写方法 |
-| `NetService Net` | protobuf 请求队列、固定帧收发和类型事件分发 | `INetTransport`、`EventSystem` |
+| `EventService Events` | 唯一类型事件域、缓存优先分发、监听错误与订阅生命周期 | 内部监听集合与重入队列 |
+| `NetService Net` | protobuf 请求队列、固定帧收发及解码后发布消息 | `INetTransport`；通过 GameServices.Events 发布 |
 | `SessionService Session` | 直接建立并持有账号摘要与角色缓存，处理登录、选角和快照 | `NetService`、内部 `LoginCache` 与 `RoleCache` |
-| `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session、Net；内部 `MapManager`、`WorldManager` |
+| `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部 `MapManager`、`WorldManager` |
 | `AnimationService Animation` | 直接加载、缓存身体动画并解析朝向 | Godot 原生资源 |
 
 `ConfigService` 构造时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验并持有 `MapConfig`。地图逻辑、分块和 UI 通过服务读取，不另存配置引用。`config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块与稀疏覆盖格。未知、重复、无效或文件名不匹配的配置阻止启动；配置与程序同包发布。原始加载方法为私有，独立目录构造供工具与隔离测试使用。
 
-主控制器调用 `GameServices.Initialize(settingsDirectory, serverDirectory, createNet)`。GameServices 内部创建配置、设置、网络、会话、世界和动画服务；`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。失败时回收已创建服务，释放时先撤销全部入口，再按 Animation、World、Session、Net、Setting、Config 顺序清理；单项失败仍继续清理其他服务，最后报告异常。旧句柄重复释放不影响新注册。内部保留显式实例注册入口供测试使用，业务节点不负责组装或释放单个服务。
+主控制器调用 `GameServices.Initialize(settingsDirectory, serverDirectory, createNet)`。GameServices 内部创建配置、设置、唯一事件、网络、会话、世界和动画服务；`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。失败时回收已创建服务，释放时先撤销业务入口，再按 Animation、World、Session、Net、Setting、Config、Events 顺序清理并撤销事件入口；单项失败仍继续清理其他服务，最后报告异常。旧句柄重复释放不影响新注册。内部保留显式实例注册入口供测试使用，业务节点不负责组装或释放单个服务。
 
 `MainController` 只协调页面与表现：登录和选角按钮调用 Session 服务，成功后创建相应页面或世界表现；固定帧先推进 Net 再推进 World，再更新角色与摄像机。输入由节点完成视口逆投影，再交给 World 服务限制边界、分配移动序号并同时提交 ECS Action 与网络请求。`CreateNetService` 保留场景测试替换传输的边界，设置与服务端目录可在启动前注入。启动失败和退出共用清理，先撤销 UI 监听、提交拖动设置，再释放服务句柄；未获得句柄的控制器不会释放其他启动流程的服务。
 
-`SessionService.Login` 在请求前清空旧账号并隔离网络代次。成功 `LoginRt` 在缓存阶段直接建立并持有 `LoginCache` 与 `RoleCache`，不再经过独立的账号包装类；此路径不重置正在分发的成功响应。非法摘要不留下账号状态或订阅，并阻止 UI 成功回调。UI 只读取 `GameServices.Session.Roles`、`RoleId`、`Role` 和状态标记；缓存容器、已有响应构造与事件借用入口均为内部接口。服务绑定创建时的网络及账号代次，旧实例不能操作后来注册的网络或账号。
+`SessionService.Login` 在请求前清空旧账号并隔离网络代次。成功 `LoginRt` 在缓存阶段直接建立并持有 `LoginCache` 与 `RoleCache`，不再经过独立的账号包装类；此路径不重置正在分发的成功响应。非法摘要不留下账号状态或订阅，并阻止 UI 成功回调。UI 只读取 `GameServices.Session.Roles`、`RoleId`、`Role` 和状态标记；缓存容器与已有响应构造均为内部接口。服务绑定创建时的网络及账号代次，旧实例不能操作后来注册的网络或账号。
 
 选角复用账号会话，发送请求前清空角色缓存并隔离旧代次。`RoleCache` 成功初始化后，World 服务先建立地图实体，再建立角色实体，并选择对应角色设置；随后 UI 创建表现。`WorldService` 监听移动响应与主动推送，将当前缓存快照转为同步 Action，不允许节点直接写 ECS。选角失败保留账号摘要并恢复角色列表。返回选角清理世界、角色数据和当前角色设置，保留同一个账号；返回登录由 Session 服务释放账号缓存并清空账号状态，各服务仍常驻到场景结束。后续背包数据计划以 `BagPbData` 归入 `RoleCache`，当前没有 `DataCache`、独立 `BagCache` 或背包协议。
 
 所有功能缓存位于 `src/Session/Cache/`，继承 `CacheBase`，通过受保护的 `Subscribe<T>()` 注册缓存阶段监听，由基类私有集合托管句柄。释放幂等取消自身订阅并执行一次 `OnDispose()`，释放后禁止新增订阅。所有 `PbData` 类位于 `src/Session/Data/`，通过自身 `FromPb` 与 `ToPb` 校验、复制数据，不共享可变协议对象。`RoleWorldStatePbData` 直接持有角色属性、性别、逻辑位置、revision 和移动确认序号，不嵌套额外角色模型；World 与 UI 使用相同的不可变权威快照。
 
-`NetService.Events` 是 Session 模块的实例化 `EventSystem`：先 Cache 后 Normal，同阶段按注册顺序，每条消息使用监听快照。新增监听处理后续消息，已取消监听立即跳过，嵌套发布排队。缓存失败跳过该消息的普通阶段，普通监听失败不阻止其他监听。Session 服务在 Cache 阶段建立账号，World 服务先于 UI 注册 Normal 监听。网络与监听错误通过 `NetService.Error` 报告至页面或 HUD。会话重置递增信封代次、清理队列和服务端未确认移动，旧消息不能进入后续角色。
+`GameServices.Events` 是独立的 `EventService : IService`，直接包含分发实现，没有额外转发包装。构造方法不对外公开，GameServices 是唯一创建位置；网络、会话、缓存、世界与 UI 统一通过该入口使用，不持有私有事件域，也不逐层传递事件对象。独立网络保留各自发送队列，但共享该事件服务；单独释放网络不清除事件监听，整体退出最后释放事件服务并清除全部监听和队列。分发规则：先 Cache 后 Normal，同阶段按注册顺序，每条消息使用监听快照。新增监听处理后续消息，已取消监听立即跳过，嵌套发布排队。缓存失败跳过该消息的普通阶段，普通监听失败不阻止其他监听。Session 服务在 Cache 阶段建立账号，World 服务先于 UI 注册 Normal 监听。网络编解码与传输错误通过 `NetService.Error`、监听错误通过 `GameServices.Events.Error` 报告至页面或 HUD。会话重置递增信封代次、清理队列和服务端未确认移动，旧消息不能进入后续角色。
 
 `NetService.Send(IMessage)` 调用时序列化并入队，回调内新增请求留到下一帧发送。`INetTransport` 隔离具体传输，`MockTransport` 在同进程连接 `MockServer`，双向仅交换 protobuf 字节。真实连接以后提供新的传输适配器，世界与 UI 不接触传输细节。
 
@@ -43,7 +44,7 @@
 
 模拟移动保留每秒 180 逻辑单位、0.45 秒确认及横向 3 单位校正偏差。仅保存已确认/推送状态，不保存会话结束时仍待确认的移动；选角恢复位置和 revision，移动确认序号重置为 0，供新世界使用。`PublishRoleState` 提供服务端主动更新入口，保存成功后发送 Notice，不添加产品操作面板。JSON 存储仅面向单实例进程内 Mock，不提供多进程写入协调。
 
-普通 UI 监听通过 `GameServices.Net.Events.Subscribe<T>()` 获取释放句柄，读取 `GameServices.Session.Role`；世界同步监听留在 World 服务内部。缓存模块使用相同 API 并指定 `EventPhase.Cache`。
+普通 UI 监听通过 `GameServices.Events.Subscribe<T>()` 获取释放句柄，读取 `GameServices.Session.Role`；世界同步监听留在 World 服务内部。缓存模块使用相同 API 并指定 `EventPhase.Cache`。
 
 ## 输入、世界与表现
 
@@ -58,8 +59,8 @@
 ```text
 map.json -> GameServices.Config -> World / 地图表现 / UI
 UI -> GameServices.Session -> GameServices.Net -> protobuf 字节 -> MockServer -> JSON
-MockServer -> protobuf 字节 -> EventSystem(Cache) -> Session 内部账号缓存
-                           -> EventSystem(Normal) -> World 同步 Action -> ECS -> 只读表现快照
+MockServer -> protobuf 字节 -> GameServices.Events(Cache) -> Session 内部账号缓存
+                           -> GameServices.Events(Normal) -> World 同步 Action -> ECS -> 只读表现快照
                                                   -> UI 刷新
 Godot 输入 -> 等轴逆投影 -> GameServices.World -> 移动 Action / 会话移动请求
 本地设置 <-> GameServices.Setting -> UI

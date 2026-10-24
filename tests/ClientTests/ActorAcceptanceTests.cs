@@ -1,3 +1,4 @@
+using Rpg.Services;
 using Rpg.Const;
 using Rpg.Session.Data;
 using Godot;
@@ -9,7 +10,7 @@ using Rpg.World.Actions;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-session 与 client-actor-presentation 的无节点角色逻辑场景。</summary>
-public sealed class ActorAcceptanceTests
+public sealed class ActorAcceptanceTests : EventServiceTestScope
 {
     /// <summary>男女角色的性别从登录、会话和确认缓存进入玩家 entity。</summary>
     [Theory]
@@ -23,7 +24,7 @@ public sealed class ActorAcceptanceTests
         var world = CreateWorld(session.Role);
         Assert.Equal(gender, session.RoleCache.State.Gender);
         Assert.Equal(gender, world.ActorState!.Gender);
-        using var subscription = session.Events.Subscribe<MoveRt>(_ => world.Enqueue(new SyncRoleAction(session.RoleCache.State)));
+        using var subscription = GameServices.Events.Subscribe<MoveRt>(_ => world.Enqueue(new SyncRoleAction(session.RoleCache.State)));
         session.SubmitMove(1, session.Role.Position + new Vector2(100, 0));
         source.Net.Tick(0.5);
         world.Tick(0);

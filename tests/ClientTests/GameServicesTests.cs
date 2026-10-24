@@ -19,9 +19,9 @@ public sealed class GameServicesTests
         var net = new NetService(transport);
         using var services = Register(net);
         var errors = new List<Exception>();
-        net.Error += errors.Add;
+        GameServices.Events.Error += errors.Add;
         var notifications = 0;
-        using var ui = net.Events.Subscribe<LoginRt>(_ => notifications++);
+        using var ui = GameServices.Events.Subscribe<LoginRt>(_ => notifications++);
         GameServices.Session.Login("demo", "demo");
         net.Tick(0);
         var generation = MessageCodec.ReadEnvelope(Assert.Single(transport.Sent)).Generation;
@@ -54,9 +54,9 @@ public sealed class GameServicesTests
             var setting = new SettingService(Path.Combine(directory, "settings"));
             using var services = GameServices.Initialize(ConfigTestFixture.LoadDefault(), setting, net);
             var errors = new List<Exception>();
-            net.Error += errors.Add;
+            GameServices.Events.Error += errors.Add;
             var observedLogin = false;
-            using var loginUi = net.Events.Subscribe<LoginRt>(response =>
+            using var loginUi = GameServices.Events.Subscribe<LoginRt>(response =>
             {
                 observedLogin = true;
                 Assert.True(response.Success);
@@ -64,7 +64,7 @@ public sealed class GameServicesTests
                 Assert.Equal(2, GameServices.Session.Roles.Count);
             });
             var observedSelections = 0;
-            using var roleUi = net.Events.Subscribe<SelectRoleRt>(response =>
+            using var roleUi = GameServices.Events.Subscribe<SelectRoleRt>(response =>
             {
                 observedSelections++;
                 Assert.True(GameServices.Session.HasRole);
@@ -177,7 +177,7 @@ public sealed class GameServicesTests
         Assert.True(GameServices.IsInitialized);
         Assert.Same(net, GameServices.Net);
         var delivered = 0;
-        using var subscription = GameServices.Net.Events.Subscribe<LoginRt>(_ => delivered++);
+        using var subscription = GameServices.Events.Subscribe<LoginRt>(_ => delivered++);
         GameServices.Net.Send(new Login { Username = "demo" });
         Assert.Empty(transport.Sent);
         GameServices.Net.Tick(0);
@@ -215,17 +215,26 @@ public sealed class GameServicesTests
         var transport = new DoubleLifetimeTransport();
         var net = new NetService(transport);
         using var services = Register(net);
-        using var subscription = net.Events.Subscribe<LoginRt>(_ => { });
+        var oldEvents = GameServices.Events;
+        var oldCalls = 0;
+        using var subscription = oldEvents.Subscribe<int>(_ => oldCalls++);
         services.Dispose();
         services.Dispose();
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<InvalidOperationException>(() => GameServices.Net);
         Assert.Throws<ObjectDisposedException>(() => net.Send(new Login()));
-        Assert.Throws<ObjectDisposedException>(() => net.Events.Subscribe<LoginRt>(_ => { }));
+        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
+        Assert.Throws<ObjectDisposedException>(() => oldEvents.Publish(1));
         Assert.Equal(1, transport.DisposeCount);
         var current = new NetService(new DoubleNetTransport());
         using var currentServices = Register(current);
+        var newEvents = GameServices.Events;
+        Assert.NotSame(oldEvents, newEvents);
         services.Dispose();
+        subscription.Dispose();
+        newEvents.Publish(1);
+        Assert.Equal(0, oldCalls);
+        Assert.Same(newEvents, GameServices.Events);
         Assert.Same(current, GameServices.Net);
         GameServices.Net.Send(new Login());
         GameServices.Net.Tick(0);
@@ -237,7 +246,13 @@ public sealed class GameServicesTests
     {
         var net = new NetService(new DoubleNetTransport());
         using var services = Register(net);
+        var events = GameServices.Events;
         net.Dispose();
+        Assert.Same(events, GameServices.Events);
+        var calls = 0;
+        using var subscription = GameServices.Events.Subscribe<int>(_ => calls++);
+        GameServices.Events.Publish(1);
+        Assert.Equal(1, calls);
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<ObjectDisposedException>(() => GameServices.Net);
         using var other = new NetService(new DoubleNetTransport());
@@ -254,20 +269,21 @@ public sealed class GameServicesTests
         Assert.Throws<IOException>(() => services.Dispose());
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<InvalidOperationException>(() => GameServices.Net);
-        Assert.Throws<ObjectDisposedException>(() => net.Events.Subscribe<LoginRt>(_ => { }));
+        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
         services.Dispose();
         Assert.Equal(1, transport.DisposeCount);
         using var current = Register(new NetService(new DoubleNetTransport()));
         Assert.True(GameServices.IsInitialized);
     }
 
-    /// <summary>全局会话绑定注册实例，显式会话仍可独立操作且不改变全局请求。</summary>
+    /// <summary>验证 game-services：显式网络使用各自请求队列，统一借用全局事件域。</summary>
     [Fact]
-    public void GlobalSessionAndExplicitSessionKeepSeparateNetworks()
+    public void ExplicitNetworksKeepRequestQueuesAndShareEventService()
     {
         Assert.Throws<InvalidOperationException>(() => new SessionService(new LoginRt { Success = true }));
         using var globalTransport = new DoubleNetTransport();
         using var services = Register(new NetService(globalTransport));
+        var events = GameServices.Events;
         using var globalSession = new SessionService(new LoginRt { Success = true });
         using var isolatedTransport = new DoubleNetTransport();
         using var isolated = new NetService(isolatedTransport);
@@ -283,8 +299,7 @@ public sealed class GameServicesTests
             MessageCodec.ReadEnvelope(Assert.Single(isolatedTransport.Sent)), true));
         Assert.Equal(1001, globalRequest.RoleId);
         Assert.Equal(1002, isolatedRequest.RoleId);
-        Assert.Same(GameServices.Net.Events, globalSession.Events);
-        Assert.NotSame(GameServices.Net.Events, isolatedSession.Events);
+        Assert.Same(events, GameServices.Events);
     }
 
     /// <summary>新旧连接的代次可能相同，旧会话也不能在重启后修改新连接或取消其请求。</summary>
@@ -296,6 +311,7 @@ public sealed class GameServicesTests
         oldServices.Dispose();
         using var transport = new DoubleNetTransport();
         using var currentServices = Register(new NetService(transport));
+        var currentEvents = GameServices.Events;
         using var currentSession = new SessionService(new LoginRt { Success = true });
         currentSession.SelectRole(1002);
         Assert.Throws<ObjectDisposedException>(() => oldSession.SelectRole(1001));
@@ -307,7 +323,7 @@ public sealed class GameServicesTests
         var request = Assert.IsType<SelectRole>(MessageCodec.ReadPayload(
             MessageCodec.ReadEnvelope(Assert.Single(transport.Sent)), true));
         Assert.Equal(1002, request.RoleId);
-        Assert.Same(GameServices.Net.Events, currentSession.Events);
+        Assert.Same(currentEvents, GameServices.Events);
     }
 
     /// <summary>显式创建独立网络与会话不改变已注册服务和其消息队列。</summary>
@@ -330,6 +346,52 @@ public sealed class GameServicesTests
         Assert.Same(globalNet, GameServices.Net);
         GameServices.Net.Tick(0);
         Assert.Single(globalTransport.Sent);
+    }
+
+    /// <summary>验证 session-events：多个网络向唯一事件服务分发，监听错误不再依赖网络错误通道。</summary>
+    [Fact]
+    public void NetworksPublishToSharedServiceWithoutOwningItsErrorsOrLifetime()
+    {
+        using var firstTransport = new DoubleNetTransport();
+        using var services = Register(new NetService(firstTransport));
+        var events = GameServices.Events;
+        Assert.Throws<InvalidOperationException>(() => GameServices.InitializeEvents());
+        using var secondTransport = new DoubleNetTransport();
+        using var secondNet = new NetService(secondTransport);
+        var calls = 0;
+        var eventErrors = new List<Exception>();
+        var netErrors = new List<Exception>();
+        events.Error += eventErrors.Add;
+        GameServices.Net.Error += netErrors.Add;
+        secondNet.Error += netErrors.Add;
+        using var failing = events.Subscribe<LoginRt>(_ => throw new IOException("监听失败"));
+        using var observer = events.Subscribe<LoginRt>(_ => calls++);
+        firstTransport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
+        secondTransport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
+        GameServices.Net.Tick(0);
+        secondNet.Tick(0);
+        Assert.Equal(2, calls);
+        Assert.Equal(2, eventErrors.Count);
+        Assert.Empty(netErrors);
+        secondNet.Dispose();
+        Assert.Same(events, GameServices.Events);
+        events.Publish(new LoginRt());
+        Assert.Equal(3, calls);
+    }
+
+    /// <summary>验证 session-events 的唯一创建边界，禁止运行时消费者重新引入私有事件系统。</summary>
+    [Fact]
+    public void EventServiceHasNoPublicConstructorAndOnlyGameServicesCreatesIt()
+    {
+        Assert.Empty(typeof(EventService).GetConstructors());
+        Assert.Null(typeof(NetService).GetProperty("Events"));
+        var source = Path.Combine(ConfigTestFixture.FindRoot(), "src");
+        var creators = Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories)
+            .Where(path => System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(path), @"new\s+EventService\s*\("))
+            .Select(path => Path.GetRelativePath(source, path).Replace('\\', '/')).ToArray();
+        Assert.Equal(new[] { "Services/GameServices.cs" }, creators);
+        Assert.DoesNotContain(Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories),
+            path => File.ReadAllText(path).Contains("EventSystem"));
     }
 
     /// <summary>创建完整服务组，注册失败时释放仍归调用方的配置和设置。</summary>

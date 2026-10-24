@@ -15,7 +15,7 @@ public sealed class LoginCache : CacheBase
     public IReadOnlyList<RoleSummaryPbData> Roles { get; private set; } = Array.Empty<RoleSummaryPbData>();
 
     /// <summary>登录成功后先装入首份摘要，再监听后续登录结果。</summary>
-    public LoginCache(EventSystem events, LoginRt response) : base(events)
+    public LoginCache(LoginRt response)
     {
         OnLoggedIn(response);
         Subscribe<LoginRt>(OnLoggedIn);

@@ -1,3 +1,4 @@
+using Rpg.Services;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
@@ -33,6 +34,7 @@ internal sealed class NetworkTestFixture : IDisposable
         Server = new MockServer(DirectoryPath);
         Net = new NetService(new MockTransport(Server));
         Net.Error += Errors.Add;
+        GameServices.Events.Error += Errors.Add;
     }
 
     /// <summary>结束旧账号后提交登录，成功才创建会话并从缓存读取摘要。</summary>
@@ -42,7 +44,7 @@ internal sealed class NetworkTestFixture : IDisposable
         Session = null;
         Net.ResetSession();
         LoginRt? response = null;
-        using var subscription = Net.Events.Subscribe<LoginRt>(message => response = message);
+        using var subscription = GameServices.Events.Subscribe<LoginRt>(message => response = message);
         Net.Send(new Login { Username = username, Password = password });
         Net.Tick(0);
         Assert.NotNull(response);
@@ -64,6 +66,7 @@ internal sealed class NetworkTestFixture : IDisposable
     public void Dispose()
     {
         Session?.Dispose();
+        GameServices.Events.Error -= Errors.Add;
         Net.Dispose();
         if (_ownsDirectory && Directory.Exists(DirectoryPath)) Directory.Delete(DirectoryPath, true);
     }

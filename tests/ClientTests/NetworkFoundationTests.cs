@@ -1,3 +1,4 @@
+using Rpg.Services;
 using Rpg.Session.Data;
 using Google.Protobuf;
 using Rpg.Net;
@@ -7,7 +8,7 @@ using Rpg.Session;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-network 的字节、方向、队列与代次契约。</summary>
-public sealed class NetworkFoundationTests
+public sealed class NetworkFoundationTests : EventServiceTestScope
 {
     /// <summary>验证 client-session：登录摘要身份、名称、等级和性别不合法时拒绝转换。</summary>
     [Theory]
@@ -54,7 +55,7 @@ public sealed class NetworkFoundationTests
         var errors = new List<Exception>();
         var delivered = 0;
         net.Error += errors.Add;
-        using var subscription = net.Events.Subscribe<LoginRt>(_ => delivered++);
+        using var subscription = GameServices.Events.Subscribe<LoginRt>(_ => delivered++);
         transport.Inject([255]);
         transport.Inject(new EnvelopePb { Generation = 1, MessageType = "unknown" }.ToByteArray());
         transport.Inject(MessageCodec.Encode(new Login(), 1, true));
@@ -73,7 +74,7 @@ public sealed class NetworkFoundationTests
         using var transport = new DoubleNetTransport();
         using var net = new NetService(transport);
         var callbacks = 0;
-        using var subscription = net.Events.Subscribe<LoginRt>(_ => { callbacks++; net.Send(new SelectRole { RoleId = 1001 }); });
+        using var subscription = GameServices.Events.Subscribe<LoginRt>(_ => { callbacks++; net.Send(new SelectRole { RoleId = 1001 }); });
         var request = new Login { Username = "demo", Password = "demo" };
         net.Send(request);
         request.Username = "changed";
@@ -97,7 +98,7 @@ public sealed class NetworkFoundationTests
         using var transport = new DoubleNetTransport();
         using var net = new NetService(transport);
         var calls = 0;
-        using var subscription = net.Events.Subscribe<LoginRt>(_ => calls++);
+        using var subscription = GameServices.Events.Subscribe<LoginRt>(_ => calls++);
         net.Send(new Login());
         net.ResetSession();
         transport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
@@ -111,13 +112,13 @@ public sealed class NetworkFoundationTests
 }
 
 /// <summary>验证 openspec/specs/session-events 的优先级、生命周期、重入与异常场景。</summary>
-public sealed class SessionEventTests
+public sealed class SessionEventTests : EventServiceTestScope
 {
     /// <summary>先注册的 UI 也能读到所有缓存监听处理后的值。</summary>
     [Fact]
     public void AllCachesRunBeforeEarlierRegisteredUi()
     {
-        using var events = new EventSystem();
+        var events = GameServices.Events;
         var order = new List<string>();
         var value = 0;
         using var ui = events.Subscribe<int>(_ => { Assert.Equal(2, value); order.Add("ui"); });
@@ -131,7 +132,7 @@ public sealed class SessionEventTests
     [Fact]
     public void RegistrationAndDisposalDuringDispatchRespectSnapshot()
     {
-        using var events = new EventSystem();
+        var events = GameServices.Events;
         IDisposable? removed = null;
         IDisposable? added = null;
         var order = new List<string>();
@@ -154,7 +155,7 @@ public sealed class SessionEventTests
     [Fact]
     public void ReentrantMessagesWaitForCurrentNormalPhase()
     {
-        using var events = new EventSystem();
+        var events = GameServices.Events;
         var order = new List<string>();
         using var cache = events.Subscribe<int>(value =>
         {
@@ -170,7 +171,7 @@ public sealed class SessionEventTests
     [Fact]
     public void ListenerFailuresAreIsolatedByPhase()
     {
-        using var events = new EventSystem();
+        var events = GameServices.Events;
         var errors = 0;
         var calls = 0;
         events.Error += _ => errors++;
@@ -189,7 +190,7 @@ public sealed class SessionEventTests
     [Fact]
     public void ResetDuringDispatchInvalidatesCurrentSnapshotAndQueue()
     {
-        using var events = new EventSystem();
+        var events = GameServices.Events;
         var calls = 0;
         using var cache = events.Subscribe<int>(_ => { events.Publish("old"); events.ResetPending(); }, EventPhase.Cache);
         using var ui = events.Subscribe<int>(_ => calls++);

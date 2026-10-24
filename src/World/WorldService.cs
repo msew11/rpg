@@ -1,7 +1,6 @@
 using System;
 using Godot;
 using Rpg.Config;
-using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Services;
 using Rpg.Session;
@@ -40,13 +39,13 @@ public sealed class WorldService : IService
     public DataActorState? ActorState => _world?.ActorState;
 
     /// <summary>显式绑定同次启动服务，并先于 UI 监听协议。</summary>
-    public WorldService(ConfigService config, SettingService setting, SessionService session, NetService net)
+    public WorldService(ConfigService config, SettingService setting, SessionService session)
     {
         _session = session;
         _setting = setting;
         _map = new MapManager(config);
-        _subscriptions = [net.Events.Subscribe<SelectRoleRt>(OnSelectedRole),
-            net.Events.Subscribe<MoveRt>(OnMoved), net.Events.Subscribe<RoleStateNotice>(OnRoleNotice)];
+        _subscriptions = [GameServices.Events.Subscribe<SelectRoleRt>(OnSelectedRole),
+            GameServices.Events.Subscribe<MoveRt>(OnMoved), GameServices.Events.Subscribe<RoleStateNotice>(OnRoleNotice)];
     }
 
     /// <summary>将未消费的逻辑坐标点击变成世界 Action 与网络请求。</summary>

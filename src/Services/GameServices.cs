@@ -15,6 +15,19 @@ public static class GameServices
 {
     /// <summary>本次启动的整体注册，释放前禁止替换。</summary>
     private static Registration? _current;
+    /// <summary>先于消费者就绪、最后释放的唯一事件服务。</summary>
+    private static EventService? _events;
+    /// <summary>当前启动共享的事件域，不依赖网络生命周期。</summary>
+    public static EventService Events => _events is { IsDisposed: false } events
+        ? events : throw new InvalidOperationException("GameServices 事件服务尚未初始化或已经释放");
+
+    /// <summary>只建立事件域，完整启动与隔离事件测试共用此创建位置。</summary>
+    internal static EventService InitializeEvents()
+    {
+        if (_events is { IsDisposed: false }) throw new InvalidOperationException("事件服务已初始化");
+        return _events = new EventService();
+    }
+
     /// <summary>全部入口是否已注册且网络尚未释放。</summary>
     public static bool IsInitialized => _current is not null && !_current.Net.IsDisposed;
     /// <summary>当前有效注册；未启动和网络提前释放均明确报错。</summary>
@@ -71,14 +84,21 @@ public static class GameServices
         if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
         _ = config.MapConfig;
         _ = setting.Width;
-        var registration = new Registration(config, setting, net);
-        _current = registration;
-        return registration;
+        var events = InitializeEvents();
+        try
+        {
+            var registration = new Registration(config, setting, net, events);
+            _current = registration;
+            return registration;
+        }
+        catch { events.Dispose(); _events = null; throw; }
     }
 
     /// <summary>一次启动的所有权句柄，固定依赖图直接以构造顺序表达。</summary>
     private sealed class Registration : IDisposable
     {
+        /// <summary>本注册拥有的唯一事件域。</summary>
+        private readonly EventService _events;
         /// <summary>先就绪的配置服务。</summary>
         public ConfigService Config { get; }
         /// <summary>先就绪的设置服务。</summary>
@@ -87,7 +107,7 @@ public static class GameServices
         public NetService Net { get; }
         /// <summary>先于世界创建的账号服务。</summary>
         public SessionService Session { get; }
-        /// <summary>依赖配置、设置、网络与账号的世界服务。</summary>
+        /// <summary>依赖配置、设置与账号的世界服务。</summary>
         public WorldService World { get; }
         /// <summary>与账号无关的表现资源服务。</summary>
         public AnimationService Animation { get; } = new();
@@ -95,28 +115,30 @@ public static class GameServices
         private bool _disposed;
 
         /// <summary>先构造依赖，再构造消费者；内部失败只回收新增对象。</summary>
-        public Registration(ConfigService config, SettingService setting, NetService net)
+        public Registration(ConfigService config, SettingService setting, NetService net, EventService events)
         {
+            _events = events;
             Config = config;
             Setting = setting;
             Net = net;
             Session = new SessionService(net);
-            try { World = new WorldService(config, setting, Session, net); }
+            try { World = new WorldService(config, setting, Session); }
             catch { try { Session.Dispose(); } finally { Animation.Dispose(); } throw; }
         }
 
-        /// <summary>先撤销全部入口，再逆依赖清理；单个服务失败不阻止其余清理。</summary>
+        /// <summary>先撤销业务入口，再逆依赖清理并最后撤销事件入口；单个服务失败不阻止其余清理。</summary>
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
             if (ReferenceEquals(_current, this)) _current = null;
             var errors = new List<Exception>();
-            foreach (var service in new IService[] { Animation, World, Session, Net, Setting, Config })
+            foreach (var service in new IService[] { Animation, World, Session, Net, Setting, Config, _events })
             {
                 try { service.Dispose(); }
                 catch (Exception error) { errors.Add(error); }
             }
+            if (ReferenceEquals(GameServices._events, _events)) GameServices._events = null;
             if (errors.Count == 1) ExceptionDispatchInfo.Capture(errors[0]).Throw();
             if (errors.Count > 1) throw new AggregateException("客户端服务释放失败", errors);
         }

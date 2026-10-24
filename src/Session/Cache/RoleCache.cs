@@ -18,7 +18,7 @@ public sealed class RoleCache : CacheBase
     public RoleWorldStatePbData State => _state ?? throw new InvalidOperationException("角色缓存尚未初始化");
 
     /// <summary>登录后建立角色协议监听，选角前不持有角色数据。</summary>
-    public RoleCache(EventSystem events) : base(events)
+    public RoleCache()
     {
         Subscribe<SelectRoleRt>(OnSelected);
         Subscribe<MoveRt>(OnMoved);

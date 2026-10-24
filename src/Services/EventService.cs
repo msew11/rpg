@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace Rpg.Session;
+namespace Rpg.Services;
 
 /// <summary>按职责固定消息分发顺序。</summary>
 public enum EventPhase
@@ -15,8 +15,11 @@ public enum EventPhase
 }
 
 /// <summary>提供类型监听、缓存优先和排队重入的单线程事件分发。</summary>
-public sealed class EventSystem : IDisposable
+public sealed class EventService : IService
 {
+    /// <summary>仅由 GameServices 建立应用事件域。</summary>
+    internal EventService() { }
+
     /// <summary>各具体消息类型的监听集合。</summary>
     private readonly Dictionary<Type, List<Subscription>> _listeners = new();
     /// <summary>等待完整分发的消息。</summary>
@@ -27,6 +30,9 @@ public sealed class EventSystem : IDisposable
     private long _generation;
     /// <summary>是否已经释放事件系统。</summary>
     private bool _disposed;
+
+    /// <summary>供服务入口判断生命周期是否已结束。</summary>
+    internal bool IsDisposed => _disposed;
 
     /// <summary>报告监听异常；错误监听自身的异常仅记录诊断。</summary>
     public event Action<Exception>? Error;

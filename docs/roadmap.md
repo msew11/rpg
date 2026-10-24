@@ -16,9 +16,11 @@
 - [x] 角色性别从会话数据接入玩家 entity；ECS 动作与逻辑朝向通过只读快照驱动男女基础身体的 13 个动作、八方向表现，点击移动接入跑步与站立。
 - [x] NetService 与 protobuf 请求/响应/推送、进程内 MockServer、按角色 JSON 持久化；登录返回角色摘要，选角加载完整世界状态，纯协议数据类型以 Pb 结尾，接收后组装为独立 PbData，集中于 Session/Data 并内聚双向转换；协议按公共、登录、世界拆分；登录后由 SessionService 直接建立并持有 LoginCache 与 RoleCache，切角保留账号摘要并重置角色数据，Session 事件缓存优先并隔离旧会话消息。
 
-- [x] `GameServices.Net` 全局服务入口、显式注册与所有权句柄；主场景统一推进和释放网络，账号会话绑定创建时的服务，保留独立实例测试，覆盖启动失败清理与场景重建。
+- [x] `GameServices.Net` 全局服务入口、显式注册与所有权句柄；主场景统一推进和释放网络，账号会话绑定创建时的服务，保留显式网络请求队列测试，覆盖启动失败清理与场景重建。
 
 - [x] 按功能聚合 Config、Setting、Net、Session、World、Animation 服务，统一 IService 契约；借鉴 Dalamud 的显式依赖和逆序卸载。Godot 节点通过 GameServices 调用业务，服务内部初始化状态，移除配置、设置、账号和动画的转发包装及独立输入转发类；设置状态与读写归 SettingService，账号缓存直接归 SessionService，世界协调归 WorldService，覆盖非法登录、切角设置隔离和部分释放失败清理。
+
+- [x] 独立 EventService，由 GameServices 唯一创建并最后释放；网络、缓存、世界和 UI 直接通过 Events 入口访问，移除 Net/Session 的事件转发与缓存事件传参；覆盖共享事件域、网络释放、错误报告及重启监听隔离。
 
 ## 后续阶段（待确认）
 

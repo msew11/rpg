@@ -51,8 +51,9 @@ public partial class MainController : Control
             _servicesLifetime = GameServices.Initialize(settingsDirectory, serverDirectory, CreateNetService);
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;
-            _subscriptions.Add(GameServices.Net.Events.Subscribe<LoginRt>(OnLoggedIn));
-            _subscriptions.Add(GameServices.Net.Events.Subscribe<SelectRoleRt>(OnSelectedRole));
+            GameServices.Events.Error += OnNetworkError;
+            _subscriptions.Add(GameServices.Events.Subscribe<LoginRt>(OnLoggedIn));
+            _subscriptions.Add(GameServices.Events.Subscribe<SelectRoleRt>(OnSelectedRole));
             ShowLogin();
         }
         catch (Exception error)
@@ -97,7 +98,11 @@ public partial class MainController : Control
         try
         {
             _hud?.ReleaseSubscriptions();
-            if (lifetime is not null) GameServices.Net.Error -= OnNetworkError;
+            if (lifetime is not null)
+            {
+                GameServices.Net.Error -= OnNetworkError;
+                GameServices.Events.Error -= OnNetworkError;
+            }
             foreach (var subscription in _subscriptions) subscription.Dispose();
             _subscriptions.Clear();
         }
@@ -222,7 +227,7 @@ public partial class MainController : Control
         GetTree().Quit();
     }
 
-    /// <summary>显示编解码及传输错误，选角阶段失败时恢复可操作的角色列表。</summary>
+    /// <summary>显示网络及事件监听错误，选角阶段失败时恢复可操作的角色列表。</summary>
     private void OnNetworkError(Exception error)
     {
         if (!GameServices.World.HasWorld && GameServices.Session.IsLoggedIn) ShowRoles(error.Message);

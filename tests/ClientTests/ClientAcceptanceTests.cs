@@ -1,3 +1,4 @@
+using Rpg.Services;
 using Rpg.Session.Data;
 using Rpg.Const;
 using Godot;
@@ -13,7 +14,7 @@ using Rpg.World.Utils;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-config-map 与 client-session 的配置及会话场景。</summary>
-public sealed class ClientAcceptanceTests
+public sealed class ClientAcceptanceTests : EventServiceTestScope
 {
     /// <summary>合法地图配置能组合为完整地图，未知配置会给出文件诊断。</summary>
     [Fact]
@@ -111,7 +112,7 @@ public sealed class ClientAcceptanceTests
         source.Login();
         using var session = source.SelectRole(1001);
         var notifications = 0;
-        using var subscription = session.Events.Subscribe<MoveRt>(_ => notifications++);
+        using var subscription = GameServices.Events.Subscribe<MoveRt>(_ => notifications++);
         session.SubmitMove(1, session.Role.Position + new Vector2(100, 0));
         source.Net.Tick(0.2);
         Assert.Equal(0, notifications);
@@ -119,7 +120,7 @@ public sealed class ClientAcceptanceTests
         Assert.Equal(1, notifications);
         Assert.Equal(1, session.RoleCache.State.AcknowledgedAction);
         var current = session.RoleCache.State;
-        session.Events.Publish(new RoleStateNotice { State = new RoleWorldStatePb { RoleId = session.RoleId, Revision = 0 } });
+        GameServices.Events.Publish(new RoleStateNotice { State = new RoleWorldStatePb { RoleId = session.RoleId, Revision = 0 } });
         Assert.Same(current, session.RoleCache.State);
         Assert.Equal(1, notifications);
     }

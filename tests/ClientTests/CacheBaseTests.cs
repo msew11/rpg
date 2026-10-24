@@ -1,20 +1,21 @@
+using Rpg.Services;
 using Rpg.Session;
 using Rpg.Session.Cache;
 
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-session 的缓存优先监听与统一释放契约。</summary>
-public sealed class CacheBaseTests
+public sealed class CacheBaseTests : EventServiceTestScope
 {
     /// <summary>子类订阅默认先于已有普通监听执行，普通监听可立即读取更新结果。</summary>
     [Fact]
     public void CacheSubscriptionsRunBeforeEarlierOrdinaryListeners()
     {
-        using var events = new EventSystem();
+        var events = GameServices.Events;
         var value = 0;
         var observed = 0;
         using var ordinary = events.Subscribe<int>(_ => observed = value);
-        using var cache = new DoubleCache(events);
+        using var cache = new DoubleCache();
         cache.Listen<int>(message => value = message);
         events.Publish(42);
         Assert.Equal(42, observed);
@@ -24,9 +25,9 @@ public sealed class CacheBaseTests
     [Fact]
     public void DisposeReleasesOwnedSubscriptionsAndRunsCleanupOnce()
     {
-        using var events = new EventSystem();
-        using var released = new DoubleCache(events);
-        using var active = new DoubleCache(events);
+        var events = GameServices.Events;
+        using var released = new DoubleCache();
+        using var active = new DoubleCache();
         var releasedCalls = 0;
         var activeCalls = 0;
         released.Listen<int>(_ => releasedCalls++);
@@ -50,11 +51,6 @@ public sealed class CacheBaseTests
     {
         /// <summary>额外清理钩子的实际执行次数。</summary>
         public int CleanupCalls { get; private set; }
-
-        /// <summary>借用测试事件系统建立缓存。</summary>
-        public DoubleCache(EventSystem events) : base(events)
-        {
-        }
 
         /// <summary>通过基类入口托管测试需要的协议订阅。</summary>
         public void Listen<T>(Action<T> handler) => Subscribe(handler);

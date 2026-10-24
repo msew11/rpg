@@ -39,8 +39,6 @@ public sealed class SessionService : IService
     internal LoginCache LoginCache => _login ?? throw new InvalidOperationException("尚未登录");
     /// <summary>角色缓存供缓存契约验证，节点通过 Role 和 HasRole 读取。</summary>
     internal RoleCache RoleCache => _role ?? throw new InvalidOperationException("尚未登录");
-    /// <summary>绑定网络的事件系统。</summary>
-    internal EventSystem Events => _net.Events;
 
     /// <summary>绑定网络并建立常驻登录监听，缓存随后在登录成功时初始化。</summary>
     public SessionService(NetService net)
@@ -48,7 +46,7 @@ public sealed class SessionService : IService
         ArgumentNullException.ThrowIfNull(net);
         _net = net;
         _generation = net.Generation;
-        _loginSubscription = net.Events.Subscribe<LoginRt>(OnLoggedIn, EventPhase.Cache);
+        _loginSubscription = GameServices.Events.Subscribe<LoginRt>(OnLoggedIn, EventPhase.Cache);
     }
 
     /// <summary>从全局入口绑定网络并装入已有响应，供隔离的会话验收使用。</summary>
@@ -118,11 +116,11 @@ public sealed class SessionService : IService
     {
         ArgumentNullException.ThrowIfNull(response);
         if (!response.Success) throw new InvalidOperationException("登录成功后才能建立账号");
-        var login = new LoginCache(Events, response);
+        var login = new LoginCache(response);
         try
         {
             if (resetNetwork) ResetNetwork();
-            _role = new RoleCache(Events);
+            _role = new RoleCache();
             _login = login;
         }
         catch { login.Dispose(); throw; }

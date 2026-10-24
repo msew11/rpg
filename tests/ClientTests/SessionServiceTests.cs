@@ -1,3 +1,4 @@
+using Rpg.Services;
 using Godot;
 using Rpg.Net;
 using Rpg.Net.Message;
@@ -6,7 +7,7 @@ using Rpg.Session;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-session 的登录后建会话及角色代次隔离契约。</summary>
-public sealed class SessionServiceTests
+public sealed class SessionServiceTests : EventServiceTestScope
 {
     /// <summary>失败或损坏的初始登录不创建会话、不遗留订阅，也不改变已有网络请求。</summary>
     [Fact]
@@ -20,7 +21,7 @@ public sealed class SessionServiceTests
         Assert.Throws<InvalidDataException>(() => new SessionService(net, invalid));
         var errors = new List<Exception>();
         net.Error += errors.Add;
-        net.Events.Publish(invalid);
+        GameServices.Events.Publish(invalid);
         Assert.Empty(errors);
         net.Tick(0);
         Assert.Single(transport.Sent);
@@ -59,8 +60,8 @@ public sealed class SessionServiceTests
         transport.Inject(MessageCodec.Encode(new MoveRt { Success = true, RoleId = 1001, ActionId = 7, State = staleState }, oldGeneration, false));
         transport.Inject(MessageCodec.Encode(new RoleStateNotice { State = staleState }, oldGeneration, false));
         var calls = 0;
-        using var moved = net.Events.Subscribe<MoveRt>(_ => calls++);
-        using var noticed = net.Events.Subscribe<RoleStateNotice>(_ => calls++);
+        using var moved = GameServices.Events.Subscribe<MoveRt>(_ => calls++);
+        using var noticed = GameServices.Events.Subscribe<RoleStateNotice>(_ => calls++);
         net.Tick(0);
         Assert.Same(loginCache, session.LoginCache);
         Assert.Equal(80, session.Role.Health);

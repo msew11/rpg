@@ -74,8 +74,8 @@ public partial class GameHud : Control
         _networkError.Position = new Vector2(16, 140);
         _networkError.MouseFilter = MouseFilterEnum.Ignore;
         AddChild(_networkError);
-        _messageSubscriptions.Add(GameServices.Net.Events.Subscribe<MoveRt>(OnMoved));
-        _messageSubscriptions.Add(GameServices.Net.Events.Subscribe<RoleStateNotice>(OnRoleNotice));
+        _messageSubscriptions.Add(GameServices.Events.Subscribe<MoveRt>(OnMoved));
+        _messageSubscriptions.Add(GameServices.Events.Subscribe<RoleStateNotice>(OnRoleNotice));
     }
 
     /// <summary>退出界面时保存未提交的拖动位置并释放会话订阅。</summary>

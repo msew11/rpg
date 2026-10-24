@@ -1,3 +1,4 @@
+using Rpg.Services;
 using Rpg.Net.Message;
 using Rpg.Session;
 using Rpg.Session.Cache;
@@ -6,17 +7,17 @@ using Rpg.Session.Data;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-session 的登录摘要缓存、异常响应与跨角色生命周期。</summary>
-public sealed class LoginCacheTests
+public sealed class LoginCacheTests : EventServiceTestScope
 {
     /// <summary>早注册的普通监听读取已转换的摘要，修改协议或集合不能污染缓存。</summary>
     [Fact]
     public void LoginConvertsBeforeOrdinaryListenersAndOwnsReadOnlySummaries()
     {
-        using var events = new EventSystem();
+        var events = GameServices.Events;
         LoginCache? cache = null;
         IReadOnlyList<RoleSummaryPbData>? observed = null;
         using var listener = events.Subscribe<LoginRt>(_ => observed = cache!.Roles);
-        using var loginCache = cache = new LoginCache(events, new LoginRt { Success = true });
+        using var loginCache = cache = new LoginCache(new LoginRt { Success = true });
         var response = new LoginRt
         {
             Success = true,
@@ -47,8 +48,8 @@ public sealed class LoginCacheTests
         Assert.Empty(previous.Roles);
         Assert.True(fixture.Login().Success);
         var ordinaryCalls = 0;
-        using var listener = fixture.Net.Events.Subscribe<LoginRt>(_ => ordinaryCalls++);
-        fixture.Net.Events.Publish(new LoginRt
+        using var listener = GameServices.Events.Subscribe<LoginRt>(_ => ordinaryCalls++);
+        GameServices.Events.Publish(new LoginRt
         {
             Success = true,
             Roles =
@@ -90,7 +91,7 @@ public sealed class LoginCacheTests
         Assert.NotSame(account, fixture.Session);
         fixture.Session!.Dispose();
         fixture.Session.Dispose();
-        fixture.Net.Events.Publish(new LoginRt { Success = true });
+        GameServices.Events.Publish(new LoginRt { Success = true });
         Assert.False(fixture.LoginCache.IsLoggedIn);
         Assert.Empty(fixture.LoginCache.Roles);
         Assert.Empty(fixture.Errors);

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Google.Protobuf;
-using Rpg.Session;
 using Rpg.Services;
 using Rpg.Server;
 
@@ -24,13 +23,11 @@ public sealed class NetService : IService
     /// <summary>是否正在推进，避免回调重入固定帧。</summary>
     private bool _ticking;
 
-    /// <summary>贯穿登录与角色会话的事件系统。</summary>
-    public EventSystem Events { get; } = new();
     /// <summary>用于会话所有权检查的当前代次。</summary>
     internal long Generation => _generation;
     /// <summary>允许会话在网络服务释放后安全清理。</summary>
     internal bool IsDisposed => _disposed;
-    /// <summary>报告编解码、传输和监听错误。</summary>
+    /// <summary>报告编解码与传输错误。</summary>
     public event Action<Exception>? Error;
 
     /// <summary>在服务内部初始化当前阶段的进程内传输。</summary>
@@ -42,7 +39,6 @@ public sealed class NetService : IService
         _transport = transport;
         _transport.ResetSession(_generation);
         _transport.Received += OnReceived;
-        Events.Error += ReportError;
     }
 
     /// <summary>将请求冻结入队；监听只在后续固定帧执行。</summary>
@@ -77,7 +73,7 @@ public sealed class NetService : IService
                 try
                 {
                     var envelope = MessageCodec.ReadEnvelope(packet);
-                    if (envelope.Generation == _generation) Events.Publish(MessageCodec.ReadPayload(envelope, false));
+                    if (envelope.Generation == _generation) GameServices.Events.Publish(MessageCodec.ReadPayload(envelope, false));
                 }
                 catch (Exception error) { ReportError(error); }
             }
@@ -92,11 +88,11 @@ public sealed class NetService : IService
         _generation++;
         _outbound.Clear();
         _inbound.Clear();
-        Events.ResetPending();
+        GameServices.Events.ResetPending();
         _transport.ResetSession(_generation);
     }
 
-    /// <summary>释放传输、事件及所有队列。</summary>
+    /// <summary>释放传输及网络队列，事件服务由 GameServices 管理。</summary>
     public void Dispose()
     {
         if (_disposed) return;
@@ -110,7 +106,6 @@ public sealed class NetService : IService
         {
             _outbound.Clear();
             _inbound.Clear();
-            Events.Dispose();
             Error = null;
         }
     }
