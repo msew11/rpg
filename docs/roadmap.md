@@ -40,6 +40,8 @@
 
 - [x] 全部服务入口统一按完整注册访问，IsInitialized 仅表示注册存在，业务操作自行检查释放；Cache 不保存事件服务，订阅通过 GameServices.Events，释放只操作句柄，Session 仅绑定 Net。
 
+- [x] 环境服务更名为 `Rpg.Config.EnvService`，脚本与 UID 迁入 `src/Config/`，同步全部引用并保留现有环境入口与生命周期。
+
 ## 后续阶段（待确认）
 
 - 真实服务器连接方式、正式业务消息扩展、断线重连与认证安全性。

@@ -24,7 +24,7 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
     public void ConfigLoadsAllFilesAndRejectsUnknownType()
     {
         var root = ConfigTestFixture.FindRoot();
-        var repo = new ConfigService(new EnvironmentService("", configDirectory: Path.Combine(root, "config"), schemaDirectory: Path.Combine(root, "schemas")));
+        var repo = new ConfigService(new EnvService("", configDirectory: Path.Combine(root, "config"), schemaDirectory: Path.Combine(root, "schemas")));
         Assert.Equal(1000, repo.MapConfig.Width);
         Assert.Equal(1000, repo.MapConfig.Height);
         Assert.Equal(32, repo.MapConfig.TileSize);
@@ -38,19 +38,19 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
         try
         {
             File.WriteAllText(Path.Combine(temporary, "unexpected.json"), "{\"kind\":\"unknown\"}");
-            var error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvironmentService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
+            var error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
             Assert.Contains("unexpected.json", error.Message);
             Assert.Equal("map", repo.MapConfig.Id);
             File.Delete(Path.Combine(temporary, "unexpected.json"));
             File.WriteAllText(Path.Combine(temporary, "map.json"),
                 "{\"kind\":\"map\",\"id\":\"bad\",\"width\":0,\"height\":1000,\"tileSize\":32,\"defaultTile\":\"ground\",\"overrides\":[]}");
-            error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvironmentService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
+            error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
             Assert.Contains("map.json", error.Message);
             Assert.Contains("Schema", error.Message);
             File.Delete(Path.Combine(temporary, "map.json"));
             File.WriteAllText(Path.Combine(temporary, "wrong-name.json"),
                 File.ReadAllText(Path.Combine(root, "config", "maps", "map.json")));
-            error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvironmentService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
+            error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
             Assert.Contains("wrong-name.json", error.Message);
             Assert.Contains("map.json", error.Message);
             Assert.Equal("map", repo.MapConfig.Id);
@@ -60,7 +60,7 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
             var validMap = File.ReadAllText(Path.Combine(root, "config", "maps", "map.json"));
             File.WriteAllText(Path.Combine(temporary, "map.json"), validMap);
             File.WriteAllText(Path.Combine(duplicateDirectory, "map.json"), validMap);
-            error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvironmentService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
+            error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
             Assert.Contains("重复的地图配置", error.Message);
             Assert.Equal("map", repo.MapConfig.Id);
         }
@@ -192,7 +192,7 @@ public sealed class SettingsAcceptanceTests
         var directory = Path.Combine(Path.GetTempPath(), "rpg-settings-test-" + Guid.NewGuid());
         try
         {
-            using var setting = new SettingService(new EnvironmentService(directory));
+            using var setting = new SettingService(new EnvService(directory));
             Assert.Equal(Path.GetFullPath(Path.Combine(directory, "system.json")), setting.SystemPath);
             setting.SetResolution(1600, 900);
             setting.SetMasterVolume(0.4f);
@@ -202,7 +202,7 @@ public sealed class SettingsAcceptanceTests
             setting.SetHudPosition("portrait", 0.4f, 0.2f);
             setting.SaveCurrentRole();
 
-            using var reopened = new SettingService(new EnvironmentService(directory));
+            using var reopened = new SettingService(new EnvService(directory));
             Assert.Equal(1600, reopened.Width);
             Assert.Equal(0.4f, reopened.MasterVolume);
             reopened.SelectRole(1001);
@@ -221,7 +221,7 @@ public sealed class SettingsAcceptanceTests
         var directory = Path.Combine(Path.GetTempPath(), "rpg-current-settings-test-" + Guid.NewGuid());
         try
         {
-            var repo = new Rpg.Settings.SettingService(new EnvironmentService(directory));
+            var repo = new Rpg.Settings.SettingService(new EnvService(directory));
             repo.SetResolution(1600, 900);
             repo.SetMasterVolume(0.4f);
             repo.SelectRole(1001);
@@ -240,7 +240,7 @@ public sealed class SettingsAcceptanceTests
             Assert.Equal(0.4f, repo.GetHudPosition("portrait").X);
             repo.ResetHudPositions();
 
-            var reopened = new Rpg.Settings.SettingService(new EnvironmentService(directory));
+            var reopened = new Rpg.Settings.SettingService(new EnvService(directory));
             Assert.Equal(1600, reopened.Width);
             Assert.Equal(0.4f, reopened.MasterVolume);
             Assert.Equal(0.6f, SettingsTestFixture.ReadRole(directory, 1002).HudPositions["portrait"].X);
@@ -261,9 +261,9 @@ internal static class ConfigTestFixture
     }
 
     /// <summary>为 game-services 验收提供独立存档目录，配置使用正式资源路径。</summary>
-    internal static EnvironmentService CreateEnvironment(string settingsDirectory = "", string serverDirectory = "")
+    internal static EnvService CreateEnvironment(string settingsDirectory = "", string serverDirectory = "")
     {
-        return new EnvironmentService(settingsDirectory, serverDirectory);
+        return new EnvService(settingsDirectory, serverDirectory);
     }
 
     /// <summary>从测试程序集目录向上寻找项目根目录。</summary>

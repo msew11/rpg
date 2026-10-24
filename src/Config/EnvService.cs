@@ -1,9 +1,10 @@
 using Godot;
+using Rpg.Services;
 
-namespace Rpg.Services;
+namespace Rpg.Config;
 
 /// <summary>集中持有本次启动的资源与持久化目录，先于使用目录的服务创建。</summary>
-public sealed class EnvironmentService : Service
+public sealed class EnvService : Service
 {
     /// <summary>打包或独立的客户端配置目录。</summary>
     public string ConfigDirectory { get; }
@@ -15,11 +16,11 @@ public sealed class EnvironmentService : Service
     public string ServerDirectory { get; }
 
     /// <summary>使用随程序发布的资源和当前用户的持久化目录。</summary>
-    public EnvironmentService() : this(ProjectSettings.GlobalizePath("user://settings"),
+    public EnvService() : this(ProjectSettings.GlobalizePath("user://settings"),
         ProjectSettings.GlobalizePath("user://server")) { }
 
     /// <summary>覆盖隔离测试的目录；普通磁盘路径不依赖 Godot 运行环境。</summary>
-    internal EnvironmentService(string settingsDirectory, string serverDirectory = "",
+    internal EnvService(string settingsDirectory, string serverDirectory = "",
         string configDirectory = "res://config", string schemaDirectory = "res://schemas")
     {
         SettingsDirectory = settingsDirectory;

@@ -67,7 +67,7 @@ public sealed class GameServicesTests
     {
         var directory = Path.Combine(Path.GetTempPath(), "rpg-environment-failure-" + Guid.NewGuid());
         var root = ConfigTestFixture.FindRoot();
-        using var environment = new EnvironmentService(directory, "",
+        using var environment = new EnvService(directory, "",
             failConfig ? Path.Combine(directory, "missing") : Path.Combine(root, "config"),
             Path.Combine(root, "schemas"));
         Assert.ThrowsAny<Exception>(() => GameServicesTestFactory.Register(environment));

@@ -16,7 +16,7 @@ namespace Rpg.Config;
 public sealed class ConfigService : Service
 {
     /// <summary>通过 Godot 从环境指定的目录加载配置及配套校验规则。</summary>
-    public ConfigService(EnvironmentService environment)
+    public ConfigService(EnvService environment)
     {
         ObjectDisposedException.ThrowIf(environment.IsDisposed, environment);
         Load(environment.ConfigDirectory, environment.SchemaDirectory);

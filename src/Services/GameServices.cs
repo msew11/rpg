@@ -27,7 +27,7 @@ public static class GameServices
         }
     }
     /// <summary>本次启动统一的资源与持久化目录。</summary>
-    public static EnvironmentService Environment => Current.Environment;
+    public static EnvService Environment => Current.Environment;
     /// <summary>客户端只读配置。</summary>
     public static ConfigService Config => Current.Config;
     /// <summary>当前系统与角色本地设置。</summary>
@@ -50,7 +50,7 @@ public static class GameServices
         var created = new List<IService>();
         try
         {
-            var environment = new EnvironmentService();
+            var environment = new EnvService();
             created.Add(environment);
             var events = new EventService();
             created.Add(events);
@@ -82,7 +82,7 @@ public static class GameServices
     }
 
     /// <summary>验证并接管完整服务组，仅注册现成实例，不创建服务。</summary>
-    internal static IDisposable Register(EnvironmentService environment, EventService events, ConfigService config,
+    internal static IDisposable Register(EnvService environment, EventService events, ConfigService config,
         SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation)
     {
         foreach (var service in new IService[] { environment, events, config, setting, net, session, world, animation })
@@ -98,7 +98,7 @@ public static class GameServices
     private sealed class Registration : IDisposable
     {
         /// <summary>最先就绪、最后释放的环境服务。</summary>
-        public EnvironmentService Environment { get; }
+        public EnvService Environment { get; }
         /// <summary>本注册拥有的唯一事件域。</summary>
         public EventService Events { get; }
         /// <summary>先就绪的配置服务。</summary>
@@ -117,7 +117,7 @@ public static class GameServices
         private bool _disposed;
 
         /// <summary>保存已按依赖顺序创建的完整服务组。</summary>
-        public Registration(EnvironmentService environment, EventService events, ConfigService config,
+        public Registration(EnvService environment, EventService events, ConfigService config,
             SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation)
         {
             Environment = environment;

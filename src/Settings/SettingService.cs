@@ -1,3 +1,4 @@
+using Rpg.Config;
 using System;
 using System.IO;
 using System.Text.Json;
@@ -23,7 +24,7 @@ public sealed class SettingService : Service
     private bool _roleDirty;
 
     /// <summary>从环境指定的目录载入本次启动的系统设置。</summary>
-    public SettingService(EnvironmentService environment)
+    public SettingService(EnvService environment)
     {
         ObjectDisposedException.ThrowIf(environment.IsDisposed, environment);
         _root = environment.SettingsDirectory;

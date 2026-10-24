@@ -24,7 +24,7 @@ public partial class MapChunkSmoke : Node
         {
             var viewport = new SubViewport { Size = new Vector2I(1280, 720), Disable3D = true };
             AddChild(viewport);
-            using var services = GameServicesTestFactory.Register(new EnvironmentService(
+            using var services = GameServicesTestFactory.Register(new EnvService(
                 System.IO.Path.Combine(temporary, "settings"), System.IO.Path.Combine(temporary, "server")));
             var view = new MapView();
             viewport.AddChild(view);

@@ -8,7 +8,7 @@
 
 | 服务 | 拥有的状态和行为 | 内部依赖 |
 | --- | --- | --- |
-| `EnvironmentService Environment` | 统一持有配置、Schema、设置与模拟服务端目录 | 无依赖根服务 |
+| `EnvService Environment` | 统一持有配置、Schema、设置与模拟服务端目录 | 无依赖根服务 |
 | `ConfigService Config` | 构造时加载、校验并持有配置 | Environment；内部 JSON 与 Schema 读取方法 |
 | `SettingService Setting` | 构造时加载系统设置，内部持有角色设置并修改、保存 | Environment；私有 JSON 读写方法 |
 | `EventService Events` | 唯一类型事件域、缓存优先分发、监听错误与订阅生命周期 | 内部监听集合与重入队列 |
@@ -17,9 +17,9 @@
 | `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部只读地图组件、`MapUtils`、`WorldManager` |
 | `AnimationService Animation` | 直接加载、缓存身体动画并解析朝向 | Godot 原生资源 |
 
-`ConfigService` 构造时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验并持有 `MapConfig`。地图工具通过服务取得配置并构建只读地图快照；分块和 UI 通过服务读取，不另存配置引用。`config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块与稀疏覆盖格。未知、重复、无效或文件名不匹配的配置阻止启动；配置与程序同包发布。原始加载方法为私有，构造只接收 `EnvironmentService`；配置和 Schema 使用同一环境，统一通过 Godot 的 `DirAccess` 与 `FileAccess` 读取，不按路径类型切换加载链路。配置加载及整组服务验收在 Godot headless 中复用现有 xUnit 用例，临时目录也通过相同 Godot API 读取。普通 .NET 用例直接提供地图等纯数据，不为测试在正式代码中增加加载分支或替代构造。
+`ConfigService` 构造时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验并持有 `MapConfig`。地图工具通过服务取得配置并构建只读地图快照；分块和 UI 通过服务读取，不另存配置引用。`config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块与稀疏覆盖格。未知、重复、无效或文件名不匹配的配置阻止启动；配置与程序同包发布。原始加载方法为私有，构造只接收 `EnvService`；配置和 Schema 使用同一环境，统一通过 Godot 的 `DirAccess` 与 `FileAccess` 读取，不按路径类型切换加载链路。配置加载及整组服务验收在 Godot headless 中复用现有 xUnit 用例，临时目录也通过相同 Godot API 读取。普通 .NET 用例直接提供地图等纯数据，不为测试在正式代码中增加加载分支或替代构造。
 
-主控制器调用无参 `GameServices.Initialize()`。无依赖的 `EnvironmentService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config、Setting 的公开构造只接收 Environment，Net 接收 Environment、Events，Session 接收 Net，World 接收 Config、Setting、Session，Events 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Environment、Events、Config、Setting、Net、Session、World、Animation 顺序显式创建全部八个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、Events、Environment 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 Events，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
+主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config、Setting 的公开构造只接收 Environment，Net 接收 Environment、Events，Session 接收 Net，World 接收 Config、Setting、Session，Events 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Environment、Events、Config、Setting、Net、Session、World、Animation 顺序显式创建全部八个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、Events、Environment 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 Events，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
 
 `MainController` 只协调页面与表现：登录和选角按钮调用 Session 服务，成功后创建相应页面或世界表现；固定帧先推进 Net 再推进 World，再更新角色与摄像机。输入由节点完成视口逆投影，再交给 World 服务限制边界、分配移动序号并同时提交 ECS Action 与网络请求。控制器不再保存目录或网络工厂；`InitializeServices()` 只调用无参启动，场景测试替身覆盖整组初始化以使用独立环境和传输。启动失败和退出共用清理，先撤销 UI 监听、提交拖动设置，再释放服务句柄；未获得句柄的控制器不会释放其他启动流程的服务。
 

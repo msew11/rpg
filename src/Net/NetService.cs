@@ -1,3 +1,4 @@
+using Rpg.Config;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -29,7 +30,7 @@ public sealed class NetService : Service
     public event Action<Exception>? Error;
 
     /// <summary>在服务内部初始化当前阶段的进程内传输。</summary>
-    public NetService(EnvironmentService environment, EventService events) : this(new MockTransport(new MockServer(environment.ServerDirectory)), events) { }
+    public NetService(EnvService environment, EventService events) : this(new MockTransport(new MockServer(environment.ServerDirectory)), events) { }
 
     /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>
     internal NetService(INetTransport transport, EventService events)

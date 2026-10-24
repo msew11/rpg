@@ -1,3 +1,4 @@
+using Rpg.Config;
 using System.Reflection;
 using System.Reflection.Emit;
 using Godot;
@@ -67,7 +68,7 @@ public sealed class EventSubscriptionBoundaryTests
     [Fact]
     public void ServicesFollowFixedConstructionAndReverseDisposalOrder()
     {
-        Type[] order = [typeof(EnvironmentService), typeof(EventService), typeof(Rpg.Config.ConfigService),
+        Type[] order = [typeof(EnvService), typeof(EventService), typeof(Rpg.Config.ConfigService),
             typeof(Rpg.Settings.SettingService), typeof(Rpg.Net.NetService), typeof(Rpg.Session.SessionService),
             typeof(Rpg.World.WorldService), typeof(Rpg.World.Views.AnimationService)];
         var services = typeof(Service).Assembly.GetTypes().Where(type => !type.IsAbstract && typeof(Service).IsAssignableFrom(type));

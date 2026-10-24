@@ -1,3 +1,4 @@
+using Rpg.Config;
 using System;
 using Rpg.Services;
 using Rpg.UI;
@@ -14,5 +15,5 @@ public partial class DoubleMainController : MainController
 
     /// <summary>整组服务共享同一隔离环境，节点仅持有释放句柄。</summary>
     protected override IDisposable InitializeServices() => GameServicesTestFactory.Register(
-        new EnvironmentService(SettingsDirectory, ServerDirectory));
+        new EnvService(SettingsDirectory, ServerDirectory));
 }

@@ -14,7 +14,7 @@ namespace Rpg.Tests;
 internal static class GameServicesTestFactory
 {
     /// <summary>以独立目录建立服务组，失败时回收测试创建的全部实例。</summary>
-    internal static IDisposable Register(EnvironmentService environment)
+    internal static IDisposable Register(EnvService environment)
     {
         ArgumentNullException.ThrowIfNull(environment);
         ObjectDisposedException.ThrowIf(environment.IsDisposed, environment);
@@ -40,7 +40,7 @@ internal static class GameServicesTestFactory
     }
 
     /// <summary>成功后接管测试显式提供的依赖，失败时仅回收本方法创建的服务。</summary>
-    internal static IDisposable Register(EnvironmentService environment, EventService events, ConfigService config, SettingService setting, NetService net)
+    internal static IDisposable Register(EnvService environment, EventService events, ConfigService config, SettingService setting, NetService net)
     {
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(config);

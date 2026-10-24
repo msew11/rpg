@@ -21,7 +21,7 @@ public partial class DoubleStartupFailureController : MainController
     /// <summary>注册测试服务组，登录页重置网络时触发启动失败。</summary>
     protected override IDisposable InitializeServices()
     {
-        var environment = new EnvironmentService(Path.Combine(Path.GetTempPath(), "rpg-startup-" + Guid.NewGuid()));
+        var environment = new EnvService(Path.Combine(Path.GetTempPath(), "rpg-startup-" + Guid.NewGuid()));
         var events = new EventService();
         var config = new ConfigService(environment);
         var setting = new SettingService(environment);
