@@ -9,5 +9,8 @@ internal sealed class DataPositionComponent
     public Vector2 Value;
 
     /// <summary>按初始位置构造组件。</summary>
-    public DataPositionComponent(Vector2 value) => Value = value;
+    public DataPositionComponent(Vector2 value)
+    {
+        Value = value;
+    }
 }
