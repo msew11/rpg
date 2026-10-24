@@ -90,14 +90,20 @@ public partial class ItemCatalogControl : PanelContainer
         var close = new Button { Name = "CloseCatalog", Text = "关闭" };
         close.Pressed += Hide;
         header.AddChild(close);
+        // 外层滚动只承载内容，避免窄窗口被筛选栏最小宽度撑出边界。
+        var bodyScroll = new ScrollContainer { Name = "CatalogBodyScroll", SizeFlagsVertical = SizeFlags.ExpandFill };
+        box.AddChild(bodyScroll);
+        var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        body.AddThemeConstantOverride("separation", 10);
+        bodyScroll.AddChild(body);
         _hint = new Label
         {
             Text = "分类来自道具导出清单 · 装备及子类型语义沿用来源推定 · 图标为编号匹配候选",
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         };
-        box.AddChild(_hint);
+        body.AddChild(_hint);
         var filters = new HBoxContainer();
-        box.AddChild(filters);
+        body.AddChild(filters);
         _categories = new OptionButton { Name = "CatalogCategory", CustomMinimumSize = new Vector2(210, 36), FitToLongestItem = false };
         _categories.ItemSelected += _ => RebuildSubtypes();
         filters.AddChild(_categories);
@@ -113,7 +119,7 @@ public partial class ItemCatalogControl : PanelContainer
         filters.AddChild(_search);
         var content = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         content.AddThemeConstantOverride("separation", 16);
-        box.AddChild(content);
+        body.AddChild(content);
         var results = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         content.AddChild(results);
         _empty = new Label { Text = "无匹配内容，请调整分类或搜索内容。", Visible = false };
@@ -147,7 +153,7 @@ public partial class ItemCatalogControl : PanelContainer
         _details = new Label { Name = "CatalogDetails", Text = "点击图标查看素材", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         details.AddChild(_details);
         var footer = new HBoxContainer();
-        box.AddChild(footer);
+        body.AddChild(footer);
         _status = new Label { Name = "CatalogStatus", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         footer.AddChild(_status);
         _previous = new Button { Name = "CatalogPrevious", Text = "上一页" };
@@ -333,7 +339,7 @@ public partial class ItemCatalogControl : PanelContainer
     private void UpdateLayout()
     {
         var viewport = GetViewportRect().Size;
-        var desired = new Vector2(Math.Min(1180, viewport.X - 32), Math.Min(760, viewport.Y - 32));
+        var desired = new Vector2(Math.Min(1180, viewport.X - 32), Math.Min(760, viewport.Y - 32)).Max(Vector2.One);
         var columns = Math.Max(1, (int)((desired.X - 310) / 104));
         if (_grid.Columns != columns) _grid.Columns = columns;
         // 内容变化可能使容器临时撑高；布局稳定后恢复视口约束。

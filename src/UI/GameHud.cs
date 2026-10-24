@@ -101,7 +101,8 @@ public partial class GameHud : Control
         {
             var unchanged = true;
             foreach (var panel in _movable.Values)
-                if (panel.Size != panel.GetCombinedMinimumSize()) { unchanged = false; break; }
+                if (panel.Size != panel.GetCombinedMinimumSize() || !new Rect2(Vector2.Zero, size).Encloses(panel.GetRect()))
+                { unchanged = false; break; }
             if (unchanged) return;
         }
         ApplyLayout();
@@ -335,26 +336,10 @@ public partial class GameHud : Control
     /// <summary>创建标题居左、关闭按钮靠右的弹出面板内容列。</summary>
     private VBoxContainer CreatePanel(string title, Vector2 minimum)
     {
-        var outer = new PanelContainer { CustomMinimumSize = new Vector2(minimum.X, 0), Visible = false, MouseFilter = MouseFilterEnum.Stop };
-        outer.AnchorLeft = 0.5f;
-        outer.AnchorTop = 0.5f;
-        outer.AnchorRight = 0.5f;
-        outer.AnchorBottom = 0.5f;
-        outer.Position = -minimum / 2;
+        var outer = new ViewportPanelControl { Name = title, Title = title, PreferredWidth = minimum.X, Visible = false };
         AddChild(outer);
         _panels.Add(outer);
-        outer.Name = title;
-        var box = new VBoxContainer();
-        outer.AddChild(box);
-        var header = new HBoxContainer();
-        box.AddChild(header);
-        var heading = Text(title, 20);
-        heading.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        header.AddChild(heading);
-        var close = new Button { Text = "关闭" };
-        close.Pressed += () => outer.Visible = false;
-        header.AddChild(close);
-        return box;
+        return outer.Content;
     }
 
     /// <summary>加入分辨率选择和应用操作。</summary>
@@ -446,7 +431,7 @@ public partial class GameHud : Control
         if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } button)
         {
             _dragging = key;
-            _dragOffset = button.Position - _movable[key].Position;
+            _dragOffset = _handles[key].GetGlobalTransform() * button.Position - _movable[key].GlobalPosition;
             AcceptEvent();
         }
     }
@@ -456,7 +441,7 @@ public partial class GameHud : Control
     {
         var viewport = GetViewportRect().Size;
         var panel = _movable[key];
-        var desired = mousePosition - _dragOffset;
+        var desired = mousePosition - GlobalPosition - _dragOffset;
         var bounded = new Vector2(
             Mathf.Clamp(desired.X, 0, Mathf.Max(0, viewport.X - panel.Size.X)),
             Mathf.Clamp(desired.Y, 0, Mathf.Max(0, viewport.Y - panel.Size.Y)));
@@ -498,11 +483,7 @@ public partial class GameHud : Control
         foreach (var panel in _panels)
         {
             panel.Visible = panel.Name == title ? !panel.Visible : false;
-            if (panel.Visible && panel != _bag && panel != _itemCatalog)
-            {
-                panel.Size = panel.GetCombinedMinimumSize();
-                panel.Position = -panel.Size / 2;
-            }
+            if (panel.Visible && panel is ViewportPanelControl bounded) bounded.FitToViewport();
         }
     }
 

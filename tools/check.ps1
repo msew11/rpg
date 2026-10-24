@@ -64,8 +64,10 @@ if ($Tests) {
     Invoke-GodotCheck 'pointer feedback' @('--headless', '--path', $projectPath, 'res://tests/pointer_feedback_smoke.tscn')
     # 背包与 GM 通过真实聊天、图标格子和重启存档验收。
     Invoke-GodotCheck 'bag and GM' @('--headless', '--path', $projectPath, 'res://tests/bag_gm_smoke.tscn')
-    # 物品移动必须经过原生鼠标拖放，而非直接调用控件回调。
+    # 物品移动必须经过真实鼠标点击，而非直接调用控件回调。
     Invoke-GodotCheck 'item movement' @('--headless', '--path', $projectPath, 'res://tests/item_movement_smoke.tscn')
+    # 普通弹窗与 HUD 在缩放、加载和拖动后都不得越出窗口。
+    Invoke-GodotCheck 'UI bounds' @('--headless', '--path', $projectPath, 'res://tests/ui_bounds_smoke.tscn')
 }
 
 if ($ExportWindows) {
