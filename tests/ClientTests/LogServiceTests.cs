@@ -25,13 +25,13 @@ public sealed class LogServiceTests
         log.Receive(new LoginRt { Success = true });
         log.Receive(new BagChangedNotice());
         log.ClientIO("system.json", "{\"text\":\"[color=red]内容[/color]\"}");
-        log.ServerIO("1001.json", "{}");
+        log.ServerIO("1001.role.json", "{}");
         Assert.StartsWith("[Client][color=green][Request][/color]CreateRole{", lines[0]);
         Assert.Contains("\\u005Bcolor=red\\u005D名字\\u005B/color\\u005D", lines[0]);
         Assert.StartsWith("[Client][color=#ffa500][Response][/color]LoginRt{", lines[1]);
         Assert.StartsWith("[Client][color=#ffa500][Notice][/color]BagChangedNotice{", lines[2]);
         Assert.Equal("[Client][IO][system.json]{\"text\":\"[color=red]内容[/color]\"}", lines[3]);
-        Assert.Equal("[Server][IO][1001.json]{}", lines[4]);
+        Assert.Equal("[Server][IO][1001.role.json]{}", lines[4]);
         Assert.Equal(new[] { true, true, true, false, false }, rich);
         Assert.All(lines.Take(3), line => Assert.Single(Regex.Matches(line, @"\[color=[^]]+\]")));
         log.Dispose();
@@ -114,17 +114,18 @@ public sealed class LogServiceTests
             Assert.Equal("[Client][IO][1.json]" + Compact(File.ReadAllText(setting.RolePath)), lines[1]);
             var repo = new RepoServerRole(Path.Combine(root, "server"), log.ServerIO);
             var role = repo.Create("测试", Rpg.Server.Data.ServerRoleGender.Male, 1);
-            Assert.Equal("[Server][IO][" + role.RoleId + ".json]" +
-                Compact(File.ReadAllText(repo.GetRolePath(role.RoleId))), lines[2]);
+            Assert.Equal("[Server][IO][" + role.RoleId + ".bag.json]" +
+                Compact(File.ReadAllText(repo.GetBagPath(role.RoleId))), lines[2]);
+            Assert.Equal("[Server][IO][" + role.RoleId + ".role.json]" +
+                Compact(File.ReadAllText(repo.GetRolePath(role.RoleId))), lines[3]);
             Assert.All(lines, line => { Assert.DoesNotContain("\n", line); Assert.DoesNotContain("\r", line); });
             repo.Load(role.RoleId);
-            Assert.Equal(3, lines.Count);
-            File.Delete(repo.GetRolePath(role.RoleId));
-            Directory.CreateDirectory(repo.GetRolePath(role.RoleId));
-            Assert.Throws<IOException>(() => repo.Save(role));
+            Assert.Equal(4, lines.Count);
+            using (var locked = new FileStream(repo.GetRolePath(role.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
+                Assert.Throws<IOException>(() => repo.SaveRole(role with { X = role.X + 1 }));
             Directory.CreateDirectory(setting.SystemPath + ".tmp");
             Assert.Throws<UnauthorizedAccessException>(() => setting.SetMasterVolume(0.4f));
-            Assert.Equal(3, lines.Count);
+            Assert.Equal(4, lines.Count);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

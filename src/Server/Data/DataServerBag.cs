@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Rpg.Server.Data;
 
-/// <summary>随角色原子保存的背包，下一个实例编号不会因失败而消耗。</summary>
+/// <summary>独立原子保存的背包，下一个实例编号不会因失败而消耗。</summary>
 public sealed record DataServerBag
 {
     /// <summary>独立于角色移动状态的背包版本。</summary>

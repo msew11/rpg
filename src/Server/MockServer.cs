@@ -84,7 +84,7 @@ public sealed class MockServer
             {
                 candidate = _current with { X = _position.X + 3, Y = _position.Y,
                     Revision = checked(_current.Revision + 1), AcknowledgedAction = pending.ActionId };
-                _roles.Save(candidate);
+                _roles.SaveRole(candidate);
             }
             catch (Exception error)
             {
@@ -266,7 +266,7 @@ public sealed class MockServer
                 Items = items.OrderBy(item => item.SlotIndex).ToList().AsReadOnly()
             } };
             _bagRules.Validate(candidate);
-            _roles.Save(candidate);
+            _roles.SaveBag(candidate);
             response.Success = true;
             response.Message = $"已发放 {definition.Name}（{itemId}）× {count}";
         }
@@ -330,7 +330,7 @@ public sealed class MockServer
                 Items = items.OrderBy(item => item.SlotIndex).ToArray()
             } };
             _bagRules.Validate(candidate);
-            _roles.Save(candidate);
+            _roles.SaveBag(candidate);
         }
         catch (Exception error)
         {

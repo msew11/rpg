@@ -50,7 +50,7 @@ public sealed class GameServicesTests
             GameServices.Session.CreateRole("目录验收", Rpg.Const.RoleGender.Male, 1);
             GameServices.Net.Tick(0);
             var created = Assert.Single(GameServices.Session.Roles);
-            Assert.True(File.Exists(Path.Combine(env.ServerDirectory, $"{created.RoleId}.json")));
+            Assert.True(File.Exists(Path.Combine(env.ServerDirectory, $"{created.RoleId}.role.json")));
             lifetime.Dispose();
             Assert.True(env.IsDisposed);
             Assert.Throws<InvalidOperationException>(() => GameServices.Env);

@@ -3,11 +3,12 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Rpg.Server.Data;
 
 namespace Rpg.Server;
 
-/// <summary>按角色隔离 JSON 存档，并以同目录临时文件替换提交状态。</summary>
+/// <summary>按角色和领域隔离 JSON 存档，通过原子替换与回滚记录提交状态。</summary>
 public sealed class RepoServerRole
 {
     /// <summary>成功提交后的诊断回调，不参与服务端业务决策。</summary>
@@ -17,6 +18,9 @@ public sealed class RepoServerRole
     /// <summary>便于调试查看的 JSON 写入设置。</summary>
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
+    /// <summary>角色序列化元数据直接排除背包，避免移动时遍历整份物品。</summary>
+    private static readonly JsonSerializerOptions RoleJsonOptions = CreateRoleJsonOptions();
+
     /// <summary>绑定存储目录，延迟到具体请求时创建文件。</summary>
     public RepoServerRole(string directory, Action<string, string>? writeLog = null)
     {
@@ -24,25 +28,120 @@ public sealed class RepoServerRole
         _writeLog = writeLog;
     }
 
-    /// <summary>获取指定角色的存档路径。</summary>
-    public string GetRolePath(long roleId)
-    {
-        if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
-        return Path.Combine(_directory, $"{roleId}.json");
-    }
+    /// <summary>角色属性、位置与墓碑的领域文件。</summary>
+    public string GetRolePath(long roleId) => GetPath(roleId, "role");
 
-    /// <summary>读取并验证已有角色；缺失时报告错误，不生成存档。</summary>
+    /// <summary>背包容量、实例与版本的领域文件。</summary>
+    public string GetBagPath(long roleId) => GetPath(roleId, "bag");
+
+    /// <summary>兼容读取的旧聚合存档，迁移后保留作为备份。</summary>
+    public string GetLegacyPath(long roleId) => GetPath(roleId, null);
+
+    /// <summary>读取完整角色，恢复中断提交后组合领域，缺失不补建。</summary>
     public DataServerRole Load(long roleId)
     {
+        Recover(roleId);
+        var role = Read(roleId);
+        if (role.IsDeleted) throw new InvalidDataException("角色已删除");
+        return role;
+    }
+
+    /// <summary>通用聚合保存只写变化领域；创建和迁移提交完整领域组。</summary>
+    public void Save(DataServerRole role)
+    {
+        Validate(role);
+        Recover(role.RoleId);
+        var rolePath = GetRolePath(role.RoleId);
+        var bagPath = GetBagPath(role.RoleId);
+        var roleContent = SerializeRole(role);
+        var bagContent = JsonSerializer.Serialize(DataServerBagFile.FromRole(role), JsonOptions);
+        var changed = new Dictionary<string, string>();
+        if (File.Exists(rolePath) || File.Exists(bagPath))
+        {
+            _ = Read(role.RoleId);
+            if (!JsonEquals(File.ReadAllText(bagPath), bagContent)) changed.Add("bag", bagContent);
+            if (!JsonEquals(File.ReadAllText(rolePath), roleContent)) changed.Add("role", roleContent);
+        }
+        else
+        {
+            // role 是新格式的存在标记，最后替换，旧文件在提交前仍为读取来源。
+            changed.Add("bag", bagContent);
+            changed.Add("role", roleContent);
+        }
+        Commit(role.RoleId, changed);
+    }
+
+    /// <summary>正常移动和删除只写角色领域，旧格式首次写入时统一迁移。</summary>
+    public void SaveRole(DataServerRole role)
+    {
+        Validate(role);
+        Recover(role.RoleId);
+        if (!File.Exists(GetRolePath(role.RoleId))) { Save(role); return; }
+        if (!File.Exists(GetBagPath(role.RoleId))) throw new InvalidDataException($"缺少背包存档：{GetBagPath(role.RoleId)}");
+        Commit(role.RoleId, new Dictionary<string, string> { ["role"] = SerializeRole(role) });
+    }
+
+    /// <summary>正常物品操作只写背包领域，不读取或替换角色属性文件。</summary>
+    public void SaveBag(DataServerRole role)
+    {
+        Validate(role);
+        Recover(role.RoleId);
+        if (!File.Exists(GetRolePath(role.RoleId))) { Save(role); return; }
+        if (!File.Exists(GetBagPath(role.RoleId))) throw new InvalidDataException($"缺少背包存档：{GetBagPath(role.RoleId)}");
+        Commit(role.RoleId, new Dictionary<string, string>
+        {
+            ["bag"] = JsonSerializer.Serialize(DataServerBagFile.FromRole(role), JsonOptions)
+        });
+    }
+
+    /// <summary>恢复中断创建后枚举角色，领域文件和旧文件按编号去重，隐藏墓碑。</summary>
+    public IReadOnlyList<DataServerRole> List()
+    {
+        Directory.CreateDirectory(_directory);
+        foreach (var path in Directory.EnumerateFiles(_directory, "*.pending.json").ToArray())
+        {
+            var prefix = Path.GetFileName(path)[..^".pending.json".Length];
+            if (long.TryParse(prefix, out var id) && id > 0) Recover(id);
+        }
+        return StoredIds().Select(Read).Where(role => !role.IsDeleted).ToList().AsReadOnly();
+    }
+
+    /// <summary>统一生成固定领域路径，拒绝无效角色编号。</summary>
+    private string GetPath(long roleId, string? domain)
+    {
+        if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
+        return Path.Combine(_directory, domain is null ? $"{roleId}.json" : $"{roleId}.{domain}.json");
+    }
+
+    /// <summary>新领域存在时严格组合，只有两份领域文件都不存在才读取旧聚合。</summary>
+    private DataServerRole Read(long roleId)
+    {
         var path = GetRolePath(roleId);
-        if (!File.Exists(path) && !Directory.Exists(path)) throw new InvalidDataException("角色不存在");
         try
         {
-            var role = JsonSerializer.Deserialize<DataServerRole>(File.ReadAllText(path))
-                ?? throw new InvalidDataException("角色数据为空");
+            DataServerRole role;
+            if (File.Exists(path) || Directory.Exists(path) ||
+                File.Exists(GetBagPath(roleId)) || Directory.Exists(GetBagPath(roleId)))
+            {
+                role = JsonSerializer.Deserialize<DataServerRole>(File.ReadAllText(path))
+                    ?? throw new InvalidDataException("角色数据为空");
+                ValidateRole(role);
+                if (role.RoleId != roleId) throw new InvalidDataException("角色 ID 与文件名不符");
+                path = GetBagPath(roleId);
+                var bag = JsonSerializer.Deserialize<DataServerBagFile>(File.ReadAllText(path))
+                    ?? throw new InvalidDataException("背包数据为空");
+                if (bag.RoleId != roleId) throw new InvalidDataException("背包角色 ID 与文件名不符");
+                role = role with { BagExtraRows = bag.BagExtraRows, Bag = bag.Bag };
+            }
+            else
+            {
+                path = GetLegacyPath(roleId);
+                if (!File.Exists(path) && !Directory.Exists(path)) throw new InvalidDataException("角色不存在");
+                role = JsonSerializer.Deserialize<DataServerRole>(File.ReadAllText(path))
+                    ?? throw new InvalidDataException("角色数据为空");
+            }
             Validate(role);
             if (role.RoleId != roleId) throw new InvalidDataException("角色 ID 与文件名不符");
-            if (role.IsDeleted) throw new InvalidDataException("角色已删除");
             return role;
         }
         catch (Exception error) when (error is JsonException or IOException or UnauthorizedAccessException or InvalidDataException)
@@ -51,58 +150,102 @@ public sealed class RepoServerRole
         }
     }
 
-    /// <summary>先完整写入并刷盘，再替换目标文件；失败时不破坏已有存档。</summary>
-    public void Save(DataServerRole role)
+    /// <summary>角色领域排除背包字段，保留聚合类型的业务兼容性。</summary>
+    private static string SerializeRole(DataServerRole role) => JsonSerializer.Serialize(role, RoleJsonOptions);
+
+    /// <summary>只对角色聚合裁剪领域外属性，旧存档反序列化仍使用完整契约。</summary>
+    private static JsonSerializerOptions CreateRoleJsonOptions()
     {
-        Validate(role);
-        var path = GetRolePath(role.RoleId);
-        var temporary = Path.Combine(_directory, $".{role.RoleId}.{Guid.NewGuid():N}.tmp");
-        var content = JsonSerializer.Serialize(role, JsonOptions);
+        var resolver = new DefaultJsonTypeInfoResolver();
+        resolver.Modifiers.Add(info =>
+        {
+            if (info.Type != typeof(DataServerRole)) return;
+            foreach (var property in info.Properties.Where(property => property.Name is
+                         nameof(DataServerRole.Bag) or nameof(DataServerRole.BagExtraRows)).ToArray())
+                info.Properties.Remove(property);
+        });
+        return new JsonSerializerOptions(JsonOptions) { TypeInfoResolver = resolver };
+    }
+
+    /// <summary>比较 JSON 值，忽略磁盘文本的缩进和字段排版差异。</summary>
+    private static bool JsonEquals(string left, string right) => System.Text.Json.Nodes.JsonNode.DeepEquals(
+        System.Text.Json.Nodes.JsonNode.Parse(left), System.Text.Json.Nodes.JsonNode.Parse(right));
+
+    /// <summary>单领域原子替换，多领域先落回滚记录，全部成功后才记录目标 IO。</summary>
+    private void Commit(long roleId, Dictionary<string, string> changed)
+    {
+        if (changed.Count == 0) return;
+        Directory.CreateDirectory(_directory);
+        var pending = GetPath(roleId, "pending");
+        if (changed.Count > 1)
+        {
+            var originals = changed.Keys.ToDictionary(domain => domain,
+                domain => File.Exists(GetPath(roleId, domain)) ? File.ReadAllText(GetPath(roleId, domain)) : null);
+            WriteAtomic(pending, JsonSerializer.Serialize(originals, JsonOptions));
+        }
         try
         {
-            Directory.CreateDirectory(_directory);
+            foreach (var (domain, content) in changed) WriteAtomic(GetPath(roleId, domain), content);
+            if (changed.Count > 1) File.Delete(pending);
+        }
+        catch
+        {
+            Recover(roleId);
+            throw;
+        }
+        foreach (var (domain, content) in changed)
+        {
+            try { _writeLog?.Invoke(GetPath(roleId, domain), content); }
+            catch (Exception error) { System.Diagnostics.Trace.WriteLine(error); }
+        }
+    }
+
+    /// <summary>回滚未提交的领域组，失败保留记录供后续恢复，禁止接受任意路径。</summary>
+    private void Recover(long roleId)
+    {
+        var pending = GetPath(roleId, "pending");
+        if (!File.Exists(pending)) return;
+        try
+        {
+            var originals = JsonSerializer.Deserialize<Dictionary<string, string?>>(File.ReadAllText(pending))
+                ?? throw new InvalidDataException("回滚记录为空");
+            if (originals.Count != 2 || !originals.ContainsKey("role") || !originals.ContainsKey("bag"))
+                throw new InvalidDataException("回滚记录包含非法领域");
+            foreach (var (domain, content) in originals)
+            {
+                var path = GetPath(roleId, domain);
+                if (content is null)
+                {
+                    if (File.Exists(path)) File.Delete(path);
+                }
+                else if (!File.Exists(path) || File.ReadAllText(path) != content) WriteAtomic(path, content);
+            }
+            File.Delete(pending);
+        }
+        catch (Exception error) when (error is JsonException or IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            throw new IOException($"无法恢复未提交存档：{pending}；{error.Message}", error);
+        }
+    }
+
+    /// <summary>同目录写入临时文件并刷盘，成功替换后清理临时残留。</summary>
+    private static void WriteAtomic(string path, string content)
+    {
+        var temporary = Path.Combine(Path.GetDirectoryName(path)!, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                var bytes = System.Text.Encoding.UTF8.GetBytes(content);
-                stream.Write(bytes);
+                stream.Write(System.Text.Encoding.UTF8.GetBytes(content));
                 stream.Flush(true);
             }
             File.Move(temporary, path, true);
-            try { _writeLog?.Invoke(path, content); }
-            catch (Exception error) { System.Diagnostics.Trace.WriteLine(error); }
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
             throw new IOException($"无法保存角色存档：{path}；{error.Message}", error);
         }
-        finally
-        {
-            if (File.Exists(temporary)) File.Delete(temporary);
-        }
-    }
-
-    /// <summary>读取完整账号列表，墓碑不再成为可选择的角色。</summary>
-    public IReadOnlyList<DataServerRole> List()
-    {
-        Directory.CreateDirectory(_directory);
-        var roles = new List<DataServerRole>();
-        foreach (var id in StoredIds())
-        {
-            var path = GetRolePath(id);
-            try
-            {
-                var role = JsonSerializer.Deserialize<DataServerRole>(File.ReadAllText(path))
-                    ?? throw new InvalidDataException("角色数据为空");
-                Validate(role);
-                if (role.RoleId != id) throw new InvalidDataException("角色 ID 与文件名不符");
-                if (!role.IsDeleted) roles.Add(role);
-            }
-            catch (Exception error) when (error is JsonException or IOException or UnauthorizedAccessException or InvalidDataException)
-            {
-                throw new InvalidDataException($"无法读取角色存档：{path}；{error.Message}", error);
-            }
-        }
-        return roles.AsReadOnly();
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
     /// <summary>校验名称及外观，保存完成后才允许列表展示新角色。</summary>
@@ -131,20 +274,29 @@ public sealed class RepoServerRole
     public void Delete(long roleId)
     {
         var role = Load(roleId);
-        Save(role with { IsDeleted = true });
+        SaveRole(role with { IsDeleted = true });
     }
 
-    /// <summary>仅枚举数字命名的角色文件，按编号保持列表稳定。</summary>
+    /// <summary>只识别旧角色和 role 领域，忽略背包、事务与临时文件。</summary>
     private IEnumerable<long> StoredIds() => Directory.EnumerateFiles(_directory, "*.json")
-        .Select(path => long.TryParse(Path.GetFileNameWithoutExtension(path), out var id) ? id : 0)
-        .Where(id => id > 0).OrderBy(id => id);
+        .Select(path => Path.GetFileName(path))
+        .Select(name => name.EndsWith(".role.json", StringComparison.Ordinal)
+            ? name[..^".role.json".Length] : name[..^".json".Length])
+        .Select(name => long.TryParse(name, out var id) ? id : 0)
+        .Where(id => id > 0).Distinct().OrderBy(id => id);
 
     /// <summary>拒绝无法成为合法角色快照的存档数据。</summary>
     public static void Validate(DataServerRole role)
     {
-        ArgumentNullException.ThrowIfNull(role);
+        ValidateRole(role);
         if (role.BagExtraRows < 0 || role.Bag is null) throw new InvalidDataException("角色背包字段无效");
         role.Bag.Validate();
+    }
+
+    /// <summary>先诊断角色领域自身字段，避免将角色损坏归因到背包路径。</summary>
+    private static void ValidateRole(DataServerRole role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
         if (role.RoleId <= 0 || string.IsNullOrWhiteSpace(role.Name) || role.Level <= 0 ||
             role.MaxHealth <= 0 || role.Health < 0 || role.Health > role.MaxHealth ||
             role.MaxMana < 0 || role.Mana < 0 || role.Mana > role.MaxMana ||

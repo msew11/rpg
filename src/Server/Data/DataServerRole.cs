@@ -46,6 +46,6 @@ public sealed record DataServerRole
     public long AcknowledgedAction { get; init; }
     /// <summary>角色额外解锁的背包行数，旧存档为零。</summary>
     public int BagExtraRows { get; init; }
-    /// <summary>随角色原子持久化的背包，旧存档为空背包。</summary>
+    /// <summary>独立于角色领域持久化的背包，旧存档为空背包。</summary>
     public DataServerBag Bag { get; init; } = new();
 }

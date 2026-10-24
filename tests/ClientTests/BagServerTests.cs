@@ -13,6 +13,8 @@ public sealed class BagServerTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-bag-server-" + Guid.NewGuid());
     /// <summary>实际服务端发出的完整解码消息。</summary>
     private readonly List<IMessage> _messages = [];
+    /// <summary>成功提交的目标文件名，用于领域写入隔离验收。</summary>
+    private readonly List<string> _writes = [];
     /// <summary>测试使用的独立规则，普通道具不会写入正式配置。</summary>
     private readonly DataServerBagRules _rules = new(2, 2,
         [new(1012, "测试剑", 1), new(2000, "临时堆叠道具", 10)]);
@@ -34,7 +36,7 @@ public sealed class BagServerTests : IDisposable
     /// <summary>独立重建服务端并绑定真正的输出字节边界。</summary>
     private MockServer CreateServer()
     {
-        var server = new MockServer(_directory, _rules);
+        var server = new MockServer(_directory, _rules, (path, _) => _writes.Add(Path.GetFileName(path)));
         server.ResetSession(1);
         server.Outgoing += bytes => _messages.Add(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(bytes), false));
         return server;
@@ -67,6 +69,31 @@ public sealed class BagServerTests : IDisposable
         Send(new MoveItem { RoleId = roleId ?? _roleId, InstanceId = instanceId,
             TargetSlotIndex = targetSlot, ExpectedRevision = revision ?? _repo.Load(_roleId).Bag.Revision });
         return Assert.Single(_messages.OfType<MoveItemRt>());
+    }
+
+    /// <summary>mock-server：真实 GM、移动与物品移动只提交各自领域，失败和同格不记录 IO。</summary>
+    [Fact]
+    public void BusinessOperationsWriteOnlyTheirDomain()
+    {
+        Enter();
+        var roleBytes = File.ReadAllBytes(_repo.GetRolePath(_roleId));
+        Assert.True(Grant("item 1012").Success);
+        Assert.Equal(new[] { $"{_roleId}.bag.json" }, _writes);
+        Assert.Equal(roleBytes, File.ReadAllBytes(_repo.GetRolePath(_roleId)));
+        var bagBytes = File.ReadAllBytes(_repo.GetBagPath(_roleId));
+        _writes.Clear();
+        Send(new Move { RoleId = _roleId, ActionId = 1, X = 100, Y = 120 });
+        _server.Tick(0.5);
+        Assert.True(Assert.Single(_messages.OfType<MoveRt>()).Success);
+        Assert.Equal(new[] { $"{_roleId}.role.json" }, _writes);
+        Assert.Equal(bagBytes, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
+        _writes.Clear();
+        Assert.True(MoveInstance(1, 3).Success);
+        Assert.Equal(new[] { $"{_roleId}.bag.json" }, _writes);
+        _writes.Clear();
+        Assert.True(MoveInstance(1, 3).Success);
+        Assert.False(Grant("item 9999").Success);
+        Assert.Empty(_writes);
     }
 
     /// <summary>role-bag：空格移动和占用交换保留实例身份、数量与编号，角色移动与重启不覆盖背包。</summary>
@@ -133,10 +160,10 @@ public sealed class BagServerTests : IDisposable
     {
         Enter();
         Assert.True(Grant("item 1012 4").Success);
-        var bytes = File.ReadAllBytes(_repo.GetRolePath(_roleId));
+        var bytes = File.ReadAllBytes(_repo.GetBagPath(_roleId));
         Assert.True(MoveInstance(1, 0).Success);
         Assert.Empty(_messages.OfType<BagChangedNotice>());
-        Assert.Equal(bytes, File.ReadAllBytes(_repo.GetRolePath(_roleId)));
+        Assert.Equal(bytes, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
         Assert.True(MoveInstance(1, 3).Success);
         Assert.Equal(3, _repo.Load(_roleId).Bag.Items.Single(item => item.InstanceId == 1).SlotIndex);
         Assert.Equal(0, _repo.Load(_roleId).Bag.Items.Single(item => item.InstanceId == 4).SlotIndex);
@@ -154,18 +181,18 @@ public sealed class BagServerTests : IDisposable
         Assert.False(MoveInstance(1, 0, 0).Success);
         Enter();
         Grant("item 1012");
-        var before = File.ReadAllBytes(_repo.GetRolePath(_roleId));
+        var before = File.ReadAllBytes(_repo.GetBagPath(_roleId));
         var result = MoveInstance(kind == "missing" ? 999 : 1,
             kind == "negative" ? -1 : kind == "outside" ? 4 : 2,
             kind == "revision" ? 0 : 1, kind == "identity" ? _roleId + 1 : _roleId);
         Assert.False(result.Success);
         Assert.NotEmpty(result.Error);
         Assert.Empty(_messages.OfType<BagChangedNotice>());
-        Assert.Equal(before, File.ReadAllBytes(_repo.GetRolePath(_roleId)));
+        Assert.Equal(before, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
         Assert.True(MoveInstance(1, 2).Success);
-        var moved = File.ReadAllBytes(_repo.GetRolePath(_roleId));
+        var moved = File.ReadAllBytes(_repo.GetBagPath(_roleId));
         Assert.False(MoveInstance(1, 3, 1).Success);
-        Assert.Equal(moved, File.ReadAllBytes(_repo.GetRolePath(_roleId)));
+        Assert.Equal(moved, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
     }
 
     /// <summary>role-bag：移动落盘失败不提交内存或编号，恢复写盘后旧版本请求仍可成功。</summary>
@@ -221,10 +248,10 @@ public sealed class BagServerTests : IDisposable
     {
         Enter();
         Assert.True(Grant("item 1012 2").Success);
-        var before = File.ReadAllBytes(_repo.GetRolePath(_roleId));
+        var before = File.ReadAllBytes(_repo.GetBagPath(_roleId));
         Assert.False(Grant("item 1012 3").Success);
         Assert.Empty(_messages.OfType<BagChangedNotice>());
-        Assert.Equal(before, File.ReadAllBytes(_repo.GetRolePath(_roleId)));
+        Assert.Equal(before, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
         Assert.True(Grant("item 1012 2").Success);
         var bag = _repo.Load(_roleId).Bag;
         Assert.Equal(new long[] { 1, 2, 3, 4 }, bag.Items.Select(item => item.InstanceId));
@@ -272,18 +299,20 @@ public sealed class BagServerTests : IDisposable
     {
         Assert.False(Grant("item 1012").Success);
         Enter();
-        var before = File.ReadAllBytes(_repo.GetRolePath(_roleId));
+        var before = File.ReadAllBytes(_repo.GetBagPath(_roleId));
         Assert.False(Grant(command).Success);
         Assert.False(Grant("item 1012", _roleId + 1).Success);
-        Assert.Equal(before, File.ReadAllBytes(_repo.GetRolePath(_roleId)));
+        Assert.Equal(before, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
     }
 
     /// <summary>旧存档缺失背包字段时为空，额外行数影响真实可发放容量。</summary>
     [Fact]
     public void LegacySaveDefaultsToEmptyAndExtraRowsExpandCapacity()
     {
-        var path = _repo.GetRolePath(_roleId);
-        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        var path = _repo.GetLegacyPath(_roleId);
+        var json = System.Text.Json.JsonSerializer.SerializeToNode(_repo.Load(_roleId))!.AsObject();
+        File.Delete(_repo.GetRolePath(_roleId));
+        File.Delete(_repo.GetBagPath(_roleId));
         json.Remove("Bag");
         json.Remove("BagExtraRows");
         File.WriteAllText(path, json.ToJsonString());
@@ -327,9 +356,9 @@ public sealed class BagServerTests : IDisposable
         var item = new DataServerItem(1, kind == "unknown" ? 9999 : 1012,
             kind == "slot" ? 4 : 0, kind == "stack" ? 2 : 1);
         var items = kind == "duplicate" ? new[] { item, item with { InstanceId = 2 } } : new[] { item };
-        var path = _repo.GetRolePath(_roleId);
+        var path = _repo.GetBagPath(_roleId);
         var role = _repo.Load(_roleId) with { Bag = new DataServerBag { NextInstanceId = 3, Items = items } };
-        File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(role));
+        File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(DataServerBagFile.FromRole(role)));
         var before = File.ReadAllBytes(path);
         Send(new Login { Username = "demo", Password = "demo" });
         Send(new SelectRole { RoleId = _roleId });

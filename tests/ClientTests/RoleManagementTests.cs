@@ -47,7 +47,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
-        var blocked = Path.Combine(fixture.DirectoryPath, "1003.json");
+        var blocked = Path.Combine(fixture.DirectoryPath, "1003.role.json");
         Directory.CreateDirectory(blocked);
         var before = fixture.Session!.Roles;
         CreateRoleRt? result = null;
