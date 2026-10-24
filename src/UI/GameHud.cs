@@ -50,6 +50,8 @@ public partial class GameHud : Control
     private Vector2 _dragOffset;
     /// <summary>上次布局计算使用的视口尺寸。</summary>
     private Vector2 _lastViewport;
+    /// <summary>延迟加载素材目录的独立道具图鉴。</summary>
+    private ItemCatalogControl _itemCatalog = null!;
 
     /// <summary>需要返回角色选择界面时通知主控制器。</summary>
     public event Action? ChangeRoleRequested;
@@ -272,6 +274,16 @@ public partial class GameHud : Control
         var gm = CreatePanel("GM", new Vector2(590, 255));
         AddSettingLocation(gm, "系统设置文件", GameServices.Setting.SystemPath);
         AddSettingLocation(gm, "当前角色设置文件", GameServices.Setting.RolePath);
+        _itemCatalog = new ItemCatalogControl { Name = "ItemCatalog", Visible = false };
+        AddChild(_itemCatalog);
+        _panels.Add(_itemCatalog);
+        var openCatalog = new Button { Name = "OpenItemCatalog", Text = "查看道具图鉴" };
+        openCatalog.Pressed += () =>
+        {
+            foreach (var panel in _panels) panel.Hide();
+            _itemCatalog.Open();
+        };
+        gm.AddChild(openCatalog);
 
         var system = CreatePanel("系统设置", new Vector2(380, 390));
         var tabs = new TabContainer { CustomMinimumSize = new Vector2(345, 295) };
