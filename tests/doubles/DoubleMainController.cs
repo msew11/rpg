@@ -13,6 +13,6 @@ public partial class DoubleMainController : MainController
     public string ServerDirectory { get; set; } = "";
 
     /// <summary>整组服务共享同一隔离环境，节点仅持有释放句柄。</summary>
-    protected override IDisposable InitializeServices() => GameServices.Register(
+    protected override IDisposable InitializeServices() => GameServicesTestFactory.Register(
         new EnvironmentService(SettingsDirectory, ServerDirectory));
 }

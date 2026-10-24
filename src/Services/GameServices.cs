@@ -21,11 +21,13 @@ public static class GameServices
     public static EventService Events => _events is { IsDisposed: false } events
         ? events : throw new InvalidOperationException("GameServices 事件服务尚未初始化或已经释放");
 
-    /// <summary>只建立事件域，完整启动与隔离事件测试共用此创建位置。</summary>
-    internal static EventService InitializeEvents()
+    /// <summary>为隔离测试注册已创建的事件域，不承担服务构造。</summary>
+    internal static EventService RegisterEvents(EventService events)
     {
+        ArgumentNullException.ThrowIfNull(events);
+        ObjectDisposedException.ThrowIf(events.IsDisposed, events);
         if (_events is { IsDisposed: false }) throw new InvalidOperationException("事件服务已初始化");
-        return _events = new EventService();
+        return _events = events;
     }
 
     /// <summary>全部入口是否已注册且网络尚未释放。</summary>
@@ -55,29 +57,32 @@ public static class GameServices
     /// <summary>跨表现节点共享的动画资源缓存。</summary>
     public static AnimationService Animation => Current.Animation;
 
-    /// <summary>使用默认环境按固定依赖顺序创建整组服务。</summary>
+    /// <summary>在同一方法内按固定依赖顺序创建全部服务，失败时逆序回收。</summary>
     public static IDisposable Initialize()
     {
         if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
-        return Register(new EnvironmentService());
-    }
-
-    /// <summary>隔离测试使用指定环境；创建失败时回收已完成构造的服务。</summary>
-    internal static IDisposable Register(EnvironmentService environment)
-    {
-        ArgumentNullException.ThrowIfNull(environment);
-        ObjectDisposedException.ThrowIf(environment.IsDisposed, environment);
-        if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
-        var created = new List<IService> { environment };
+        if (_events is { IsDisposed: false }) throw new InvalidOperationException("事件服务已初始化");
+        var created = new List<IService>();
         try
         {
+            var environment = new EnvironmentService();
+            created.Add(environment);
+            var events = new EventService();
+            created.Add(events);
+            _events = events;
             var config = new ConfigService(environment);
             created.Add(config);
             var setting = new SettingService(environment);
             created.Add(setting);
             var net = new NetService(environment);
             created.Add(net);
-            return Register(environment, config, setting, net);
+            var session = new SessionService(net);
+            created.Add(session);
+            var world = new WorldService(config, setting, session);
+            created.Add(world);
+            var animation = new AnimationService();
+            created.Add(animation);
+            return Register(environment, events, config, setting, net, session, world, animation);
         }
         catch (Exception error)
         {
@@ -87,34 +92,27 @@ public static class GameServices
                 try { created[i].Dispose(); }
                 catch (Exception cleanupError) { errors.Add(cleanupError); }
             }
+            _events = null;
             if (errors.Count > 1) throw new AggregateException("客户端服务初始化失败", errors);
             throw;
         }
     }
 
-    /// <summary>成功后接管显式服务并建立其依赖；失败时传入实例仍由调用方释放。</summary>
-    internal static IDisposable Register(EnvironmentService environment, ConfigService config, SettingService setting, NetService net)
+    /// <summary>验证并接管完整服务组，仅注册现成实例，不创建服务。</summary>
+    internal static IDisposable Register(EnvironmentService environment, EventService events, ConfigService config,
+        SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation)
     {
-        ArgumentNullException.ThrowIfNull(environment);
-        ObjectDisposedException.ThrowIf(environment.IsDisposed, environment);
-        ArgumentNullException.ThrowIfNull(config);
-        ArgumentNullException.ThrowIfNull(setting);
-        ArgumentNullException.ThrowIfNull(net);
-        ObjectDisposedException.ThrowIf(net.IsDisposed, net);
-        if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
-        _ = config.MapConfig;
-        _ = setting.Width;
-        var events = InitializeEvents();
-        try
+        foreach (var service in new IService[] { environment, events, config, setting, net, session, world, animation })
         {
-            var registration = new Registration(environment, config, setting, net, events);
-            _current = registration;
-            return registration;
+            ArgumentNullException.ThrowIfNull(service);
+            ObjectDisposedException.ThrowIf(service.IsDisposed, service);
         }
-        catch { events.Dispose(); _events = null; throw; }
+        if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
+        if (!ReferenceEquals(_events, events)) throw new InvalidOperationException("注册服务必须使用当前事件域");
+        return _current = new Registration(environment, events, config, setting, net, session, world, animation);
     }
 
-    /// <summary>一次启动的所有权句柄，固定依赖图直接以构造顺序表达。</summary>
+    /// <summary>一次启动的所有权句柄，只保存服务实例并负责释放。</summary>
     private sealed class Registration : IDisposable
     {
         /// <summary>最先就绪、最后释放的环境服务。</summary>
@@ -136,21 +134,18 @@ public static class GameServices
         /// <summary>防止旧句柄重复释放后续注册。</summary>
         private bool _disposed;
 
-        /// <summary>先构造依赖，再构造消费者；内部失败只回收新增对象。</summary>
-        public Registration(EnvironmentService environment, ConfigService config, SettingService setting, NetService net, EventService events)
+        /// <summary>保存已按依赖顺序创建的完整服务组。</summary>
+        public Registration(EnvironmentService environment, EventService events, ConfigService config,
+            SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation)
         {
             Environment = environment;
             Events = events;
             Config = config;
             Setting = setting;
             Net = net;
-            Session = new SessionService(net);
-            try
-            {
-                World = new WorldService(config, setting, Session);
-                Animation = new AnimationService();
-            }
-            catch { Session.Dispose(); throw; }
+            Session = session;
+            World = world;
+            Animation = animation;
         }
 
         /// <summary>先撤销业务入口，再逆依赖清理并最后撤销事件入口；单个服务失败不阻止其余清理。</summary>

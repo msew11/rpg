@@ -28,7 +28,7 @@ public partial class ActorAnimationSmoke : Node
         var temporary = Path.Combine(Path.GetTempPath(), "rpg-actor-smoke-" + Guid.NewGuid());
         try
         {
-            using var services = GameServices.Register(new EnvironmentService(Path.Combine(temporary, "settings"), temporary));
+            using var services = GameServicesTestFactory.Register(new EnvironmentService(Path.Combine(temporary, "settings"), temporary));
             var config = GameServices.Config;
             var repo = new AnimationService();
             var net = GameServices.Net;

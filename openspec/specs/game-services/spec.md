@@ -71,7 +71,7 @@ IService SHALL 提供只读 IsDisposed 契约，全部业务服务 SHALL 通过 
 - **THEN** 对应服务最终 IsDisposed 为 true，其余服务仍继续清理，设置退出保存与旧会话隔离行为保持不变
 
 ### Requirement: 环境参数统一管理
-客户端 SHALL 由无依赖的 EnvironmentService 统一持有配置、Schema、设置与模拟服务端目录，通过 GameServices.Environment 只读访问。正式启动 SHALL 使用无参 GameServices.Initialize()；配置、设置与网络服务的公开构造 SHALL 只接收 EnvironmentService，其他正式服务构造 SHALL 只接收服务依赖。构造顺序 SHALL 显式书写，不引入容器、反射或自动排序。内部测试 SHALL 能覆盖环境目录和网络传输，不增加正式启动参数。
+客户端 SHALL 由无依赖的 EnvironmentService 统一持有配置、Schema、设置与模拟服务端目录，通过 GameServices.Environment 只读访问。正式启动 SHALL 使用无参 GameServices.Initialize()；配置、设置与网络服务的公开构造 SHALL 只接收 EnvironmentService，其他正式服务构造 SHALL 只接收服务依赖。全部正式服务的构造 SHALL 集中在无参 Initialize 方法体内，按 Environment、Events、Config、Setting、Net、Session、World、Animation 的顺序显式书写；Register 和注册句柄构造 SHALL 只接收现成实例，不再创建服务，不引入容器、反射或自动排序。内部测试 SHALL 能覆盖环境目录和网络传输，不增加正式启动参数。
 
 #### Scenario: 无参启动与默认目录
 - **WHEN** 主场景调用 GameServices.Initialize()

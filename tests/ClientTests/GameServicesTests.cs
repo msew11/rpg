@@ -1,3 +1,4 @@
+using Rpg.Tests;
 using Rpg.Config;
 using Rpg.Settings;
 using Rpg.Net;
@@ -36,7 +37,7 @@ public sealed class GameServicesTests
         try
         {
             Assert.Throws<InvalidOperationException>(() => GameServices.Environment);
-            using var lifetime = GameServices.Register(environment);
+            using var lifetime = GameServicesTestFactory.Register(environment);
             Assert.Same(environment, GameServices.Environment);
             Assert.Equal(1000, GameServices.Config.MapConfig.Width);
             GameServices.Setting.SetResolution(1600, 900);
@@ -49,7 +50,7 @@ public sealed class GameServicesTests
             Assert.True(environment.IsDisposed);
             Assert.Throws<InvalidOperationException>(() => GameServices.Environment);
             using var nextEnvironment = ConfigTestFixture.CreateEnvironment(environment.SettingsDirectory, environment.ServerDirectory);
-            using var next = GameServices.Register(nextEnvironment);
+            using var next = GameServicesTestFactory.Register(nextEnvironment);
             lifetime.Dispose();
             Assert.Same(nextEnvironment, GameServices.Environment);
             Assert.Equal(1600, GameServices.Setting.Width);
@@ -68,12 +69,12 @@ public sealed class GameServicesTests
         using var environment = new EnvironmentService(directory, "",
             failConfig ? Path.Combine(directory, "missing") : Path.Combine(root, "config"),
             Path.Combine(root, "schemas"));
-        Assert.ThrowsAny<Exception>(() => GameServices.Register(environment));
+        Assert.ThrowsAny<Exception>(() => GameServicesTestFactory.Register(environment));
         Assert.True(environment.IsDisposed);
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<InvalidOperationException>(() => GameServices.Events);
         using var nextEnvironment = ConfigTestFixture.CreateEnvironment(directory, Path.Combine(directory, "server"));
-        using var next = GameServices.Register(nextEnvironment);
+        using var next = GameServicesTestFactory.Register(nextEnvironment);
         Assert.Same(nextEnvironment, GameServices.Environment);
     }
 
@@ -119,7 +120,7 @@ public sealed class GameServicesTests
             using var net = new NetService(new MockTransport(server));
             var environment = ConfigTestFixture.CreateEnvironment(Path.Combine(directory, "settings"));
             var setting = new SettingService(environment);
-            using var services = GameServices.Register(environment, new ConfigService(environment), setting, net);
+            using var services = GameServicesTestFactory.Register(environment, new ConfigService(environment), setting, net);
             var errors = new List<Exception>();
             GameServices.Events.Error += errors.Add;
             var observedLogin = false;
@@ -184,7 +185,7 @@ public sealed class GameServicesTests
             var environment = ConfigTestFixture.CreateEnvironment(directory);
             var setting = new SettingService(environment);
             var net = new NetService(new DoubleLifetimeTransport { FailDispose = true });
-            using var services = GameServices.Register(environment, config, setting, net);
+            using var services = GameServicesTestFactory.Register(environment, config, setting, net);
             var session = GameServices.Session;
             var world = GameServices.World;
             var animation = GameServices.Animation;
@@ -219,7 +220,7 @@ public sealed class GameServicesTests
             var environment = ConfigTestFixture.CreateEnvironment(directory);
             var setting = new SettingService(environment);
             var net = new NetService(new DoubleNetTransport());
-            using var services = GameServices.Register(environment, config, setting, net);
+            using var services = GameServicesTestFactory.Register(environment, config, setting, net);
             setting.SelectRole(1001);
             setting.SetHudPosition("portrait", 0.3f, 0.4f);
             File.WriteAllText(directory, "阻止创建设置目录");
@@ -428,7 +429,7 @@ public sealed class GameServicesTests
         using var firstTransport = new DoubleNetTransport();
         using var services = Register(new NetService(firstTransport));
         var events = GameServices.Events;
-        Assert.Throws<InvalidOperationException>(() => GameServices.InitializeEvents());
+        Assert.Throws<InvalidOperationException>(() => GameServices.RegisterEvents(new EventService()));
         using var secondTransport = new DoubleNetTransport();
         using var secondNet = new NetService(secondTransport);
         var calls = 0;
@@ -487,7 +488,7 @@ public sealed class GameServicesTests
         var environment = ConfigTestFixture.CreateEnvironment(Path.Combine(Path.GetTempPath(), "rpg-services-" + Guid.NewGuid()));
         var config = new ConfigService(environment);
         var setting = new SettingService(environment);
-        try { return GameServices.Register(environment, config, setting, net); }
+        try { return GameServicesTestFactory.Register(environment, config, setting, net); }
         catch { setting.Dispose(); config.Dispose(); environment.Dispose(); throw; }
     }
 

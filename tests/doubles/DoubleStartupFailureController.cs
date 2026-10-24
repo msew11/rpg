@@ -25,7 +25,7 @@ public partial class DoubleStartupFailureController : MainController
         var config = new ConfigService(environment);
         var setting = new SettingService(environment);
         CreatedNet = new NetService(_transport);
-        return GameServices.Register(environment, config, setting, CreatedNet);
+        return GameServicesTestFactory.Register(environment, config, setting, CreatedNet);
     }
 
     /// <summary>第一次会话重置成功，后续重置触发受控的启动异常。</summary>
