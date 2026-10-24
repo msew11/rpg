@@ -4,22 +4,23 @@
 
 客户端共享业务枚举放在 `src/Const/`，使用 `Rpg.Const` 命名空间，例如 `RoleGender` 和 `RoleMotion`。
 
-`IService` 位于 `src/Services/`，统一约定释放与只读 `IsDisposed` 状态。八个服务继承薄基类 `Service`，共用释放状态和受保护的 `ThrowIfDisposed()`；具体 `Dispose()` 仍由各服务实现，保持自己的标记时机、资源清理和异常处理，不增加释放钩子或统一清理模板。缓存、传输与注册句柄保留自身生命周期。`GameServices` 是主线程的固定服务集合，提供只读 `Env`、`Config`、`Setting`、`EventBus`、`Net`、`Session`、`World`、`Animation` 入口。参考 Dalamud 的服务契约、构造依赖与逆依赖卸载原则；当前服务数量固定，通过显式组合表达依赖。服务之间只能借用构造参数传入的同次启动实例，禁止在任何服务及其内部类型中访问 GameServices，禁止循环依赖、属性回填、延迟解析与工厂委托绕过构造顺序；依赖字段保持只读。Godot 节点通过全局入口调用业务，不缓存服务、账号缓存或世界管理器。节点只拥有 Godot 节点、订阅句柄、界面布局和上次呈现的不可变快照。
+`IService` 位于 `src/Services/`，统一约定释放与只读 `IsDisposed` 状态。九个服务继承薄基类 `Service`，共用释放状态和受保护的 `ThrowIfDisposed()`；具体 `Dispose()` 仍由各服务实现，保持自己的标记时机、资源清理和异常处理，不增加释放钩子或统一清理模板。缓存、传输与注册句柄保留自身生命周期。`GameServices` 是主线程的固定服务集合，提供只读 `Env`、`Log`、`Config`、`Setting`、`EventBus`、`Net`、`Session`、`World`、`Animation` 入口。参考 Dalamud 的服务契约、构造依赖与逆依赖卸载原则；当前服务数量固定，通过显式组合表达依赖。服务之间只能借用构造参数传入的同次启动实例，禁止在任何服务及其内部类型中访问 GameServices，禁止循环依赖、属性回填、延迟解析与工厂委托绕过构造顺序；依赖字段保持只读。Godot 节点通过全局入口调用业务，不缓存服务、账号缓存或世界管理器。节点只拥有 Godot 节点、订阅句柄、界面布局和上次呈现的不可变快照。
 
 | 服务 | 拥有的状态和行为 | 内部依赖 |
 | --- | --- | --- |
 | `EnvService Env` | 统一持有配置、Schema、设置与模拟服务端目录 | 无依赖根服务 |
+| `LogService Log` | 通信与成功文件提交的控制台日志，仅指定消息标记着色 | 无依赖；使用 Godot PrintRich |
 | `ConfigService Config` | 构造时加载、校验并持有配置 | Env；具体 CfgCache 统一读取 JSON 与 Schema |
-| `SettingService Setting` | 构造时加载系统设置，内部持有角色设置并修改、保存 | Env；私有 JSON 读写方法 |
+| `SettingService Setting` | 构造时加载系统设置，内部持有角色设置并修改、保存 | Env、Log；私有 JSON 读写方法 |
 | `EventBusService EventBus` | 唯一类型事件域、缓存优先分发、监听错误与订阅生命周期 | 内部监听集合与重入队列 |
-| `NetService Net` | protobuf 请求队列、固定帧收发及解码后发布消息 | Env、EventBus、Config；内部 `INetTransport`，通过绑定的 EventBus 实例发布 |
+| `NetService Net` | protobuf 请求队列、固定帧收发及解码后发布消息 | Env、Log、EventBus、Config；内部 `INetTransport`，通过绑定的 EventBus 实例发布 |
 | `SessionService Session` | 持有登录尝试的摘要与角色缓存，提交登录、选角和角色管理请求并提供快照 | `NetService`、内部 `LoginCache` 与 `RoleCache` |
 | `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部只读地图组件、`MapUtils`、`WorldManager` |
 | `AnimationService Animation` | 分别缓存身体动作与独立头部资源并解析朝向 | Godot 原生资源 |
 
 `ConfigService` 显式持有 `MapCfgCache Map`、`ItemCfgCache Item` 和 `BasicCfgCache Basic`，构造时按缓存类的文件标注读取平铺于 `res://config` 根目录的全部 JSON，拒绝子目录与未注册文件。单例数据通过 `GameServices.Config.Map.Value` 读取，多例通过 `GameServices.Config.Item.Items` 读取。配置缓存统一使用 `res://schemas` 中同名的 Draft 2020-12 JSON Schema 校验；原始加载只走 Godot `DirAccess` 与 `FileAccess`，不保留 System.IO 测试分支。地图工具复制为只读地图快照，UI 与分块通过服务读取。缺失、重复、未注册、无效配置或 Schema 导致启动抛异常；错误保留文件路径及原因。配置与程序同包发布，服务释放全部缓存，已取得的缓存引用也拒绝继续读取。配置及整组服务验收在 Godot headless 执行；普通 .NET 地图用例直接提供 `MapCfg` 纯数据。
 
-主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config、Setting 的公开构造只接收 Env，Net 接收 Env、EventBus、Config，Session 接收 Net，World 接收 Config、Setting、Session，EventBus 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Env、EventBus、Config、Setting、Net、Session、World、Animation 顺序显式创建全部八个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、EventBus、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
+主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config 的公开构造只接收 Env，Setting 接收 Env、Log，Net 接收 Env、EventBus、Config、Log，Session 接收 Net，World 接收 Config、Setting、Session，EventBus 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Env、Log、EventBus、Config、Setting、Net、Session、World、Animation 顺序显式创建全部九个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、EventBus、Log、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
 
 `MainController` 只协调页面与表现：登录和选角按钮调用 Session 服务，成功后创建相应页面或世界表现；固定帧先推进 Net 再推进 World，再更新角色与摄像机。输入由节点完成视口逆投影，再交给 World 服务限制边界、分配移动序号并同时提交 ECS Action 与网络请求。控制器不再保存目录或网络工厂；`InitializeServices()` 只调用无参启动，场景测试替身覆盖整组初始化以使用独立环境和传输。启动失败和退出共用清理，先撤销 UI 监听、提交拖动设置，再释放服务句柄；未获得句柄的控制器不会释放其他启动流程的服务。
 
@@ -162,3 +163,7 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 `tests/movement_performance.tscn` 使用隔离临时存档启动真实主控制器，自动登录、选角、静止与连续改目标移动，输出帧时间分位数、最大值、超过 50 ms 的帧数、引擎耗时监控及托管分配。Windows 图形模式以 `--disable-vsync --max-fps 120` 启动该场景可复测；可在 `--` 后传 `--capture=<绝对 PNG 路径>` 保存静止画面。引擎耗时监控约每秒刷新，可能带入上一阶段，不能视为每帧 CPU 时间；帧间隔以 Stopwatch 独立采样。性能数值不设跨硬件硬阈值，headless 只用于功能回归。
 
 `powershell -ExecutionPolicy Bypass -File tools/test.ps1` 执行项目检查与完整测试：普通用例通过 `dotnet test` 运行；标记 `Runtime=Godot` 的配置和整组服务用例通过 headless 测试场景及现有 xUnit 运行器执行；此外运行身体动画与角色管理场景，验证原始头发像素位置、全部头型/动作/方向及实际按钮交互。`ClientTests.runsettings` 默认排除需要引擎的用例，单独运行 `dotnet test` 只执行普通部分。测试程序集及运行器依赖由测试场景加载，不加入正式项目依赖；失败或未发现 Godot 用例时返回非零退出码。
+
+## 控制台日志
+
+`GameServices.Log` 持有 `LogService`，在 Env 后创建、Env 前释放。NetService 与 SettingService 通过构造绑定；MockServer 与 RepoServerRole 通过提交回调输出，不依赖 Godot。成功发送和当前代次解析成功的消息分别使用 `[Client][Request]`、`[Client][Response]`、`[Client][Notice]` 前缀并附协议名和 protobuf JSON；只有 Request 标记为绿色、Response/Notice 标记为橙色。成功提交设置和服务端角色 JSON 使用 `[Client][IO][filename]` 与 `[Server][IO][filename]`，附实际写入 JSON 的紧凑单行表示，文件格式保持原样；读取、失败和临时文件不输出 IO。消息 JSON 字符串中的方括号使用 Unicode 转义，IO 走纯文本输出，输出故障不改变业务结果。

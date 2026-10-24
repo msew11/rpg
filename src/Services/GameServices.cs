@@ -28,6 +28,8 @@ public static class GameServices
     }
     /// <summary>本次启动统一的资源与持久化目录。</summary>
     public static EnvService Env => Current.Env;
+    /// <summary>本次启动统一的控制台日志。</summary>
+    public static LogService Log => Current.Log;
     /// <summary>客户端只读配置。</summary>
     public static ConfigService Config => Current.Config;
     /// <summary>当前系统与角色本地设置。</summary>
@@ -52,13 +54,15 @@ public static class GameServices
         {
             var env = new EnvService();
             created.Add(env);
+            var log = new LogService();
+            created.Add(log);
             var eventBus = new EventBusService();
             created.Add(eventBus);
             var config = new ConfigService(env);
             created.Add(config);
-            var setting = new SettingService(env);
+            var setting = new SettingService(env, log);
             created.Add(setting);
-            var net = new NetService(env, eventBus, config);
+            var net = new NetService(env, eventBus, config, log);
             created.Add(net);
             var session = new SessionService(net);
             created.Add(session);
@@ -66,7 +70,7 @@ public static class GameServices
             created.Add(world);
             var animation = new AnimationService();
             created.Add(animation);
-            return Register(env, eventBus, config, setting, net, session, world, animation);
+            return Register(env, log, eventBus, config, setting, net, session, world, animation);
         }
         catch (Exception error)
         {
@@ -82,16 +86,16 @@ public static class GameServices
     }
 
     /// <summary>验证并接管完整服务组，仅注册现成实例，不创建服务。</summary>
-    internal static IDisposable Register(EnvService env, EventBusService eventBus, ConfigService config,
+    internal static IDisposable Register(EnvService env, LogService log, EventBusService eventBus, ConfigService config,
         SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation)
     {
-        foreach (var service in new IService[] { env, eventBus, config, setting, net, session, world, animation })
+        foreach (var service in new IService[] { env, log, eventBus, config, setting, net, session, world, animation })
         {
             ArgumentNullException.ThrowIfNull(service);
             ObjectDisposedException.ThrowIf(service.IsDisposed, service);
         }
         if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
-        return _current = new Registration(env, eventBus, config, setting, net, session, world, animation);
+        return _current = new Registration(env, log, eventBus, config, setting, net, session, world, animation);
     }
 
     /// <summary>一次启动的所有权句柄，只保存服务实例并负责释放。</summary>
@@ -99,6 +103,8 @@ public static class GameServices
     {
         /// <summary>最先就绪、最后释放的环境服务。</summary>
         public EnvService Env { get; }
+        /// <summary>后于日志消费者释放的输出服务。</summary>
+        public LogService Log { get; }
         /// <summary>本注册拥有的唯一事件域。</summary>
         public EventBusService EventBus { get; }
         /// <summary>先就绪的配置服务。</summary>
@@ -117,10 +123,11 @@ public static class GameServices
         private bool _disposed;
 
         /// <summary>保存已按依赖顺序创建的完整服务组。</summary>
-        public Registration(EnvService env, EventBusService eventBus, ConfigService config,
+        public Registration(EnvService env, LogService log, EventBusService eventBus, ConfigService config,
             SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation)
         {
             Env = env;
+            Log = log;
             EventBus = eventBus;
             Config = config;
             Setting = setting;
@@ -137,7 +144,7 @@ public static class GameServices
             _disposed = true;
             if (ReferenceEquals(_current, this)) _current = null;
             var errors = new List<Exception>();
-            foreach (var service in new IService[] { Animation, World, Session, Net, Setting, Config, EventBus, Env })
+            foreach (var service in new IService[] { Animation, World, Session, Net, Setting, Config, EventBus, Log, Env })
             {
                 try { service.Dispose(); }
                 catch (Exception error) { errors.Add(error); }

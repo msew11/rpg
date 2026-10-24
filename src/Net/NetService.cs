@@ -13,6 +13,8 @@ namespace Rpg.Net;
 /// <summary>管理请求队列、protobuf 字节和按类型分发的服务器消息。</summary>
 public sealed class NetService : Service
 {
+    /// <summary>构造绑定的通信日志，生命周期长于网络。</summary>
+    internal LogService Log { get; }
     /// <summary>当前使用的可替换传输。</summary>
     private readonly INetTransport _transport;
     /// <summary>构造时绑定的事件服务，后于网络释放。</summary>
@@ -32,16 +34,18 @@ public sealed class NetService : Service
     public event Action<Exception>? Error;
 
     /// <summary>在服务内部初始化当前阶段的进程内传输。</summary>
-    public NetService(EnvService env, EventBusService eventBus, ConfigService config)
+    public NetService(EnvService env, EventBusService eventBus, ConfigService config, LogService log)
         : this(new MockTransport(new MockServer(env.ServerDirectory,
             new DataServerBagRules(config.Basic.Value.BagColumns, config.Basic.Value.BagRows,
-                config.Item.Items.Values.Select(item => new DataServerItemDefinition(item.Id, item.Name, item.MaxStack))))), eventBus) { }
+                config.Item.Items.Values.Select(item => new DataServerItemDefinition(item.Id, item.Name, item.MaxStack))), log.ServerIO)), eventBus, log) { }
 
     /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>
-    internal NetService(INetTransport transport, EventBusService eventBus)
+    internal NetService(INetTransport transport, EventBusService eventBus, LogService log)
     {
         ArgumentNullException.ThrowIfNull(eventBus);
         ObjectDisposedException.ThrowIf(eventBus.IsDisposed, eventBus);
+        ObjectDisposedException.ThrowIf(log.IsDisposed, log);
+        Log = log;
         _eventBus = eventBus;
         _transport = transport;
         _transport.ResetSession(_generation);
@@ -68,7 +72,12 @@ public sealed class NetService : Service
             var generation = _generation;
             for (var index = 0; index < count && _outbound.TryDequeue(out var packet); index++)
             {
-                try { _transport.Send(packet); }
+                try
+                {
+                    var message = MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), true);
+                    _transport.Send(packet);
+                    Log.Request(message);
+                }
                 catch (Exception error) { ReportError(error); }
                 if (IsDisposed) return;
                 if (_generation != generation) break;
@@ -80,7 +89,12 @@ public sealed class NetService : Service
                 try
                 {
                     var envelope = MessageCodec.ReadEnvelope(packet);
-                    if (envelope.Generation == _generation) _eventBus.Publish(MessageCodec.ReadPayload(envelope, false));
+                    if (envelope.Generation == _generation)
+                    {
+                        var message = MessageCodec.ReadPayload(envelope, false);
+                        Log.Receive(message);
+                        _eventBus.Publish(message);
+                    }
                 }
                 catch (Exception error) { ReportError(error); }
             }

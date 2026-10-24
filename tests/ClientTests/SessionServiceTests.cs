@@ -36,7 +36,7 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
     public void LoginAttemptsOwnEmptyCachesAndReleasePreviousSubscriptions()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, EventBus);
+        using var net = new NetService(transport, EventBus, new Rpg.Services.LogService(Console.WriteLine));
         using var session = new SessionService(net);
         session.Login("demo", "wrong");
         var previous = session.LoginCache;
@@ -62,7 +62,7 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
     public void InvalidInitialLoginDoesNotCreateSessionOrLeaveSubscriptions()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, EventBus);
+        using var net = new NetService(transport, EventBus, new Rpg.Services.LogService(Console.WriteLine));
         net.Send(new Login { Username = "demo", Password = "demo" });
         Assert.Throws<InvalidOperationException>(() => new SessionService(net, new LoginRt { Error = "登录失败" }));
         var invalid = new LoginRt { Success = true, Roles = { new RoleSummaryPb { RoleId = 1001 } } };
@@ -80,7 +80,7 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
     public void ReenteringSameRoleRejectsOldPacketsWhileKeepingLoginCache()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, EventBus);
+        using var net = new NetService(transport, EventBus, new Rpg.Services.LogService(Console.WriteLine));
         using var session = new SessionService(net, new LoginRt { Success = true });
         var loginCache = session.LoginCache;
         var state = new RoleWorldStatePb
@@ -122,7 +122,7 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
     public void DisposingReplacedAccountDoesNotResetNewSession()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, EventBus);
+        using var net = new NetService(transport, EventBus, new Rpg.Services.LogService(Console.WriteLine));
         using var previous = new SessionService(net, new LoginRt { Success = true });
         using var current = new SessionService(net, new LoginRt { Success = true });
         Assert.Throws<InvalidOperationException>(() => previous.SelectRole(1001));

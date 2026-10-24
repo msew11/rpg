@@ -10,13 +10,19 @@ namespace Rpg.Server;
 /// <summary>按角色隔离 JSON 存档，并以同目录临时文件替换提交状态。</summary>
 public sealed class RepoServerRole
 {
+    /// <summary>成功提交后的诊断回调，不参与服务端业务决策。</summary>
+    private readonly Action<string, string>? _writeLog;
     /// <summary>服务端存档的绝对目录，由运行入口或测试注入。</summary>
     private readonly string _directory;
     /// <summary>便于调试查看的 JSON 写入设置。</summary>
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     /// <summary>绑定存储目录，延迟到具体请求时创建文件。</summary>
-    public RepoServerRole(string directory) => _directory = Path.GetFullPath(directory);
+    public RepoServerRole(string directory, Action<string, string>? writeLog = null)
+    {
+        _directory = Path.GetFullPath(directory);
+        _writeLog = writeLog;
+    }
 
     /// <summary>获取指定角色的存档路径。</summary>
     public string GetRolePath(long roleId)
@@ -51,16 +57,19 @@ public sealed class RepoServerRole
         Validate(role);
         var path = GetRolePath(role.RoleId);
         var temporary = Path.Combine(_directory, $".{role.RoleId}.{Guid.NewGuid():N}.tmp");
+        var content = JsonSerializer.Serialize(role, JsonOptions);
         try
         {
             Directory.CreateDirectory(_directory);
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                var bytes = JsonSerializer.SerializeToUtf8Bytes(role, JsonOptions);
+                var bytes = System.Text.Encoding.UTF8.GetBytes(content);
                 stream.Write(bytes);
                 stream.Flush(true);
             }
             File.Move(temporary, path, true);
+            try { _writeLog?.Invoke(path, content); }
+            catch (Exception error) { System.Diagnostics.Trace.WriteLine(error); }
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {

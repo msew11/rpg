@@ -200,7 +200,7 @@ public partial class ClientSmoke : Node
             var volume = tabs.FindChildren("*", "HSlider", true, false).OfType<HSlider>().Single();
             volume.Value = 40;
             saveButtons[1].EmitSignal(Button.SignalName.Pressed);
-            var persistedSystem = new SettingService(new EnvService(temporary));
+            var persistedSystem = new SettingService(new EnvService(temporary), new Rpg.Services.LogService(Console.WriteLine));
             if (persistedSystem.Width != 1600 || Math.Abs(persistedSystem.MasterVolume - 0.4f) > 0.001f)
                 throw new InvalidOperationException("显示或声音设置未保存");
             var secondBar = tabs.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()

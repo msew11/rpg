@@ -36,7 +36,7 @@ internal sealed class NetworkTestFixture : IDisposable
         DirectoryPath = directory ?? Path.Combine(Path.GetTempPath(), "rpg-network-" + Guid.NewGuid());
         if (seedRoles) Rpg.Tests.RoleTestData.Seed(DirectoryPath);
         Server = new MockServer(DirectoryPath, new Rpg.Server.Data.DataServerBagRules(8, 5, []));
-        Net = new NetService(new MockTransport(Server), eventBus);
+        Net = new NetService(new MockTransport(Server), eventBus, new Rpg.Services.LogService(Console.WriteLine));
         Net.Error += Errors.Add;
         _eventBus.Error += Errors.Add;
     }

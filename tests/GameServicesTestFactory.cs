@@ -22,13 +22,15 @@ internal static class GameServicesTestFactory
         var created = new List<IService> { env };
         try
         {
+            var log = new LogService();
+            created.Add(log);
             var eventBus = new EventBusService();
             created.Add(eventBus);
             var config = new ConfigService(env);
             created.Add(config);
-            var setting = new SettingService(env);
+            var setting = new SettingService(env, log);
             created.Add(setting);
-            var net = new NetService(env, eventBus, config);
+            var net = new NetService(env, eventBus, config, log);
             created.Add(net);
             return Register(env, eventBus, config, setting, net);
         }
@@ -60,7 +62,7 @@ internal static class GameServicesTestFactory
             created.Add(world);
             var animation = new AnimationService();
             created.Add(animation);
-            return GameServices.Register(env, eventBus, config, setting, net, session, world, animation);
+            return GameServices.Register(env, net.Log, eventBus, config, setting, net, session, world, animation);
         }
         catch
         {

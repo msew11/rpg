@@ -56,7 +56,7 @@ public sealed class NetworkFoundationTests : EventBusServiceTestScope
     public void InvalidPacketsReportErrorsAndDoNotDispatch()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, EventBus);
+        using var net = new NetService(transport, EventBus, new Rpg.Services.LogService(Console.WriteLine));
         var errors = new List<Exception>();
         var delivered = 0;
         net.Error += errors.Add;
@@ -77,7 +77,7 @@ public sealed class NetworkFoundationTests : EventBusServiceTestScope
     public void SendsAndReceivesAreQueuedAndFreezeMutableRequests()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, EventBus);
+        using var net = new NetService(transport, EventBus, new Rpg.Services.LogService(Console.WriteLine));
         var callbacks = 0;
         using var subscription = EventBus.Subscribe<LoginRt>(_ => { callbacks++; net.Send(new SelectRole { RoleId = 1001 }); });
         var request = new Login { Username = "demo", Password = "demo" };
@@ -101,7 +101,7 @@ public sealed class NetworkFoundationTests : EventBusServiceTestScope
     public void SessionResetDiscardsOldQueuedAndInFlightMessages()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, EventBus);
+        using var net = new NetService(transport, EventBus, new Rpg.Services.LogService(Console.WriteLine));
         var calls = 0;
         using var subscription = EventBus.Subscribe<LoginRt>(_ => calls++);
         net.Send(new Login());
@@ -210,10 +210,16 @@ internal sealed class DoubleNetTransport : INetTransport
 {
     /// <summary>捕获发送方冻结的字节。</summary>
     public List<byte[]> Sent { get; } = [];
+    /// <summary>模拟传输发送失败，服务于通信日志的失败隔离契约。</summary>
+    public bool FailSend { get; init; }
     /// <summary>向网络服务提交测试字节。</summary>
     public event Action<byte[]>? Received;
     /// <summary>记录发送数据，不执行任何业务逻辑。</summary>
-    public void Send(byte[] packet) => Sent.Add((byte[])packet.Clone());
+    public void Send(byte[] packet)
+    {
+        if (FailSend) throw new IOException("模拟发送失败");
+        Sent.Add((byte[])packet.Clone());
+    }
     /// <summary>此替身不需要时间推进。</summary>
     public void Tick(double delta) { }
     /// <summary>保留已发送记录供断言，代次由信封验证。</summary>

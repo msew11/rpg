@@ -24,8 +24,8 @@ public partial class DoubleStartupFailureController : MainController
         var env = new EnvService(Path.Combine(Path.GetTempPath(), "rpg-startup-" + Guid.NewGuid()));
         var eventBus = new EventBusService();
         var config = new ConfigService(env);
-        var setting = new SettingService(env);
-        CreatedNet = new NetService(_transport, eventBus);
+        var setting = new SettingService(env, new Rpg.Services.LogService(Console.WriteLine));
+        CreatedNet = new NetService(_transport, eventBus, new Rpg.Services.LogService(Console.WriteLine));
         return GameServicesTestFactory.Register(env, eventBus, config, setting, CreatedNet);
     }
 

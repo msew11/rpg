@@ -89,7 +89,7 @@ public sealed class GameServicesTests
     {
         using var eventBus = new EventBusService();
         using var transport = new DoubleNetTransport();
-        var net = new NetService(transport, eventBus);
+        var net = new NetService(transport, eventBus, new Rpg.Services.LogService(Console.WriteLine));
         using var services = Register(net, eventBus);
         var errors = new List<Exception>();
         GameServices.EventBus.Error += errors.Add;
@@ -125,9 +125,9 @@ public sealed class GameServicesTests
             var serverDirectory = Path.Combine(directory, "server");
             Rpg.Tests.RoleTestData.Seed(serverDirectory);
             var server = new MockServer(serverDirectory, new Rpg.Server.Data.DataServerBagRules(8, 5, []));
-            using var net = new NetService(new MockTransport(server), eventBus);
+            using var net = new NetService(new MockTransport(server), eventBus, new Rpg.Services.LogService(Console.WriteLine));
             var env = ConfigTestFixture.CreateEnv(Path.Combine(directory, "settings"));
-            var setting = new SettingService(env);
+            var setting = new SettingService(env, new Rpg.Services.LogService(Console.WriteLine));
             using var services = GameServicesTestFactory.Register(env, eventBus, new ConfigService(env), setting, net);
             var errors = new List<Exception>();
             GameServices.EventBus.Error += errors.Add;
@@ -194,8 +194,8 @@ public sealed class GameServicesTests
         {
             var config = ConfigTestFixture.LoadDefault();
             var env = ConfigTestFixture.CreateEnv(directory);
-            var setting = new SettingService(env);
-            var net = new NetService(new DoubleLifetimeTransport { FailDispose = true }, eventBus);
+            var setting = new SettingService(env, new Rpg.Services.LogService(Console.WriteLine));
+            var net = new NetService(new DoubleLifetimeTransport { FailDispose = true }, eventBus, new Rpg.Services.LogService(Console.WriteLine));
             using var services = GameServicesTestFactory.Register(env, eventBus, config, setting, net);
             var session = GameServices.Session;
             var world = GameServices.World;
@@ -230,8 +230,8 @@ public sealed class GameServicesTests
         {
             var config = ConfigTestFixture.LoadDefault();
             var env = ConfigTestFixture.CreateEnv(directory);
-            var setting = new SettingService(env);
-            var net = new NetService(new DoubleNetTransport(), eventBus);
+            var setting = new SettingService(env, new Rpg.Services.LogService(Console.WriteLine));
+            var net = new NetService(new DoubleNetTransport(), eventBus, new Rpg.Services.LogService(Console.WriteLine));
             using var services = GameServicesTestFactory.Register(env, eventBus, config, setting, net);
             setting.SelectRole(1001);
             setting.SetHudPosition("portrait", 0.3f, 0.4f);
@@ -259,7 +259,7 @@ public sealed class GameServicesTests
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<InvalidOperationException>(() => GameServices.Net);
         using var transport = new DoubleNetTransport();
-        var net = new NetService(transport, eventBus);
+        var net = new NetService(transport, eventBus, new Rpg.Services.LogService(Console.WriteLine));
         using var services = Register(net, eventBus);
         Assert.True(GameServices.IsInitialized);
         Assert.Same(net, GameServices.Net);
@@ -281,14 +281,14 @@ public sealed class GameServicesTests
     {
         using var eventBus = new EventBusService();
         Assert.Throws<ArgumentNullException>(() => Register(null!, eventBus));
-        using var disposed = new NetService(new DoubleNetTransport(), eventBus);
+        using var disposed = new NetService(new DoubleNetTransport(), eventBus, new Rpg.Services.LogService(Console.WriteLine));
         disposed.Dispose();
         Assert.Throws<ObjectDisposedException>(() => Register(disposed, eventBus));
         Assert.False(GameServices.IsInitialized);
-        var original = new NetService(new DoubleNetTransport(), eventBus);
+        var original = new NetService(new DoubleNetTransport(), eventBus, new Rpg.Services.LogService(Console.WriteLine));
         using var services = Register(original, eventBus);
         using var otherTransport = new DoubleNetTransport();
-        using var other = new NetService(otherTransport, eventBus);
+        using var other = new NetService(otherTransport, eventBus, new Rpg.Services.LogService(Console.WriteLine));
         Assert.Throws<InvalidOperationException>(() => Register(other, eventBus));
         Assert.Same(original, GameServices.Net);
         other.Send(new Login());
@@ -302,7 +302,7 @@ public sealed class GameServicesTests
     {
         using var eventBus = new EventBusService();
         var transport = new DoubleLifetimeTransport();
-        var net = new NetService(transport, eventBus);
+        var net = new NetService(transport, eventBus, new Rpg.Services.LogService(Console.WriteLine));
         using var services = Register(net, eventBus);
         var oldEvents = GameServices.EventBus;
         var oldCalls = 0;
@@ -316,7 +316,7 @@ public sealed class GameServicesTests
         Assert.Throws<ObjectDisposedException>(() => oldEvents.Publish(1));
         Assert.Equal(1, transport.DisposeCount);
         using var currentEvents = new EventBusService();
-        var current = new NetService(new DoubleNetTransport(), currentEvents);
+        var current = new NetService(new DoubleNetTransport(), currentEvents, new Rpg.Services.LogService(Console.WriteLine));
         using var currentServices = Register(current, currentEvents);
         var newEvents = GameServices.EventBus;
         Assert.NotSame(oldEvents, newEvents);
@@ -335,7 +335,7 @@ public sealed class GameServicesTests
     public void ExternallyDisposedNetworkKeepsRegistrationUntilOwnerDisposes()
     {
         using var eventBus = new EventBusService();
-        var net = new NetService(new DoubleNetTransport(), eventBus);
+        var net = new NetService(new DoubleNetTransport(), eventBus, new Rpg.Services.LogService(Console.WriteLine));
         using var services = Register(net, eventBus);
         Assert.Same(eventBus, GameServices.EventBus);
         net.Dispose();
@@ -347,7 +347,7 @@ public sealed class GameServicesTests
         Assert.True(GameServices.IsInitialized);
         Assert.Same(net, GameServices.Net);
         Assert.Throws<ObjectDisposedException>(() => GameServices.Net.Send(new Login()));
-        using var other = new NetService(new DoubleNetTransport(), eventBus);
+        using var other = new NetService(new DoubleNetTransport(), eventBus, new Rpg.Services.LogService(Console.WriteLine));
         Assert.Throws<InvalidOperationException>(() => Register(other, eventBus));
     }
 
@@ -375,7 +375,7 @@ public sealed class GameServicesTests
     {
         using var eventBus = new EventBusService();
         var transport = new DoubleLifetimeTransport { FailDispose = true };
-        var net = new NetService(transport, eventBus);
+        var net = new NetService(transport, eventBus, new Rpg.Services.LogService(Console.WriteLine));
         using var services = Register(net, eventBus);
         Assert.Throws<IOException>(() => services.Dispose());
         Assert.False(GameServices.IsInitialized);
@@ -394,11 +394,11 @@ public sealed class GameServicesTests
         using var eventBus = new EventBusService();
         Assert.Throws<InvalidOperationException>(() => new SessionService(GameServices.Net, new LoginRt { Success = true }));
         using var globalTransport = new DoubleNetTransport();
-        using var services = Register(new NetService(globalTransport, eventBus), eventBus);
+        using var services = Register(new NetService(globalTransport, eventBus, new Rpg.Services.LogService(Console.WriteLine)), eventBus);
         Assert.Same(eventBus, GameServices.EventBus);
         using var globalSession = new SessionService(GameServices.Net, new LoginRt { Success = true });
         using var isolatedTransport = new DoubleNetTransport();
-        using var isolated = new NetService(isolatedTransport, GameServices.EventBus);
+        using var isolated = new NetService(isolatedTransport, GameServices.EventBus, new Rpg.Services.LogService(Console.WriteLine));
         using var isolatedSession = new SessionService(isolated, new LoginRt { Success = true });
         globalSession.SelectRole(1001);
         isolatedSession.SelectRole(1002);
@@ -444,11 +444,11 @@ public sealed class GameServicesTests
     {
         using var eventBus = new EventBusService();
         using var globalTransport = new DoubleNetTransport();
-        using var services = Register(new NetService(globalTransport, eventBus), eventBus);
+        using var services = Register(new NetService(globalTransport, eventBus, new Rpg.Services.LogService(Console.WriteLine)), eventBus);
         var globalNet = GameServices.Net;
         GameServices.Net.Send(new Login());
         using (var isolatedTransport = new DoubleNetTransport())
-        using (var isolated = new NetService(isolatedTransport, GameServices.EventBus))
+        using (var isolated = new NetService(isolatedTransport, GameServices.EventBus, new Rpg.Services.LogService(Console.WriteLine)))
         using (var session = new SessionService(isolated, new LoginRt { Success = true }))
         {
             session.SelectRole(1002);
@@ -467,10 +467,10 @@ public sealed class GameServicesTests
     {
         using var eventBus = new EventBusService();
         using var firstTransport = new DoubleNetTransport();
-        using var services = Register(new NetService(firstTransport, eventBus), eventBus);
+        using var services = Register(new NetService(firstTransport, eventBus, new Rpg.Services.LogService(Console.WriteLine)), eventBus);
         Assert.Same(eventBus, GameServices.EventBus);
         using var secondTransport = new DoubleNetTransport();
-        using var secondNet = new NetService(secondTransport, GameServices.EventBus);
+        using var secondNet = new NetService(secondTransport, GameServices.EventBus, new Rpg.Services.LogService(Console.WriteLine));
         var calls = 0;
         var eventErrors = new List<Exception>();
         var netErrors = new List<Exception>();
@@ -513,7 +513,7 @@ public sealed class GameServicesTests
     public void AllServicesExposeDisposalStateThroughCommonContract()
     {
         using var lifetime = Register(new DoubleNetTransport());
-        IService[] services = [GameServices.Env, GameServices.Config, GameServices.Setting, GameServices.EventBus,
+        IService[] services = [GameServices.Env, GameServices.Log, GameServices.Config, GameServices.Setting, GameServices.EventBus,
             GameServices.Net, GameServices.Session, GameServices.World, GameServices.Animation];
         Assert.All(services, service => Assert.False(service.IsDisposed));
         lifetime.Dispose();
@@ -529,7 +529,7 @@ public sealed class GameServicesTests
         NetService? net = null;
         try
         {
-            net = new NetService(transport, eventBus);
+            net = new NetService(transport, eventBus, new Rpg.Services.LogService(Console.WriteLine));
             return Register(net, eventBus);
         }
         catch { net?.Dispose(); eventBus.Dispose(); throw; }
@@ -540,7 +540,7 @@ public sealed class GameServicesTests
     {
         var env = ConfigTestFixture.CreateEnv(Path.Combine(Path.GetTempPath(), "rpg-services-" + Guid.NewGuid()));
         var config = new ConfigService(env);
-        var setting = new SettingService(env);
+        var setting = new SettingService(env, new Rpg.Services.LogService(Console.WriteLine));
         try { return GameServicesTestFactory.Register(env, eventBus, config, setting, net); }
         catch { setting.Dispose(); config.Dispose(); env.Dispose(); throw; }
     }

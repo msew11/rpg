@@ -68,7 +68,7 @@ public sealed class EventSubscriptionBoundaryTests
     [Fact]
     public void ServicesFollowFixedConstructionAndReverseDisposalOrder()
     {
-        Type[] order = [typeof(EnvService), typeof(EventBusService), typeof(Rpg.Config.ConfigService),
+        Type[] order = [typeof(EnvService), typeof(LogService), typeof(EventBusService), typeof(Rpg.Config.ConfigService),
             typeof(Rpg.Settings.SettingService), typeof(Rpg.Net.NetService), typeof(Rpg.Session.SessionService),
             typeof(Rpg.World.WorldService), typeof(Rpg.World.Views.AnimationService)];
         var services = typeof(Service).Assembly.GetTypes().Where(type => !type.IsAbstract && typeof(Service).IsAssignableFrom(type));
@@ -93,7 +93,7 @@ public sealed class EventSubscriptionBoundaryTests
         Assert.Equal(order.Select(type => type.Name), constructions);
         var disposal = System.Text.RegularExpressions.Regex.Matches(source, @"foreach \(var service in new IService\[\] \{ ([^}]+) \}\)").Last();
         Assert.True(disposal.Success, "整体释放必须显式列出逆依赖顺序");
-        Assert.Equal(new[] { "Animation", "World", "Session", "Net", "Setting", "Config", "EventBus", "Env" },
+        Assert.Equal(new[] { "Animation", "World", "Session", "Net", "Setting", "Config", "EventBus", "Log", "Env" },
             disposal.Groups[1].Value.Split(',').Select(name => name.Trim()));
     }
 }

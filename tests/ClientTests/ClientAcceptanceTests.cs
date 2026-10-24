@@ -194,7 +194,7 @@ public sealed class SettingsAcceptanceTests
         var directory = Path.Combine(Path.GetTempPath(), "rpg-settings-test-" + Guid.NewGuid());
         try
         {
-            using var setting = new SettingService(new EnvService(directory));
+            using var setting = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
             Assert.Equal(Path.GetFullPath(Path.Combine(directory, "system.json")), setting.SystemPath);
             setting.SetResolution(1600, 900);
             setting.SetMasterVolume(0.4f);
@@ -204,7 +204,7 @@ public sealed class SettingsAcceptanceTests
             setting.SetHudPosition("portrait", 0.4f, 0.2f);
             setting.SaveCurrentRole();
 
-            using var reopened = new SettingService(new EnvService(directory));
+            using var reopened = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
             Assert.Equal(1600, reopened.Width);
             Assert.Equal(0.4f, reopened.MasterVolume);
             reopened.SelectRole(1001);
@@ -223,7 +223,7 @@ public sealed class SettingsAcceptanceTests
         var directory = Path.Combine(Path.GetTempPath(), "rpg-current-settings-test-" + Guid.NewGuid());
         try
         {
-            var repo = new Rpg.Settings.SettingService(new EnvService(directory));
+            var repo = new Rpg.Settings.SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
             repo.SetResolution(1600, 900);
             repo.SetMasterVolume(0.4f);
             repo.SelectRole(1001);
@@ -242,7 +242,7 @@ public sealed class SettingsAcceptanceTests
             Assert.Equal(0.4f, repo.GetHudPosition("portrait").X);
             repo.ResetHudPositions();
 
-            var reopened = new Rpg.Settings.SettingService(new EnvService(directory));
+            var reopened = new Rpg.Settings.SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
             Assert.Equal(1600, reopened.Width);
             Assert.Equal(0.4f, reopened.MasterVolume);
             Assert.Equal(0.6f, SettingsTestFixture.ReadRole(directory, 1002).HudPositions["portrait"].X);

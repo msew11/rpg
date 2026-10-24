@@ -35,9 +35,9 @@ public sealed class MockServer
     public event Action<byte[]>? Outgoing;
 
     /// <summary>绑定独立服务端存储目录。</summary>
-    public MockServer(string directory, DataServerBagRules bagRules)
+    public MockServer(string directory, DataServerBagRules bagRules, Action<string, string>? writeLog = null)
     {
-        _roles = new RepoServerRole(directory);
+        _roles = new RepoServerRole(directory, writeLog);
         _bagRules = bagRules;
     }
 

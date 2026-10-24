@@ -10,6 +10,8 @@ namespace Rpg.Settings;
 /// <summary>拥有当前系统与角色设置，集中处理修改和保存。</summary>
 public sealed class SettingService : Service
 {
+    /// <summary>构造绑定的文件提交日志。</summary>
+    private readonly LogService _log;
     /// <summary>本次服务的设置持久化根目录。</summary>
     private readonly string _root;
     /// <summary>持久化 JSON 的格式设置。</summary>
@@ -24,9 +26,11 @@ public sealed class SettingService : Service
     private bool _roleDirty;
 
     /// <summary>从环境指定的目录载入本次启动的系统设置。</summary>
-    public SettingService(EnvService env)
+    public SettingService(EnvService env, LogService log)
     {
         ObjectDisposedException.ThrowIf(env.IsDisposed, env);
+        ObjectDisposedException.ThrowIf(log.IsDisposed, log);
+        _log = log;
         _root = env.SettingsDirectory;
         _systemSetting = LoadSystem();
     }
@@ -196,11 +200,13 @@ public sealed class SettingService : Service
     }
 
     /// <summary>通过临时文件替换目标，避免保存中断破坏原文件。</summary>
-    private static void Write<T>(string path, T value)
+    private void Write<T>(string path, T value)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temporary = path + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(value, JsonOptions));
+        var content = JsonSerializer.Serialize(value, JsonOptions);
+        File.WriteAllText(temporary, content);
         File.Move(temporary, path, true);
+        _log.ClientIO(path, content);
     }
 }
