@@ -28,18 +28,23 @@ public sealed class NetworkFoundationTests : EventBusServiceTestScope
     public void ProtocolsRoundTripAsIndependentObjects()
     {
         var state = new RoleWorldStatePb { RoleId = 1001, Name = "晨星", Gender = RoleGenderPb.Male,
-            X = 123.5f, Y = 456, Revision = 9, AcknowledgedAction = 3 };
+            X = 123.5f, Y = 456, Revision = 9, AcknowledgedAction = 3, HeadId = 74 };
         var summary = new RoleSummaryPb { RoleId = 1001, Name = "晨星", Level = 1, Gender = RoleGenderPb.Male };
         IMessage[] messages = [new Login { Username = "demo", Password = "demo" },
             new SelectRole { RoleId = 1001 }, new Move { RoleId = 1001, ActionId = 3, X = 9, Y = 8 },
+            new CreateRole { Name = "创建角色", Gender = RoleGenderPb.Female, HeadId = 74 },
+            new DeleteRole { RoleId = 1001 },
+            new CreateRoleRt { Success = true, Roles = { summary } },
+            new DeleteRoleRt { Success = true },
             new LoginRt { Success = true, Roles = { summary } },
             new SelectRoleRt { Success = true, RoleId = 1001, State = state },
             new MoveRt { Success = true, RoleId = 1001, ActionId = 3, State = state },
             new RoleStateNotice { State = state }];
         for (var index = 0; index < messages.Length; index++)
         {
-            var envelope = MessageCodec.ReadEnvelope(MessageCodec.Encode(messages[index], 7, index < 3));
-            var decoded = MessageCodec.ReadPayload(envelope, index < 3);
+            var request = messages[index] is Login or SelectRole or CreateRole or DeleteRole or Move;
+            var envelope = MessageCodec.ReadEnvelope(MessageCodec.Encode(messages[index], 7, request));
+            var decoded = MessageCodec.ReadPayload(envelope, request);
             Assert.Equal(7, envelope.Generation);
             Assert.Equal(messages[index], decoded);
             Assert.NotSame(messages[index], decoded);

@@ -3,19 +3,6 @@ package rpg;
 option csharp_namespace = "Rpg.Net.Message";
 
 import "role.proto";
-import "world.proto";
-
-// 登录选角页使用的角色简略信息，不包含世界状态。
-message RoleSummaryPb {
-  // 唯一角色 ID。
-  int64 role_id = 1;
-  // 角色显示名称。
-  string name = 2;
-  // 当前等级。
-  int32 level = 3;
-  // 基础身体性别。
-  RoleGenderPb gender = 4;
-}
 
 // 使用演示账号登录。
 message Login {
@@ -33,22 +20,4 @@ message LoginRt {
   string error = 2;
   // 账号可选择的角色简略信息。
   repeated RoleSummaryPb roles = 3;
-}
-
-// 请求进入指定角色会话。
-message SelectRole {
-  // 要选择的角色 ID。
-  int64 role_id = 1;
-}
-
-// 选角结果和初始权威状态。
-message SelectRoleRt {
-  // 是否成功。
-  bool success = 1;
-  // 失败原因。
-  string error = 2;
-  // 请求选择的角色 ID，失败时也保留。
-  int64 role_id = 3;
-  // 成功后的初始角色状态。
-  RoleWorldStatePb state = 4;
 }

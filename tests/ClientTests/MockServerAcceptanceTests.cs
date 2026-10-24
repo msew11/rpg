@@ -24,7 +24,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         Assert.True(login.Success, login.Error);
         Assert.Equal(2, login.Roles.Count);
         Assert.Equal(RoleSummaryPb.Descriptor, LoginRt.Descriptor.FindFieldByName("roles").MessageType);
-        Assert.Equal(new[] { "role_id", "name", "level", "gender" },
+        Assert.Equal(new[] { "role_id", "name", "level", "gender", "head_id" },
             RoleSummaryPb.Descriptor.Fields.InFieldNumberOrder().Select(field => field.Name));
         var summary = login.Roles.Single(role => role.RoleId == 1001);
         Assert.IsType<RoleSummaryPbData>(summary);

@@ -55,6 +55,9 @@ if ($Tests) {
     $testAssembly = Join-Path $projectPath 'tests\ClientTests\bin\Debug\net8.0\ClientTests.dll'
     Invoke-GodotCheck 'Godot xUnit tests' @('--headless', '--path', $projectPath,
         'res://tests/godot_test_host.tscn', '--', $testAssembly)
+    # 外观与角色管理必须通过真实节点、帧推进和按钮验收。
+    Invoke-GodotCheck 'actor animation' @('--headless', '--path', $projectPath, 'res://tests/actor_animation_smoke.tscn')
+    Invoke-GodotCheck 'role management' @('--headless', '--path', $projectPath, 'res://tests/role_management_smoke.tscn')
 }
 
 if ($ExportWindows) {

@@ -36,6 +36,10 @@ public sealed record DataServerRole
     public float Y { get; init; }
     /// <summary>基础身体性别。</summary>
     public ServerRoleGender Gender { get; init; }
+    /// <summary>头型编号，旧存档缺失时使用默认头型。</summary>
+    public int HeadId { get; init; } = 1;
+    /// <summary>持久化删除标记，保留编号防止重启恢复。</summary>
+    public bool IsDeleted { get; init; }
     /// <summary>持久化的递增状态版本。</summary>
     public long Revision { get; init; }
     /// <summary>本次会话已经确认的移动序号。</summary>

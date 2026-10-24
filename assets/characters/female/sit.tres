@@ -1,53 +1,36 @@
 [gd_resource type="Resource" script_class="DataActorAnimation" load_steps=9 format=3]
-
 [ext_resource type="Script" path="res://src/World/Views/DataActorAnimation.cs" id="1"]
 [ext_resource type="Texture2D" path="res://assets/characters/female/sit.png" id="2"]
-
 [sub_resource type="AtlasTexture" id="Frame_0_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 0, 43, 74)
+region = Rect2(0, 0, 43, 54)
 filter_clip = true
-
 [sub_resource type="AtlasTexture" id="Frame_1_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 74, 43, 74)
+region = Rect2(0, 54, 43, 54)
 filter_clip = true
-
 [sub_resource type="AtlasTexture" id="Frame_2_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 148, 43, 74)
+region = Rect2(0, 108, 43, 54)
 filter_clip = true
-
 [sub_resource type="AtlasTexture" id="Frame_3_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 222, 43, 74)
+region = Rect2(0, 162, 43, 54)
 filter_clip = true
-
 [sub_resource type="AtlasTexture" id="Frame_4_0"]
 atlas = ExtResource("2")
-region = Rect2(0, 296, 43, 74)
+region = Rect2(0, 216, 43, 54)
 filter_clip = true
-
 [sub_resource type="SpriteFrames" id="Animations"]
 animations = [
-{"frames": [
-{"duration": 1.0, "texture": SubResource("Frame_0_0")}
-], "loop": false, "name": &"dir0", "speed": 10.0},
-{"frames": [
-{"duration": 1.0, "texture": SubResource("Frame_1_0")}
-], "loop": false, "name": &"dir1", "speed": 10.0},
-{"frames": [
-{"duration": 1.0, "texture": SubResource("Frame_2_0")}
-], "loop": false, "name": &"dir2", "speed": 10.0},
-{"frames": [
-{"duration": 1.0, "texture": SubResource("Frame_3_0")}
-], "loop": false, "name": &"dir3", "speed": 10.0},
-{"frames": [
-{"duration": 1.0, "texture": SubResource("Frame_4_0")}
-], "loop": false, "name": &"dir4", "speed": 10.0}
+{"frames": [{"duration": 1.0, "texture": SubResource("Frame_0_0")}], "loop": false, "name": &"dir0", "speed": 10.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("Frame_1_0")}], "loop": false, "name": &"dir1", "speed": 10.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("Frame_2_0")}], "loop": false, "name": &"dir2", "speed": 10.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("Frame_3_0")}], "loop": false, "name": &"dir3", "speed": 10.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("Frame_4_0")}], "loop": false, "name": &"dir4", "speed": 10.0}
 ]
-
 [resource]
 script = ExtResource("1")
 Frames = SubResource("Animations")
-Anchor = Vector2(21, 67)
+Anchor = Vector2(21, 47)
+HeadAttachments = PackedVector2Array(23, 0, 24, 0, 23, 1, 22, 1, 23, 0)

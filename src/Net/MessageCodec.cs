@@ -12,10 +12,10 @@ public static class MessageCodec
 {
     /// <summary>允许客户端发送的协议解析器。</summary>
     private static readonly IReadOnlyDictionary<string, MessageParser> Requests = CreateRegistry(
-        Login.Descriptor, SelectRole.Descriptor, Move.Descriptor);
+        Login.Descriptor, SelectRole.Descriptor, CreateRole.Descriptor, DeleteRole.Descriptor, Move.Descriptor);
     /// <summary>允许服务端发送的响应及推送解析器。</summary>
     private static readonly IReadOnlyDictionary<string, MessageParser> Responses = CreateRegistry(
-        LoginRt.Descriptor, SelectRoleRt.Descriptor, MoveRt.Descriptor, RoleStateNotice.Descriptor);
+        LoginRt.Descriptor, SelectRoleRt.Descriptor, CreateRoleRt.Descriptor, DeleteRoleRt.Descriptor, MoveRt.Descriptor, RoleStateNotice.Descriptor);
 
     /// <summary>冻结业务消息为带会话代次的独立字节数组。</summary>
     public static byte[] Encode(IMessage message, long generation, bool request)

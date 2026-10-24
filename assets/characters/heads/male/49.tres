@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="DataActorHead" load_steps=8 format=3]
+[ext_resource type="Script" path="res://src/World/Views/DataActorHead.cs" id="1"]
+[ext_resource type="Texture2D" path="res://assets/characters/heads/male/49.png" id="2"]
+[sub_resource type="AtlasTexture" id="Dir0"]
+atlas = ExtResource("2")
+region = Rect2(0, 0, 27, 27)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Dir1"]
+atlas = ExtResource("2")
+region = Rect2(0, 27, 27, 27)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Dir2"]
+atlas = ExtResource("2")
+region = Rect2(0, 54, 27, 27)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Dir3"]
+atlas = ExtResource("2")
+region = Rect2(0, 81, 27, 27)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Dir4"]
+atlas = ExtResource("2")
+region = Rect2(0, 108, 27, 27)
+filter_clip = true
+[resource]
+script = ExtResource("1")
+Frames = Array[Texture2D]([SubResource("Dir0"), SubResource("Dir1"), SubResource("Dir2"), SubResource("Dir3"), SubResource("Dir4")])
+Anchors = PackedVector2Array(12, 21, 12, 21, 12, 20, 13, 20, 12, 21)

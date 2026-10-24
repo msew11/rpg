@@ -47,7 +47,7 @@ internal sealed class WorldManager
             var role = _entities.Get<DataRoleComponent>(_roleEntity);
             var actor = _entities.Get<DataActorComponent>(_roleEntity);
             return new DataActorState(role.RoleId, role.Gender, RolePosition,
-                actor.Motion, actor.Facing, actor.MotionVersion);
+                actor.Motion, actor.Facing, actor.MotionVersion, role.HeadId);
         }
     }
 
@@ -78,7 +78,7 @@ internal sealed class WorldManager
                 if (!HasWorld) throw new InvalidOperationException("必须先初始化世界实体");
                 _lastRoleRevision = 0;
                 _lastConfirmedAction = 0;
-                _roleEntity = _entities.Create(new DataRoleComponent(role.Role.RoleId, role.Role.Gender),
+                _roleEntity = _entities.Create(new DataRoleComponent(role.Role.RoleId, role.Role.Gender, role.Role.HeadId),
                     new DataPositionComponent(role.Role.Position), new DataMovementComponent(), new DataActorComponent());
                 break;
             case MoveAction move:
@@ -100,6 +100,7 @@ internal sealed class WorldManager
                 if (sync.State.Revision <= _lastRoleRevision) return;
                 _lastRoleRevision = sync.State.Revision;
                 _entities.Get<DataRoleComponent>(_roleEntity).Gender = sync.State.Gender;
+                _entities.Get<DataRoleComponent>(_roleEntity).HeadId = sync.State.HeadId;
                 if (sync.State.AcknowledgedAction <= _lastConfirmedAction) return;
                 _lastConfirmedAction = sync.State.AcknowledgedAction;
                 _entities.Get<DataPositionComponent>(_roleEntity).Value =

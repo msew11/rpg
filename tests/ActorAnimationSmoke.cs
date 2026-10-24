@@ -106,7 +106,7 @@ public partial class ActorAnimationSmoke : Node
                 }
             }
             Check(total == 605, $"动作资源帧不完整：{total}");
-            CheckDefaultHeads(repo);
+            CheckDefaultHeads(repo, actor);
 
             var run = new DataActorState(1001, RoleGender.Male, Vector2.Zero, RoleMotion.Run, Vector2.Right, 0);
             actor.Present(run);
@@ -157,7 +157,7 @@ public partial class ActorAnimationSmoke : Node
     }
 
     /// <summary>验证 client-actor-presentation 默认头部场景，防止漏导、裁剪偏移和世界锚点回归。</summary>
-    private static void CheckDefaultHeads(AnimationService animations)
+    private static void CheckDefaultHeads(AnimationService animations, ActorView actor)
     {
         // 取自目视核对后的左下方向头发像素；坐标相对世界锚点，独立于扩大后的画布。
         var samples = new[]
@@ -172,12 +172,14 @@ public partial class ActorAnimationSmoke : Node
         foreach (var (gender, motion, frame, worldPixel, color, anchor) in samples)
         {
             var resource = animations.Get(gender, motion);
-            Check(resource.Anchor == anchor, $"组合画布未同步平移世界锚点：{gender}/{motion}");
-            var texture = (AtlasTexture)resource.Frames.GetFrameTexture("dir0", frame);
-            using var image = texture.GetImage();
-            var pixel = worldPixel + (Vector2I)resource.Anchor;
+            actor.Present(new DataActorState(1, gender, Vector2.Zero, motion,
+                IsometricProjection.ToLogical(new Vector2(-1, 1)), 0, 1));
+            actor.GetNode<AnimatedSprite2D>("Facing/Body").SetFrameAndProgress(frame, 0);
+            var head = actor.GetNode<Sprite2D>("Facing/Head");
+            using var image = head.Texture.GetImage();
+            var pixel = worldPixel - (Vector2I)head.Position;
             Check(pixel.X >= 0 && pixel.Y >= 0 && pixel.X < image.GetWidth() && pixel.Y < image.GetHeight(),
-                "头部像素超出组合画布");
+                "头部像素超出独立图层");
             Check(image.GetPixelv(pixel).ToHtml() == color, $"默认头部缺失或未随身体挂接：{gender}/{motion}/{frame}");
         }
     }

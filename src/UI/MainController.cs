@@ -23,6 +23,10 @@ public partial class MainController : Control
     private Button? _loginButton;
     /// <summary>登录或选角页面。</summary>
     private CanvasLayer? _screen;
+    /// <summary>当前创建表单，失败时保留用户草稿。</summary>
+    private RoleCreateControl? _createPage;
+    /// <summary>角色列表当前是否等待管理请求响应。</summary>
+    private bool _roleRequestPending;
     /// <summary>地图、角色和摄像机的表现根节点。</summary>
     private Node2D? _worldVisual;
     /// <summary>角色绘制节点。</summary>
@@ -46,6 +50,8 @@ public partial class MainController : Control
             GameServices.EventBus.Error += OnNetworkError;
             _subscriptions.Add(GameServices.EventBus.Subscribe<LoginRt>(OnLoggedIn));
             _subscriptions.Add(GameServices.EventBus.Subscribe<SelectRoleRt>(OnSelectedRole));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<CreateRoleRt>(OnCreatedRole));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<DeleteRoleRt>(OnDeletedRole));
             _subscriptions.Add(GameServices.EventBus.Subscribe<MoveRt>(OnMoved));
             _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStateNotice>(OnRoleNotice));
             ShowLogin();
@@ -134,25 +140,97 @@ public partial class MainController : Control
         var box = CenteredScreen("选择角色");
         _feedback = Label(error, 14);
         box.AddChild(_feedback);
+        var scroll = new ScrollContainer { Name = "RoleList", CustomMinimumSize = new Vector2(460, 280),
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        box.AddChild(scroll);
+        var list = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        scroll.AddChild(list);
+        if (GameServices.Session.Roles.Count == 0) list.AddChild(Label("暂无角色，点击下方创建角色", 16));
         foreach (var role in GameServices.Session.Roles)
         {
+            var row = new HBoxContainer();
+            list.AddChild(row);
             var button = new Button
             {
-                Text = $"{role.Name} · {(role.Gender == RoleGender.Male ? "男" : "女")} · Lv.{role.Level} · ID {role.RoleId}",
-                CustomMinimumSize = new Vector2(320, 48)
+                Name = $"SelectRole{role.RoleId}",
+                Text = $"{role.Name} · {(role.Gender == RoleGender.Male ? "男" : "女")} · Lv.{role.Level} · 头型 {Math.Max(1, role.HeadId):00} · ID {role.RoleId}",
+                SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(350, 48)
             };
             button.Pressed += () => StartRole(role.RoleId);
-            box.AddChild(button);
+            row.AddChild(button);
+            var delete = new Button { Text = "删除", Name = $"DeleteRole{role.RoleId}" };
+            delete.Pressed += () => ConfirmDeleteRole(role.RoleId, role.Name);
+            row.AddChild(delete);
         }
+        var create = new Button { Text = "创建角色", Name = "OpenCreateRole" };
+        create.Pressed += ShowCreateRole;
+        box.AddChild(create);
         var back = new Button { Text = "返回登录" };
         back.Pressed += ShowLogin;
         box.AddChild(back);
     }
 
+    /// <summary>建立独立预览表单，服务器失败时保留输入。</summary>
+    private void ShowCreateRole()
+    {
+        if (_roleRequestPending) return;
+        ClearGame();
+        var box = CenteredScreen("创建角色");
+        var page = new RoleCreateControl { Name = "CreateRolePage" };
+        _createPage = page;
+        page.Submitted += (name, gender, headId) =>
+        {
+            if (_roleRequestPending) return;
+            _roleRequestPending = true;
+            page.SetBusy(true, "正在创建角色…");
+            GameServices.Session.CreateRole(name, gender, headId);
+        };
+        page.Cancelled += () => ShowRoles();
+        box.AddChild(page);
+    }
+
+    /// <summary>只有确认窗口的确认操作才发送删除请求。</summary>
+    private void ConfirmDeleteRole(long roleId, string name)
+    {
+        if (_roleRequestPending || _screen is null) return;
+        var dialog = new ConfirmationDialog { Name = "ConfirmDeleteRole", Title = "删除角色",
+            DialogText = $"确定删除角色“{name}”？删除后无法恢复。", OkButtonText = "删除", CancelButtonText = "取消" };
+        _screen.AddChild(dialog);
+        dialog.Confirmed += () =>
+        {
+            if (_roleRequestPending) return;
+            _roleRequestPending = true;
+            if (_feedback is not null) _feedback.Text = "正在删除角色…";
+            foreach (var node in _screen.FindChildren("*", "BaseButton", true, false)) ((BaseButton)node).Disabled = true;
+            GameServices.Session.DeleteRole(roleId);
+        };
+        dialog.CloseRequested += dialog.QueueFree;
+        dialog.Canceled += dialog.QueueFree;
+        dialog.Confirmed += dialog.QueueFree;
+        dialog.PopupCentered();
+    }
+
+    /// <summary>缓存先更新列表，成功返回选角，失败恢复当前创建草稿。</summary>
+    private void OnCreatedRole(CreateRoleRt response)
+    {
+        if (_createPage is null || !_roleRequestPending) return;
+        _roleRequestPending = false;
+        if (response.Success) ShowRoles();
+        else _createPage.SetBusy(false, response.Error);
+    }
+
+    /// <summary>删除响应后从缓存重建列表并显示失败信息。</summary>
+    private void OnDeletedRole(DeleteRoleRt response)
+    {
+        if (!_roleRequestPending || _createPage is not null) return;
+        _roleRequestPending = false;
+        ShowRoles(response.Success ? "" : response.Error);
+    }
+
     /// <summary>由已有账号会话重置角色缓存并提交选角，成功响应前不创建世界。</summary>
     private void StartRole(long roleId)
     {
-        if (!GameServices.Session.IsLoggedIn || GameServices.Session.RoleId != 0) return;
+        if (_roleRequestPending || !GameServices.Session.IsLoggedIn || GameServices.Session.RoleId != 0) return;
         GameServices.Session.SelectRole(roleId);
         if (_feedback is not null) _feedback.Text = "正在进入角色…";
         if (_screen is not null)
@@ -239,7 +317,12 @@ public partial class MainController : Control
     /// <summary>显示网络及事件监听错误，选角阶段失败时恢复可操作的角色列表。</summary>
     private void OnNetworkError(Exception error)
     {
-        if (!GameServices.World.HasWorld && GameServices.Session.IsLoggedIn) ShowRoles(error.Message);
+        if (_createPage is not null)
+        {
+            _roleRequestPending = false;
+            _createPage.SetBusy(false, error.Message);
+        }
+        else if (!GameServices.World.HasWorld && GameServices.Session.IsLoggedIn) ShowRoles(error.Message);
         else if (_feedback is not null) _feedback.Text = error.Message;
         else _hud?.ShowNetworkError(error.Message);
         if (_loginButton is not null) _loginButton.Disabled = false;
@@ -248,6 +331,8 @@ public partial class MainController : Control
     /// <summary>清理旧界面、世界和角色数据，保留账号会话与登录摘要。</summary>
     private void ClearGame()
     {
+        _createPage = null;
+        _roleRequestPending = false;
         _hud?.ReleaseSubscriptions();
         if (_servicesLifetime is not null)
         {

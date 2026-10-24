@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using Rpg.Net;
+using Rpg.Const;
 using Rpg.Net.Message;
 using Rpg.Services;
 using Rpg.Session.Cache;
@@ -100,6 +101,32 @@ public sealed class SessionService : Service
         if (_role is not null && RoleId == 0) return;
         ResetNetwork();
         _role?.Reset();
+    }
+
+    /// <summary>在选角列表提交创建，名称与外观由服务器最终校验。</summary>
+    public void CreateRole(string name, RoleGender gender, int headId)
+    {
+        EnsureRoleList();
+        _net.Send(new CreateRole { Name = name, Gender = gender switch
+        {
+            RoleGender.Male => RoleGenderPb.Male,
+            RoleGender.Female => RoleGenderPb.Female,
+            _ => RoleGenderPb.Unspecified
+        }, HeadId = headId });
+    }
+
+    /// <summary>在选角列表提交删除指定角色。</summary>
+    public void DeleteRole(long roleId)
+    {
+        EnsureRoleList();
+        _net.Send(new DeleteRole { RoleId = roleId });
+    }
+
+    /// <summary>仅允许已认证且未选角的当前会话管理角色。</summary>
+    private void EnsureRoleList()
+    {
+        EnsureActive();
+        if (!IsLoggedIn || RoleId != 0) throw new InvalidOperationException("请在登录后的角色列表操作");
     }
 
     /// <summary>把当前角色移动意图提交到网络。</summary>

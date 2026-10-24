@@ -51,6 +51,8 @@ public sealed class MockServer
         {
             case Login login: HandleLogin(login); break;
             case SelectRole select: HandleSelectRole(select); break;
+            case CreateRole create: HandleCreateRole(create); break;
+            case DeleteRole delete: HandleDeleteRole(delete); break;
             case Move move: HandleMove(move); break;
         }
     }
@@ -104,6 +106,8 @@ public sealed class MockServer
     private void HandleLogin(Login request)
     {
         _authenticated = false;
+        _current = null;
+        _pending.Clear();
         if (request.Username != "demo" || request.Password != "demo")
         {
             Send(new LoginRt { Error = "用户名或密码错误" });
@@ -112,7 +116,7 @@ public sealed class MockServer
         var response = new LoginRt();
         try
         {
-            foreach (var roleId in RepoServerRole.RoleIds) response.Roles.Add(ToSummary(_roles.Load(roleId)));
+            foreach (var role in _roles.List()) response.Roles.Add(ToSummary(role));
             response.Success = _authenticated = true;
         }
         catch (Exception error) { response.Error = error.Message; response.Roles.Clear(); }
@@ -138,6 +142,54 @@ public sealed class MockServer
         Send(response);
     }
 
+    /// <summary>认证后在角色列表创建角色，成功列表在写入前完整准备。</summary>
+    private void HandleCreateRole(CreateRole request)
+    {
+        var response = new CreateRoleRt();
+        try
+        {
+            EnsureRoleList();
+            var summaries = new List<RoleSummaryPb>();
+            foreach (var existing in _roles.List()) summaries.Add(ToSummary(existing));
+            var gender = request.Gender switch
+            {
+                RoleGenderPb.Male => ServerRoleGender.Male,
+                RoleGenderPb.Female => ServerRoleGender.Female,
+                _ => throw new ArgumentException("角色性别无效")
+            };
+            var role = _roles.Create(request.Name, gender, request.HeadId);
+            summaries.Add(ToSummary(role));
+            response.Roles.AddRange(summaries);
+            response.Success = true;
+        }
+        catch (Exception error) { response.Error = error.Message; }
+        Send(response);
+    }
+
+    /// <summary>写入墓碑成功后返回已准备的剩余列表，避免提交后再次读取失败。</summary>
+    private void HandleDeleteRole(DeleteRole request)
+    {
+        var response = new DeleteRoleRt();
+        try
+        {
+            EnsureRoleList();
+            var summaries = new List<RoleSummaryPb>();
+            foreach (var role in _roles.List())
+                if (role.RoleId != request.RoleId) summaries.Add(ToSummary(role));
+            _roles.Delete(request.RoleId);
+            response.Roles.AddRange(summaries);
+            response.Success = true;
+        }
+        catch (Exception error) { response.Error = error.Message; }
+        Send(response);
+    }
+
+    /// <summary>服务端独立验证认证及当前角色状态，不信任客户端页面。</summary>
+    private void EnsureRoleList()
+    {
+        if (!_authenticated || _current is not null) throw new InvalidOperationException("请在登录后的角色列表操作");
+    }
+
     /// <summary>验证角色、坐标及序号后排队，成功确认由时间推进产生。</summary>
     private void HandleMove(Move request)
     {
@@ -155,14 +207,14 @@ public sealed class MockServer
     /// <summary>登录只返回选角页所需的角色摘要。</summary>
     private static RoleSummaryPb ToSummary(DataServerRole role) => new()
     {
-        RoleId = role.RoleId, Name = role.Name, Level = role.Level,
+        RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId,
         Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female
     };
 
     /// <summary>将完整角色世界状态复制为协议对象，不向客户端共享服务端模型。</summary>
     private static RoleWorldStatePb ToMessage(DataServerRole role) => new()
     {
-        RoleId = role.RoleId, Name = role.Name, Level = role.Level, Health = role.Health, MaxHealth = role.MaxHealth,
+        RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId, Health = role.Health, MaxHealth = role.MaxHealth,
         Mana = role.Mana, MaxMana = role.MaxMana, Experience = role.Experience, NextExperience = role.NextExperience,
         X = role.X, Y = role.Y, Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female,
         Revision = role.Revision, AcknowledgedAction = role.AcknowledgedAction

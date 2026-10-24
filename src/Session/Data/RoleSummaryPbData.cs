@@ -5,7 +5,8 @@ using Rpg.Net.Message;
 namespace Rpg.Session.Data;
 
 /// <summary>由 RoleSummaryPb 字段重新组装的不可变摘要，供选角界面读取。</summary>
-public sealed record RoleSummaryPbData(long RoleId, string Name, int Level, RoleGender Gender)
+/// <param name="HeadId">性别内头型编号，0 表示旧版默认头型。</param>
+public sealed record RoleSummaryPbData(long RoleId, string Name, int Level, RoleGender Gender, int HeadId = 0)
 {
     /// <summary>校验并复制协议摘要，不保留可变协议对象。</summary>
     public static RoleSummaryPbData FromPb(RoleSummaryPb message)
@@ -17,7 +18,7 @@ public sealed record RoleSummaryPbData(long RoleId, string Name, int Level, Role
             RoleGenderPb.Female => RoleGender.Female,
             _ => throw new InvalidDataException("角色摘要协议包含无效性别")
         };
-        var data = new RoleSummaryPbData(message.RoleId, message.Name, message.Level, gender);
+        var data = new RoleSummaryPbData(message.RoleId, message.Name, message.Level, gender, message.HeadId);
         data.Validate();
         return data;
     }
@@ -29,6 +30,7 @@ public sealed record RoleSummaryPbData(long RoleId, string Name, int Level, Role
         return new RoleSummaryPb
         {
             RoleId = RoleId, Name = Name, Level = Level,
+            HeadId = HeadId,
             Gender = Gender == RoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female
         };
     }
@@ -36,7 +38,7 @@ public sealed record RoleSummaryPbData(long RoleId, string Name, int Level, Role
     /// <summary>确保双向转换只接受可供选角界面使用的有效摘要。</summary>
     private void Validate()
     {
-        if (RoleId <= 0 || string.IsNullOrWhiteSpace(Name) || Level <= 0 ||
+        if (HeadId < 0 || HeadId > 74 || RoleId <= 0 || string.IsNullOrWhiteSpace(Name) || Level <= 0 ||
             Gender is not (RoleGender.Male or RoleGender.Female))
             throw new InvalidDataException("角色摘要包含无效字段");
     }

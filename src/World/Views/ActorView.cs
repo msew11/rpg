@@ -11,6 +11,9 @@ public partial class ActorView : Node2D
     /// <summary>由 Godot 独立推进动画时间的身体节点。</summary>
     private readonly AnimatedSprite2D _body = new()
         { Name = "Body", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
+    /// <summary>独立头部图层，由身体帧变化更新挂接位置。</summary>
+    private readonly Sprite2D _head = new()
+        { Name = "Head", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
     /// <summary>上次读取的快照，用来区分动作变化和普通位置变化。</summary>
     private DataActorState? _previous;
 
@@ -19,6 +22,9 @@ public partial class ActorView : Node2D
     {
         AddChild(_facingRoot);
         _facingRoot.AddChild(_body);
+        _facingRoot.AddChild(_head);
+        _body.FrameChanged += UpdateHead;
+        _body.AnimationChanged += UpdateHead;
         if (_previous is { } state)
         {
             _previous = null;
@@ -32,7 +38,7 @@ public partial class ActorView : Node2D
         Position = Utils.IsometricProjection.ToScreen(state.Position);
         if (!IsNodeReady()) { _previous = state; return; }
         var changed = _previous is null || _previous.RoleId != state.RoleId ||
-            _previous.Gender != state.Gender || _previous.Motion != state.Motion ||
+            _previous.Gender != state.Gender || _previous.HeadId != state.HeadId || _previous.Motion != state.Motion ||
             _previous.MotionVersion != state.MotionVersion;
         var (direction, mirrored) = AnimationService.ResolveDirection(state.Facing);
         var name = $"dir{direction}";
@@ -55,5 +61,21 @@ public partial class ActorView : Node2D
             if (playing) _body.Play();
         }
         _previous = state;
+        UpdateHead();
     }
+    /// <summary>头部与身体共用方向和时间，只更新纹理及相对世界锚点的挂接位置。</summary>
+    private void UpdateHead()
+    {
+        if (_previous is not { } state || _body.SpriteFrames is null) return;
+        var body = GameServices.Animation.Get(state.Gender, state.Motion);
+        // 换动作时属性信号可能先于新快照更新，等 Present 结束后统一同步。
+        if (!ReferenceEquals(body.Frames, _body.SpriteFrames)) return;
+        var (direction, _) = AnimationService.ResolveDirection(state.Facing);
+        if (_body.Animation != $"dir{direction}") return;
+        var head = GameServices.Animation.GetHead(state.Gender, state.HeadId);
+        var count = body.Frames.GetFrameCount(_body.Animation);
+        _head.Texture = head.Frames[direction];
+        _head.Position = -body.Anchor + body.HeadAttachments[direction * count + _body.Frame] - head.Anchors[direction];
+    }
+
 }

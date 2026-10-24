@@ -11,3 +11,102 @@ enum RoleGenderPb {
   // 女性身体。
   ROLE_GENDER_PB_FEMALE = 2;
 }
+
+// 登录选角页使用的角色简略信息，不包含世界状态。
+message RoleSummaryPb {
+  // 唯一角色 ID。
+  int64 role_id = 1;
+  // 角色显示名称。
+  string name = 2;
+  // 当前等级。
+  int32 level = 3;
+  // 基础身体性别。
+  RoleGenderPb gender = 4;
+  // 性别内头型编号，0 兼容旧版默认头型。
+  int32 head_id = 5;
+}
+
+// 角色世界状态，双方转换为各自独立的数据类。
+message RoleWorldStatePb {
+  // 唯一角色 ID。
+  int64 role_id = 1;
+  // 角色显示名称。
+  string name = 2;
+  // 当前等级。
+  int32 level = 3;
+  // 当前生命值。
+  int32 health = 4;
+  // 生命上限。
+  int32 max_health = 5;
+  // 当前魔力。
+  int32 mana = 6;
+  // 魔力上限。
+  int32 max_mana = 7;
+  // 当前经验。
+  int32 experience = 8;
+  // 升级所需经验。
+  int32 next_experience = 9;
+  // 逻辑横坐标。
+  float x = 10;
+  // 逻辑纵坐标。
+  float y = 11;
+  // 基础身体性别。
+  RoleGenderPb gender = 12;
+  // 递增权威状态版本。
+  int64 revision = 13;
+  // 当前会话最后确认的移动序号。
+  int64 acknowledged_action = 14;
+  // 性别内头型编号，0 兼容旧版默认头型。
+  int32 head_id = 15;
+}
+
+// 请求进入指定角色会话。
+message SelectRole {
+  // 要选择的角色 ID。
+  int64 role_id = 1;
+}
+
+// 选角结果和初始权威状态。
+message SelectRoleRt {
+  // 是否成功。
+  bool success = 1;
+  // 失败原因。
+  string error = 2;
+  // 请求选择的角色 ID，失败时也保留。
+  int64 role_id = 3;
+  // 成功后的初始角色状态。
+  RoleWorldStatePb state = 4;
+}
+
+// 在选角列表创建角色。
+message CreateRole {
+  // 角色名字。
+  string name = 1;
+  // 基础身体性别。
+  RoleGenderPb gender = 2;
+  // 性别内头型编号（1 至 74）。
+  int32 head_id = 3;
+}
+// 创建结果和成功后的完整角色列表。
+message CreateRoleRt {
+  // 是否成功。
+  bool success = 1;
+  // 失败原因。
+  string error = 2;
+  // 成功后的完整列表。
+  repeated RoleSummaryPb roles = 3;
+}
+// 删除账号列表内的角色。
+message DeleteRole {
+  // 待删除的角色标识。
+  int64 role_id = 1;
+}
+// 删除结果和成功后的完整角色列表。
+message DeleteRoleRt {
+  // 是否成功。
+  bool success = 1;
+  // 失败原因。
+  string error = 2;
+  // 成功后的完整列表，允许为空。
+  repeated RoleSummaryPb roles = 3;
+}

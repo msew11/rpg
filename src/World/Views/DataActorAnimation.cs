@@ -10,4 +10,6 @@ public partial class DataActorAnimation : Resource
     [Export] public SpriteFrames Frames { get; set; } = null!;
     /// <summary>图像左上角到角色定位点的偏移。</summary>
     [Export] public Vector2 Anchor { get; set; }
+    /// <summary>按方向、帧顺序排列的身体画布头部挂接点。</summary>
+    [Export] public Vector2[] HeadAttachments { get; set; } = [];
 }
