@@ -5,10 +5,10 @@ using Godot;
 using Rpg.Config.Data;
 using Rpg.World.Components;
 
-namespace Rpg.World.Systems;
+namespace Rpg.World.Utils;
 
-/// <summary>按需构建和查询地图数据，不持有配置服务或运行状态。</summary>
-internal static class MapSystem
+/// <summary>构建地图快照并提供无状态的地图查询与坐标计算。</summary>
+internal static class MapUtils
 {
     /// <summary>将已校验的配置复制为独立只读数据，仅索引稀疏覆盖格。</summary>
     public static DataMapComponent CreateMap(MapConfig config)

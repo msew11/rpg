@@ -14,10 +14,10 @@
 | `EventService Events` | 唯一类型事件域、缓存优先分发、监听错误与订阅生命周期 | 内部监听集合与重入队列 |
 | `NetService Net` | protobuf 请求队列、固定帧收发及解码后发布消息 | Environment；内部 `INetTransport`，通过 GameServices.Events 发布 |
 | `SessionService Session` | 直接建立并持有账号摘要与角色缓存，处理登录、选角和快照 | `NetService`、内部 `LoginCache` 与 `RoleCache` |
-| `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部只读地图组件、`MapSystem`、`WorldManager` |
+| `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部只读地图组件、`MapUtils`、`WorldManager` |
 | `AnimationService Animation` | 直接加载、缓存身体动画并解析朝向 | Godot 原生资源 |
 
-`ConfigService` 构造时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验并持有 `MapConfig`。地图系统通过服务取得配置并构建只读地图快照；分块和 UI 通过服务读取，不另存配置引用。`config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块与稀疏覆盖格。未知、重复、无效或文件名不匹配的配置阻止启动；配置与程序同包发布。原始加载方法为私有，构造只接收 `EnvironmentService`；配置和 Schema 使用同一环境，统一通过 Godot 的 `DirAccess` 与 `FileAccess` 读取，不按路径类型切换加载链路。配置加载及整组服务验收在 Godot headless 中复用现有 xUnit 用例，临时目录也通过相同 Godot API 读取。普通 .NET 用例直接提供地图等纯数据，不为测试在正式代码中增加加载分支或替代构造。
+`ConfigService` 构造时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验并持有 `MapConfig`。地图工具通过服务取得配置并构建只读地图快照；分块和 UI 通过服务读取，不另存配置引用。`config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块与稀疏覆盖格。未知、重复、无效或文件名不匹配的配置阻止启动；配置与程序同包发布。原始加载方法为私有，构造只接收 `EnvironmentService`；配置和 Schema 使用同一环境，统一通过 Godot 的 `DirAccess` 与 `FileAccess` 读取，不按路径类型切换加载链路。配置加载及整组服务验收在 Godot headless 中复用现有 xUnit 用例，临时目录也通过相同 Godot API 读取。普通 .NET 用例直接提供地图等纯数据，不为测试在正式代码中增加加载分支或替代构造。
 
 主控制器调用无参 `GameServices.Initialize()`。无依赖的 `EnvironmentService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config、Setting、Net 的公开构造只接收 Environment，Session 接收 Net，World 接收 Config、Setting、Session，Events 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Environment、Events、Config、Setting、Net、Session、World、Animation 顺序显式创建全部八个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销业务入口，再按 Animation、World、Session、Net、Setting、Config、Events、Environment 顺序清理并撤销事件入口。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，独立事件测试通过 `RegisterEvents` 注册测试创建的实例；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
 
@@ -72,7 +72,7 @@ internal sealed class DataPositionComponent
 
 `WorldService` 直接把未被 UI 消费的 Godot 点击转换为移动 Action，不经过单独的输入转发类。`WorldManager` 是 ECS 的唯一外部写入入口：输入 Action、缓存状态同步 Action 排队后由 Godot 固定帧处理。初始化顺序为地图世界实体、角色实体。轻量 ECS 由整数实体 ID、组件仓库和固定顺序系统组成；首期移动系统按直线推进并接受权威位置修正。
 
-`DataMapComponent` 只保存地图宽高、瓦片大小、默认地块和不可变稀疏覆盖索引，不持有配置服务或业务对象。`MapSystem` 位于 `src/World/Systems/`，以显式传入的地图组件完成边界裁剪、地块读取和可见格计算；它是按需调用的无状态系统，不接入逐帧角色更新接口。`WorldService` 从配置构建只读数据用于查询，并通过 `InitializeWorldAction` 交给世界实体；`WorldManager` 处理移动及权威修正时从实体读取该组件并调用同一系统。`IsometricProjection` 在世界表现与地图点击边界做双向转换，ECS、配置、雷达和大地图继续使用逻辑坐标。地图表现将视口附近地块划为 8×8 格分块，各分块一次绘制 2:1 等轴菱形并复用画布命令；相机或视口跨越分块范围时只增删差异分块，不创建百万个瓦片节点。角色与摄像机使用同一投影。HUD、小地图、GM 和系统面板放在独立 `CanvasLayer`，不受世界摄像机变换影响，从 `GameServices.Config`、`Session` 与 `Setting` 读取所需数据。GM 面板从设置服务获取系统和当前角色设置路径，交由桌面文件管理器定位。
+`DataMapComponent` 只保存地图宽高、瓦片大小、默认地块和不可变稀疏覆盖索引，不持有配置服务或业务对象。`MapUtils` 位于 `src/World/Utils/`，以显式传入的地图组件完成边界裁剪、地块读取和可见格计算；它是按需调用的静态纯计算工具。ECS System 使用实例承担实体行为与系统调度，无状态的地图计算归入 Utils。`WorldService` 从配置构建只读数据用于查询，并通过 `InitializeWorldAction` 交给世界实体；`WorldManager` 处理移动及权威修正时从实体读取该组件并调用同一工具。`IsometricProjection` 在世界表现与地图点击边界做双向转换，ECS、配置、雷达和大地图继续使用逻辑坐标。地图表现将视口附近地块划为 8×8 格分块，各分块一次绘制 2:1 等轴菱形并复用画布命令；相机或视口跨越分块范围时只增删差异分块，不创建百万个瓦片节点。角色与摄像机使用同一投影。HUD、小地图、GM 和系统面板放在独立 `CanvasLayer`，不受世界摄像机变换影响，从 `GameServices.Config`、`Session` 与 `Setting` 读取所需数据。GM 面板从设置服务获取系统和当前角色设置路径，交由桌面文件管理器定位。
 
 角色数据的 `RoleGender` 随选角与会话缓存进入玩家 entity。`DataRoleComponent` 保存角色 ID 和性别，`DataActorComponent` 保存动作语义、逻辑朝向与显式动作请求版本；`MovementSystem` 根据实际移动切换跑步、到达后站立并保留朝向，`SetRoleMotionAction` 可请求其他基础身体动作并停止本地移动。角色属性同步按权威 revision 接纳，位置修正继续按移动确认序号过滤。`WorldManager.ActorState` 只提供不可变快照，不暴露可写组件。
 

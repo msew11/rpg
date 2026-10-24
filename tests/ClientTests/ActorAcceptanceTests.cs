@@ -7,7 +7,7 @@ using Rpg.Net.Message;
 using Rpg.Session;
 using Rpg.World;
 using Rpg.World.Actions;
-using Rpg.World.Systems;
+using Rpg.World.Utils;
 
 namespace ClientTests;
 
@@ -121,7 +121,7 @@ public sealed class ActorAcceptanceTests : EventServiceTestScope
     private static WorldManager CreateWorld(RoleWorldStatePbData role)
     {
         var world = new WorldManager();
-        world.Enqueue(new InitializeWorldAction(MapSystem.CreateMap(new MapConfig { Width = 1000, Height = 1000, TileSize = 32 })));
+        world.Enqueue(new InitializeWorldAction(MapUtils.CreateMap(new MapConfig { Width = 1000, Height = 1000, TileSize = 32 })));
         world.Enqueue(new InitializeRoleAction(role));
         world.Tick(0);
         return world;

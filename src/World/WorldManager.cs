@@ -5,6 +5,7 @@ using Rpg.Const;
 using Rpg.World.Actions;
 using Rpg.World.Components;
 using Rpg.World.Systems;
+using Rpg.World.Utils;
 
 namespace Rpg.World;
 
@@ -83,7 +84,7 @@ internal sealed class WorldManager
             case MoveAction move:
                 if (!HasRole) return;
                 var map = _entities.Get<DataMapComponent>(_worldEntity);
-                _entities.Get<DataMovementComponent>(_roleEntity).Target = MapSystem.Clamp(map, move.Destination);
+                _entities.Get<DataMovementComponent>(_roleEntity).Target = MapUtils.Clamp(map, move.Destination);
                 break;
             case SetRoleMotionAction motion:
                 if (!HasRole || motion.RoleId != _entities.Get<DataRoleComponent>(_roleEntity).RoleId) return;
@@ -102,7 +103,7 @@ internal sealed class WorldManager
                 if (sync.State.AcknowledgedAction <= _lastConfirmedAction) return;
                 _lastConfirmedAction = sync.State.AcknowledgedAction;
                 _entities.Get<DataPositionComponent>(_roleEntity).Value =
-                    MapSystem.Clamp(_entities.Get<DataMapComponent>(_worldEntity), sync.State.Position);
+                    MapUtils.Clamp(_entities.Get<DataMapComponent>(_worldEntity), sync.State.Position);
                 break;
         }
     }
