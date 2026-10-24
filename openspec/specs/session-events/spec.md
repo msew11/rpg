@@ -34,10 +34,10 @@
 - **THEN** 其他普通监听仍被调用且错误可被观察
 
 ### Requirement: 唯一全局事件服务
-客户端 SHALL 只由 GameServices 创建一个实现 IService 的 EventService，并以只读 Events 入口供 Godot 节点访问，以构造参数显式提供给依赖它的服务；消费者 SHALL 不创建私有事件系统。缓存 SHALL 在每次订阅时通过 GameServices.Events 获取事件服务，不持有事件服务引用或提供显式事件构造；缓存只拥有订阅句柄，释放不得依赖全局入口。测试 SHALL 先注册完整服务组再创建缓存。事件实例 SHALL 只保存在整组注册中，不提供单独全局注册或提前发布。事件服务 SHALL 在消费者之前就绪，整体退出时在所有消费者之后、环境服务之前释放；初始化前及整体注册撤销后访问明确失败；单独释放事件实例后入口仍返回该实例，其订阅和发布操作 SHALL 报已释放错误。监听异常 SHALL 通过 Events.Error 报告。
+客户端 SHALL 只由 GameServices 创建一个实现 IService 的 EventBusService，并以只读 EventBus 入口供 Godot 节点访问，以构造参数显式提供给依赖它的服务；消费者 SHALL 不创建私有事件系统。缓存 SHALL 在每次订阅时通过 GameServices.EventBus 获取事件服务，不持有事件服务引用或提供显式事件构造；缓存只拥有订阅句柄，释放不得依赖全局入口。测试 SHALL 先注册完整服务组再创建缓存。事件实例 SHALL 只保存在整组注册中，不提供单独全局注册或提前发布。事件服务 SHALL 在消费者之前就绪，整体退出时在所有消费者之后、环境服务之前释放；初始化前及整体注册撤销后访问明确失败；单独释放事件实例后入口仍返回该实例，其订阅和发布操作 SHALL 报已释放错误。监听异常 SHALL 通过 EventBus.Error 报告。
 
 #### Scenario: 网络与缓存共享事件域
-- **WHEN** 网络分发响应，缓存和 UI 通过 GameServices.Events 订阅
+- **WHEN** 网络分发响应，缓存和 UI 通过 GameServices.EventBus 订阅
 - **THEN** 所有监听使用同一个事件服务，缓存优先规则不变，额外网络实例不创建私有事件系统
 
 #### Scenario: 网络释放和整体重建

@@ -20,7 +20,7 @@
 
 - [x] 按功能聚合 Config、Setting、Net、Session、World、Animation 服务，统一 IService 契约；借鉴 Dalamud 的显式依赖和逆序卸载。Godot 节点通过 GameServices 调用业务，服务内部初始化状态，移除配置、设置、账号和动画的转发包装及独立输入转发类；设置状态与读写归 SettingService，账号缓存直接归 SessionService，世界协调归 WorldService，覆盖非法登录、切角设置隔离和部分释放失败清理。
 
-- [x] 独立 EventService，由 GameServices 唯一创建并最后释放；网络显式绑定 Events，缓存与 UI 使用同一事件域，缓存通过全局入口订阅，移除 Net/Session 的事件转发与缓存事件传参；覆盖共享事件域、网络释放、错误报告及重启监听隔离。
+- [x] 独立 EventBusService，由 GameServices 唯一创建并最后释放；网络显式绑定 EventBus，缓存与 UI 使用同一事件域，缓存通过全局入口订阅，移除 Net/Session 的事件转发与缓存事件传参；覆盖共享事件域、网络释放、错误报告及重启监听隔离。
 
 - [x] 七个业务服务通过薄基类 Service 共享释放状态与检查，IService 暴露只读 IsDisposed；保持设置退出保存、网络异常清理和旧会话隔离，覆盖全部服务及清理失败后的状态。
 
@@ -38,9 +38,11 @@
 
 - [x] 服务仅通过构造获取前置依赖，禁止 GameServices 访问与循环/回填；按固定顺序创建并严格逆序释放。移除独立事件注册与静态引用，纯事件测试显式组装事件域，缓存测试注册完整服务组，覆盖全局入口撤销后的清理和网络提前释放。
 
-- [x] 全部服务入口统一按完整注册访问，IsInitialized 仅表示注册存在，业务操作自行检查释放；Cache 不保存事件服务，订阅通过 GameServices.Events，释放只操作句柄，Session 仅绑定 Net。
+- [x] 全部服务入口统一按完整注册访问，IsInitialized 仅表示注册存在，业务操作自行检查释放；Cache 不保存事件服务，订阅通过 GameServices.EventBus，释放只操作句柄，Session 仅绑定 Net。
 
 - [x] 环境服务更名为 `Rpg.Config.EnvService`，脚本与 UID 迁入 `src/Config/`，全局入口与注册属性使用 `Env`，参数和局部变量使用 `env`，同步全部引用并保持生命周期。
+
+- [x] 事件总线统一命名为 `EventBusService`，全局入口与注册属性使用 `EventBus`，参数和字段使用 `eventBus`、`_eventBus`；同步消费者与测试。
 
 ## 后续阶段（待确认）
 

@@ -11,7 +11,7 @@ public abstract class RegisteredServiceTestScope : IDisposable
     /// <summary>本次测试拥有的整组服务释放句柄。</summary>
     private readonly IDisposable _registration;
     /// <summary>本次注册的事件域，供测试分发消息和观察清理结果。</summary>
-    protected EventService Events { get; }
+    protected EventBusService EventBus { get; }
 
     /// <summary>在缓存创建前完成注册，复用正式配置加载与测试组装流程。</summary>
     protected RegisteredServiceTestScope()
@@ -19,7 +19,7 @@ public abstract class RegisteredServiceTestScope : IDisposable
         var env = ConfigTestFixture.CreateEnv(Path.Combine(_directory, "settings"),
             Path.Combine(_directory, "server"));
         _registration = GameServicesTestFactory.Register(env);
-        Events = GameServices.Events;
+        EventBus = GameServices.EventBus;
     }
 
     /// <summary>撤销注册并完成逆序清理，即使清理失败也删除临时存储。</summary>

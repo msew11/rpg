@@ -22,11 +22,11 @@ public partial class DoubleStartupFailureController : MainController
     protected override IDisposable InitializeServices()
     {
         var env = new EnvService(Path.Combine(Path.GetTempPath(), "rpg-startup-" + Guid.NewGuid()));
-        var events = new EventService();
+        var eventBus = new EventBusService();
         var config = new ConfigService(env);
         var setting = new SettingService(env);
-        CreatedNet = new NetService(_transport, events);
-        return GameServicesTestFactory.Register(env, events, config, setting, CreatedNet);
+        CreatedNet = new NetService(_transport, eventBus);
+        return GameServicesTestFactory.Register(env, eventBus, config, setting, CreatedNet);
     }
 
     /// <summary>第一次会话重置成功，后续重置触发受控的启动异常。</summary>

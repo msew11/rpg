@@ -14,10 +14,10 @@ public sealed class LoginCacheTests : RegisteredServiceTestScope
     [Fact]
     public void LoginConvertsBeforeOrdinaryListenersAndOwnsReadOnlySummaries()
     {
-        var events = Events;
+        var eventBus = EventBus;
         LoginCache? cache = null;
         IReadOnlyList<RoleSummaryPbData>? observed = null;
-        using var listener = events.Subscribe<LoginRt>(_ => observed = cache!.Roles);
+        using var listener = eventBus.Subscribe<LoginRt>(_ => observed = cache!.Roles);
         using var loginCache = cache = new LoginCache();
         Assert.False(cache.IsLoggedIn);
         Assert.Empty(cache.Roles);
@@ -26,7 +26,7 @@ public sealed class LoginCacheTests : RegisteredServiceTestScope
             Success = true,
             Roles = { new RoleSummaryPb { RoleId = 1001, Name = "晨星", Level = 1, Gender = RoleGenderPb.Male } }
         };
-        events.Publish(response);
+        eventBus.Publish(response);
         Assert.True(cache.IsLoggedIn);
         Assert.Same(cache.Roles, observed);
         var summary = Assert.Single(observed!);
@@ -42,7 +42,7 @@ public sealed class LoginCacheTests : RegisteredServiceTestScope
     [Fact]
     public void FailedAndMalformedResponsesClearPreviousAccountAndAllowRetry()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         Assert.True(fixture.Login().Success);
         var previous = fixture.LoginCache;
         Assert.False(fixture.Login("demo", "wrong").Success);
@@ -51,8 +51,8 @@ public sealed class LoginCacheTests : RegisteredServiceTestScope
         Assert.Empty(previous.Roles);
         Assert.True(fixture.Login().Success);
         var ordinaryCalls = 0;
-        using var listener = Events.Subscribe<LoginRt>(_ => ordinaryCalls++);
-        Events.Publish(new LoginRt
+        using var listener = EventBus.Subscribe<LoginRt>(_ => ordinaryCalls++);
+        EventBus.Publish(new LoginRt
         {
             Success = true,
             Roles =
@@ -75,7 +75,7 @@ public sealed class LoginCacheTests : RegisteredServiceTestScope
     [Fact]
     public void LoginCacheSurvivesRoleSessionsUntilClearedOrDisposed()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         var login = fixture.Login();
         var account = fixture.Session!;
         var roles = fixture.LoginCache.Roles;
@@ -94,7 +94,7 @@ public sealed class LoginCacheTests : RegisteredServiceTestScope
         Assert.NotSame(account, fixture.Session);
         fixture.Session!.Dispose();
         fixture.Session.Dispose();
-        Events.Publish(new LoginRt { Success = true });
+        EventBus.Publish(new LoginRt { Success = true });
         Assert.False(fixture.LoginCache.IsLoggedIn);
         Assert.Empty(fixture.LoginCache.Roles);
         Assert.Empty(fixture.Errors);

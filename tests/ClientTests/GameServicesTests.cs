@@ -73,7 +73,7 @@ public sealed class GameServicesTests
         Assert.ThrowsAny<Exception>(() => GameServicesTestFactory.Register(env));
         Assert.True(env.IsDisposed);
         Assert.False(GameServices.IsInitialized);
-        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
+        Assert.Throws<InvalidOperationException>(() => GameServices.EventBus);
         using var nextEnv = ConfigTestFixture.CreateEnv(directory, Path.Combine(directory, "server"));
         using var next = GameServicesTestFactory.Register(nextEnv);
         Assert.Same(nextEnv, GameServices.Env);
@@ -83,14 +83,14 @@ public sealed class GameServicesTests
     [Fact]
     public void InvalidLoginStateStopsUiNotificationAndAllowsValidRetry()
     {
-        using var events = new EventService();
+        using var eventBus = new EventBusService();
         using var transport = new DoubleNetTransport();
-        var net = new NetService(transport, events);
-        using var services = Register(net, events);
+        var net = new NetService(transport, eventBus);
+        using var services = Register(net, eventBus);
         var errors = new List<Exception>();
-        GameServices.Events.Error += errors.Add;
+        GameServices.EventBus.Error += errors.Add;
         var notifications = 0;
-        using var ui = GameServices.Events.Subscribe<LoginRt>(_ => notifications++);
+        using var ui = GameServices.EventBus.Subscribe<LoginRt>(_ => notifications++);
         GameServices.Session.Login("demo", "demo");
         net.Tick(0);
         var generation = MessageCodec.ReadEnvelope(Assert.Single(transport.Sent)).Generation;
@@ -114,20 +114,20 @@ public sealed class GameServicesTests
     [Fact]
     public void CompleteServicesPrepareStateBeforeUiAndKeepRoleSettingsSeparate()
     {
-        using var events = new EventService();
+        using var eventBus = new EventBusService();
         var directory = Path.Combine(Path.GetTempPath(), "rpg-service-flow-" + Guid.NewGuid());
         try
         {
             var serverDirectory = Path.Combine(directory, "server");
             var server = new MockServer(serverDirectory);
-            using var net = new NetService(new MockTransport(server), events);
+            using var net = new NetService(new MockTransport(server), eventBus);
             var env = ConfigTestFixture.CreateEnv(Path.Combine(directory, "settings"));
             var setting = new SettingService(env);
-            using var services = GameServicesTestFactory.Register(env, events, new ConfigService(env), setting, net);
+            using var services = GameServicesTestFactory.Register(env, eventBus, new ConfigService(env), setting, net);
             var errors = new List<Exception>();
-            GameServices.Events.Error += errors.Add;
+            GameServices.EventBus.Error += errors.Add;
             var observedLogin = false;
-            using var loginUi = GameServices.Events.Subscribe<LoginRt>(response =>
+            using var loginUi = GameServices.EventBus.Subscribe<LoginRt>(response =>
             {
                 observedLogin = true;
                 Assert.True(response.Success);
@@ -135,7 +135,7 @@ public sealed class GameServicesTests
                 Assert.Equal(2, GameServices.Session.Roles.Count);
             });
             var observedSelections = 0;
-            using var roleUi = GameServices.Events.Subscribe<SelectRoleRt>(response =>
+            using var roleUi = GameServices.EventBus.Subscribe<SelectRoleRt>(response =>
             {
                 observedSelections++;
                 Assert.True(GameServices.Session.HasRole);
@@ -183,15 +183,15 @@ public sealed class GameServicesTests
     [Fact]
     public void NetworkDisposalFailureStillSavesSettingsAndRevokesAllServices()
     {
-        using var events = new EventService();
+        using var eventBus = new EventBusService();
         var directory = Path.Combine(Path.GetTempPath(), "rpg-service-dispose-" + Guid.NewGuid());
         try
         {
             var config = ConfigTestFixture.LoadDefault();
             var env = ConfigTestFixture.CreateEnv(directory);
             var setting = new SettingService(env);
-            var net = new NetService(new DoubleLifetimeTransport { FailDispose = true }, events);
-            using var services = GameServicesTestFactory.Register(env, events, config, setting, net);
+            var net = new NetService(new DoubleLifetimeTransport { FailDispose = true }, eventBus);
+            using var services = GameServicesTestFactory.Register(env, eventBus, config, setting, net);
             var session = GameServices.Session;
             var world = GameServices.World;
             var animation = GameServices.Animation;
@@ -219,15 +219,15 @@ public sealed class GameServicesTests
     [Fact]
     public void SettingsDisposalFailureStillRevokesDependenciesAndAllowsRestart()
     {
-        using var events = new EventService();
+        using var eventBus = new EventBusService();
         var directory = Path.Combine(Path.GetTempPath(), "rpg-service-setting-failure-" + Guid.NewGuid());
         try
         {
             var config = ConfigTestFixture.LoadDefault();
             var env = ConfigTestFixture.CreateEnv(directory);
             var setting = new SettingService(env);
-            var net = new NetService(new DoubleNetTransport(), events);
-            using var services = GameServicesTestFactory.Register(env, events, config, setting, net);
+            var net = new NetService(new DoubleNetTransport(), eventBus);
+            using var services = GameServicesTestFactory.Register(env, eventBus, config, setting, net);
             setting.SelectRole(1001);
             setting.SetHudPosition("portrait", 0.3f, 0.4f);
             File.WriteAllText(directory, "阻止创建设置目录");
@@ -250,16 +250,16 @@ public sealed class GameServicesTests
     [Fact]
     public void GlobalAccessRequiresRegistrationAndKeepsQueuedDelivery()
     {
-        using var events = new EventService();
+        using var eventBus = new EventBusService();
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<InvalidOperationException>(() => GameServices.Net);
         using var transport = new DoubleNetTransport();
-        var net = new NetService(transport, events);
-        using var services = Register(net, events);
+        var net = new NetService(transport, eventBus);
+        using var services = Register(net, eventBus);
         Assert.True(GameServices.IsInitialized);
         Assert.Same(net, GameServices.Net);
         var delivered = 0;
-        using var subscription = GameServices.Events.Subscribe<LoginRt>(_ => delivered++);
+        using var subscription = GameServices.EventBus.Subscribe<LoginRt>(_ => delivered++);
         GameServices.Net.Send(new Login { Username = "demo" });
         Assert.Empty(transport.Sent);
         GameServices.Net.Tick(0);
@@ -274,17 +274,17 @@ public sealed class GameServicesTests
     [Fact]
     public void InvalidAndDuplicateRegistrationLeaveOwnershipUnchanged()
     {
-        using var events = new EventService();
-        Assert.Throws<ArgumentNullException>(() => Register(null!, events));
-        using var disposed = new NetService(new DoubleNetTransport(), events);
+        using var eventBus = new EventBusService();
+        Assert.Throws<ArgumentNullException>(() => Register(null!, eventBus));
+        using var disposed = new NetService(new DoubleNetTransport(), eventBus);
         disposed.Dispose();
-        Assert.Throws<ObjectDisposedException>(() => Register(disposed, events));
+        Assert.Throws<ObjectDisposedException>(() => Register(disposed, eventBus));
         Assert.False(GameServices.IsInitialized);
-        var original = new NetService(new DoubleNetTransport(), events);
-        using var services = Register(original, events);
+        var original = new NetService(new DoubleNetTransport(), eventBus);
+        using var services = Register(original, eventBus);
         using var otherTransport = new DoubleNetTransport();
-        using var other = new NetService(otherTransport, events);
-        Assert.Throws<InvalidOperationException>(() => Register(other, events));
+        using var other = new NetService(otherTransport, eventBus);
+        Assert.Throws<InvalidOperationException>(() => Register(other, eventBus));
         Assert.Same(original, GameServices.Net);
         other.Send(new Login());
         other.Tick(0);
@@ -295,11 +295,11 @@ public sealed class GameServicesTests
     [Fact]
     public void LifetimeDisposesNetworkAndCannotReleaseLaterRegistration()
     {
-        using var events = new EventService();
+        using var eventBus = new EventBusService();
         var transport = new DoubleLifetimeTransport();
-        var net = new NetService(transport, events);
-        using var services = Register(net, events);
-        var oldEvents = GameServices.Events;
+        var net = new NetService(transport, eventBus);
+        using var services = Register(net, eventBus);
+        var oldEvents = GameServices.EventBus;
         var oldCalls = 0;
         using var subscription = oldEvents.Subscribe<int>(_ => oldCalls++);
         services.Dispose();
@@ -307,19 +307,19 @@ public sealed class GameServicesTests
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<InvalidOperationException>(() => GameServices.Net);
         Assert.Throws<ObjectDisposedException>(() => net.Send(new Login()));
-        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
+        Assert.Throws<InvalidOperationException>(() => GameServices.EventBus);
         Assert.Throws<ObjectDisposedException>(() => oldEvents.Publish(1));
         Assert.Equal(1, transport.DisposeCount);
-        using var currentEvents = new EventService();
+        using var currentEvents = new EventBusService();
         var current = new NetService(new DoubleNetTransport(), currentEvents);
         using var currentServices = Register(current, currentEvents);
-        var newEvents = GameServices.Events;
+        var newEvents = GameServices.EventBus;
         Assert.NotSame(oldEvents, newEvents);
         services.Dispose();
         subscription.Dispose();
         newEvents.Publish(1);
         Assert.Equal(0, oldCalls);
-        Assert.Same(newEvents, GameServices.Events);
+        Assert.Same(newEvents, GameServices.EventBus);
         Assert.Same(current, GameServices.Net);
         GameServices.Net.Send(new Login());
         GameServices.Net.Tick(0);
@@ -329,21 +329,21 @@ public sealed class GameServicesTests
     [Fact]
     public void ExternallyDisposedNetworkKeepsRegistrationUntilOwnerDisposes()
     {
-        using var events = new EventService();
-        var net = new NetService(new DoubleNetTransport(), events);
-        using var services = Register(net, events);
-        Assert.Same(events, GameServices.Events);
+        using var eventBus = new EventBusService();
+        var net = new NetService(new DoubleNetTransport(), eventBus);
+        using var services = Register(net, eventBus);
+        Assert.Same(eventBus, GameServices.EventBus);
         net.Dispose();
-        Assert.Same(events, GameServices.Events);
+        Assert.Same(eventBus, GameServices.EventBus);
         var calls = 0;
-        using var subscription = GameServices.Events.Subscribe<int>(_ => calls++);
-        GameServices.Events.Publish(1);
+        using var subscription = GameServices.EventBus.Subscribe<int>(_ => calls++);
+        GameServices.EventBus.Publish(1);
         Assert.Equal(1, calls);
         Assert.True(GameServices.IsInitialized);
         Assert.Same(net, GameServices.Net);
         Assert.Throws<ObjectDisposedException>(() => GameServices.Net.Send(new Login()));
-        using var other = new NetService(new DoubleNetTransport(), events);
-        Assert.Throws<InvalidOperationException>(() => Register(other, events));
+        using var other = new NetService(new DoubleNetTransport(), eventBus);
+        Assert.Throws<InvalidOperationException>(() => Register(other, eventBus));
     }
 
     /// <summary>验证 game-services：事件入口与其他入口统一返回注册实例，已释放操作由服务拒绝。</summary>
@@ -351,31 +351,31 @@ public sealed class GameServicesTests
     public void ExternallyDisposedEventsKeepRegistrationUntilOwnerDisposes()
     {
         using var lifetime = Register(new DoubleNetTransport());
-        var events = GameServices.Events;
+        var eventBus = GameServices.EventBus;
         var net = GameServices.Net;
-        events.Dispose();
+        eventBus.Dispose();
         Assert.True(GameServices.IsInitialized);
-        Assert.Same(events, GameServices.Events);
+        Assert.Same(eventBus, GameServices.EventBus);
         Assert.Same(net, GameServices.Net);
-        Assert.Throws<ObjectDisposedException>(() => GameServices.Events.Subscribe<int>(_ => { }));
-        Assert.Throws<ObjectDisposedException>(() => GameServices.Events.Publish(1));
+        Assert.Throws<ObjectDisposedException>(() => GameServices.EventBus.Subscribe<int>(_ => { }));
+        Assert.Throws<ObjectDisposedException>(() => GameServices.EventBus.Publish(1));
         lifetime.Dispose();
         Assert.False(GameServices.IsInitialized);
-        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
+        Assert.Throws<InvalidOperationException>(() => GameServices.EventBus);
     }
 
     /// <summary>传输释放异常也必须撤销入口，避免阻止后续启动。</summary>
     [Fact]
     public void DisposalFailureStillClearsGlobalAccess()
     {
-        using var events = new EventService();
+        using var eventBus = new EventBusService();
         var transport = new DoubleLifetimeTransport { FailDispose = true };
-        var net = new NetService(transport, events);
-        using var services = Register(net, events);
+        var net = new NetService(transport, eventBus);
+        using var services = Register(net, eventBus);
         Assert.Throws<IOException>(() => services.Dispose());
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<InvalidOperationException>(() => GameServices.Net);
-        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
+        Assert.Throws<InvalidOperationException>(() => GameServices.EventBus);
         services.Dispose();
         Assert.Equal(1, transport.DisposeCount);
         using var current = Register(new DoubleNetTransport());
@@ -384,16 +384,16 @@ public sealed class GameServicesTests
 
     /// <summary>验证 game-services：显式网络使用各自请求队列，统一借用全局事件域。</summary>
     [Fact]
-    public void ExplicitNetworksKeepRequestQueuesAndShareEventService()
+    public void ExplicitNetworksKeepRequestQueuesAndShareEventBusService()
     {
-        using var events = new EventService();
+        using var eventBus = new EventBusService();
         Assert.Throws<InvalidOperationException>(() => new SessionService(GameServices.Net, new LoginRt { Success = true }));
         using var globalTransport = new DoubleNetTransport();
-        using var services = Register(new NetService(globalTransport, events), events);
-        Assert.Same(events, GameServices.Events);
+        using var services = Register(new NetService(globalTransport, eventBus), eventBus);
+        Assert.Same(eventBus, GameServices.EventBus);
         using var globalSession = new SessionService(GameServices.Net, new LoginRt { Success = true });
         using var isolatedTransport = new DoubleNetTransport();
-        using var isolated = new NetService(isolatedTransport, GameServices.Events);
+        using var isolated = new NetService(isolatedTransport, GameServices.EventBus);
         using var isolatedSession = new SessionService(isolated, new LoginRt { Success = true });
         globalSession.SelectRole(1001);
         isolatedSession.SelectRole(1002);
@@ -406,7 +406,7 @@ public sealed class GameServicesTests
             MessageCodec.ReadEnvelope(Assert.Single(isolatedTransport.Sent)), true));
         Assert.Equal(1001, globalRequest.RoleId);
         Assert.Equal(1002, isolatedRequest.RoleId);
-        Assert.Same(events, GameServices.Events);
+        Assert.Same(eventBus, GameServices.EventBus);
     }
 
     /// <summary>新旧连接的代次可能相同，旧会话也不能在重启后修改新连接或取消其请求。</summary>
@@ -418,7 +418,7 @@ public sealed class GameServicesTests
         oldServices.Dispose();
         using var transport = new DoubleNetTransport();
         using var currentServices = Register(transport);
-        var currentEvents = GameServices.Events;
+        var currentEvents = GameServices.EventBus;
         using var currentSession = new SessionService(GameServices.Net, new LoginRt { Success = true });
         currentSession.SelectRole(1002);
         Assert.Throws<ObjectDisposedException>(() => oldSession.SelectRole(1001));
@@ -430,20 +430,20 @@ public sealed class GameServicesTests
         var request = Assert.IsType<SelectRole>(MessageCodec.ReadPayload(
             MessageCodec.ReadEnvelope(Assert.Single(transport.Sent)), true));
         Assert.Equal(1002, request.RoleId);
-        Assert.Same(currentEvents, GameServices.Events);
+        Assert.Same(currentEvents, GameServices.EventBus);
     }
 
     /// <summary>显式创建独立网络与会话不改变已注册服务和其消息队列。</summary>
     [Fact]
     public void ExplicitInstancesRemainIndependentOfGlobalRegistration()
     {
-        using var events = new EventService();
+        using var eventBus = new EventBusService();
         using var globalTransport = new DoubleNetTransport();
-        using var services = Register(new NetService(globalTransport, events), events);
+        using var services = Register(new NetService(globalTransport, eventBus), eventBus);
         var globalNet = GameServices.Net;
         GameServices.Net.Send(new Login());
         using (var isolatedTransport = new DoubleNetTransport())
-        using (var isolated = new NetService(isolatedTransport, GameServices.Events))
+        using (var isolated = new NetService(isolatedTransport, GameServices.EventBus))
         using (var session = new SessionService(isolated, new LoginRt { Success = true }))
         {
             session.SelectRole(1002);
@@ -460,20 +460,20 @@ public sealed class GameServicesTests
     [Fact]
     public void NetworksPublishToSharedServiceWithoutOwningItsErrorsOrLifetime()
     {
-        using var events = new EventService();
+        using var eventBus = new EventBusService();
         using var firstTransport = new DoubleNetTransport();
-        using var services = Register(new NetService(firstTransport, events), events);
-        Assert.Same(events, GameServices.Events);
+        using var services = Register(new NetService(firstTransport, eventBus), eventBus);
+        Assert.Same(eventBus, GameServices.EventBus);
         using var secondTransport = new DoubleNetTransport();
-        using var secondNet = new NetService(secondTransport, GameServices.Events);
+        using var secondNet = new NetService(secondTransport, GameServices.EventBus);
         var calls = 0;
         var eventErrors = new List<Exception>();
         var netErrors = new List<Exception>();
-        events.Error += eventErrors.Add;
+        eventBus.Error += eventErrors.Add;
         GameServices.Net.Error += netErrors.Add;
         secondNet.Error += netErrors.Add;
-        using var failing = events.Subscribe<LoginRt>(_ => throw new IOException("监听失败"));
-        using var observer = events.Subscribe<LoginRt>(_ => calls++);
+        using var failing = eventBus.Subscribe<LoginRt>(_ => throw new IOException("监听失败"));
+        using var observer = eventBus.Subscribe<LoginRt>(_ => calls++);
         firstTransport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
         secondTransport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
         GameServices.Net.Tick(0);
@@ -482,21 +482,21 @@ public sealed class GameServicesTests
         Assert.Equal(2, eventErrors.Count);
         Assert.Empty(netErrors);
         secondNet.Dispose();
-        Assert.Same(events, GameServices.Events);
-        events.Publish(new LoginRt());
+        Assert.Same(eventBus, GameServices.EventBus);
+        eventBus.Publish(new LoginRt());
         Assert.Equal(3, calls);
     }
 
     /// <summary>验证 session-events 的唯一创建边界，禁止运行时消费者重新引入私有事件系统。</summary>
     [Fact]
-    public void EventServiceHasNoPublicConstructorAndOnlyGameServicesCreatesIt()
+    public void EventBusServiceHasNoPublicConstructorAndOnlyGameServicesCreatesIt()
     {
-        using var events = new EventService();
-        Assert.Empty(typeof(EventService).GetConstructors());
-        Assert.Null(typeof(NetService).GetProperty("Events"));
+        using var eventBus = new EventBusService();
+        Assert.Empty(typeof(EventBusService).GetConstructors());
+        Assert.Null(typeof(NetService).GetProperty("EventBus"));
         var source = Path.Combine(ConfigTestFixture.FindRoot(), "src");
         var creators = Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories)
-            .Where(path => System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(path), @"new\s+EventService\s*\("))
+            .Where(path => System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(path), @"new\s+EventBusService\s*\("))
             .Select(path => Path.GetRelativePath(source, path).Replace('\\', '/')).ToArray();
         Assert.Equal(new[] { "Services/GameServices.cs" }, creators);
         Assert.DoesNotContain(Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories),
@@ -508,7 +508,7 @@ public sealed class GameServicesTests
     public void AllServicesExposeDisposalStateThroughCommonContract()
     {
         using var lifetime = Register(new DoubleNetTransport());
-        IService[] services = [GameServices.Env, GameServices.Config, GameServices.Setting, GameServices.Events,
+        IService[] services = [GameServices.Env, GameServices.Config, GameServices.Setting, GameServices.EventBus,
             GameServices.Net, GameServices.Session, GameServices.World, GameServices.Animation];
         Assert.All(services, service => Assert.False(service.IsDisposed));
         lifetime.Dispose();
@@ -520,23 +520,23 @@ public sealed class GameServicesTests
     /// <summary>为重启验收从传输构建独立的事件与网络实例，成功后统一接管。</summary>
     private static IDisposable Register(INetTransport transport)
     {
-        var events = new EventService();
+        var eventBus = new EventBusService();
         NetService? net = null;
         try
         {
-            net = new NetService(transport, events);
-            return Register(net, events);
+            net = new NetService(transport, eventBus);
+            return Register(net, eventBus);
         }
-        catch { net?.Dispose(); events.Dispose(); throw; }
+        catch { net?.Dispose(); eventBus.Dispose(); throw; }
     }
 
     /// <summary>创建完整服务组，注册失败时释放仍归调用方的配置和设置。</summary>
-    private static IDisposable Register(NetService net, EventService events)
+    private static IDisposable Register(NetService net, EventBusService eventBus)
     {
         var env = ConfigTestFixture.CreateEnv(Path.Combine(Path.GetTempPath(), "rpg-services-" + Guid.NewGuid()));
         var config = new ConfigService(env);
         var setting = new SettingService(env);
-        try { return GameServicesTestFactory.Register(env, events, config, setting, net); }
+        try { return GameServicesTestFactory.Register(env, eventBus, config, setting, net); }
         catch { setting.Dispose(); config.Dispose(); env.Dispose(); throw; }
     }
 

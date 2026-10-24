@@ -32,7 +32,7 @@ public partial class ActorAnimationSmoke : Node
             var repo = new AnimationService();
             var net = GameServices.Net;
             LoginRt? loginResponse = null;
-            using var login = GameServices.Events.Subscribe<LoginRt>(response =>
+            using var login = GameServices.EventBus.Subscribe<LoginRt>(response =>
             {
                 Check(response.Success, response.Error);
                 loginResponse = response;

@@ -15,10 +15,10 @@ public enum EventPhase
 }
 
 /// <summary>提供类型监听、缓存优先和排队重入的单线程事件分发。</summary>
-public sealed class EventService : Service
+public sealed class EventBusService : Service
 {
     /// <summary>仅由 GameServices 建立应用事件域。</summary>
-    internal EventService() { }
+    internal EventBusService() { }
 
     /// <summary>各具体消息类型的监听集合。</summary>
     private readonly Dictionary<Type, List<Subscription>> _listeners = new();

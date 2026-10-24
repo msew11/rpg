@@ -12,13 +12,13 @@ public sealed class CacheBaseTests : RegisteredServiceTestScope
     [Fact]
     public void CacheSubscriptionsRunBeforeEarlierOrdinaryListeners()
     {
-        var events = Events;
+        var eventBus = EventBus;
         var value = 0;
         var observed = 0;
-        using var ordinary = events.Subscribe<int>(_ => observed = value);
+        using var ordinary = eventBus.Subscribe<int>(_ => observed = value);
         using var cache = new DoubleCache();
         cache.Listen<int>(message => value = message);
-        events.Publish(42);
+        eventBus.Publish(42);
         Assert.Equal(42, observed);
     }
 
@@ -26,7 +26,7 @@ public sealed class CacheBaseTests : RegisteredServiceTestScope
     [Fact]
     public void DisposeReleasesOwnedSubscriptionsAndRunsCleanupOnce()
     {
-        var events = Events;
+        var eventBus = EventBus;
         using var released = new DoubleCache();
         using var active = new DoubleCache();
         var releasedCalls = 0;
@@ -34,13 +34,13 @@ public sealed class CacheBaseTests : RegisteredServiceTestScope
         released.Listen<int>(_ => releasedCalls++);
         released.Listen<string>(_ => releasedCalls++);
         active.Listen<int>(_ => activeCalls++);
-        events.Publish(1);
-        events.Publish("before");
+        eventBus.Publish(1);
+        eventBus.Publish("before");
         Assert.Equal(2, releasedCalls);
         released.Dispose();
         released.Dispose();
-        events.Publish(2);
-        events.Publish("after");
+        eventBus.Publish(2);
+        eventBus.Publish("after");
         Assert.Equal(2, releasedCalls);
         Assert.Equal(2, activeCalls);
         Assert.Equal(1, released.CleanupCalls);
@@ -54,7 +54,7 @@ public sealed class CacheBaseTests : RegisteredServiceTestScope
         using var cache = new DoubleCache();
         cache.Listen<int>(_ => { });
         Dispose();
-        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
+        Assert.Throws<InvalidOperationException>(() => GameServices.EventBus);
         cache.Dispose();
         cache.Dispose();
         Assert.Equal(1, cache.CleanupCalls);

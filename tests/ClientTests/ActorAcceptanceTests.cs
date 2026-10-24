@@ -21,13 +21,13 @@ public sealed class ActorAcceptanceTests : RegisteredServiceTestScope
     [InlineData(1002, RoleGender.Female)]
     public void GenderFlowsFromSessionIntoEntity(long roleId, RoleGender gender)
     {
-        using var source = new NetworkTestFixture(Events);
+        using var source = new NetworkTestFixture(EventBus);
         Assert.Equal(gender, source.Login("demo", "demo").Roles.Single(role => role.RoleId == roleId).Gender);
         using var session = source.SelectRole(roleId);
         var world = CreateWorld(session.Role);
         Assert.Equal(gender, session.RoleCache.State.Gender);
         Assert.Equal(gender, world.ActorState!.Gender);
-        using var subscription = Events.Subscribe<MoveRt>(_ => world.Enqueue(new SyncRoleAction(session.RoleCache.State)));
+        using var subscription = EventBus.Subscribe<MoveRt>(_ => world.Enqueue(new SyncRoleAction(session.RoleCache.State)));
         session.SubmitMove(1, session.Role.Position + new Vector2(100, 0));
         source.Net.Tick(0.5);
         world.Tick(0);
@@ -39,7 +39,7 @@ public sealed class ActorAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void MovementSelectsMotionAndRetainsFacingOnStop()
     {
-        using var source = new NetworkTestFixture(Events);
+        using var source = new NetworkTestFixture(EventBus);
         using var session = source.SelectRole(source.Login().Roles[0].RoleId);
         var role = session.Role;
         var world = CreateWorld(role);
@@ -73,7 +73,7 @@ public sealed class ActorAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void AuthorityGenderUsesRevisionRatherThanMovementAcknowledgement()
     {
-        using var source = new NetworkTestFixture(Events);
+        using var source = new NetworkTestFixture(EventBus);
         using var session = source.SelectRole(source.Login().Roles[0].RoleId);
         var role = session.Role;
         var world = CreateWorld(role);
@@ -91,7 +91,7 @@ public sealed class ActorAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void NonMovementMotionsStayLogicalUntilNextCommand()
     {
-        using var source = new NetworkTestFixture(Events);
+        using var source = new NetworkTestFixture(EventBus);
         using var session = source.SelectRole(source.Login().Roles[1].RoleId);
         var role = session.Role;
         var world = CreateWorld(role);

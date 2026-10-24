@@ -296,7 +296,7 @@ public partial class ClientSmoke : Node
             authority.Revision++;
             authority.X += 13;
             authority.AcknowledgedAction++;
-            GameServices.Events.Publish(new Rpg.Net.Message.RoleStateNotice { State = authority });
+            GameServices.EventBus.Publish(new Rpg.Net.Message.RoleStateNotice { State = authority });
             GameServices.World.Tick(0);
             if (GameServices.World.RolePosition != GameServices.Session.Role.Position)
                 throw new InvalidOperationException("HUD 离树后主动推送未同步到世界");
@@ -304,7 +304,7 @@ public partial class ClientSmoke : Node
             authority.Revision++;
             authority.X += 17;
             authority.AcknowledgedAction++;
-            GameServices.Events.Publish(new Rpg.Net.Message.MoveRt
+            GameServices.EventBus.Publish(new Rpg.Net.Message.MoveRt
             {
                 Success = true, RoleId = authority.RoleId,
                 ActionId = authority.AcknowledgedAction, State = authority

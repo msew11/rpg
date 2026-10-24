@@ -17,9 +17,9 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void LoginReturnsSummariesAndSelectionLoadsLatestWorldState()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         LoginRt? loginResponse = null;
-        using var loginListener = Events.Subscribe<LoginRt>(response => loginResponse = response);
+        using var loginListener = EventBus.Subscribe<LoginRt>(response => loginResponse = response);
         var login = fixture.Login();
         Assert.True(login.Success, login.Error);
         Assert.Equal(2, login.Roles.Count);
@@ -35,7 +35,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         var updated = repo.Load(summary.RoleId) with { Health = 42, X = 123, Y = 456, Revision = 7 };
         repo.Save(updated);
         SelectRoleRt? selectionResponse = null;
-        using var selectionListener = Events.Subscribe<SelectRoleRt>(response => selectionResponse = response);
+        using var selectionListener = EventBus.Subscribe<SelectRoleRt>(response => selectionResponse = response);
         using var session = fixture.SelectRole(summary.RoleId);
         Assert.IsType<RoleWorldStatePb>(selectionResponse!.State);
         Assert.IsType<RoleWorldStatePbData>(session.RoleCache.State);
@@ -55,10 +55,10 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [InlineData("notice")]
     public void CachedWorldDataDoesNotRetainProtocolObjects(string source)
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         fixture.Login();
         RoleWorldStatePb? initialMessage = null;
-        using var selected = Events.Subscribe<SelectRoleRt>(response => initialMessage = response.State.Clone());
+        using var selected = EventBus.Subscribe<SelectRoleRt>(response => initialMessage = response.State.Clone());
         using var session = fixture.SelectRole(1001);
         selected.Dispose();
         var previous = session.RoleCache.State;
@@ -76,7 +76,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
             "move" => new MoveRt { Success = true, RoleId = 1001, ActionId = 1, State = message },
             _ => new RoleStateNotice { State = message }
         };
-        Events.Publish(response);
+        EventBus.Publish(response);
         var cached = session.RoleCache.State;
         Assert.NotSame(previous, cached);
         Assert.Equal("更新角色", cached.Name);
@@ -107,14 +107,14 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void ConfirmedMovementPersistsBeforeResponseAndSurvivesRestart()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         fixture.Login();
         var repo = new RepoServerRole(fixture.DirectoryPath);
         var otherRole = repo.Load(1002);
         using var session = fixture.SelectRole(1001);
         var initial = session.RoleCache.State;
         var replies = 0;
-        using var response = Events.Subscribe<MoveRt>(message =>
+        using var response = EventBus.Subscribe<MoveRt>(message =>
         {
             Assert.True(message.Success, message.Error);
             replies++;
@@ -133,7 +133,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         var confirmed = session.RoleCache.State;
         session.Dispose();
         fixture.Net.Dispose();
-        using var restarted = new NetworkTestFixture(Events, fixture.DirectoryPath);
+        using var restarted = new NetworkTestFixture(EventBus, fixture.DirectoryPath);
         Assert.True(restarted.Login().Success);
         using var restored = restarted.SelectRole(1001);
         Assert.Equal(confirmed.Position, restored.Role.Position);
@@ -150,12 +150,12 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void NoticeCommitsBeforeEarlierUiAndDoesNotShareMutableData()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         fixture.Login();
         SessionService? session = null;
         var notices = 0;
         var repo = new RepoServerRole(fixture.DirectoryPath);
-        using var ui = Events.Subscribe<RoleStateNotice>(notice =>
+        using var ui = EventBus.Subscribe<RoleStateNotice>(notice =>
         {
             notices++;
             Assert.Equal(50, session!.RoleCache.State.Health);
@@ -179,23 +179,23 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void RoleCacheRejectsOldForeignAndMalformedStates()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         fixture.Login();
         RoleWorldStatePb? selectedState = null;
-        using var selectedResponse = Events.Subscribe<SelectRoleRt>(message => selectedState = message.State.Clone());
+        using var selectedResponse = EventBus.Subscribe<SelectRoleRt>(message => selectedState = message.State.Clone());
         using var session = fixture.SelectRole(1001);
         var update = selectedState!.Clone();
         update.Revision = 2;
         update.Health = 50;
-        Events.Publish(new RoleStateNotice { State = update });
+        EventBus.Publish(new RoleStateNotice { State = update });
         var current = session.RoleCache.State;
-        Events.Publish(new RoleStateNotice { State = selectedState });
-        Events.Publish(new RoleStateNotice { State = new RoleWorldStatePb { RoleId = 1002, Revision = 3 } });
-        Events.Publish(new MoveRt { RoleId = 1001, Error = "保存失败" });
+        EventBus.Publish(new RoleStateNotice { State = selectedState });
+        EventBus.Publish(new RoleStateNotice { State = new RoleWorldStatePb { RoleId = 1002, Revision = 3 } });
+        EventBus.Publish(new MoveRt { RoleId = 1001, Error = "保存失败" });
         Assert.Same(current, session.RoleCache.State);
         var ordinaryCalls = 0;
-        using var normal = Events.Subscribe<MoveRt>(_ => ordinaryCalls++);
-        Events.Publish(new MoveRt { Success = true, RoleId = 1001, ActionId = 1 });
+        using var normal = EventBus.Subscribe<MoveRt>(_ => ordinaryCalls++);
+        EventBus.Publish(new MoveRt { Success = true, RoleId = 1001, ActionId = 1 });
         Assert.Equal(0, ordinaryCalls);
         Assert.Single(fixture.Errors);
         Assert.Same(current, session.RoleCache.State);
@@ -205,7 +205,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void ReenteringSameRoleDiscardsDelayedWorkAndOldSubscriptions()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         fixture.Login();
         using var first = fixture.SelectRole(1001);
         var initial = first.RoleCache.State;
@@ -216,7 +216,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         Assert.Throws<InvalidOperationException>(() => first.SubmitMove(2, Godot.Vector2.Zero));
         using var second = fixture.SelectRole(1001);
         var replies = 0;
-        using var response = Events.Subscribe<MoveRt>(_ => replies++);
+        using var response = EventBus.Subscribe<MoveRt>(_ => replies++);
         fixture.Net.Tick(1);
         Assert.Equal(0, replies);
         Assert.Equal(initial.Position, second.Role.Position);
@@ -233,7 +233,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void LeavingSessionDiscardsUnsentMovement()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         fixture.Login();
         using var first = fixture.SelectRole(1001);
         var initial = first.Role.Position;
@@ -249,12 +249,12 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void InvalidLoginAndSelectionDoNotInitializeCaches()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         Assert.False(fixture.Login("demo", "wrong").Success);
         Assert.Null(fixture.Session);
         Assert.False(Directory.Exists(fixture.DirectoryPath));
         SelectRoleRt? response = null;
-        using var listener = Events.Subscribe<SelectRoleRt>(message => response = message);
+        using var listener = EventBus.Subscribe<SelectRoleRt>(message => response = message);
         fixture.Net.Send(new SelectRole { RoleId = 1001 });
         fixture.Net.Tick(0);
         Assert.False(response!.Success);
@@ -275,14 +275,14 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [InlineData("{}")]
     public void CorruptFilesFailWithoutOverwriting(string corrupted)
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         fixture.Login();
         var path = new RepoServerRole(fixture.DirectoryPath).GetRolePath(1001);
         File.WriteAllText(path, corrupted);
         using (var pending = fixture.Session!)
         {
             SelectRoleRt? selection = null;
-            using var listener = Events.Subscribe<SelectRoleRt>(response => selection = response);
+            using var listener = EventBus.Subscribe<SelectRoleRt>(response => selection = response);
             pending.SelectRole(1001);
             fixture.Net.Tick(0);
             Assert.False(selection!.Success);
@@ -302,7 +302,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [InlineData("gender")]
     public void InvalidStoredFieldsAreDiagnosed(string field)
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         fixture.Login();
         var repo = new RepoServerRole(fixture.DirectoryPath);
         var original = repo.Load(1001);
@@ -322,7 +322,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void FailedMovementSavePreservesConfirmedStateAndOriginalFile()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         fixture.Login();
         using var session = fixture.SelectRole(1001);
         var repo = new RepoServerRole(fixture.DirectoryPath);
@@ -330,7 +330,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         var original = File.ReadAllText(path);
         var initial = session.RoleCache.State;
         MoveRt? response = null;
-        using var listener = Events.Subscribe<MoveRt>(message => response = message);
+        using var listener = EventBus.Subscribe<MoveRt>(message => response = message);
         using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
             session.SubmitMove(1, session.Role.Position + new Godot.Vector2(100, 0));
@@ -352,13 +352,13 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void FailedNoticeSaveDoesNotPublishOrCommit()
     {
-        using var fixture = new NetworkTestFixture(Events);
+        using var fixture = new NetworkTestFixture(EventBus);
         fixture.Login();
         using var session = fixture.SelectRole(1001);
         var repo = new RepoServerRole(fixture.DirectoryPath);
         var original = repo.Load(1001);
         var notices = 0;
-        using var listener = Events.Subscribe<RoleStateNotice>(_ => notices++);
+        using var listener = EventBus.Subscribe<RoleStateNotice>(_ => notices++);
         using (var locked = new FileStream(repo.GetRolePath(1001), FileMode.Open, FileAccess.Read, FileShare.Read))
             Assert.ThrowsAny<IOException>(() => fixture.Server.PublishRoleState(original with { Health = 20 }));
         fixture.Net.Tick(0);

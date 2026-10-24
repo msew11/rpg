@@ -16,7 +16,7 @@ public abstract class CacheBase : IDisposable
     protected void Subscribe<T>(Action<T> handler)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _subscriptions.Add(GameServices.Events.Subscribe(handler, EventPhase.Cache));
+        _subscriptions.Add(GameServices.EventBus.Subscribe(handler, EventPhase.Cache));
     }
 
     /// <summary>幂等释放全部订阅，再执行子类额外清理。</summary>

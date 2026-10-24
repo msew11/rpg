@@ -8,7 +8,7 @@ using Rpg.Session;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/client-network 的字节、方向、队列与代次契约。</summary>
-public sealed class NetworkFoundationTests : EventServiceTestScope
+public sealed class NetworkFoundationTests : EventBusServiceTestScope
 {
     /// <summary>验证 client-session：登录摘要身份、名称、等级和性别不合法时拒绝转换。</summary>
     [Theory]
@@ -51,11 +51,11 @@ public sealed class NetworkFoundationTests : EventServiceTestScope
     public void InvalidPacketsReportErrorsAndDoNotDispatch()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, Events);
+        using var net = new NetService(transport, EventBus);
         var errors = new List<Exception>();
         var delivered = 0;
         net.Error += errors.Add;
-        using var subscription = Events.Subscribe<LoginRt>(_ => delivered++);
+        using var subscription = EventBus.Subscribe<LoginRt>(_ => delivered++);
         transport.Inject([255]);
         transport.Inject(new EnvelopePb { Generation = 1, MessageType = "unknown" }.ToByteArray());
         transport.Inject(MessageCodec.Encode(new Login(), 1, true));
@@ -72,9 +72,9 @@ public sealed class NetworkFoundationTests : EventServiceTestScope
     public void SendsAndReceivesAreQueuedAndFreezeMutableRequests()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, Events);
+        using var net = new NetService(transport, EventBus);
         var callbacks = 0;
-        using var subscription = Events.Subscribe<LoginRt>(_ => { callbacks++; net.Send(new SelectRole { RoleId = 1001 }); });
+        using var subscription = EventBus.Subscribe<LoginRt>(_ => { callbacks++; net.Send(new SelectRole { RoleId = 1001 }); });
         var request = new Login { Username = "demo", Password = "demo" };
         net.Send(request);
         request.Username = "changed";
@@ -96,9 +96,9 @@ public sealed class NetworkFoundationTests : EventServiceTestScope
     public void SessionResetDiscardsOldQueuedAndInFlightMessages()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, Events);
+        using var net = new NetService(transport, EventBus);
         var calls = 0;
-        using var subscription = Events.Subscribe<LoginRt>(_ => calls++);
+        using var subscription = EventBus.Subscribe<LoginRt>(_ => calls++);
         net.Send(new Login());
         net.ResetSession();
         transport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
@@ -112,19 +112,19 @@ public sealed class NetworkFoundationTests : EventServiceTestScope
 }
 
 /// <summary>验证 openspec/specs/session-events 的优先级、生命周期、重入与异常场景。</summary>
-public sealed class SessionEventTests : EventServiceTestScope
+public sealed class SessionEventTests : EventBusServiceTestScope
 {
     /// <summary>先注册的 UI 也能读到所有缓存监听处理后的值。</summary>
     [Fact]
     public void AllCachesRunBeforeEarlierRegisteredUi()
     {
-        var events = Events;
+        var eventBus = EventBus;
         var order = new List<string>();
         var value = 0;
-        using var ui = events.Subscribe<int>(_ => { Assert.Equal(2, value); order.Add("ui"); });
-        using var first = events.Subscribe<int>(_ => { value++; order.Add("cache1"); }, EventPhase.Cache);
-        using var second = events.Subscribe<int>(_ => { value++; order.Add("cache2"); }, EventPhase.Cache);
-        events.Publish(1);
+        using var ui = eventBus.Subscribe<int>(_ => { Assert.Equal(2, value); order.Add("ui"); });
+        using var first = eventBus.Subscribe<int>(_ => { value++; order.Add("cache1"); }, EventPhase.Cache);
+        using var second = eventBus.Subscribe<int>(_ => { value++; order.Add("cache2"); }, EventPhase.Cache);
+        eventBus.Publish(1);
         Assert.Equal(new[] { "cache1", "cache2", "ui" }, order);
     }
 
@@ -132,20 +132,20 @@ public sealed class SessionEventTests : EventServiceTestScope
     [Fact]
     public void RegistrationAndDisposalDuringDispatchRespectSnapshot()
     {
-        var events = Events;
+        var eventBus = EventBus;
         IDisposable? removed = null;
         IDisposable? added = null;
         var order = new List<string>();
-        using var first = events.Subscribe<int>(_ =>
+        using var first = eventBus.Subscribe<int>(_ =>
         {
             order.Add("first");
             removed!.Dispose();
-            added ??= events.Subscribe<int>(_ => order.Add("added"));
+            added ??= eventBus.Subscribe<int>(_ => order.Add("added"));
         });
-        removed = events.Subscribe<int>(_ => order.Add("removed"));
-        events.Publish(1);
+        removed = eventBus.Subscribe<int>(_ => order.Add("removed"));
+        eventBus.Publish(1);
         Assert.Equal(new[] { "first" }, order);
-        events.Publish(2);
+        eventBus.Publish(2);
         Assert.Equal(new[] { "first", "first", "added" }, order);
         added?.Dispose();
         added?.Dispose();
@@ -155,15 +155,15 @@ public sealed class SessionEventTests : EventServiceTestScope
     [Fact]
     public void ReentrantMessagesWaitForCurrentNormalPhase()
     {
-        var events = Events;
+        var eventBus = EventBus;
         var order = new List<string>();
-        using var cache = events.Subscribe<int>(value =>
+        using var cache = eventBus.Subscribe<int>(value =>
         {
             order.Add($"cache{value}");
-            if (value == 1) events.Publish(2);
+            if (value == 1) eventBus.Publish(2);
         }, EventPhase.Cache);
-        using var ui = events.Subscribe<int>(value => order.Add($"ui{value}"));
-        events.Publish(1);
+        using var ui = eventBus.Subscribe<int>(value => order.Add($"ui{value}"));
+        eventBus.Publish(1);
         Assert.Equal(new[] { "cache1", "ui1", "cache2", "ui2" }, order);
     }
 
@@ -171,17 +171,17 @@ public sealed class SessionEventTests : EventServiceTestScope
     [Fact]
     public void ListenerFailuresAreIsolatedByPhase()
     {
-        var events = Events;
+        var eventBus = EventBus;
         var errors = 0;
         var calls = 0;
-        events.Error += _ => errors++;
-        events.Error += _ => throw new InvalidOperationException("错误观察者异常");
-        using var cache = events.Subscribe<int>(value => { if (value == 1) throw new InvalidOperationException("缓存失败"); }, EventPhase.Cache);
-        using var badUi = events.Subscribe<int>(_ => throw new InvalidOperationException("UI 失败"));
-        using var goodUi = events.Subscribe<int>(_ => calls++);
-        events.Publish(1);
+        eventBus.Error += _ => errors++;
+        eventBus.Error += _ => throw new InvalidOperationException("错误观察者异常");
+        using var cache = eventBus.Subscribe<int>(value => { if (value == 1) throw new InvalidOperationException("缓存失败"); }, EventPhase.Cache);
+        using var badUi = eventBus.Subscribe<int>(_ => throw new InvalidOperationException("UI 失败"));
+        using var goodUi = eventBus.Subscribe<int>(_ => calls++);
+        eventBus.Publish(1);
         Assert.Equal(0, calls);
-        events.Publish(2);
+        eventBus.Publish(2);
         Assert.Equal(1, calls);
         Assert.Equal(2, errors);
     }
@@ -190,12 +190,12 @@ public sealed class SessionEventTests : EventServiceTestScope
     [Fact]
     public void ResetDuringDispatchInvalidatesCurrentSnapshotAndQueue()
     {
-        var events = Events;
+        var eventBus = EventBus;
         var calls = 0;
-        using var cache = events.Subscribe<int>(_ => { events.Publish("old"); events.ResetPending(); }, EventPhase.Cache);
-        using var ui = events.Subscribe<int>(_ => calls++);
-        using var nested = events.Subscribe<string>(_ => calls++);
-        events.Publish(1);
+        using var cache = eventBus.Subscribe<int>(_ => { eventBus.Publish("old"); eventBus.ResetPending(); }, EventPhase.Cache);
+        using var ui = eventBus.Subscribe<int>(_ => calls++);
+        using var nested = eventBus.Subscribe<string>(_ => calls++);
+        eventBus.Publish(1);
         Assert.Equal(0, calls);
     }
 }

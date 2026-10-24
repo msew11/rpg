@@ -43,11 +43,11 @@ public partial class MainController : Control
             _servicesLifetime = InitializeServices();
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;
-            GameServices.Events.Error += OnNetworkError;
-            _subscriptions.Add(GameServices.Events.Subscribe<LoginRt>(OnLoggedIn));
-            _subscriptions.Add(GameServices.Events.Subscribe<SelectRoleRt>(OnSelectedRole));
-            _subscriptions.Add(GameServices.Events.Subscribe<MoveRt>(OnMoved));
-            _subscriptions.Add(GameServices.Events.Subscribe<RoleStateNotice>(OnRoleNotice));
+            GameServices.EventBus.Error += OnNetworkError;
+            _subscriptions.Add(GameServices.EventBus.Subscribe<LoginRt>(OnLoggedIn));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<SelectRoleRt>(OnSelectedRole));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<MoveRt>(OnMoved));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStateNotice>(OnRoleNotice));
             ShowLogin();
         }
         catch (Exception error)
@@ -95,7 +95,7 @@ public partial class MainController : Control
             if (lifetime is not null)
             {
                 GameServices.Net.Error -= OnNetworkError;
-                GameServices.Events.Error -= OnNetworkError;
+                GameServices.EventBus.Error -= OnNetworkError;
             }
             foreach (var subscription in _subscriptions) subscription.Dispose();
             _subscriptions.Clear();

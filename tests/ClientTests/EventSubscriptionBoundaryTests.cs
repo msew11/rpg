@@ -46,8 +46,8 @@ public sealed class EventSubscriptionBoundaryTests
                         if (typeof(Service).IsAssignableFrom(owner))
                             Assert.False(target?.DeclaringType == typeof(GameServices),
                                 $"{type.FullName}.{method.Name} 必须通过构造绑定服务，不能访问 GameServices");
-                        Assert.False(target?.DeclaringType == typeof(EventService) &&
-                            (target.Name == nameof(EventService.Subscribe) || target.Name == "add_Error"),
+                        Assert.False(target?.DeclaringType == typeof(EventBusService) &&
+                            (target.Name == nameof(EventBusService.Subscribe) || target.Name == "add_Error"),
                             $"{type.FullName}.{method.Name} 不得注册业务事件监听");
                     }
                     offset += operand switch
@@ -68,7 +68,7 @@ public sealed class EventSubscriptionBoundaryTests
     [Fact]
     public void ServicesFollowFixedConstructionAndReverseDisposalOrder()
     {
-        Type[] order = [typeof(EnvService), typeof(EventService), typeof(Rpg.Config.ConfigService),
+        Type[] order = [typeof(EnvService), typeof(EventBusService), typeof(Rpg.Config.ConfigService),
             typeof(Rpg.Settings.SettingService), typeof(Rpg.Net.NetService), typeof(Rpg.Session.SessionService),
             typeof(Rpg.World.WorldService), typeof(Rpg.World.Views.AnimationService)];
         var services = typeof(Service).Assembly.GetTypes().Where(type => !type.IsAbstract && typeof(Service).IsAssignableFrom(type));
@@ -93,7 +93,7 @@ public sealed class EventSubscriptionBoundaryTests
         Assert.Equal(order.Select(type => type.Name), constructions);
         var disposal = System.Text.RegularExpressions.Regex.Matches(source, @"foreach \(var service in new IService\[\] \{ ([^}]+) \}\)").Last();
         Assert.True(disposal.Success, "整体释放必须显式列出逆依赖顺序");
-        Assert.Equal(new[] { "Animation", "World", "Session", "Net", "Setting", "Config", "Events", "Env" },
+        Assert.Equal(new[] { "Animation", "World", "Session", "Net", "Setting", "Config", "EventBus", "Env" },
             disposal.Groups[1].Value.Split(',').Select(name => name.Trim()));
     }
 }

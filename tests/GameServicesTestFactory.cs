@@ -22,15 +22,15 @@ internal static class GameServicesTestFactory
         var created = new List<IService> { env };
         try
         {
-            var events = new EventService();
-            created.Add(events);
+            var eventBus = new EventBusService();
+            created.Add(eventBus);
             var config = new ConfigService(env);
             created.Add(config);
             var setting = new SettingService(env);
             created.Add(setting);
-            var net = new NetService(env, events);
+            var net = new NetService(env, eventBus);
             created.Add(net);
-            return Register(env, events, config, setting, net);
+            return Register(env, eventBus, config, setting, net);
         }
         catch
         {
@@ -40,7 +40,7 @@ internal static class GameServicesTestFactory
     }
 
     /// <summary>成功后接管测试显式提供的依赖，失败时仅回收本方法创建的服务。</summary>
-    internal static IDisposable Register(EnvService env, EventService events, ConfigService config, SettingService setting, NetService net)
+    internal static IDisposable Register(EnvService env, EventBusService eventBus, ConfigService config, SettingService setting, NetService net)
     {
         ArgumentNullException.ThrowIfNull(env);
         ArgumentNullException.ThrowIfNull(config);
@@ -60,7 +60,7 @@ internal static class GameServicesTestFactory
             created.Add(world);
             var animation = new AnimationService();
             created.Add(animation);
-            return GameServices.Register(env, events, config, setting, net, session, world, animation);
+            return GameServices.Register(env, eventBus, config, setting, net, session, world, animation);
         }
         catch
         {

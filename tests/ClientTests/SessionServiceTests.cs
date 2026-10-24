@@ -23,12 +23,12 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
         var generation = net.Generation;
         Dispose();
         Assert.False(GameServices.IsInitialized);
-        Assert.Throws<InvalidOperationException>(() => GameServices.Events);
+        Assert.Throws<InvalidOperationException>(() => GameServices.EventBus);
         Assert.True(session.IsDisposed);
         Assert.False(login.IsLoggedIn);
         Assert.True(net.Generation > generation);
         Assert.True(net.IsDisposed);
-        Assert.True(Events.IsDisposed);
+        Assert.True(EventBus.IsDisposed);
     }
 
     /// <summary>验证 client-session 与 session-events：空缓存拒绝选角，重试及退出回收旧监听。</summary>
@@ -36,23 +36,23 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
     public void LoginAttemptsOwnEmptyCachesAndReleasePreviousSubscriptions()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, Events);
+        using var net = new NetService(transport, EventBus);
         using var session = new SessionService(net);
         session.Login("demo", "wrong");
         var previous = session.LoginCache;
         Assert.False(session.IsLoggedIn);
         Assert.Throws<InvalidOperationException>(() => session.SelectRole(1001));
         Assert.Throws<InvalidOperationException>(() => session.Role);
-        Events.Publish(new LoginRt { Error = "凭据错误" });
+        EventBus.Publish(new LoginRt { Error = "凭据错误" });
         Assert.False(session.IsLoggedIn);
         session.Login("demo", "demo");
         var current = session.LoginCache;
         Assert.NotSame(previous, current);
-        Events.Publish(new LoginRt { Success = true });
+        EventBus.Publish(new LoginRt { Success = true });
         Assert.True(session.IsLoggedIn);
         Assert.False(previous.IsLoggedIn);
         session.Logout();
-        Events.Publish(new LoginRt { Success = true });
+        EventBus.Publish(new LoginRt { Success = true });
         Assert.False(current.IsLoggedIn);
         Assert.False(session.IsLoggedIn);
     }
@@ -62,14 +62,14 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
     public void InvalidInitialLoginDoesNotCreateSessionOrLeaveSubscriptions()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, Events);
+        using var net = new NetService(transport, EventBus);
         net.Send(new Login { Username = "demo", Password = "demo" });
         Assert.Throws<InvalidOperationException>(() => new SessionService(net, new LoginRt { Error = "登录失败" }));
         var invalid = new LoginRt { Success = true, Roles = { new RoleSummaryPb { RoleId = 1001 } } };
         Assert.Throws<InvalidDataException>(() => new SessionService(net, invalid));
         var errors = new List<Exception>();
-        Events.Error += errors.Add;
-        Events.Publish(invalid);
+        EventBus.Error += errors.Add;
+        EventBus.Publish(invalid);
         Assert.Empty(errors);
         net.Tick(0);
         Assert.Single(transport.Sent);
@@ -80,7 +80,7 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
     public void ReenteringSameRoleRejectsOldPacketsWhileKeepingLoginCache()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, Events);
+        using var net = new NetService(transport, EventBus);
         using var session = new SessionService(net, new LoginRt { Success = true });
         var loginCache = session.LoginCache;
         var state = new RoleWorldStatePb
@@ -108,8 +108,8 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
         transport.Inject(MessageCodec.Encode(new MoveRt { Success = true, RoleId = 1001, ActionId = 7, State = staleState }, oldGeneration, false));
         transport.Inject(MessageCodec.Encode(new RoleStateNotice { State = staleState }, oldGeneration, false));
         var calls = 0;
-        using var moved = Events.Subscribe<MoveRt>(_ => calls++);
-        using var noticed = Events.Subscribe<RoleStateNotice>(_ => calls++);
+        using var moved = EventBus.Subscribe<MoveRt>(_ => calls++);
+        using var noticed = EventBus.Subscribe<RoleStateNotice>(_ => calls++);
         net.Tick(0);
         Assert.Same(loginCache, session.LoginCache);
         Assert.Equal(80, session.Role.Health);
@@ -122,7 +122,7 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
     public void DisposingReplacedAccountDoesNotResetNewSession()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport, Events);
+        using var net = new NetService(transport, EventBus);
         using var previous = new SessionService(net, new LoginRt { Success = true });
         using var current = new SessionService(net, new LoginRt { Success = true });
         Assert.Throws<InvalidOperationException>(() => previous.SelectRole(1001));
