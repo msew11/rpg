@@ -51,11 +51,11 @@ public sealed class NetworkFoundationTests : EventServiceTestScope
     public void InvalidPacketsReportErrorsAndDoNotDispatch()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport);
+        using var net = new NetService(transport, Events);
         var errors = new List<Exception>();
         var delivered = 0;
         net.Error += errors.Add;
-        using var subscription = GameServices.Events.Subscribe<LoginRt>(_ => delivered++);
+        using var subscription = Events.Subscribe<LoginRt>(_ => delivered++);
         transport.Inject([255]);
         transport.Inject(new EnvelopePb { Generation = 1, MessageType = "unknown" }.ToByteArray());
         transport.Inject(MessageCodec.Encode(new Login(), 1, true));
@@ -72,9 +72,9 @@ public sealed class NetworkFoundationTests : EventServiceTestScope
     public void SendsAndReceivesAreQueuedAndFreezeMutableRequests()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport);
+        using var net = new NetService(transport, Events);
         var callbacks = 0;
-        using var subscription = GameServices.Events.Subscribe<LoginRt>(_ => { callbacks++; net.Send(new SelectRole { RoleId = 1001 }); });
+        using var subscription = Events.Subscribe<LoginRt>(_ => { callbacks++; net.Send(new SelectRole { RoleId = 1001 }); });
         var request = new Login { Username = "demo", Password = "demo" };
         net.Send(request);
         request.Username = "changed";
@@ -96,9 +96,9 @@ public sealed class NetworkFoundationTests : EventServiceTestScope
     public void SessionResetDiscardsOldQueuedAndInFlightMessages()
     {
         using var transport = new DoubleNetTransport();
-        using var net = new NetService(transport);
+        using var net = new NetService(transport, Events);
         var calls = 0;
-        using var subscription = GameServices.Events.Subscribe<LoginRt>(_ => calls++);
+        using var subscription = Events.Subscribe<LoginRt>(_ => calls++);
         net.Send(new Login());
         net.ResetSession();
         transport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
@@ -118,7 +118,7 @@ public sealed class SessionEventTests : EventServiceTestScope
     [Fact]
     public void AllCachesRunBeforeEarlierRegisteredUi()
     {
-        var events = GameServices.Events;
+        var events = Events;
         var order = new List<string>();
         var value = 0;
         using var ui = events.Subscribe<int>(_ => { Assert.Equal(2, value); order.Add("ui"); });
@@ -132,7 +132,7 @@ public sealed class SessionEventTests : EventServiceTestScope
     [Fact]
     public void RegistrationAndDisposalDuringDispatchRespectSnapshot()
     {
-        var events = GameServices.Events;
+        var events = Events;
         IDisposable? removed = null;
         IDisposable? added = null;
         var order = new List<string>();
@@ -155,7 +155,7 @@ public sealed class SessionEventTests : EventServiceTestScope
     [Fact]
     public void ReentrantMessagesWaitForCurrentNormalPhase()
     {
-        var events = GameServices.Events;
+        var events = Events;
         var order = new List<string>();
         using var cache = events.Subscribe<int>(value =>
         {
@@ -171,7 +171,7 @@ public sealed class SessionEventTests : EventServiceTestScope
     [Fact]
     public void ListenerFailuresAreIsolatedByPhase()
     {
-        var events = GameServices.Events;
+        var events = Events;
         var errors = 0;
         var calls = 0;
         events.Error += _ => errors++;
@@ -190,7 +190,7 @@ public sealed class SessionEventTests : EventServiceTestScope
     [Fact]
     public void ResetDuringDispatchInvalidatesCurrentSnapshotAndQueue()
     {
-        var events = GameServices.Events;
+        var events = Events;
         var calls = 0;
         using var cache = events.Subscribe<int>(_ => { events.Publish("old"); events.ResetPending(); }, EventPhase.Cache);
         using var ui = events.Subscribe<int>(_ => calls++);

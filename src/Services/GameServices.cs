@@ -15,30 +15,14 @@ public static class GameServices
 {
     /// <summary>本次启动的整体注册，释放前禁止替换。</summary>
     private static Registration? _current;
-    /// <summary>先于消费者就绪、在消费者之后释放的唯一事件服务。</summary>
-    private static EventService? _events;
-    /// <summary>当前启动共享的事件域，不依赖网络生命周期。</summary>
-    public static EventService Events => _events is { IsDisposed: false } events
-        ? events : throw new InvalidOperationException("GameServices 事件服务尚未初始化或已经释放");
-
-    /// <summary>为隔离测试注册已创建的事件域，不承担服务构造。</summary>
-    internal static EventService RegisterEvents(EventService events)
-    {
-        ArgumentNullException.ThrowIfNull(events);
-        ObjectDisposedException.ThrowIf(events.IsDisposed, events);
-        if (_events is { IsDisposed: false }) throw new InvalidOperationException("事件服务已初始化");
-        return _events = events;
-    }
-
     /// <summary>全部入口是否已注册且网络尚未释放。</summary>
     public static bool IsInitialized => _current is not null && !_current.Net.IsDisposed;
-    /// <summary>当前有效注册；未启动和网络提前释放均明确报错。</summary>
+    /// <summary>当前完整注册，不将其他服务的可用性绑定到网络状态。</summary>
     private static Registration Current
     {
         get
         {
             var current = _current ?? throw new InvalidOperationException("GameServices 尚未初始化，请先由启动流程注册服务");
-            ObjectDisposedException.ThrowIf(current.Net.IsDisposed, current.Net);
             return current;
         }
     }
@@ -48,8 +32,26 @@ public static class GameServices
     public static ConfigService Config => Current.Config;
     /// <summary>当前系统与角色本地设置。</summary>
     public static SettingService Setting => Current.Setting;
+    /// <summary>当前启动的事件域，与其他服务统一持有且独立检查释放状态。</summary>
+    public static EventService Events
+    {
+        get
+        {
+            var events = Current.Events;
+            ObjectDisposedException.ThrowIf(events.IsDisposed, events);
+            return events;
+        }
+    }
     /// <summary>固定帧网络请求与消息分发。</summary>
-    public static NetService Net => Current.Net;
+    public static NetService Net
+    {
+        get
+        {
+            var net = Current.Net;
+            ObjectDisposedException.ThrowIf(net.IsDisposed, net);
+            return net;
+        }
+    }
     /// <summary>账号与当前角色会话。</summary>
     public static SessionService Session => Current.Session;
     /// <summary>地图、输入意图和角色世界。</summary>
@@ -61,7 +63,6 @@ public static class GameServices
     public static IDisposable Initialize()
     {
         if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
-        if (_events is { IsDisposed: false }) throw new InvalidOperationException("事件服务已初始化");
         var created = new List<IService>();
         try
         {
@@ -69,14 +70,13 @@ public static class GameServices
             created.Add(environment);
             var events = new EventService();
             created.Add(events);
-            _events = events;
             var config = new ConfigService(environment);
             created.Add(config);
             var setting = new SettingService(environment);
             created.Add(setting);
-            var net = new NetService(environment);
+            var net = new NetService(environment, events);
             created.Add(net);
-            var session = new SessionService(net);
+            var session = new SessionService(net, events);
             created.Add(session);
             var world = new WorldService(config, setting, session);
             created.Add(world);
@@ -92,7 +92,6 @@ public static class GameServices
                 try { created[i].Dispose(); }
                 catch (Exception cleanupError) { errors.Add(cleanupError); }
             }
-            _events = null;
             if (errors.Count > 1) throw new AggregateException("客户端服务初始化失败", errors);
             throw;
         }
@@ -108,7 +107,6 @@ public static class GameServices
             ObjectDisposedException.ThrowIf(service.IsDisposed, service);
         }
         if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
-        if (!ReferenceEquals(_events, events)) throw new InvalidOperationException("注册服务必须使用当前事件域");
         return _current = new Registration(environment, events, config, setting, net, session, world, animation);
     }
 
@@ -148,7 +146,7 @@ public static class GameServices
             Animation = animation;
         }
 
-        /// <summary>先撤销业务入口，再逆依赖清理并最后撤销事件入口；单个服务失败不阻止其余清理。</summary>
+        /// <summary>先撤销全部入口，再严格逆构造顺序清理；单个服务失败不阻止其余清理。</summary>
         public void Dispose()
         {
             if (_disposed) return;
@@ -160,7 +158,6 @@ public static class GameServices
                 try { service.Dispose(); }
                 catch (Exception error) { errors.Add(error); }
             }
-            if (ReferenceEquals(GameServices._events, Events)) GameServices._events = null;
             if (errors.Count == 1) ExceptionDispatchInfo.Capture(errors[0]).Throw();
             if (errors.Count > 1) throw new AggregateException("客户端服务释放失败", errors);
         }

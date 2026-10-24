@@ -34,7 +34,7 @@
 - **THEN** 其他普通监听仍被调用且错误可被观察
 
 ### Requirement: 唯一全局事件服务
-客户端 SHALL 只由 GameServices 创建一个实现 IService 的 EventService，并以只读 Events 入口提供给网络、会话、缓存、世界和 UI；消费者 SHALL 不创建私有事件系统，不经网络或缓存构造参数逐层传递。事件服务 SHALL 在消费者之前就绪，整体退出时在所有消费者之后、环境服务之前释放；初始化前及释放后访问明确失败。监听异常 SHALL 通过 Events.Error 报告。
+客户端 SHALL 只由 GameServices 创建一个实现 IService 的 EventService，并以只读 Events 入口供 Godot 节点访问，以构造参数显式提供给依赖它的服务；消费者 SHALL 不创建私有事件系统。缓存公开入口使用同一全局事件域，内部显式构造 SHALL 支持独立测试且不改变正式行为。事件实例 SHALL 只保存在整组注册中，不提供单独全局注册或提前发布。事件服务 SHALL 在消费者之前就绪，整体退出时在所有消费者之后、环境服务之前释放；初始化前及释放后访问明确失败。监听异常 SHALL 通过 Events.Error 报告。
 
 #### Scenario: 网络与缓存共享事件域
 - **WHEN** 网络分发响应，缓存和 UI 通过 GameServices.Events 订阅

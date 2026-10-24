@@ -12,6 +12,8 @@ public sealed class NetService : Service
 {
     /// <summary>当前使用的可替换传输。</summary>
     private readonly INetTransport _transport;
+    /// <summary>构造时绑定的事件服务，后于网络释放。</summary>
+    private readonly EventService _events;
     /// <summary>发送时已冻结的请求信封。</summary>
     private readonly Queue<byte[]> _outbound = new();
     /// <summary>尚未在固定帧消费的接收字节。</summary>
@@ -27,11 +29,14 @@ public sealed class NetService : Service
     public event Action<Exception>? Error;
 
     /// <summary>在服务内部初始化当前阶段的进程内传输。</summary>
-    public NetService(EnvironmentService environment) : this(new MockTransport(new MockServer(environment.ServerDirectory))) { }
+    public NetService(EnvironmentService environment, EventService events) : this(new MockTransport(new MockServer(environment.ServerDirectory)), events) { }
 
     /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>
-    internal NetService(INetTransport transport)
+    internal NetService(INetTransport transport, EventService events)
     {
+        ArgumentNullException.ThrowIfNull(events);
+        ObjectDisposedException.ThrowIf(events.IsDisposed, events);
+        _events = events;
         _transport = transport;
         _transport.ResetSession(_generation);
         _transport.Received += OnReceived;
@@ -69,7 +74,7 @@ public sealed class NetService : Service
                 try
                 {
                     var envelope = MessageCodec.ReadEnvelope(packet);
-                    if (envelope.Generation == _generation) GameServices.Events.Publish(MessageCodec.ReadPayload(envelope, false));
+                    if (envelope.Generation == _generation) _events.Publish(MessageCodec.ReadPayload(envelope, false));
                 }
                 catch (Exception error) { ReportError(error); }
             }
@@ -84,7 +89,7 @@ public sealed class NetService : Service
         _generation++;
         _outbound.Clear();
         _inbound.Clear();
-        GameServices.Events.ResetPending();
+        _events.ResetPending();
         _transport.ResetSession(_generation);
     }
 

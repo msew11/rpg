@@ -11,11 +11,11 @@ public sealed class CacheBaseTests : EventServiceTestScope
     [Fact]
     public void CacheSubscriptionsRunBeforeEarlierOrdinaryListeners()
     {
-        var events = GameServices.Events;
+        var events = Events;
         var value = 0;
         var observed = 0;
         using var ordinary = events.Subscribe<int>(_ => observed = value);
-        using var cache = new DoubleCache();
+        using var cache = new DoubleCache(Events);
         cache.Listen<int>(message => value = message);
         events.Publish(42);
         Assert.Equal(42, observed);
@@ -25,9 +25,9 @@ public sealed class CacheBaseTests : EventServiceTestScope
     [Fact]
     public void DisposeReleasesOwnedSubscriptionsAndRunsCleanupOnce()
     {
-        var events = GameServices.Events;
-        using var released = new DoubleCache();
-        using var active = new DoubleCache();
+        var events = Events;
+        using var released = new DoubleCache(Events);
+        using var active = new DoubleCache(Events);
         var releasedCalls = 0;
         var activeCalls = 0;
         released.Listen<int>(_ => releasedCalls++);
@@ -51,6 +51,9 @@ public sealed class CacheBaseTests : EventServiceTestScope
     {
         /// <summary>额外清理钩子的实际执行次数。</summary>
         public int CleanupCalls { get; private set; }
+
+        /// <summary>绑定测试持有的事件域。</summary>
+        public DoubleCache(EventService events) : base(events) { }
 
         /// <summary>通过基类入口托管测试需要的协议订阅。</summary>
         public void Listen<T>(Action<T> handler) => Subscribe(handler);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Rpg.Net.Message;
 using Rpg.Session.Data;
+using Rpg.Services;
 
 namespace Rpg.Session.Cache;
 
@@ -15,13 +16,19 @@ public sealed class LoginCache : CacheBase
     public IReadOnlyList<RoleSummaryPbData> Roles { get; private set; } = Array.Empty<RoleSummaryPbData>();
 
     /// <summary>在请求前建立空缓存，首份和后续响应均在缓存阶段处理。</summary>
-    public LoginCache()
+    public LoginCache() : this(GameServices.Events) { }
+
+    /// <summary>以显式事件域建立空缓存，供会话组装与隔离测试使用。</summary>
+    internal LoginCache(EventService events) : base(events)
     {
         Subscribe<LoginRt>(OnLoggedIn);
     }
 
     /// <summary>先验证已有摘要，再建立监听，避免构造失败遗留订阅。</summary>
-    public LoginCache(LoginRt response)
+    public LoginCache(LoginRt response) : this(GameServices.Events, response) { }
+
+    /// <summary>验证已有响应后绑定同一事件域，不遗留失败构造的监听。</summary>
+    internal LoginCache(EventService events, LoginRt response) : base(events)
     {
         OnLoggedIn(response);
         Subscribe<LoginRt>(OnLoggedIn);

@@ -13,6 +13,8 @@ internal sealed class NetworkTestFixture : IDisposable
 {
     /// <summary>是否由此实例负责删除测试存储。</summary>
     private readonly bool _ownsDirectory;
+    /// <summary>本夹具借用的事件域。</summary>
+    private readonly EventService _events;
     /// <summary>当前夹具的隔离存档目录。</summary>
     public string DirectoryPath { get; }
     /// <summary>测试可调用主动推送入口的独立服务端。</summary>
@@ -27,14 +29,15 @@ internal sealed class NetworkTestFixture : IDisposable
     public List<Exception> Errors { get; } = [];
 
     /// <summary>创建独立目录，或借用已有目录验证服务器重建。</summary>
-    public NetworkTestFixture(string? directory = null)
+    public NetworkTestFixture(EventService events, string? directory = null)
     {
+        _events = events;
         _ownsDirectory = directory is null;
         DirectoryPath = directory ?? Path.Combine(Path.GetTempPath(), "rpg-network-" + Guid.NewGuid());
         Server = new MockServer(DirectoryPath);
-        Net = new NetService(new MockTransport(Server));
+        Net = new NetService(new MockTransport(Server), events);
         Net.Error += Errors.Add;
-        GameServices.Events.Error += Errors.Add;
+        _events.Error += Errors.Add;
     }
 
     /// <summary>结束旧账号后提交登录，成功才创建会话并从缓存读取摘要。</summary>
@@ -44,11 +47,11 @@ internal sealed class NetworkTestFixture : IDisposable
         Session = null;
         Net.ResetSession();
         LoginRt? response = null;
-        using var subscription = GameServices.Events.Subscribe<LoginRt>(message => response = message);
+        using var subscription = _events.Subscribe<LoginRt>(message => response = message);
         Net.Send(new Login { Username = username, Password = password });
         Net.Tick(0);
         Assert.NotNull(response);
-        if (response.Success) Session = new SessionService(Net, response);
+        if (response.Success) Session = new SessionService(Net, _events, response);
         return (response.Success, response.Error, Session?.LoginCache.Roles ?? []);
     }
 
@@ -66,7 +69,7 @@ internal sealed class NetworkTestFixture : IDisposable
     public void Dispose()
     {
         Session?.Dispose();
-        GameServices.Events.Error -= Errors.Add;
+        _events.Error -= Errors.Add;
         Net.Dispose();
         if (_ownsDirectory && Directory.Exists(DirectoryPath)) Directory.Delete(DirectoryPath, true);
     }

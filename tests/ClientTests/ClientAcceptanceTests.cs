@@ -79,7 +79,7 @@ public sealed class ClientAcceptanceTests : EventServiceTestScope
     [Fact]
     public void LoginAndRoleSelectionCreateIsolatedCache()
     {
-        using var source = new NetworkTestFixture();
+        using var source = new NetworkTestFixture(Events);
         Assert.Null(source.Session);
         Assert.False(source.Login("demo", "wrong").Success);
         Assert.Null(source.Session);
@@ -110,11 +110,11 @@ public sealed class ClientAcceptanceTests : EventServiceTestScope
     [Fact]
     public void DelayedAuthorityUpdateLandsInCache()
     {
-        using var source = new NetworkTestFixture();
+        using var source = new NetworkTestFixture(Events);
         source.Login();
         using var session = source.SelectRole(1001);
         var notifications = 0;
-        using var subscription = GameServices.Events.Subscribe<MoveRt>(_ => notifications++);
+        using var subscription = Events.Subscribe<MoveRt>(_ => notifications++);
         session.SubmitMove(1, session.Role.Position + new Vector2(100, 0));
         source.Net.Tick(0.2);
         Assert.Equal(0, notifications);
@@ -122,7 +122,7 @@ public sealed class ClientAcceptanceTests : EventServiceTestScope
         Assert.Equal(1, notifications);
         Assert.Equal(1, session.RoleCache.State.AcknowledgedAction);
         var current = session.RoleCache.State;
-        GameServices.Events.Publish(new RoleStateNotice { State = new RoleWorldStatePb { RoleId = session.RoleId, Revision = 0 } });
+        Events.Publish(new RoleStateNotice { State = new RoleWorldStatePb { RoleId = session.RoleId, Revision = 0 } });
         Assert.Same(current, session.RoleCache.State);
         Assert.Equal(1, notifications);
     }

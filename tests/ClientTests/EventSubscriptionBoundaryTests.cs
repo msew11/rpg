@@ -42,6 +42,9 @@ public sealed class EventSubscriptionBoundaryTests
                     {
                         var target = method.Module.ResolveMethod(BitConverter.ToInt32(bytes, offset),
                             type.GetGenericArguments(), method.IsGenericMethod ? method.GetGenericArguments() : null);
+                        if (typeof(Service).IsAssignableFrom(owner))
+                            Assert.False(target?.DeclaringType == typeof(GameServices),
+                                $"{type.FullName}.{method.Name} 必须通过构造绑定服务，不能访问 GameServices");
                         Assert.False(target?.DeclaringType == typeof(EventService) &&
                             (target.Name == nameof(EventService.Subscribe) || target.Name == "add_Error"),
                             $"{type.FullName}.{method.Name} 不得注册业务事件监听");
@@ -58,5 +61,38 @@ public sealed class EventSubscriptionBoundaryTests
                 }
             }
         }
+    }
+
+    /// <summary>验证 game-services 的实际构造顺序、逆序清理及只读前置依赖，禁止回填。</summary>
+    [Fact]
+    public void ServicesFollowFixedConstructionAndReverseDisposalOrder()
+    {
+        Type[] order = [typeof(EnvironmentService), typeof(EventService), typeof(Rpg.Config.ConfigService),
+            typeof(Rpg.Settings.SettingService), typeof(Rpg.Net.NetService), typeof(Rpg.Session.SessionService),
+            typeof(Rpg.World.WorldService), typeof(Rpg.World.Views.AnimationService)];
+        var services = typeof(Service).Assembly.GetTypes().Where(type => !type.IsAbstract && typeof(Service).IsAssignableFrom(type));
+        Assert.Equal(order.OrderBy(type => type.FullName), services.OrderBy(type => type.FullName));
+        foreach (var service in order)
+        {
+            foreach (var constructor in service.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                foreach (var parameter in constructor.GetParameters().Where(parameter => typeof(IService).IsAssignableFrom(parameter.ParameterType)))
+                {
+                    Assert.Contains(parameter.ParameterType, order);
+                    Assert.True(Array.IndexOf(order, parameter.ParameterType) < Array.IndexOf(order, service),
+                        $"{service.Name} 只能依赖构造顺序中的前置服务");
+                }
+            foreach (var field in service.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                if (typeof(IService).IsAssignableFrom(field.FieldType))
+                    Assert.True(field.IsInitOnly, $"{service.Name}.{field.Name} 不能在构造后回填依赖");
+        }
+
+        var source = File.ReadAllText(Path.Combine(ConfigTestFixture.FindRoot(), "src", "Services", "GameServices.cs"));
+        var constructions = System.Text.RegularExpressions.Regex.Matches(source, @"new (\w+Service)\(")
+            .Select(match => match.Groups[1].Value).ToArray();
+        Assert.Equal(order.Select(type => type.Name), constructions);
+        var disposal = System.Text.RegularExpressions.Regex.Matches(source, @"foreach \(var service in new IService\[\] \{ ([^}]+) \}\)").Last();
+        Assert.True(disposal.Success, "整体释放必须显式列出逆依赖顺序");
+        Assert.Equal(new[] { "Animation", "World", "Session", "Net", "Setting", "Config", "Events", "Environment" },
+            disposal.Groups[1].Value.Split(',').Select(name => name.Trim()));
     }
 }

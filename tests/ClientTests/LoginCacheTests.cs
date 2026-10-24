@@ -13,11 +13,11 @@ public sealed class LoginCacheTests : EventServiceTestScope
     [Fact]
     public void LoginConvertsBeforeOrdinaryListenersAndOwnsReadOnlySummaries()
     {
-        var events = GameServices.Events;
+        var events = Events;
         LoginCache? cache = null;
         IReadOnlyList<RoleSummaryPbData>? observed = null;
         using var listener = events.Subscribe<LoginRt>(_ => observed = cache!.Roles);
-        using var loginCache = cache = new LoginCache();
+        using var loginCache = cache = new LoginCache(Events);
         Assert.False(cache.IsLoggedIn);
         Assert.Empty(cache.Roles);
         var response = new LoginRt
@@ -41,7 +41,7 @@ public sealed class LoginCacheTests : EventServiceTestScope
     [Fact]
     public void FailedAndMalformedResponsesClearPreviousAccountAndAllowRetry()
     {
-        using var fixture = new NetworkTestFixture();
+        using var fixture = new NetworkTestFixture(Events);
         Assert.True(fixture.Login().Success);
         var previous = fixture.LoginCache;
         Assert.False(fixture.Login("demo", "wrong").Success);
@@ -50,8 +50,8 @@ public sealed class LoginCacheTests : EventServiceTestScope
         Assert.Empty(previous.Roles);
         Assert.True(fixture.Login().Success);
         var ordinaryCalls = 0;
-        using var listener = GameServices.Events.Subscribe<LoginRt>(_ => ordinaryCalls++);
-        GameServices.Events.Publish(new LoginRt
+        using var listener = Events.Subscribe<LoginRt>(_ => ordinaryCalls++);
+        Events.Publish(new LoginRt
         {
             Success = true,
             Roles =
@@ -74,7 +74,7 @@ public sealed class LoginCacheTests : EventServiceTestScope
     [Fact]
     public void LoginCacheSurvivesRoleSessionsUntilClearedOrDisposed()
     {
-        using var fixture = new NetworkTestFixture();
+        using var fixture = new NetworkTestFixture(Events);
         var login = fixture.Login();
         var account = fixture.Session!;
         var roles = fixture.LoginCache.Roles;
@@ -93,7 +93,7 @@ public sealed class LoginCacheTests : EventServiceTestScope
         Assert.NotSame(account, fixture.Session);
         fixture.Session!.Dispose();
         fixture.Session.Dispose();
-        GameServices.Events.Publish(new LoginRt { Success = true });
+        Events.Publish(new LoginRt { Success = true });
         Assert.False(fixture.LoginCache.IsLoggedIn);
         Assert.Empty(fixture.LoginCache.Roles);
         Assert.Empty(fixture.Errors);
