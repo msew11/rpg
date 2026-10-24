@@ -70,6 +70,8 @@ internal sealed class DataPositionComponent
 
 ### 世界行为与呈现
 
+地图分块在首次绘制时将 8×8 格地表构建为一个带顶点颜色的二维 ArrayMesh，网格线通过一次 DrawMultiline 提交；每块只提交两条画布绘制命令，继续复用静态几何与可见分块，离树释放所拥有的网格。
+
 `WorldService` 直接把未被 UI 消费的 Godot 点击转换为移动 Action，不经过单独的输入转发类。`WorldManager` 是 ECS 的唯一外部写入入口：输入 Action、缓存状态同步 Action 排队后由 Godot 固定帧处理。初始化顺序为地图世界实体、角色实体。轻量 ECS 由整数实体 ID、组件仓库和固定顺序系统组成；首期移动系统按直线推进并接受权威位置修正。
 
 `DataMapComponent` 只保存地图宽高、瓦片大小、默认地块和不可变稀疏覆盖索引，不持有配置服务或业务对象。`MapUtils` 位于 `src/World/Utils/`，以显式传入的地图组件完成边界裁剪、地块读取和可见格计算；它是按需调用的静态纯计算工具。ECS System 使用实例承担实体行为与系统调度，无状态的地图计算归入 Utils。`WorldService` 从配置构建只读数据用于查询，并通过 `InitializeWorldAction` 交给世界实体；`WorldManager` 处理移动及权威修正时从实体读取该组件并调用同一工具。`IsometricProjection` 在世界表现与地图点击边界做双向转换，ECS、配置、雷达和大地图继续使用逻辑坐标。地图表现将视口附近地块划为 8×8 格分块，各分块一次绘制 2:1 等轴菱形并复用画布命令；相机或视口跨越分块范围时只增删差异分块，不创建百万个瓦片节点。角色与摄像机使用同一投影。HUD、小地图、GM 和系统面板放在独立 `CanvasLayer`，不受世界摄像机变换影响，从 `GameServices.Config`、`Session` 与 `Setting` 读取所需数据。GM 面板从设置服务获取系统和当前角色设置路径，交由桌面文件管理器定位。
@@ -98,5 +100,7 @@ Godot 输入 -> 等轴逆投影 -> GameServices.World -> 移动 Action / 会话�
 演示认证、状态确认和地图配色仅用于验证客户端链路；尚无真实网络、寻路、技能效果或背包操作。角色目前支持基础身体和创建时选择男女各 74 套头型，不提供创建后的改头、独立发型、装备和坐骑操作；正式美术方向仍待确认。动作播放暂用每秒 10 帧，不代表玩法节奏。模拟服务端位置与客户端运动存在固定小偏差，用于检查校正路径。
 
 ## 测试执行
+
+`tests/movement_performance.tscn` 使用隔离临时存档启动真实主控制器，自动登录、选角、静止与连续改目标移动，输出帧时间分位数、最大值、超过 50 ms 的帧数、引擎耗时监控及托管分配。Windows 图形模式以 `--disable-vsync --max-fps 120` 启动该场景可复测；可在 `--` 后传 `--capture=<绝对 PNG 路径>` 保存静止画面。引擎耗时监控约每秒刷新，可能带入上一阶段，不能视为每帧 CPU 时间；帧间隔以 Stopwatch 独立采样。性能数值不设跨硬件硬阈值，headless 只用于功能回归。
 
 `powershell -ExecutionPolicy Bypass -File tools/test.ps1` 执行项目检查与完整测试：普通用例通过 `dotnet test` 运行；标记 `Runtime=Godot` 的配置和整组服务用例通过 headless 测试场景及现有 xUnit 运行器执行；此外运行身体动画与角色管理场景，验证原始头发像素位置、全部头型/动作/方向及实际按钮交互。`ClientTests.runsettings` 默认排除需要引擎的用例，单独运行 `dotnet test` 只执行普通部分。测试程序集及运行器依赖由测试场景加载，不加入正式项目依赖；失败或未发现 Godot 用例时返回非零退出码。
