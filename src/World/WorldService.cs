@@ -6,6 +6,8 @@ using Rpg.Services;
 using Rpg.Session;
 using Rpg.Settings;
 using Rpg.World.Actions;
+using Rpg.World.Components;
+using Rpg.World.Systems;
 
 namespace Rpg.World;
 
@@ -16,8 +18,8 @@ public sealed class WorldService : Service
     private readonly SessionService _session;
     /// <summary>本次启动的角色设置服务。</summary>
     private readonly SettingService _setting;
-    /// <summary>地图逻辑与稀疏地块索引。</summary>
-    private readonly MapManager _map;
+    /// <summary>供查询与世界初始化共用的只读地图数据。</summary>
+    private readonly DataMapComponent _map;
     /// <summary>活动角色的 ECS 实例。</summary>
     private WorldManager? _world;
     /// <summary>当前启动内递增的移动意图序号。</summary>
@@ -41,7 +43,7 @@ public sealed class WorldService : Service
     {
         _session = session;
         _setting = setting;
-        _map = new MapManager(config);
+        _map = MapSystem.CreateMap(config.MapConfig);
         _subscriptions = [GameServices.Events.Subscribe<SelectRoleRt>(OnSelectedRole),
             GameServices.Events.Subscribe<MoveRt>(OnMoved), GameServices.Events.Subscribe<RoleStateNotice>(OnRoleNotice)];
     }
@@ -51,7 +53,7 @@ public sealed class WorldService : Service
     {
         ThrowIfDisposed();
         if (_world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
-        var action = new MoveAction(++_nextActionId, _map.Clamp(logicalPosition));
+        var action = new MoveAction(++_nextActionId, MapSystem.Clamp(_map, logicalPosition));
         _session.SubmitMove(action.ActionId, action.Destination);
         _world.Enqueue(action);
         return true;
@@ -61,10 +63,10 @@ public sealed class WorldService : Service
     public void Tick(double delta) { ThrowIfDisposed(); _world?.Tick(delta); }
 
     /// <summary>计算视口覆盖的地图格范围。</summary>
-    public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area) => _map.VisibleTiles(area);
+    public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area) => MapSystem.VisibleTiles(_map, area);
 
     /// <summary>读取指定格的静态地块类型。</summary>
-    public string TileAt(int x, int y) => _map.TileAt(x, y);
+    public string TileAt(int x, int y) => MapSystem.TileAt(_map, x, y);
 
     /// <summary>移除 ECS 并保存、清除当前角色设置。</summary>
     public void LeaveRole()

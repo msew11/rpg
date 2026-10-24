@@ -6,6 +6,7 @@ using Rpg.Net.Message;
 using Rpg.Session;
 using Rpg.World;
 using Rpg.World.Actions;
+using Rpg.World.Systems;
 
 namespace ClientTests;
 
@@ -119,7 +120,7 @@ public sealed class ActorAcceptanceTests : EventServiceTestScope
     private static WorldManager CreateWorld(RoleWorldStatePbData role)
     {
         var world = new WorldManager();
-        world.Enqueue(new InitializeWorldAction(new MapManager(ConfigTestFixture.LoadDefault())));
+        world.Enqueue(new InitializeWorldAction(MapSystem.CreateMap(ConfigTestFixture.LoadDefault().MapConfig)));
         world.Enqueue(new InitializeRoleAction(role));
         world.Tick(0);
         return world;

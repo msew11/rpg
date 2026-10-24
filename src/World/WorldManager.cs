@@ -71,7 +71,7 @@ internal sealed class WorldManager
                 _roleEntity = 0;
                 _lastConfirmedAction = 0;
                 _lastRoleRevision = 0;
-                _worldEntity = _entities.Create(new DataMapComponent(world.Map));
+                _worldEntity = _entities.Create(world.Map);
                 break;
             case InitializeRoleAction role:
                 if (!HasWorld) throw new InvalidOperationException("必须先初始化世界实体");
@@ -82,8 +82,8 @@ internal sealed class WorldManager
                 break;
             case MoveAction move:
                 if (!HasRole) return;
-                var map = _entities.Get<DataMapComponent>(_worldEntity).Map;
-                _entities.Get<DataMovementComponent>(_roleEntity).Target = map.Clamp(move.Destination);
+                var map = _entities.Get<DataMapComponent>(_worldEntity);
+                _entities.Get<DataMovementComponent>(_roleEntity).Target = MapSystem.Clamp(map, move.Destination);
                 break;
             case SetRoleMotionAction motion:
                 if (!HasRole || motion.RoleId != _entities.Get<DataRoleComponent>(_roleEntity).RoleId) return;
@@ -102,7 +102,7 @@ internal sealed class WorldManager
                 if (sync.State.AcknowledgedAction <= _lastConfirmedAction) return;
                 _lastConfirmedAction = sync.State.AcknowledgedAction;
                 _entities.Get<DataPositionComponent>(_roleEntity).Value =
-                    _entities.Get<DataMapComponent>(_worldEntity).Map.Clamp(sync.State.Position);
+                    MapSystem.Clamp(_entities.Get<DataMapComponent>(_worldEntity), sync.State.Position);
                 break;
         }
     }

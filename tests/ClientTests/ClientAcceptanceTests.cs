@@ -9,6 +9,7 @@ using Rpg.Settings;
 using Rpg.Settings.Data;
 using Rpg.World;
 using Rpg.World.Actions;
+using Rpg.World.Systems;
 using Rpg.World.Utils;
 
 namespace ClientTests;
@@ -26,9 +27,9 @@ public sealed class ClientAcceptanceTests : EventServiceTestScope
         Assert.Equal(1000, repo.MapConfig.Height);
         Assert.Equal(32, repo.MapConfig.TileSize);
         Assert.Equal("map", repo.MapConfig.Id);
-        var map = new MapManager(repo);
-        Assert.Equal("accent", map.TileAt(505, 500));
-        Assert.Equal("ground", map.TileAt(1, 1));
+        var map = MapSystem.CreateMap(repo.MapConfig);
+        Assert.Equal("accent", MapSystem.TileAt(map, 505, 500));
+        Assert.Equal("ground", MapSystem.TileAt(map, 1, 1));
 
         var temporary = Path.Combine(Path.GetTempPath(), "rpg-config-test-" + Guid.NewGuid());
         Directory.CreateDirectory(temporary);
@@ -64,12 +65,12 @@ public sealed class ClientAcceptanceTests : EventServiceTestScope
         finally { Directory.Delete(temporary, true); }
     }
 
-    /// <summary>地图管理类只返回视口附近的格子范围。</summary>
+    /// <summary>地图系统只返回视口附近的格子范围。</summary>
     [Fact]
     public void MapVisibleRegionDoesNotExpandWholeWorld()
     {
-        var map = new MapManager(ConfigTestFixture.LoadDefault());
-        var region = map.VisibleTiles(new Rect2(16000, 16000, 1280, 720));
+        var map = MapSystem.CreateMap(ConfigTestFixture.LoadDefault().MapConfig);
+        var region = MapSystem.VisibleTiles(map, new Rect2(16000, 16000, 1280, 720));
         Assert.True((region.Right - region.Left + 1) * (region.Bottom - region.Top + 1) < 1500);
     }
 
@@ -149,7 +150,7 @@ public sealed class WorldAcceptanceTests
     [Fact]
     public void WorldActionOrderMovementAndCorrection()
     {
-        var map = new MapManager(ConfigTestFixture.LoadDefault());
+        var map = MapSystem.CreateMap(ConfigTestFixture.LoadDefault().MapConfig);
         var role = new RoleWorldStatePbData(1, "测试", 1, 10, 10, 10, 10, 0, 10, new Vector2(100, 100), RoleGender.Male, 0, 0);
         var world = new WorldManager();
         world.Enqueue(new InitializeRoleAction(role));

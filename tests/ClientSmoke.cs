@@ -92,6 +92,13 @@ public partial class ClientSmoke : Node
             if (actor.Position != IsometricProjection.ToScreen(manager.RolePosition))
                 throw new InvalidOperationException("角色表现未使用等轴投影");
             AssertBodyResource(actor, "male");
+            // client-ecs-world 越界输入场景：服务入口与 ECS 使用相同地图裁剪规则。
+            using var boundaryClick = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true };
+            if (!manager.HandleInput(boundaryClick, new Vector2(-100, 40000)))
+                throw new InvalidOperationException("世界服务未接受地图点击");
+            manager.Tick(0);
+            if (manager.RoleTarget != new Vector2(0, 31999))
+                throw new InvalidOperationException("越界点击未使用地图数据裁剪目标");
             var click = new InputEventMouseButton
             {
                 ButtonIndex = MouseButton.Left,

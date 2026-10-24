@@ -13,6 +13,7 @@ using Rpg.Server;
 using Rpg.Session;
 using Rpg.World;
 using Rpg.World.Actions;
+using Rpg.World.Systems;
 using Rpg.World.Utils;
 using Rpg.World.Views;
 
@@ -54,7 +55,7 @@ public partial class ActorAnimationSmoke : Node
                 Check(session.RoleCache.IsInitialized, "选角未初始化角色世界状态");
                 var role = session.Role;
                 var world = new WorldManager();
-                world.Enqueue(new InitializeWorldAction(new MapManager(config)));
+                world.Enqueue(new InitializeWorldAction(MapSystem.CreateMap(config.MapConfig)));
                 world.Enqueue(new InitializeRoleAction(role));
                 world.Tick(0);
                 actor.Present(world.ActorState!);

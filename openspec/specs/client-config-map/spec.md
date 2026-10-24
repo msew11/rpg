@@ -21,7 +21,7 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 - **THEN** 加载失败并指出该文件
 
 ### Requirement: 大地图按可见范围呈现
-地图管理类 SHALL 封装地图读取、坐标与边界，并仅绘制视口附近的瓦片。静态地图表现 SHALL 复用已经绘制的可见分块，在可见分块范围变化时更新覆盖。
+MapSystem SHALL 基于纯数据地图组件封装地图读取、坐标与边界计算；地图表现 SHALL 仅绘制视口附近的瓦片。静态地图表现 SHALL 复用已经绘制的可见分块，在可见分块范围变化时更新覆盖。
 
 #### Scenario: 千格地图
 - **WHEN** 加载 1000×1000 地图并移动视口
