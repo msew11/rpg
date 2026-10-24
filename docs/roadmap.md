@@ -14,7 +14,7 @@
 - [x] 地图配置文件、数据类型一一对应，由 `ConfigService` 持有已加载配置。
 - [x] 地图工具通过 `ConfigService` 构建只读地图数据，界面通过服务读取地图配置。
 - [x] 角色性别从会话数据接入玩家 entity；ECS 动作与逻辑朝向通过只读快照驱动男女基础身体的 13 个动作、八方向表现，点击移动接入跑步与站立。
-- [x] NetService 与 protobuf 请求/响应/推送、进程内 MockServer、按角色 JSON 持久化；登录返回角色摘要，选角加载完整世界状态，纯协议数据类型以 Pb 结尾，接收后组装为独立 PbData，集中于 Session/Data 并内聚双向转换；协议按公共、登录、世界拆分；登录后由 SessionService 直接建立并持有 LoginCache 与 RoleCache，切角保留账号摘要并重置角色数据，Session 事件缓存优先并隔离旧会话消息。
+- [x] NetService 与 protobuf 请求/响应/推送、进程内 MockServer、按角色 JSON 持久化；登录返回角色摘要，选角加载完整世界状态，纯协议数据类型以 Pb 结尾，接收后组装为独立 PbData，集中于 Session/Data 并内聚双向转换；协议按公共、登录、世界拆分；SessionService 在登录请求前创建并持有空 LoginCache 与 RoleCache，LoginCache 处理首份响应后认证，切角保留账号摘要并重置角色数据，Session 事件缓存优先并隔离旧会话消息。
 
 - [x] `GameServices.Net` 全局服务入口、显式注册与所有权句柄；主场景统一推进和释放网络，账号会话绑定创建时的服务，保留显式网络请求队列测试，覆盖启动失败清理与场景重建。
 
@@ -33,6 +33,8 @@
 - [x] 全部八个正式服务集中在 `Initialize()` 方法体按依赖顺序创建；注册入口和所有权句柄只接收现成实例，隔离组装迁入测试目录。
 
 - [x] 配置统一使用 Godot 资源读取，移除测试专用 System.IO 分支；配置和整组服务验收迁到 Godot headless，普通地图计算直接提供数据，通过统一测试命令运行全部既有用例。
+
+- [x] 业务事件订阅限定于 CacheBase 实现类和 Godot UI：LoginCache 处理首次登录，MainController 显式调用世界初始化与权威同步，服务不持有协议监听；覆盖未认证选角拒绝、重试清理、订阅边界与 HUD 离树后的世界同步。
 
 ## 后续阶段（待确认）
 

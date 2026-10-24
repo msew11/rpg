@@ -4,7 +4,7 @@
 TBD - created by archiving change data-driven-rpg-client. Update Purpose after archive.
 ## Requirements
 ### Requirement: 模拟登录与选角
-客户端 SHALL 通过请求协议将用户名和密码交给模拟服务端；成功后 LoginRt 返回至少两个不同 ID 的 RoleSummaryPb，仅包含角色 ID、名称、等级与性别，客户端此时由 SessionService 在内部建立账号会话缓存；失败时展示错误且不创建会话。SessionService SHALL 直接持有 LoginCache 与 RoleCache。选角 SHALL 复用该会话并在请求前清空角色数据、隔离旧网络代次，SelectRoleRt 成功时返回 RoleWorldStatePb 完整角色世界状态，并在更新缓存后创建世界与界面；失败时只清理角色数据，保留账号会话和登录摘要。
+客户端 SHALL 通过请求协议将用户名和密码交给模拟服务端；成功后 LoginRt 返回至少两个不同 ID 的 RoleSummaryPb，仅包含角色 ID、名称、等级与性别，登录缓存此时在缓存阶段完成认证；SessionService 可在请求前建立未认证的空缓存，失败时展示错误且不建立有效账号会话。SessionService SHALL 直接持有 LoginCache 与 RoleCache。选角 SHALL 复用该会话并在请求前清空角色数据、隔离旧网络代次，SelectRoleRt 成功时返回 RoleWorldStatePb 完整角色世界状态，并在更新缓存后创建世界与界面；失败时只清理角色数据，保留账号会话和登录摘要。
 
 #### Scenario: 演示账号登录
 - **WHEN** 输入 `demo/demo`
@@ -16,7 +16,7 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 
 #### Scenario: 错误凭据
 - **WHEN** 凭据不匹配演示账号
-- **THEN** 显示失败反馈且不建立账号缓存
+- **THEN** 显示失败反馈且不建立有效账号会话；当前尝试的空缓存保持未认证且无角色摘要
 
 #### Scenario: 角色切换
 - **WHEN** 在一名角色的会话后选择另一角色
@@ -27,7 +27,7 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 - **THEN** 展示错误并清理待选角色数据，保留账号会话与登录摘要，不创建世界或 HUD
 
 ### Requirement: 登录摘要缓存
-LoginCache SHALL 继承 CacheBase，由 SessionService 在成功登录响应中创建并持有；构造时将首份 LoginRt 中的 RoleSummaryPb 完整转换为 RoleSummaryPbData，只读保存角色列表与登录成功状态，后续登录结果在缓存阶段处理。UI SHALL 从会话缓存读取摘要，不自行转换或另存角色列表。LoginCache SHALL 跨角色切换保留，返回登录时随账号会话一起释放。初始非法成功响应 SHALL 报告错误且不创建账号会话，不遗留订阅或部分摘要；后续非法响应 SHALL 清空旧摘要并报告错误，不通知普通监听。
+LoginCache SHALL 继承 CacheBase，由 SessionService 创建并持有，允许在登录请求前创建空缓存；首份和后续 LoginRt 均由缓存实现类在缓存阶段完整转换 RoleSummaryPb 为 RoleSummaryPbData，只读保存角色列表与登录成功状态。未收到有效成功响应前 SHALL 保持未认证与空摘要；SessionService SHALL 不订阅登录响应。UI SHALL 从会话缓存读取摘要，不自行转换或另存角色列表。LoginCache SHALL 跨角色切换保留，返回登录时随账号会话一起释放。初始非法成功响应 SHALL 报告错误且不建立有效账号会话，不遗留部分摘要；空缓存仅保留当前尝试所需的托管订阅，重试、退出或服务释放 SHALL 回收旧订阅；后续非法响应 SHALL 清空旧摘要并报告错误，不通知普通监听。
 
 #### Scenario: 登录摘要先于 UI 更新
 - **WHEN** 收到有效成功登录响应
@@ -40,6 +40,11 @@ LoginCache SHALL 继承 CacheBase，由 SessionService 在成功登录响应中�
 #### Scenario: 登录响应失败或损坏
 - **WHEN** 重新认证失败或成功响应包含无效角色摘要
 - **THEN** 旧账号摘要被清空，不留下部分转换结果，合法重试仍可更新缓存
+
+
+#### Scenario: 首次响应由缓存处理
+- **WHEN** 服务提交登录请求后收到首份合法成功响应
+- **THEN** LoginCache 自身完成数据转换并进入已认证状态，普通 UI 监听读取完整摘要，服务没有协议订阅
 
 ### Requirement: 会话缓存权威数据
 SessionService SHALL 直接持有 RoleCache，由其维护角色数据，不设置 DataCache 中间容器或独立 BagCache。协议纯数据结构 SHALL 重新组装成独立的同名 PbData 数据类，不保留可变 protobuf 对象引用；所有 PbData 类 SHALL 位于 Session/Data，并在各自文件内提供 FromPb 与 ToPb 双向转换方法，转换时校验数据，输出新的协议对象。RoleWorldStatePb SHALL 转为 RoleWorldStatePbData 存入 RoleCache，登录摘要 RoleSummaryPb SHALL 转为 RoleSummaryPbData 存入 LoginCache。响应及推送 SHALL 先通过缓存监听写入较新 revision 的当前角色快照，再通知普通监听；UI 和世界读取客户端独立快照，世界更新仍经 Action。

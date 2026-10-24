@@ -1,7 +1,6 @@
 using System;
 using Godot;
 using Rpg.Config;
-using Rpg.Net.Message;
 using Rpg.Services;
 using Rpg.Session;
 using Rpg.Settings;
@@ -24,8 +23,6 @@ public sealed class WorldService : Service
     private WorldManager? _world;
     /// <summary>当前启动内递增的移动意图序号。</summary>
     private long _nextActionId;
-    /// <summary>世界更新所需的协议监听。</summary>
-    private readonly IDisposable[] _subscriptions;
 
     /// <summary>地图世界是否就绪。</summary>
     public bool HasWorld => _world?.HasWorld == true;
@@ -38,14 +35,12 @@ public sealed class WorldService : Service
     /// <summary>角色动作与朝向的不可变快照。</summary>
     public DataActorState? ActorState => _world?.ActorState;
 
-    /// <summary>显式绑定同次启动服务，并先于 UI 监听协议。</summary>
+    /// <summary>显式绑定同次启动服务，世界操作由 UI 协调调用。</summary>
     public WorldService(ConfigService config, SettingService setting, SessionService session)
     {
         _session = session;
         _setting = setting;
         _map = MapUtils.CreateMap(config.MapConfig);
-        _subscriptions = [GameServices.Events.Subscribe<SelectRoleRt>(OnSelectedRole),
-            GameServices.Events.Subscribe<MoveRt>(OnMoved), GameServices.Events.Subscribe<RoleStateNotice>(OnRoleNotice)];
     }
 
     /// <summary>将未消费的逻辑坐标点击变成世界 Action 与网络请求。</summary>
@@ -77,9 +72,9 @@ public sealed class WorldService : Service
     }
 
     /// <summary>选角成功后先建立地图实体，再建立角色实体与设置。</summary>
-    private void OnSelectedRole(SelectRoleRt response)
+    public void InitializeRole()
     {
-        if (!response.Success || response.RoleId != _session.RoleId) return;
+        ThrowIfDisposed();
         if (!_session.HasRole) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
         _setting.SelectRole(_session.RoleId);
         var world = new WorldManager();
@@ -89,30 +84,18 @@ public sealed class WorldService : Service
         _world = world;
     }
 
-    /// <summary>成功移动确认使用缓存阶段已更新的快照。</summary>
-    private void OnMoved(MoveRt response)
-    {
-        if (response.Success && response.RoleId == _session.RoleId) SyncRole();
-    }
-
-    /// <summary>主动推送也通过 Action 更新世界。</summary>
-    private void OnRoleNotice(RoleStateNotice notice)
-    {
-        if (notice.State?.RoleId == _session.RoleId) SyncRole();
-    }
-
     /// <summary>不直接修改 ECS，只提交缓存快照。</summary>
-    private void SyncRole()
+    public void SyncRole()
     {
+        ThrowIfDisposed();
         if (_session.HasRole) _world?.Enqueue(new SyncRoleAction(_session.Role));
     }
 
-    /// <summary>解除世界监听并移除所有角色实体。</summary>
+    /// <summary>移除所有角色实体，不拥有协议监听。</summary>
     public override void Dispose()
     {
         if (IsDisposed) return;
         IsDisposed = true;
-        foreach (var subscription in _subscriptions) subscription.Dispose();
         _world = null;
     }
 

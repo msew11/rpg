@@ -46,6 +46,8 @@ public partial class MainController : Control
             GameServices.Events.Error += OnNetworkError;
             _subscriptions.Add(GameServices.Events.Subscribe<LoginRt>(OnLoggedIn));
             _subscriptions.Add(GameServices.Events.Subscribe<SelectRoleRt>(OnSelectedRole));
+            _subscriptions.Add(GameServices.Events.Subscribe<MoveRt>(OnMoved));
+            _subscriptions.Add(GameServices.Events.Subscribe<RoleStateNotice>(OnRoleNotice));
             ShowLogin();
         }
         catch (Exception error)
@@ -177,7 +179,22 @@ public partial class MainController : Control
             return;
         }
         if (!GameServices.Session.HasRole) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
+        GameServices.World.InitializeRole();
         BuildRoleWorld();
+    }
+
+    /// <summary>缓存处理成功移动响应后，提交世界同步操作。</summary>
+    private void OnMoved(MoveRt response)
+    {
+        if (response.Success && response.RoleId == GameServices.Session.RoleId)
+            GameServices.World.SyncRole();
+    }
+
+    /// <summary>缓存处理当前角色推送后，同步世界，不依赖 HUD 生命周期。</summary>
+    private void OnRoleNotice(RoleStateNotice notice)
+    {
+        if (notice.State?.RoleId == GameServices.Session.RoleId)
+            GameServices.World.SyncRole();
     }
 
     /// <summary>为服务已经初始化的世界建立地图、角色、摄像机与 HUD 表现。</summary>

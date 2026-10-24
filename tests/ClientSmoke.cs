@@ -288,6 +288,30 @@ public partial class ClientSmoke : Node
             if (!finalHud.GetNode<PanelContainer>("hotbar2").Visible)
                 throw new InvalidOperationException("重新登录后未恢复角色设置");
 
+            // session-events：HUD 离树后，主控制器仍把缓存更新同步到世界。
+            finalHud.GetParent().RemoveChild(finalHud);
+            finalHud.QueueFree();
+            var authority = GameServices.Session.Role.ToPb();
+            authority.Revision++;
+            authority.X += 13;
+            authority.AcknowledgedAction++;
+            GameServices.Events.Publish(new Rpg.Net.Message.RoleStateNotice { State = authority });
+            GameServices.World.Tick(0);
+            if (GameServices.World.RolePosition != GameServices.Session.Role.Position)
+                throw new InvalidOperationException("HUD 离树后主动推送未同步到世界");
+            authority = authority.Clone();
+            authority.Revision++;
+            authority.X += 17;
+            authority.AcknowledgedAction++;
+            GameServices.Events.Publish(new Rpg.Net.Message.MoveRt
+            {
+                Success = true, RoleId = authority.RoleId,
+                ActionId = authority.AcknowledgedAction, State = authority
+            });
+            GameServices.World.Tick(0);
+            if (GameServices.World.RolePosition != GameServices.Session.Role.Position)
+                throw new InvalidOperationException("HUD 离树后移动响应未同步到世界");
+
             // game-services 退出后重新启动：旧网络不可用，新场景可再次登录和选角。
             var originalNet = GameServices.Net;
             main.QueueFree();

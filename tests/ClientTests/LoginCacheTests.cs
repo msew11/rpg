@@ -17,7 +17,9 @@ public sealed class LoginCacheTests : EventServiceTestScope
         LoginCache? cache = null;
         IReadOnlyList<RoleSummaryPbData>? observed = null;
         using var listener = events.Subscribe<LoginRt>(_ => observed = cache!.Roles);
-        using var loginCache = cache = new LoginCache(new LoginRt { Success = true });
+        using var loginCache = cache = new LoginCache();
+        Assert.False(cache.IsLoggedIn);
+        Assert.Empty(cache.Roles);
         var response = new LoginRt
         {
             Success = true,

@@ -9,6 +9,32 @@ namespace ClientTests;
 /// <summary>验证 openspec/specs/client-session 的登录后建会话及角色代次隔离契约。</summary>
 public sealed class SessionServiceTests : EventServiceTestScope
 {
+    /// <summary>验证 client-session 与 session-events：空缓存拒绝选角，重试及退出回收旧监听。</summary>
+    [Fact]
+    public void LoginAttemptsOwnEmptyCachesAndReleasePreviousSubscriptions()
+    {
+        using var transport = new DoubleNetTransport();
+        using var net = new NetService(transport);
+        using var session = new SessionService(net);
+        session.Login("demo", "wrong");
+        var previous = session.LoginCache;
+        Assert.False(session.IsLoggedIn);
+        Assert.Throws<InvalidOperationException>(() => session.SelectRole(1001));
+        Assert.Throws<InvalidOperationException>(() => session.Role);
+        GameServices.Events.Publish(new LoginRt { Error = "凭据错误" });
+        Assert.False(session.IsLoggedIn);
+        session.Login("demo", "demo");
+        var current = session.LoginCache;
+        Assert.NotSame(previous, current);
+        GameServices.Events.Publish(new LoginRt { Success = true });
+        Assert.True(session.IsLoggedIn);
+        Assert.False(previous.IsLoggedIn);
+        session.Logout();
+        GameServices.Events.Publish(new LoginRt { Success = true });
+        Assert.False(current.IsLoggedIn);
+        Assert.False(session.IsLoggedIn);
+    }
+
     /// <summary>失败或损坏的初始登录不创建会话、不遗留订阅，也不改变已有网络请求。</summary>
     [Fact]
     public void InvalidInitialLoginDoesNotCreateSessionOrLeaveSubscriptions()

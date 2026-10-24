@@ -14,7 +14,13 @@ public sealed class LoginCache : CacheBase
     /// <summary>当前账号可选择的不可变角色摘要列表。</summary>
     public IReadOnlyList<RoleSummaryPbData> Roles { get; private set; } = Array.Empty<RoleSummaryPbData>();
 
-    /// <summary>登录成功后先装入首份摘要，再监听后续登录结果。</summary>
+    /// <summary>在请求前建立空缓存，首份和后续响应均在缓存阶段处理。</summary>
+    public LoginCache()
+    {
+        Subscribe<LoginRt>(OnLoggedIn);
+    }
+
+    /// <summary>先验证已有摘要，再建立监听，避免构造失败遗留订阅。</summary>
     public LoginCache(LoginRt response)
     {
         OnLoggedIn(response);

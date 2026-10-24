@@ -137,6 +137,7 @@ public sealed class GameServicesTests
             {
                 observedSelections++;
                 Assert.True(GameServices.Session.HasRole);
+                GameServices.World.InitializeRole();
                 Assert.True(GameServices.World.HasRole);
                 Assert.Equal(response.RoleId, GameServices.World.ActorState!.RoleId);
                 Assert.Equal(GameServices.Session.Role.Position, GameServices.World.RolePosition);
@@ -155,6 +156,7 @@ public sealed class GameServicesTests
             server.PublishRoleState(updated);
             net.Tick(0);
             Assert.Equal(20, GameServices.Session.Role.Health);
+            world.SyncRole();
             world.Tick(0);
             world.LeaveRole();
             GameServices.Session.LeaveRole();
