@@ -80,12 +80,14 @@ public partial class BagGmSmoke : Node
             Click(grid.GetChild<Control>(0).GetGlobalRect().GetCenter());
             await Frames();
             Check(beforeClick == GameServices.World.RoleTarget, "格子点击穿透地面");
+            Click(grid.GetChild<Control>(0).GetGlobalRect().GetCenter());
+            await Frames();
+            Check(GameServices.Session.Bag.Revision == revision + 1, "同格放回修改了背包版本");
 
-            // 真实悬停等待 Godot 创建提示，同时核对格子的名称契约。
+            // 真实悬停当次输入即显示名称，不等待默认提示计时器。
             using (var motion = new InputEventMouseMotion { Position = grid.GetChild<Control>(0).GetGlobalRect().GetCenter() })
                 GetViewport().PushInput(motion, true);
-            await ToSignal(GetTree().CreateTimer(0.7), SceneTreeTimer.SignalName.Timeout);
-            Check(grid.GetChild<Control>(0).TooltipText == "测试长剑", "悬停名称不正确");
+            CheckName(grid.GetChild<Control>(0), "测试长剑");
             if (OS.GetCmdlineUserArgs().Contains("--capture-bag") && DisplayServer.GetName() != "headless")
             {
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
@@ -151,7 +153,8 @@ public partial class BagGmSmoke : Node
             foreach (var index in new[] { 0, 2 })
             {
                 var slot = restoredGrid.GetChild<Control>(index);
-                Check(slot.FindChild("MissingIcon", true, false) is Label && slot.TooltipText.Length > 0, "缺图没有占位或丢失名称");
+                Check(slot.FindChild("MissingIcon", true, false) is Label, "缺图没有占位");
+                CheckName(slot);
             }
             GD.Print("Bag GM smoke passed: commands, Enter, icons, quantities, names, capacity, reopen, input isolation, small window, restart.");
             main.QueueFree();
@@ -183,11 +186,22 @@ public partial class BagGmSmoke : Node
         return main;
     }
 
+    /// <summary>真实悬停立即显示普通文本名称，缺图时同样生效。</summary>
+    private static void CheckName(Control slot, string? expected = null)
+    {
+        Node owner = slot;
+        while (owner is not BagControl) owner = owner.GetParent();
+        using var motion = new InputEventMouseMotion { Position = slot.GetGlobalRect().GetCenter() };
+        slot.GetViewport().PushInput(motion, true);
+        var popup = (Label)owner.FindChild("ItemNamePopup", true, false);
+        Check(popup.Visible && popup.Text.Length > 0 && (expected is null || popup.Text == expected), "名称未即时显示或不匹配");
+    }
+
     /// <summary>核对真实格子内纹理、数量与名称，不只检查缓存。</summary>
     private static void CheckSlot(GridContainer grid, int index, string name)
     {
         var slot = grid.GetChild<Control>(index);
-        Check(slot.TooltipText == name, "名称提示不匹配");
+        CheckName(slot, name);
         Check(slot.FindChild("ItemIcon", true, false) is TextureRect { Texture: not null }, "物品图标未显示");
         Check(slot.FindChild("ItemCount", true, false) is Label { Text: "1" }, "数量一未显示");
     }

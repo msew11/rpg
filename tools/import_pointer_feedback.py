@@ -50,17 +50,21 @@ def main():
     target = Path(__file__).resolve().parents[1] / 'assets/pointer'
     target.mkdir(parents=True, exist_ok=True)
     records = []
-    for source, name in [('res/uires/cursor/Normal.gsa', 'normal'), ('res/effect/circle.gsa', 'circle')]:
+    for source, name in [('res/uires/cursor/Normal.gsa', 'normal'), ('res/effect/circle.gsa', 'circle'),
+                         ('res/uires/cursor/Click.gsa', 'click')]:
         path = args.source / 'raw' / source
         frames = decode_iani(path)
-        frames[0].save(target / f'{name}.png')
+        outputs = [f'{name}_{index}.png' for index in range(len(frames))] if name == 'click' else [f'{name}.png']
+        for frame, output in zip(frames, outputs):
+            frame.save(target / output)
         records.append(dict(source=source, sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
                             frames=len(frames), width=frames[0].width, height=frames[0].height,
-                            output=f'{name}.png', selected_frame=0))
+                            output=outputs if name == 'click' else outputs[0], selected_frame='all' if name == 'click' else 0))
     config = args.source / 'raw/res/uires/uiroot.lua'
     manifest = dict(resources=records, cursor_config=dict(source='res/uires/uiroot.lua',
                     sha256=hashlib.sha256(config.read_bytes()).hexdigest(), hotspot=[2, 2], holdframe=1),
-                    circle_fade_seconds=0.5, note='circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。')
+                    circle_fade_seconds=0.5, cursor_display_scale=1.25, click_frame_seconds=0.08,
+                    note='circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal。')
     (target / 'source.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 

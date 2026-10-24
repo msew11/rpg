@@ -29,6 +29,16 @@ public partial class BagControl : PanelContainer
     private IDisposable? _moveSubscription;
     /// <summary>刷新或关闭面板后使旧拖放上下文失效。</summary>
     private long _dragEpoch;
+    /// <summary>独立于网格裁剪的物品与名称浮层。</summary>
+    private CanvasLayer _itemLayer = null!;
+    /// <summary>随鼠标移动的完整物品预览，空值表示未拿起。</summary>
+    private Control? _itemPreview;
+    /// <summary>拿起时冻结的角色、版本与实例。</summary>
+    private Variant _pickedItem;
+    /// <summary>没有默认等待时间的普通文本名称。</summary>
+    private Label _itemName = null!;
+    /// <summary>输入事件提供的视口坐标，不受世界摄像机或滚动影响。</summary>
+    private Vector2 _pointerPosition;
 
     /// <summary>创建标题、关闭按钮与双向滚动网格。</summary>
     public override void _Ready()
@@ -50,6 +60,12 @@ public partial class BagControl : PanelContainer
         _column.AddChild(_scroll);
         _grid = new GridContainer { Name = "BagGrid" };
         _scroll.AddChild(_grid);
+        _itemLayer = new CanvasLayer { Name = "ItemPointerLayer", Layer = 100 };
+        AddChild(_itemLayer);
+        _itemName = new Label { Name = "ItemNamePopup", Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        _itemName.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = new Color(0.08f, 0.10f, 0.14f, 0.95f),
+            ContentMarginLeft = 8, ContentMarginRight = 8, ContentMarginTop = 4, ContentMarginBottom = 4 });
+        _itemLayer.AddChild(_itemName);
         VisibilityChanged += () => { _dragEpoch++; if (IsVisibleInTree()) Refresh(); else CancelItemDrag(); };
         _moveSubscription = GameServices.EventBus.Subscribe<MoveItemRt>(OnItemMoved);
         _Process(0);
@@ -58,6 +74,10 @@ public partial class BagControl : PanelContainer
     /// <summary>按标题和完整网格收紧面板，受视口限制时补足滚动条空间。</summary>
     public override void _Process(double delta)
     {
+        var mouse = _pointerPosition;
+        if (_itemPreview is not null) _itemPreview.Position = mouse - _itemPreview.Size / 2;
+        if (_itemName.Visible) _itemName.Position = (mouse + new Vector2(24, 24)).Min(
+            (GetViewportRect().Size - _itemName.Size).Max(Vector2.Zero));
         var viewport = GetViewportRect().Size;
         var grid = _grid.GetCombinedMinimumSize();
         var header = _header.GetCombinedMinimumSize();
@@ -81,6 +101,7 @@ public partial class BagControl : PanelContainer
     public void Refresh()
     {
         if (_grid is null || !Visible) return;
+        HideItemName();
         _dragEpoch++;
         var config = GameServices.Config;
         var capacity = config.Basic.Value.GetBagCapacity(GameServices.Session.Role.BagExtraRows);
@@ -109,7 +130,6 @@ public partial class BagControl : PanelContainer
         {
             var definition = config.Item.Items[item.ItemId];
             var slot = _slots[item.SlotIndex];
-            slot.TooltipText = definition.Name;
             var content = new Control { CustomMinimumSize = new Vector2(46, 46), MouseFilter = MouseFilterEnum.Ignore };
             slot.AddChild(content);
             var texture = ResolveTexture(definition.IconAssetId);
@@ -128,6 +148,59 @@ public partial class BagControl : PanelContainer
             count.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         }
     }
+
+    /// <summary>首次点击拿起，下一次点击校验并提交，然后释放预览。</summary>
+    internal void ClickItem(int slotIndex)
+    {
+        if (_itemPreview is not null)
+        {
+            var data = _pickedItem;
+            CancelItemDrag();
+            DropItem(data, slotIndex);
+            return;
+        }
+        var payload = CreateItemDrag(slotIndex);
+        if (payload.VariantType == Variant.Type.Nil) return;
+        _pickedItem = payload;
+        HideItemName();
+        _itemPreview = (Control)_slots[slotIndex].GetChild<Control>(0).Duplicate();
+        _itemPreview.Name = "PickedItemPreview";
+        _itemPreview.MouseFilter = MouseFilterEnum.Ignore;
+        _itemPreview.Modulate = new Color(1, 1, 1, 0.85f);
+        _itemLayer.AddChild(_itemPreview);
+        _itemPreview.Size = _itemPreview.GetCombinedMinimumSize();
+        _itemPreview.Position = _pointerPosition - _itemPreview.Size / 2;
+    }
+
+    /// <summary>只观察鼠标坐标，不消费输入，保证预览与硬件热点使用同一位置。</summary>
+    public override void _Input(InputEvent input)
+    {
+        if (input is InputEventMouse mouse) _pointerPosition = mouse.Position;
+    }
+
+    /// <summary>拿起后点击背包外的空白只取消，不触发世界移动。</summary>
+    public override void _UnhandledInput(InputEvent input)
+    {
+        if (_itemPreview is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
+        CancelItemDrag();
+        GetViewport().SetInputAsHandled();
+    }
+
+    /// <summary>指向有物品的格子时立即显示配置名称。</summary>
+    internal void ShowItemName(int slotIndex)
+    {
+        if (_itemPreview is not null || !IsVisibleInTree()) return;
+        var item = GameServices.Session.Bag.Items.FirstOrDefault(item => item.SlotIndex == slotIndex);
+        if (item is null) { HideItemName(); return; }
+        _itemName.Text = GameServices.Config.Item.Items[item.ItemId].Name;
+        _itemName.Size = _itemName.GetCombinedMinimumSize();
+        _itemName.Visible = true;
+        _itemName.Position = (_pointerPosition + new Vector2(24, 24)).Min(
+            (GetViewportRect().Size - _itemName.Size).Max(Vector2.Zero));
+    }
+
+    /// <summary>离开物品或拿起时立即隐藏名称。</summary>
+    internal void HideItemName() { if (_itemName is not null) _itemName.Hide(); }
 
     /// <summary>记录拖动开始时的角色、版本与实例，禁止空格创建拖放。</summary>
     internal Variant CreateItemDrag(int sourceSlot)
@@ -195,17 +268,13 @@ public partial class BagControl : PanelContainer
         _moveSubscription = null;
     }
 
-    /// <summary>关闭或销毁面板前取消自身拖动，由视口释放原生预览。</summary>
+    /// <summary>释放点选预览和名称，关闭及切角时幂等执行。</summary>
     private void CancelItemDrag()
     {
-        if (!IsInsideTree()) return;
-        var viewport = GetViewport();
-        if (!viewport.GuiIsDragging()) return;
-        var data = viewport.GuiGetDragData();
-        if (data.VariantType != Variant.Type.Dictionary) return;
-        var payload = data.AsGodotDictionary();
-        if (payload.ContainsKey("panel") && payload["panel"].VariantType == Variant.Type.Int &&
-            payload["panel"].AsUInt64() == GetInstanceId()) viewport.GuiCancelDrag();
+        HideItemName();
+        _itemPreview?.QueueFree();
+        _itemPreview = null;
+        _pickedItem = default;
     }
 
     /// <summary>离树时幂等回收订阅与拖动上下文。</summary>

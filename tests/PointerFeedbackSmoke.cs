@@ -26,6 +26,19 @@ public partial class PointerFeedbackSmoke : Node
             RoleTestData.Seed(main.ServerDirectory);
             AddChild(main);
             await Frames();
+            var cursor = main.GetNode<Rpg.UI.PointerCursor>("PointerCursor");
+            var normal = cursor.CurrentTexture;
+            Check(normal.GetSize() == new Vector2(51, 44), "指针未放大至约 125%");
+            using (var down = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = new Vector2(10, 10) })
+                GetViewport().PushInput(down, true);
+            var firstPressed = cursor.CurrentTexture;
+            Check(cursor.IsPressed && firstPressed != normal, "按下未立即切换指针");
+            await Frames();
+            Check(cursor.IsPressed && cursor.CurrentTexture != normal && cursor.CurrentTexture != firstPressed &&
+                cursor.CurrentTexture.GetSize() == normal.GetSize(), "按下动画未推进或尺寸跳变");
+            using (var up = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Position = new Vector2(10, 10) })
+                GetViewport().PushInput(up, true);
+            Check(!cursor.IsPressed && cursor.CurrentTexture == normal, "松开未恢复普通指针");
             Click(new Vector2(10, 10));
             Check(Circles(main).Length == 0, "登录页面创建了光圈");
             main.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "登录")

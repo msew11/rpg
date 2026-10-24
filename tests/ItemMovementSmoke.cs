@@ -12,7 +12,7 @@ using Rpg.UI;
 
 namespace Rpg.Tests;
 
-/// <summary>验证 openspec/specs/role-bag 的真实原生拖放、合并、交换、取消、过期保护与重启。</summary>
+/// <summary>验证 openspec/specs/role-bag 的真实两次点击、合并、交换、取消、过期保护与重启。</summary>
 public partial class ItemMovementSmoke : Node
 {
     /// <summary>使用隔离物品配置和角色存档，鼠标事件必须经过真实视口。</summary>
@@ -42,7 +42,7 @@ public partial class ItemMovementSmoke : Node
 
             await Drag(grid.GetChild<Control>(0), grid.GetChild<Control>(7));
             Check(GameServices.Session.Bag.Items.Single(item => item.InstanceId == 1).SlotIndex == 7, "空格移动失败");
-            Check(grid.GetChild<Control>(7).TooltipText == "测试长剑" && grid.GetChild<Control>(0).TooltipText == "", "格子显示未随移动刷新");
+            Check(grid.GetChild<Control>(7).FindChild("ItemIcon", true, false) is not null && grid.GetChild<Control>(0).GetChildCount() == 0, "格子显示未随移动刷新");
             await Drag(grid.GetChild<Control>(7), grid.GetChild<Control>(2));
             Check(GameServices.Session.Bag.Items.Single(item => item.InstanceId == 1).SlotIndex == 2 &&
                 GameServices.Session.Bag.Items.Single(item => item.InstanceId == 3).SlotIndex == 7, "占用格交换失败");
@@ -79,7 +79,7 @@ public partial class ItemMovementSmoke : Node
             await Frames();
             Check(GameServices.Session.Bag.Revision == revision, "关闭面板仍然提交拖放");
 
-            // 滚动时保留原生拖放，把物品放到当前屏幕外的最后一格。
+            // 滚动时保留点选移动，把物品放到当前屏幕外的最后一格。
             GetWindow().Size = new Vector2I(480, 270);
             GetWindow().ContentScaleSize = new Vector2I(480, 270);
             await Frames();
@@ -119,7 +119,7 @@ public partial class ItemMovementSmoke : Node
             main = await StartMain(directory, config);
             Check(GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.SlotIndex, item.Count))
                 .SequenceEqual(saved.Items.Select(item => (item.InstanceId, item.SlotIndex, item.Count))), "重启未恢复移动及合并结果");
-            GD.Print("Item movement smoke passed: native drag preview, move, swap, partial/full merge, cancel, stale drag, last slot, errors, world input, restart.");
+            GD.Print("Item movement smoke passed: click pickup, release retention, centered preview, instant name, move, swap, partial/full merge, cancel, stale drag, last slot, errors, world input, restart.");
             main.QueueFree();
             await Frames();
             main = null;
@@ -151,31 +151,53 @@ public partial class ItemMovementSmoke : Node
         return main;
     }
 
-    /// <summary>用真实鼠标移动越过原生拖动阈值，验证预览已开始而非直接调用业务方法。</summary>
+    /// <summary>真实按下立即拿起，松开及无按键移动后仍保持，图标中心跟随指尖。</summary>
     private async Task BeginDrag(Control source, bool expectDrag = true)
     {
         var point = source.GetGlobalRect().GetCenter();
+        using var hover = new InputEventMouseMotion { Position = point, GlobalPosition = point };
+        GetViewport().PushInput(hover, true);
+        var bag = source.GetParent().GetParent().GetParent().GetParent().GetParent();
+        var name = (Label)bag.FindChild("ItemNamePopup", true, false);
+        if (expectDrag) Check(name.Visible && name.Text.Length > 0, "指向物品后未立即显示名称");
         MouseButtonAt(point, true);
+        var cursor = FindChildren("*", "Node", true, false).OfType<PointerCursor>().Single();
+        Check(cursor.IsPressed, "格子消费输入后鼠标未显示按下状态");
         await Frames();
+        Check(Preview() is not null == expectDrag, "按下没有立即拿起或空格错误拿起");
+        MouseButtonAt(point, false);
+        Check(!cursor.IsPressed, "拿起物品释放后鼠标未恢复普通状态");
+        await Frames();
+        Check(Preview() is not null == expectDrag, "释放后没有保持拿起状态");
         using var motion = new InputEventMouseMotion { Position = point + new Vector2(18, 0), GlobalPosition = point + new Vector2(18, 0),
-            Relative = new Vector2(18, 0), ButtonMask = MouseButtonMask.Left };
+            Relative = new Vector2(18, 0) };
         GetViewport().PushInput(motion, true);
         await Frames();
-        Check(GetViewport().GuiIsDragging() == expectDrag, "原生拖放状态不正确");
+        if (expectDrag)
+        {
+            Check(!name.Visible, "拿起时仍显示名称");
+            Check(Preview()!.GetGlobalRect().GetCenter().IsEqualApprox(point + new Vector2(18, 0)), "物品图标中心未对齐鼠标指尖");
+        }
     }
 
-    /// <summary>在目标坐标释放鼠标，交给 Godot 检测目标格子与取消。</summary>
+    /// <summary>松开移动至目标不提交，再次按下才放置；取消后释放不产生新点击。</summary>
     private async Task EndDrag(Vector2 target)
     {
-        using var motion = new InputEventMouseMotion { Position = target, GlobalPosition = target, ButtonMask = MouseButtonMask.Left };
+        var before = GameServices.Session.Bag;
+        using var motion = new InputEventMouseMotion { Position = target, GlobalPosition = target };
         GetViewport().PushInput(motion, true);
         await Frames();
+        Check(ReferenceEquals(before, GameServices.Session.Bag), "仅移动鼠标就提交了物品");
+        if (Preview() is not null) MouseButtonAt(target, true);
         MouseButtonAt(target, false);
         await Frames();
-        Check(!GetViewport().GuiIsDragging(), "放下后拖动未结束");
+        Check(Preview() is null, "放下后拿起状态未结束");
     }
 
-    /// <summary>执行完整原生拖放，服务器处理前不得乐观修改缓存。</summary>
+    /// <summary>取得屏幕物品预览，验证真实显示而非调用处理方法。</summary>
+    private Control? Preview() => FindChildren("PickedItemPreview", "Control", true, false).OfType<Control>().SingleOrDefault();
+
+    /// <summary>执行完整点选移动，服务器处理前不得乐观修改缓存。</summary>
     private async Task Drag(Control source, Control target)
     {
         var before = GameServices.Session.Bag;

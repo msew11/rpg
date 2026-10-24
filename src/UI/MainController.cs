@@ -44,8 +44,7 @@ public partial class MainController : Control
         MouseFilter = MouseFilterEnum.Ignore;
         try
         {
-            Input.SetCustomMouseCursor(GD.Load<Texture2D>("res://assets/pointer/normal.png"),
-                Input.CursorShape.Arrow, new Vector2(2, 2));
+            AddChild(new PointerCursor { Name = "PointerCursor" });
             _servicesLifetime = InitializeServices();
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;

@@ -17,6 +17,18 @@
       "height": 41,
       "output": "circle.png",
       "selected_frame": 0
+    },
+    {
+      "source": "res/uires/cursor/Click.gsa",
+      "sha256": "124b74ffd2b4edfb380ebaae928fcee28d55342d9c5e2ab8829db67561513567",
+      "frames": 2,
+      "width": 41,
+      "height": 35,
+      "output": [
+        "click_0.png",
+        "click_1.png"
+      ],
+      "selected_frame": "all"
     }
   ],
   "cursor_config": {
@@ -29,5 +41,7 @@
     "holdframe": 1
   },
   "circle_fade_seconds": 0.5,
-  "note": "circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。"
+  "cursor_display_scale": 1.25,
+  "click_frame_seconds": 0.08,
+  "note": "circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal。"
 }

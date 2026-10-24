@@ -115,7 +115,7 @@ Godot 输入 -> 等轴逆投影 -> GameServices.World -> 移动 Action / 会话�
 
 ## 鼠标与地面点击反馈
 
-`MainController` 启动时设置 `assets/pointer/normal.png` 为普通硬件鼠标，使用原配置热点 (2, 2)，退出场景时恢复。`tools/import_pointer_feedback.py --source <art_export目录>` 严格解码 IANI v1 图块与帧数；Normal 按原配置 holdframe=1 取首帧，circle 拼出完整 68×41 单帧画布，来源和哈希记录在 `assets/pointer/source.json`。运行不依赖外部素材目录。
+`MainController` 启动时创建 `PointerCursor`，将 `assets/pointer/normal.png` 及 `click_0.png`、`click_1.png` 最近邻放大 1.25 倍至 51×44，原配置热点 (2, 2) 同步缩放为 (2.5, 2.5)。左键按下立即播放 Click 两帧（每帧 0.08 秒），保持末帧至释放后恢复 Normal；在 GUI 消费前观察输入，所有页面及物品点击均生效，失焦复原，退出场景时恢复系统鼠标。`tools/import_pointer_feedback.py --source <art_export目录>` 严格解码 IANI v1 图块与帧数；Normal 按原配置 holdframe=1 取首帧，Click 导入全部两帧，circle 拼出完整 68×41 单帧画布，来源和哈希记录在 `assets/pointer/source.json`。运行不依赖外部素材目录。
 
 世界接受地面左键移动后，`MainController` 在逆投影所得世界坐标创建 `GroundClickView`，完整光圈居中显示在地图上方、角色下方；Tween 在 0.5 秒内将光圈从原尺寸的 25% 等比扩散到 125%，同时淡出并释放，连续点击分别完成反馈，退出世界随父节点清理。UI 消费输入、右键和松开均不创建反馈。circle 的原版用途尚未确认，扩散比例与淡出时长为本项目表现参数。`tests/pointer_feedback_smoke.tscn` 纳入完整检查，验证资源完整性、真实视口点击、摄像机移动、连续等比扩散、淡出释放和 UI 输入隔离；硬件鼠标的实际屏幕显示需要 Windows 图形窗口目视验收。
 
@@ -139,7 +139,7 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 
 `BagControl` 点击打开时读取最新缓存，显示全部网格、图标和数量（含 1），悬停显示配置 Name；打开期间随 Notice 刷新。七件测试装备显式绑定现有图集素材键，缺失或未知图标显示占位；滚动区支持小窗口。`tests/bag_gm_smoke.tscn` 验证真实视口发送、回车、名称提示、输入隔离、关闭重开、缺图、小窗口和重启持久化；Windows 图形运行附加 `-- --capture-bag` 可保存 `build/bag-gm.png`。暂不实现普通聊天、主动拆分、使用、丢弃、整理或装备属性。
 
-`BagSlotControl` 使用 Godot 原生鼠标左键拖放，复制图标和数量为预览；空格整份移动，同类未满目标优先合并，剩余留原格，其他目标交换。完全合并只移除耗尽源实例，不回收编号。`MoveItem` 携带角色、实例、目标格和拖动开始的背包版本，服务端校验后原子保存，再发送完整背包推送和 `MoveItemRt`；同格不保存或递增版本。UI 不乐观修改缓存，失败在背包显示原因，关闭、离树、刷新、切角和旧版本都会使原拖放失效。`tests/item_movement_smoke.tscn` 通过真实鼠标事件验证原生预览、空格移动、交换、部分/完全合并、取消、过期、480×270 下滚动到末格、失败反馈、世界输入隔离、切角及重启。
+`BagSlotControl` 在左键按下时立即拿起物品，松开保持，目标格再次按下时提交；`BagControl` 用独立 CanvasLayer 复制图标和数量为预览，图标中心对齐鼠标热点，不受滚动裁剪。名称由格子悬停即时显示普通文本浮层，移出或拿起隐藏；不使用默认延迟 Tooltip。空白点击取消并消费世界输入；空格整份移动，同类未满目标优先合并，剩余留原格，其他目标交换。完全合并只移除耗尽源实例，不回收编号。`MoveItem` 携带角色、实例、目标格和拖动开始的背包版本，服务端校验后原子保存，再发送完整背包推送和 `MoveItemRt`；同格不保存或递增版本。UI 不乐观修改缓存，失败在背包显示原因，关闭、离树、刷新、切角和旧版本都会使原拖放失效。`tests/item_movement_smoke.tscn` 通过真实鼠标事件验证两次点击、松开保持、中心吸附、即时名称与按下指针、空格移动、交换、部分/完全合并、取消、过期、480×270 下滚动到末格、失败反馈、世界输入隔离、切角及重启。
 
 ## 当前限制
 
