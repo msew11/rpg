@@ -294,7 +294,7 @@ public partial class GameHud : Control
             Name = "ConsoleLogEnabled", Text = "控制台日志",
             ButtonPressed = GameServices.Env.ConsoleLogEnabled
         };
-        consoleLog.Toggled += enabled => GameServices.Env.ConsoleLogEnabled = enabled;
+        consoleLog.Toggled += enabled => SetConsoleLogging(consoleLog, enabled);
         gm.AddChild(consoleLog);
         var gmActions = new HBoxContainer { Name = "GmActions" };
         gm.AddChild(gmActions);
@@ -329,6 +329,21 @@ public partial class GameHud : Control
         BuildDisplayTab(tabs);
         BuildSoundTab(tabs);
         BuildHudTab(tabs);
+    }
+
+    /// <summary>保存 .env 日志标记；失败恢复开关并在 HUD 显示原因。</summary>
+    private void SetConsoleLogging(CheckButton toggle, bool enabled)
+    {
+        try
+        {
+            GameServices.Env.ConsoleLogEnabled = enabled;
+            _networkError.Text = "";
+        }
+        catch (Exception error)
+        {
+            toggle.SetPressedNoSignal(GameServices.Env.ConsoleLogEnabled);
+            _networkError.Text = $"无法保存 .env 日志设置：{error.Message}";
+        }
     }
 
     /// <summary>动态解析应用用户数据根目录，在系统文件管理器中打开其内容。</summary>

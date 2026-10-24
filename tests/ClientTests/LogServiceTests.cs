@@ -13,9 +13,9 @@ namespace ClientTests;
 /// <summary>验证 openspec/specs/console-logging 的局部颜色、实际收发与成功文件提交日志。</summary>
 public sealed class LogServiceTests
 {
-    /// <summary>console-logging：默认关闭且不访问消息或解析日志 JSON，开关只保留在当前环境。</summary>
+    /// <summary>console-logging：隔离环境默认关闭且不访问消息或解析日志 JSON，不污染系统变量。</summary>
     [Fact]
-    public void EnvironmentToggleSkipsFormattingAndResetsWithNewEnvironment()
+    public void IsolatedEnvironmentToggleSkipsFormattingWithoutSystemWrites()
     {
         using var env = new EnvService("");
         var lines = new List<string>();

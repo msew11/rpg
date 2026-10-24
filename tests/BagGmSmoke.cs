@@ -150,8 +150,9 @@ public partial class BagGmSmoke : Node
             main = await StartMain(directory, configDirectory);
             Check(GameServices.Session.Bag.Items.Count == 4, "重启后物品丢失");
             var restartedLog = (CheckButton)main.FindChild("ConsoleLogEnabled", true, false);
-            Check(!GameServices.Env.ConsoleLogEnabled && !restartedLog.ButtonPressed && !GameServices.Log.Enabled,
-                "日志开关被持久化或重启未恢复关闭");
+            Check(GameServices.Env.ConsoleLogEnabled && restartedLog.ButtonPressed && GameServices.Log.Enabled,
+                "重启未从 .env 恢复开启");
+            GameServices.Env.ConsoleLogEnabled = false;
             PressTitle(main, "背包");
             await Frames();
             var restoredBag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
@@ -193,6 +194,8 @@ public partial class BagGmSmoke : Node
         Check(toggle.ButtonPressed && GameServices.Env.ConsoleLogEnabled && GameServices.Log.Enabled,
             "GM 日志开关没有立即开启");
         Check(target == GameServices.World.RoleTarget, "日志开关点击穿透世界");
+        var envPath = GameServices.Env.EnvFilePath!;
+        Check(File.ReadAllText(envPath).Contains("RPG_CONSOLE_LOG_ENABLED=true"), "GM 未保存 .env");
         var rebuilt = new GameHud { Visible = false };
         AddChild(rebuilt);
         await Frames();
@@ -203,6 +206,15 @@ public partial class BagGmSmoke : Node
         Click(toggle.GetGlobalRect().GetCenter());
         await Frames();
         Check(!GameServices.Env.ConsoleLogEnabled && !GameServices.Log.Enabled, "日志没有立即关闭");
+        Check(File.ReadAllText(envPath).Contains("RPG_CONSOLE_LOG_ENABLED=false"), "关闭未保存 .env");
+        using (var locked = new FileStream(envPath, FileMode.Open, System.IO.FileAccess.Read, FileShare.None))
+        {
+            Click(toggle.GetGlobalRect().GetCenter());
+            await Frames();
+            Check(!toggle.ButtonPressed && !GameServices.Env.ConsoleLogEnabled &&
+                ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("无法保存 .env"),
+                ".env 保存失败未恢复控件或显示原因");
+        }
         PressTitle(main, "GM");
         await Frames();
     }
@@ -321,7 +333,12 @@ public partial class BagGmSmoke : Node
     /// <summary>通过真实节点按钮登录并选择隔离存档角色。</summary>
     private async Task<DoubleMainController> StartMain(string directory, string configDirectory = "res://config")
     {
-        var main = new DoubleMainController { SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server"), ConfigDirectory = configDirectory };
+        var main = new DoubleMainController
+        {
+            SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server"),
+            ConfigDirectory = configDirectory,
+            EnvFilePath = Path.Combine(directory, ".env")
+        };
         AddChild(main);
         await Frames();
         PressTitle(main, "登录");
