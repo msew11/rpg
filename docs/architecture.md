@@ -4,7 +4,7 @@
 
 客户端共享业务枚举放在 `src/Const/`，使用 `Rpg.Const` 命名空间，例如 `RoleGender` 和 `RoleMotion`。
 
-`IService` 位于 `src/Services/`，统一约定服务释放。`GameServices` 是主线程的固定服务集合，提供只读 `Config`、`Setting`、`Net`、`Session`、`World`、`Animation` 入口。参考 Dalamud 的服务契约、构造依赖与逆依赖卸载原则；当前服务数量固定，通过显式组合表达依赖。服务之间借用构造参数传入的同次启动实例，Godot 节点通过全局入口调用业务，不缓存服务、账号缓存或世界管理器。节点只拥有 Godot 节点、订阅句柄、界面布局和上次呈现的不可变快照。
+`IService` 位于 `src/Services/`，统一约定服务释放。`GameServices` 是主线程的固定服务集合，提供只读 `Config`、`Setting`、`Events`、`Net`、`Session`、`World`、`Animation` 入口。参考 Dalamud 的服务契约、构造依赖与逆依赖卸载原则；当前服务数量固定，通过显式组合表达依赖。服务之间借用构造参数传入的同次启动实例，Godot 节点通过全局入口调用业务，不缓存服务、账号缓存或世界管理器。节点只拥有 Godot 节点、订阅句柄、界面布局和上次呈现的不可变快照。
 
 | 服务 | 拥有的状态和行为 | 内部依赖 |
 | --- | --- | --- |

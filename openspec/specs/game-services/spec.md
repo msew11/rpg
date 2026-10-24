@@ -43,7 +43,7 @@
 - **THEN** 旧会话操作明确失败，新服务的会话状态和待发送请求不受影响
 
 ### Requirement: 按功能聚合业务服务
-客户端 SHALL 声明统一 IService 生命周期接口，由 GameServices 以只读 Config、Setting、Events、Net、Session、World、Animation 入口持有本次启动的业务服务。服务 SHALL 内聚自己的状态与方法，通过显式依赖绑定同次启动的其他服务。配置加载、设置读写、账号缓存和动画缓存 SHALL 直接在相应服务内初始化与持有，不额外增加逐方法转发的包装类；地图与 ECS 管理器 SHALL 作为世界服务的内部实现，不由 Godot 节点持有或逐层传递。
+客户端 SHALL 声明统一 IService 生命周期接口，由 GameServices 以只读 Config、Setting、Events、Net、Session、World、Animation 入口持有本次启动的业务服务。服务 SHALL 内聚自己的状态与方法，通过显式依赖绑定同次启动的其他服务。配置加载、设置读写、账号缓存和动画缓存 SHALL 直接在相应服务内初始化与持有，不额外增加逐方法转发的包装类；地图与 ECS 管理器 SHALL 作为世界服务的内部实现，不由 Godot 节点持有或逐层传递。内部收敛 SHALL 复用已有实现，删除没有独立职责的转发方法；统一写法 SHALL 不扩大成员可见性或新增抽象层。
 
 #### Scenario: 节点通过统一服务访问
 - **WHEN** 主场景启动并完成登录选角

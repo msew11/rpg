@@ -12,28 +12,28 @@ internal sealed class MapManager
     private readonly Dictionary<(int X, int Y), string> _overrides = new();
 
     /// <summary>绑定本次启动的配置服务，不对外暴露依赖。</summary>
-    private ConfigService Config { get; }
+    private readonly ConfigService _config;
 
     /// <summary>构建稀疏地块索引。</summary>
     public MapManager(ConfigService config)
     {
-        Config = config;
+        _config = config;
         foreach (var tile in config.MapConfig.Overrides)
             _overrides[(tile.X, tile.Y)] = tile.Tile;
     }
 
     /// <summary>将世界位置限制在地图范围内。</summary>
     public Vector2 Clamp(Vector2 position) => new(
-        Mathf.Clamp(position.X, 0, Config.MapConfig.Width * Config.MapConfig.TileSize - 1),
-        Mathf.Clamp(position.Y, 0, Config.MapConfig.Height * Config.MapConfig.TileSize - 1));
+        Mathf.Clamp(position.X, 0, _config.MapConfig.Width * _config.MapConfig.TileSize - 1),
+        Mathf.Clamp(position.Y, 0, _config.MapConfig.Height * _config.MapConfig.TileSize - 1));
 
     /// <summary>按格坐标读取地块类型。</summary>
-    public string TileAt(int x, int y) => _overrides.GetValueOrDefault((x, y), Config.MapConfig.DefaultTile);
+    public string TileAt(int x, int y) => _overrides.GetValueOrDefault((x, y), _config.MapConfig.DefaultTile);
 
     /// <summary>给出覆盖指定世界矩形的有效格子范围。</summary>
     public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area)
     {
-        var config = Config.MapConfig;
+        var config = _config.MapConfig;
         var size = config.TileSize;
         return (
             Math.Clamp((int)Math.Floor(area.Position.X / size), 0, config.Width - 1),

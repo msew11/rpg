@@ -17,7 +17,7 @@ public partial class GameHud : Control
     /// <summary>角色、背包、地图、GM 和系统弹出面板。</summary>
     private readonly List<Control> _panels = [];
     /// <summary>当前 HUD 拥有的服务器消息监听。</summary>
-    private readonly List<IDisposable> _messageSubscriptions = [];
+    private readonly List<IDisposable> _subscriptions = [];
     /// <summary>显示可恢复的网络或服务端错误。</summary>
     private Label _networkError = null!;
     /// <summary>头像区域中的角色状态文字。</summary>
@@ -74,8 +74,8 @@ public partial class GameHud : Control
         _networkError.Position = new Vector2(16, 140);
         _networkError.MouseFilter = MouseFilterEnum.Ignore;
         AddChild(_networkError);
-        _messageSubscriptions.Add(GameServices.Events.Subscribe<MoveRt>(OnMoved));
-        _messageSubscriptions.Add(GameServices.Events.Subscribe<RoleStateNotice>(OnRoleNotice));
+        _subscriptions.Add(GameServices.Events.Subscribe<MoveRt>(OnMoved));
+        _subscriptions.Add(GameServices.Events.Subscribe<RoleStateNotice>(OnRoleNotice));
     }
 
     /// <summary>退出界面时保存未提交的拖动位置并释放会话订阅。</summary>
@@ -493,8 +493,8 @@ public partial class GameHud : Control
             GameServices.Setting.SaveCurrentRole();
             _dragging = null;
         }
-        foreach (var subscription in _messageSubscriptions) subscription.Dispose();
-        _messageSubscriptions.Clear();
+        foreach (var subscription in _subscriptions) subscription.Dispose();
+        _subscriptions.Clear();
     }
 
     /// <summary>把保存的主音量应用到 Godot 音频总线。</summary>

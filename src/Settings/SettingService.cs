@@ -53,7 +53,7 @@ public sealed class SettingService : IService
         EnsureActive();
         _systemSetting.Width = width;
         _systemSetting.Height = height;
-        SaveSystem(_systemSetting);
+        Write(SystemPath, _systemSetting);
     }
 
     /// <summary>修改并保存当前主音量。</summary>
@@ -61,7 +61,7 @@ public sealed class SettingService : IService
     {
         EnsureActive();
         _systemSetting.MasterVolume = Math.Clamp(volume, 0, 1);
-        SaveSystem(_systemSetting);
+        Write(SystemPath, _systemSetting);
     }
 
     /// <summary>读取当前角色的技能栏显隐状态。</summary>
@@ -87,7 +87,6 @@ public sealed class SettingService : IService
     /// <summary>更新当前角色的 HUD 位置，提交时再保存。</summary>
     public void SetHudPosition(string key, float x, float y)
     {
-        EnsureActive();
         CurrentRole.HudPositions[key] = new HudPosition(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1));
         _roleDirty = true;
     }
@@ -95,7 +94,6 @@ public sealed class SettingService : IService
     /// <summary>恢复并保存当前角色的默认 HUD 布局。</summary>
     public void ResetHudPositions()
     {
-        EnsureActive();
         CurrentRole.HudPositions = RoleSetting.DefaultPositions();
         _roleDirty = true;
         SaveCurrentRole();
@@ -106,7 +104,7 @@ public sealed class SettingService : IService
     {
         EnsureActive();
         if (!_roleDirty || _roleId is not long roleId) return;
-        SaveRole(roleId, CurrentRole);
+        Write(GetRolePath(roleId), CurrentRole);
         _roleDirty = false;
     }
 
@@ -166,9 +164,6 @@ public sealed class SettingService : IService
         return setting;
     }
 
-    /// <summary>原子保存系统设置。</summary>
-    private void SaveSystem(SystemSetting setting) => Write(SystemPath, setting);
-
     /// <summary>按角色 ID 读取独立设置。</summary>
     private RoleSetting LoadRole(long roleId)
     {
@@ -189,9 +184,6 @@ public sealed class SettingService : IService
         setting.VisibleHotbars[0] = true;
         return setting;
     }
-
-    /// <summary>按角色 ID 原子保存独立设置。</summary>
-    private void SaveRole(long roleId, RoleSetting setting) => Write(GetRolePath(roleId), setting);
 
     /// <summary>读取 JSON 并在损坏时给出警告。</summary>
     private static T Read<T>(string path, T fallback)
