@@ -8,7 +8,7 @@ using Rpg.Server;
 namespace Rpg.Net;
 
 /// <summary>管理请求队列、protobuf 字节和按类型分发的服务器消息。</summary>
-public sealed class NetService : IService
+public sealed class NetService : Service
 {
     /// <summary>当前使用的可替换传输。</summary>
     private readonly INetTransport _transport;
@@ -18,15 +18,11 @@ public sealed class NetService : IService
     private readonly Queue<byte[]> _inbound = new();
     /// <summary>当前网络会话代次。</summary>
     private long _generation = 1;
-    /// <summary>是否已释放网络服务。</summary>
-    private bool _disposed;
     /// <summary>是否正在推进，避免回调重入固定帧。</summary>
     private bool _ticking;
 
     /// <summary>用于会话所有权检查的当前代次。</summary>
     internal long Generation => _generation;
-    /// <summary>允许会话在网络服务释放后安全清理。</summary>
-    internal bool IsDisposed => _disposed;
     /// <summary>报告编解码与传输错误。</summary>
     public event Action<Exception>? Error;
 
@@ -44,14 +40,14 @@ public sealed class NetService : IService
     /// <summary>将请求冻结入队；监听只在后续固定帧执行。</summary>
     public void Send(IMessage request)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         _outbound.Enqueue(MessageCodec.Encode(request, _generation, true));
     }
 
     /// <summary>发送当前队列、推进服务端并分发响应，监听中新请求留到下一帧。</summary>
     public void Tick(double delta)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
         if (_ticking) throw new InvalidOperationException("NetService 不允许重入 Tick");
         _ticking = true;
@@ -63,12 +59,12 @@ public sealed class NetService : IService
             {
                 try { _transport.Send(packet); }
                 catch (Exception error) { ReportError(error); }
-                if (_disposed) return;
+                if (IsDisposed) return;
                 if (_generation != generation) break;
             }
             try { _transport.Tick(delta); }
             catch (Exception error) { ReportError(error); }
-            while (!_disposed && _inbound.TryDequeue(out var packet))
+            while (!IsDisposed && _inbound.TryDequeue(out var packet))
             {
                 try
                 {
@@ -84,7 +80,7 @@ public sealed class NetService : IService
     /// <summary>丢弃旧会话请求、延迟消息及当前事件快照。</summary>
     public void ResetSession()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         _generation++;
         _outbound.Clear();
         _inbound.Clear();
@@ -93,10 +89,10 @@ public sealed class NetService : IService
     }
 
     /// <summary>释放传输及网络队列，事件服务由 GameServices 管理。</summary>
-    public void Dispose()
+    public override void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (IsDisposed) return;
+        IsDisposed = true;
         try
         {
             _transport.Received -= OnReceived;

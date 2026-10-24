@@ -4,7 +4,7 @@
 
 客户端共享业务枚举放在 `src/Const/`，使用 `Rpg.Const` 命名空间，例如 `RoleGender` 和 `RoleMotion`。
 
-`IService` 位于 `src/Services/`，统一约定服务释放。`GameServices` 是主线程的固定服务集合，提供只读 `Config`、`Setting`、`Events`、`Net`、`Session`、`World`、`Animation` 入口。参考 Dalamud 的服务契约、构造依赖与逆依赖卸载原则；当前服务数量固定，通过显式组合表达依赖。服务之间借用构造参数传入的同次启动实例，Godot 节点通过全局入口调用业务，不缓存服务、账号缓存或世界管理器。节点只拥有 Godot 节点、订阅句柄、界面布局和上次呈现的不可变快照。
+`IService` 位于 `src/Services/`，统一约定释放与只读 `IsDisposed` 状态。七个业务服务继承薄基类 `Service`，共用释放状态和受保护的 `ThrowIfDisposed()`；具体 `Dispose()` 仍由各服务实现，保持自己的标记时机、资源清理和异常处理，不增加释放钩子或统一清理模板。缓存、传输与注册句柄保留自身生命周期。`GameServices` 是主线程的固定服务集合，提供只读 `Config`、`Setting`、`Events`、`Net`、`Session`、`World`、`Animation` 入口。参考 Dalamud 的服务契约、构造依赖与逆依赖卸载原则；当前服务数量固定，通过显式组合表达依赖。服务之间借用构造参数传入的同次启动实例，Godot 节点通过全局入口调用业务，不缓存服务、账号缓存或世界管理器。节点只拥有 Godot 节点、订阅句柄、界面布局和上次呈现的不可变快照。
 
 | 服务 | 拥有的状态和行为 | 内部依赖 |
 | --- | --- | --- |
@@ -28,7 +28,7 @@
 
 所有功能缓存位于 `src/Session/Cache/`，继承 `CacheBase`，通过受保护的 `Subscribe<T>()` 注册缓存阶段监听，由基类私有集合托管句柄。释放幂等取消自身订阅并执行一次 `OnDispose()`，释放后禁止新增订阅。所有 `PbData` 类位于 `src/Session/Data/`，通过自身 `FromPb` 与 `ToPb` 校验、复制数据，不共享可变协议对象。`RoleWorldStatePbData` 直接持有角色属性、性别、逻辑位置、revision 和移动确认序号，不嵌套额外角色模型；World 与 UI 使用相同的不可变权威快照。
 
-`GameServices.Events` 是独立的 `EventService : IService`，直接包含分发实现，没有额外转发包装。构造方法不对外公开，GameServices 是唯一创建位置；网络、会话、缓存、世界与 UI 统一通过该入口使用，不持有私有事件域，也不逐层传递事件对象。独立网络保留各自发送队列，但共享该事件服务；单独释放网络不清除事件监听，整体退出最后释放事件服务并清除全部监听和队列。分发规则：先 Cache 后 Normal，同阶段按注册顺序，每条消息使用监听快照。新增监听处理后续消息，已取消监听立即跳过，嵌套发布排队。缓存失败跳过该消息的普通阶段，普通监听失败不阻止其他监听。Session 服务在 Cache 阶段建立账号，World 服务先于 UI 注册 Normal 监听。网络编解码与传输错误通过 `NetService.Error`、监听错误通过 `GameServices.Events.Error` 报告至页面或 HUD。会话重置递增信封代次、清理队列和服务端未确认移动，旧消息不能进入后续角色。
+`GameServices.Events` 是独立的 `EventService : Service`，直接包含分发实现，没有额外转发包装。构造方法不对外公开，GameServices 是唯一创建位置；网络、会话、缓存、世界与 UI 统一通过该入口使用，不持有私有事件域，也不逐层传递事件对象。独立网络保留各自发送队列，但共享该事件服务；单独释放网络不清除事件监听，整体退出最后释放事件服务并清除全部监听和队列。分发规则：先 Cache 后 Normal，同阶段按注册顺序，每条消息使用监听快照。新增监听处理后续消息，已取消监听立即跳过，嵌套发布排队。缓存失败跳过该消息的普通阶段，普通监听失败不阻止其他监听。Session 服务在 Cache 阶段建立账号，World 服务先于 UI 注册 Normal 监听。网络编解码与传输错误通过 `NetService.Error`、监听错误通过 `GameServices.Events.Error` 报告至页面或 HUD。会话重置递增信封代次、清理队列和服务端未确认移动，旧消息不能进入后续角色。
 
 `NetService.Send(IMessage)` 调用时序列化并入队，回调内新增请求留到下一帧发送。`INetTransport` 隔离具体传输，`MockTransport` 在同进程连接 `MockServer`，双向仅交换 protobuf 字节。真实连接以后提供新的传输适配器，世界与 UI 不接触传输细节。
 

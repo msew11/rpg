@@ -7,14 +7,12 @@ using Rpg.Settings.Data;
 namespace Rpg.Settings;
 
 /// <summary>拥有当前系统与角色设置，集中处理修改和保存。</summary>
-public sealed class SettingService : IService
+public sealed class SettingService : Service
 {
     /// <summary>本次服务的设置持久化根目录。</summary>
     private readonly string _root;
     /// <summary>持久化 JSON 的格式设置。</summary>
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-    /// <summary>是否已释放服务。</summary>
-    private bool _disposed;
     /// <summary>当前系统显示和声音设置。</summary>
     private readonly SystemSetting _systemSetting;
     /// <summary>当前选中角色的设置。</summary>
@@ -32,15 +30,15 @@ public sealed class SettingService : IService
     }
 
     /// <summary>当前窗口宽度。</summary>
-    public int Width { get { EnsureActive(); return _systemSetting.Width; } }
+    public int Width { get { ThrowIfDisposed(); return _systemSetting.Width; } }
     /// <summary>当前窗口高度。</summary>
-    public int Height { get { EnsureActive(); return _systemSetting.Height; } }
+    public int Height { get { ThrowIfDisposed(); return _systemSetting.Height; } }
     /// <summary>当前主音量。</summary>
-    public float MasterVolume { get { EnsureActive(); return _systemSetting.MasterVolume; } }
+    public float MasterVolume { get { ThrowIfDisposed(); return _systemSetting.MasterVolume; } }
     /// <summary>切换当前角色并载入其独立设置。</summary>
     public void SelectRole(long roleId)
     {
-        EnsureActive();
+        ThrowIfDisposed();
         SaveCurrentRole();
         _roleSetting = LoadRole(roleId);
         _roleId = roleId;
@@ -50,7 +48,7 @@ public sealed class SettingService : IService
     /// <summary>修改并保存当前分辨率。</summary>
     public void SetResolution(int width, int height)
     {
-        EnsureActive();
+        ThrowIfDisposed();
         _systemSetting.Width = width;
         _systemSetting.Height = height;
         Write(SystemPath, _systemSetting);
@@ -59,7 +57,7 @@ public sealed class SettingService : IService
     /// <summary>修改并保存当前主音量。</summary>
     public void SetMasterVolume(float volume)
     {
-        EnsureActive();
+        ThrowIfDisposed();
         _systemSetting.MasterVolume = Math.Clamp(volume, 0, 1);
         Write(SystemPath, _systemSetting);
     }
@@ -70,7 +68,7 @@ public sealed class SettingService : IService
     /// <summary>修改并保存当前角色的技能栏显隐状态。</summary>
     public void SetHotbarVisible(int index, bool visible)
     {
-        EnsureActive();
+        ThrowIfDisposed();
         if (index == 1 && !visible) throw new ArgumentException("第一条技能栏始终显示", nameof(visible));
         CurrentRole.VisibleHotbars[index - 1] = visible;
         _roleDirty = true;
@@ -102,7 +100,7 @@ public sealed class SettingService : IService
     /// <summary>保存当前角色的设置。</summary>
     public void SaveCurrentRole()
     {
-        EnsureActive();
+        ThrowIfDisposed();
         if (!_roleDirty || _roleId is not long roleId) return;
         Write(GetRolePath(roleId), CurrentRole);
         _roleDirty = false;
@@ -113,20 +111,20 @@ public sealed class SettingService : IService
     {
         get
         {
-            EnsureActive();
+            ThrowIfDisposed();
             return _roleSetting ?? throw new InvalidOperationException("尚未选择角色");
         }
     }
 
 
     /// <summary>系统设置文件的绝对路径。</summary>
-    public string SystemPath { get { EnsureActive(); return Path.GetFullPath(Path.Combine(_root, "system.json")); } }
+    public string SystemPath { get { ThrowIfDisposed(); return Path.GetFullPath(Path.Combine(_root, "system.json")); } }
     /// <summary>当前角色的设置文件位置，未选角时不可访问。</summary>
     public string RolePath
     {
         get
         {
-            EnsureActive();
+            ThrowIfDisposed();
             return GetRolePath(_roleId ?? throw new InvalidOperationException("尚未选择角色"));
         }
     }
@@ -134,22 +132,20 @@ public sealed class SettingService : IService
     /// <summary>离开角色前保存布局，然后清空当前角色状态。</summary>
     public void LeaveRole()
     {
-        EnsureActive();
+        ThrowIfDisposed();
         SaveCurrentRole();
         _roleSetting = null;
         _roleId = null;
     }
 
     /// <summary>服务退出时提交未保存布局，并幂等撤销角色状态。</summary>
-    public void Dispose()
+    public override void Dispose()
     {
-        if (_disposed) return;
+        if (IsDisposed) return;
         try { LeaveRole(); }
-        finally { _disposed = true; _roleSetting = null; _roleId = null; }
+        finally { IsDisposed = true; _roleSetting = null; _roleId = null; }
     }
 
-    /// <summary>防止已结束的设置服务继续操作。</summary>
-    private void EnsureActive() => ObjectDisposedException.ThrowIf(_disposed, this);
     /// <summary>指定角色设置文件的绝对路径。</summary>
     private string GetRolePath(long roleId) => Path.GetFullPath(Path.Combine(_root, "roles", $"{roleId}.json"));
 

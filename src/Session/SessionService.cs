@@ -10,7 +10,7 @@ using Rpg.Session.Data;
 namespace Rpg.Session;
 
 /// <summary>直接持有账号缓存，处理登录、选角、移动请求与账号生命周期。</summary>
-public sealed class SessionService : IService
+public sealed class SessionService : Service
 {
     /// <summary>本次启动绑定的网络。</summary>
     private readonly NetService _net;
@@ -22,8 +22,6 @@ public sealed class SessionService : IService
     private RoleCache? _role;
     /// <summary>当前账号拥有的网络代次。</summary>
     private long _generation;
-    /// <summary>是否已结束服务。</summary>
-    private bool _disposed;
 
     /// <summary>账号是否已经认证。</summary>
     public bool IsLoggedIn => _login?.IsLoggedIn == true;
@@ -134,10 +132,10 @@ public sealed class SessionService : IService
     }
 
     /// <summary>释放监听和缓存；旧实例延后释放不重置后来建立的账号。</summary>
-    public void Dispose()
+    public override void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (IsDisposed) return;
+        IsDisposed = true;
         _loginSubscription.Dispose();
         _role?.Dispose();
         _login?.Dispose();
@@ -147,7 +145,7 @@ public sealed class SessionService : IService
     /// <summary>阻止已释放或代次被替换的服务继续操作网络。</summary>
     private void EnsureActive()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         ObjectDisposedException.ThrowIf(_net.IsDisposed, _net);
         if (_net.Generation != _generation) throw new InvalidOperationException("游戏会话已被替换");
     }

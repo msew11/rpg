@@ -7,17 +7,15 @@ using Rpg.Services;
 namespace Rpg.World.Views;
 
 /// <summary>表现层按性别和动作加载并复用项目内的身体动画。</summary>
-public sealed class AnimationService : IService
+public sealed class AnimationService : Service
 {
-    /// <summary>是否已释放资源缓存。</summary>
-    private bool _disposed;
     /// <summary>当前表现生命周期中已使用的动作资源。</summary>
     private readonly Dictionary<(RoleGender, RoleMotion), DataActorAnimation> _animations = new();
 
     /// <summary>加载对应动作；资源缺失时给出明确的路径诊断。</summary>
     public DataActorAnimation Get(RoleGender gender, RoleMotion motion)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         if (_animations.TryGetValue((gender, motion), out var animation)) return animation;
         var body = gender switch
         {
@@ -51,6 +49,6 @@ public sealed class AnimationService : IService
         };
     }
     /// <summary>撤销资源缓存，原生资源仍由 Godot 引用计数管理。</summary>
-    public void Dispose() { _disposed = true; _animations.Clear(); }
+    public override void Dispose() { IsDisposed = true; _animations.Clear(); }
 
 }

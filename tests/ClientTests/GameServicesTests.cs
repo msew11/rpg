@@ -123,6 +123,8 @@ public sealed class GameServicesTests
             setting.SelectRole(1001);
             setting.SetHudPosition("portrait", 0.3f, 0.4f);
             Assert.Throws<IOException>(() => services.Dispose());
+            Assert.True(((IService)net).IsDisposed);
+            Assert.True(((IService)setting).IsDisposed);
             Assert.Throws<InvalidOperationException>(() => GameServices.Config);
             Assert.Throws<InvalidOperationException>(() => GameServices.Setting);
             Assert.Throws<InvalidOperationException>(() => GameServices.Session);
@@ -153,6 +155,8 @@ public sealed class GameServicesTests
             setting.SetHudPosition("portrait", 0.3f, 0.4f);
             File.WriteAllText(directory, "阻止创建设置目录");
             Assert.ThrowsAny<IOException>(() => services.Dispose());
+            Assert.True(((IService)setting).IsDisposed);
+            Assert.True(((IService)net).IsDisposed);
             Assert.False(GameServices.IsInitialized);
             Assert.Throws<ObjectDisposedException>(() => net.Send(new Login()));
             Assert.Throws<ObjectDisposedException>(() => config.MapConfig);
@@ -392,6 +396,20 @@ public sealed class GameServicesTests
         Assert.Equal(new[] { "Services/GameServices.cs" }, creators);
         Assert.DoesNotContain(Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories),
             path => File.ReadAllText(path).Contains("EventSystem"));
+    }
+
+    /// <summary>验证 game-services 的共享释放状态契约，所有真实服务均可通过接口查询且重复释放幂等。</summary>
+    [Fact]
+    public void AllServicesExposeDisposalStateThroughCommonContract()
+    {
+        using var lifetime = Register(new NetService(new DoubleNetTransport()));
+        IService[] services = [GameServices.Config, GameServices.Setting, GameServices.Events,
+            GameServices.Net, GameServices.Session, GameServices.World, GameServices.Animation];
+        Assert.All(services, service => Assert.False(service.IsDisposed));
+        lifetime.Dispose();
+        Assert.All(services, service => Assert.True(service.IsDisposed));
+        foreach (var service in services) service.Dispose();
+        Assert.All(services, service => Assert.True(service.IsDisposed));
     }
 
     /// <summary>创建完整服务组，注册失败时释放仍归调用方的配置和设置。</summary>

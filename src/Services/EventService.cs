@@ -15,7 +15,7 @@ public enum EventPhase
 }
 
 /// <summary>提供类型监听、缓存优先和排队重入的单线程事件分发。</summary>
-public sealed class EventService : IService
+public sealed class EventService : Service
 {
     /// <summary>仅由 GameServices 建立应用事件域。</summary>
     internal EventService() { }
@@ -28,11 +28,6 @@ public sealed class EventService : IService
     private bool _dispatching;
     /// <summary>用于使会话重置前的分发快照失效。</summary>
     private long _generation;
-    /// <summary>是否已经释放事件系统。</summary>
-    private bool _disposed;
-
-    /// <summary>供服务入口判断生命周期是否已结束。</summary>
-    internal bool IsDisposed => _disposed;
 
     /// <summary>报告监听异常；错误监听自身的异常仅记录诊断。</summary>
     public event Action<Exception>? Error;
@@ -40,7 +35,7 @@ public sealed class EventService : IService
     /// <summary>按消息具体类型注册监听，并返回幂等释放句柄。</summary>
     public IDisposable Subscribe<T>(Action<T> handler, EventPhase phase = EventPhase.Normal)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(handler);
         if (!Enum.IsDefined(phase)) throw new ArgumentOutOfRangeException(nameof(phase));
         var type = typeof(T);
@@ -53,7 +48,7 @@ public sealed class EventService : IService
     /// <summary>发布消息；嵌套发布等待当前消息两个阶段全部结束。</summary>
     public void Publish(object message)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(message);
         _pending.Enqueue(message);
         if (_dispatching) return;
@@ -73,10 +68,10 @@ public sealed class EventService : IService
     }
 
     /// <summary>清理所有监听及待处理消息。</summary>
-    public void Dispose()
+    public override void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (IsDisposed) return;
+        IsDisposed = true;
         ResetPending();
         foreach (var listener in _listeners.Values.SelectMany(list => list).ToArray()) listener.Dispose();
         _listeners.Clear();

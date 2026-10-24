@@ -10,7 +10,7 @@ using Rpg.World.Actions;
 namespace Rpg.World;
 
 /// <summary>内聚地图、ECS、输入意图和权威同步，节点仅负责呈现。</summary>
-public sealed class WorldService : IService
+public sealed class WorldService : Service
 {
     /// <summary>本次启动的账号服务。</summary>
     private readonly SessionService _session;
@@ -24,8 +24,6 @@ public sealed class WorldService : IService
     private long _nextActionId;
     /// <summary>世界更新所需的协议监听。</summary>
     private readonly IDisposable[] _subscriptions;
-    /// <summary>是否已释放当前世界服务。</summary>
-    private bool _disposed;
 
     /// <summary>地图世界是否就绪。</summary>
     public bool HasWorld => _world?.HasWorld == true;
@@ -51,7 +49,7 @@ public sealed class WorldService : IService
     /// <summary>将未消费的逻辑坐标点击变成世界 Action 与网络请求。</summary>
     public bool HandleInput(InputEvent input, Vector2 logicalPosition)
     {
-        EnsureActive();
+        ThrowIfDisposed();
         if (_world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
         var action = new MoveAction(++_nextActionId, _map.Clamp(logicalPosition));
         _session.SubmitMove(action.ActionId, action.Destination);
@@ -60,7 +58,7 @@ public sealed class WorldService : IService
     }
 
     /// <summary>在网络推进之后按固定帧处理 ECS。</summary>
-    public void Tick(double delta) { EnsureActive(); _world?.Tick(delta); }
+    public void Tick(double delta) { ThrowIfDisposed(); _world?.Tick(delta); }
 
     /// <summary>计算视口覆盖的地图格范围。</summary>
     public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area) => _map.VisibleTiles(area);
@@ -71,7 +69,7 @@ public sealed class WorldService : IService
     /// <summary>移除 ECS 并保存、清除当前角色设置。</summary>
     public void LeaveRole()
     {
-        EnsureActive();
+        ThrowIfDisposed();
         _world = null;
         _setting.LeaveRole();
     }
@@ -108,14 +106,12 @@ public sealed class WorldService : IService
     }
 
     /// <summary>解除世界监听并移除所有角色实体。</summary>
-    public void Dispose()
+    public override void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (IsDisposed) return;
+        IsDisposed = true;
         foreach (var subscription in _subscriptions) subscription.Dispose();
         _world = null;
     }
 
-    /// <summary>防止旧世界服务继续处理输入和固定帧。</summary>
-    private void EnsureActive() => ObjectDisposedException.ThrowIf(_disposed, this);
 }

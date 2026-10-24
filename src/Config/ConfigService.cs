@@ -13,16 +13,13 @@ using Rpg.Services;
 namespace Rpg.Config;
 
 /// <summary>扫描、校验并组合打包的 JSON 游戏配置。</summary>
-public sealed class ConfigService : IService
+public sealed class ConfigService : Service
 {
     /// <summary>启动时在服务内部加载打包配置。</summary>
     public ConfigService() => LoadGodot();
 
     /// <summary>从独立目录初始化配置，供配置工具和隔离测试使用。</summary>
     public ConfigService(string configDirectory, string schemaDirectory) => Load(configDirectory, schemaDirectory);
-
-    /// <summary>服务是否已释放。</summary>
-    private bool _disposed;
 
     /// <summary>最近一次成功加载的地图配置。</summary>
     private MapConfig? _mapConfig;
@@ -32,7 +29,7 @@ public sealed class ConfigService : IService
     {
         get
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
             return _mapConfig ?? throw new InvalidOperationException("地图配置尚未加载");
         }
     }
@@ -40,7 +37,7 @@ public sealed class ConfigService : IService
     /// <summary>读取目录中的全部配置；任何未识别或无效文件都使加载失败。</summary>
     private void Load(string configDirectory, string schemaDirectory)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         if (!Directory.Exists(configDirectory))
             throw new InvalidDataException($"配置目录不存在：{configDirectory}");
 
@@ -53,7 +50,7 @@ public sealed class ConfigService : IService
     /// <summary>从 Godot 资源包递归读取配置，支持编辑器和导出程序。</summary>
     private void LoadGodot(string configDirectory = "res://config")
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
         var files = new List<(string Path, string Text)>();
         Scan(configDirectory, files);
         var schema = FileAccess.GetFileAsString("res://schemas/map.schema.json");
@@ -127,6 +124,6 @@ public sealed class ConfigService : IService
         return map ?? throw new InvalidDataException("缺少地图配置");
     }
     /// <summary>释放本次启动的配置状态。</summary>
-    public void Dispose() { _disposed = true; _mapConfig = null; }
+    public override void Dispose() { IsDisposed = true; _mapConfig = null; }
 
 }
