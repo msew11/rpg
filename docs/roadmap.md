@@ -64,6 +64,8 @@
 
 - [x] 道具表 `item.json`、四字段 `ItemCfg` 与 ConfigService 按 ID 只读映射；启动校验、重复 ID 及文件诊断、释放后访问验收。正式道具记录、分类含义和堆叠数值待定，初始表为空。
 
+- [x] 统一单例/多例配置规范：config/ 根目录平铺纯配置 JSON，对象/数组分别由 SingleCfgCache 与 MultiCfgCache 加载；CfgFile 标注文件名，CfgKey 标注主键，ConfigService 持有 MapCfgCache 与 ItemCfgCache；迁移地图/道具及全部消费者，异常包含文件诊断，文档记录新增配置约定。
+
 ## 后续阶段（待确认）
 
 - 真实服务器连接方式、正式业务消息扩展、断线重连与认证安全性。

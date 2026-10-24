@@ -49,7 +49,7 @@ internal static class GameServicesTestFactory
         ObjectDisposedException.ThrowIf(env.IsDisposed, env);
         ObjectDisposedException.ThrowIf(net.IsDisposed, net);
         if (GameServices.IsInitialized) throw new InvalidOperationException("GameServices 已初始化");
-        _ = config.MapConfig;
+        _ = config.Map.Value;
         _ = setting.Width;
         var created = new List<IService>();
         try

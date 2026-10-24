@@ -15,7 +15,7 @@ public sealed class MapUtilsTests
     [Fact]
     public void MapSnapshotKeepsSparseTilesIndependentOfConfiguration()
     {
-        var config = new MapConfig
+        var config = new MapCfg
         {
             Width = 4, Height = 3, TileSize = 32, DefaultTile = "ground",
             Overrides = [new TileOverride { X = 1, Y = 2, Tile = "accent" }]
@@ -32,7 +32,7 @@ public sealed class MapUtilsTests
     [Fact]
     public void VisibleRangeClipsBothMapEdges()
     {
-        var map = MapUtils.CreateMap(new MapConfig { Width = 4, Height = 3, TileSize = 32 });
+        var map = MapUtils.CreateMap(new MapCfg { Width = 4, Height = 3, TileSize = 32 });
         Assert.Equal((0, 0, 1, 1), MapUtils.VisibleTiles(map, new Rect2(-32, -32, 64, 64)));
         Assert.Equal((3, 2, 3, 2), MapUtils.VisibleTiles(map, new Rect2(96, 64, 100, 100)));
         Assert.Equal((0, 0, 3, 2), MapUtils.VisibleTiles(map, new Rect2(-100, -100, 400, 400)));
@@ -46,7 +46,7 @@ public sealed class MapUtilsTests
         var role = new RoleWorldStatePbData(1, "测试", 1, 10, 10, 10, 10, 0, 10,
             new Vector2(50, 50), RoleGender.Male, 0, 0);
         world.Enqueue(new InitializeWorldAction(MapUtils.CreateMap(
-            new MapConfig { Width = 4, Height = 3, TileSize = 32 })));
+            new MapCfg { Width = 4, Height = 3, TileSize = 32 })));
         world.Enqueue(new InitializeRoleAction(role));
         world.Enqueue(new MoveAction(1, new Vector2(-10, 200)));
         world.Tick(0);
@@ -60,7 +60,7 @@ public sealed class MapUtilsTests
         Assert.Equal(new Vector2(0, 95), world.RoleTarget);
 
         world.Enqueue(new InitializeWorldAction(MapUtils.CreateMap(
-            new MapConfig { Width = 2, Height = 2, TileSize = 32 })));
+            new MapCfg { Width = 2, Height = 2, TileSize = 32 })));
         world.Enqueue(new InitializeRoleAction(role));
         world.Enqueue(new MoveAction(2, new Vector2(200, 200)));
         world.Tick(0);

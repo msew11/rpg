@@ -40,7 +40,7 @@ public sealed class WorldService : Service
     {
         _session = session;
         _setting = setting;
-        _map = MapUtils.CreateMap(config.MapConfig);
+        _map = MapUtils.CreateMap(config.Map.Value);
     }
 
     /// <summary>将未消费的逻辑坐标点击变成世界 Action 与网络请求。</summary>

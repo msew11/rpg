@@ -17,8 +17,8 @@ public sealed class ItemConfigTests : IDisposable
     /// <summary>在独立环境准备真实地图与空道具表。</summary>
     public ItemConfigTests()
     {
-        Directory.CreateDirectory(Path.Combine(_directory, "config", "items"));
-        File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "maps", "map.json"),
+        Directory.CreateDirectory(Path.Combine(_directory, "config"));
+        File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "map.json"),
             Path.Combine(_directory, "config", "map.json"));
         WriteTable("[]");
     }
@@ -30,7 +30,7 @@ public sealed class ItemConfigTests : IDisposable
         WriteTable("[" + Row + "," + """{"id":1002,"category":0,"subCategory":0,"maxStack":1}""" + "]");
         using var env = CreateEnv();
         using var registration = GameServicesTestFactory.Register(env);
-        var items = GameServices.Config.ItemCfgs;
+        var items = GameServices.Config.Item.Items;
         Assert.Equal(2, items.Count);
         Assert.Equal(1001, items[1001].Id);
         Assert.Equal(2, items[1001].Category);
@@ -40,7 +40,7 @@ public sealed class ItemConfigTests : IDisposable
         Assert.Equal(0, items[1002].SubCategory);
         Assert.Equal(1, items[1002].MaxStack);
         Assert.False(items.TryGetValue(9999, out _));
-        Assert.Equal(1000, GameServices.Config.MapConfig.Width);
+        Assert.Equal(1000, GameServices.Config.Map.Value.Width);
     }
 
     /// <summary>空表场景：正式配置与临时配置均不自动补建道具。</summary>
@@ -49,9 +49,9 @@ public sealed class ItemConfigTests : IDisposable
     {
         using var env = CreateEnv();
         using var config = new ConfigService(env);
-        Assert.Empty(config.ItemCfgs);
+        Assert.Empty(config.Item.Items);
         using var packaged = ConfigTestFixture.LoadDefault();
-        Assert.Empty(packaged.ItemCfgs);
+        Assert.Empty(packaged.Item.Items);
     }
 
     /// <summary>只读与释放场景：映射不能增删改，服务释放后不可读取。</summary>
@@ -61,13 +61,15 @@ public sealed class ItemConfigTests : IDisposable
         WriteTable("[" + Row + "]");
         using var env = CreateEnv();
         using var config = new ConfigService(env);
-        var dictionary = Assert.IsAssignableFrom<IDictionary<int, ItemCfg>>(config.ItemCfgs);
+        var cache = config.Item;
+        var dictionary = Assert.IsAssignableFrom<IDictionary<int, ItemCfg>>(cache.Items);
         Assert.Throws<NotSupportedException>(() => dictionary.Add(1002, new ItemCfg()));
         Assert.Throws<NotSupportedException>(() => dictionary.Remove(1001));
         Assert.Throws<NotSupportedException>(() => dictionary[1001] = new ItemCfg());
-        Assert.Equal(99, config.ItemCfgs[1001].MaxStack);
+        Assert.Equal(99, config.Item.Items[1001].MaxStack);
         config.Dispose();
-        Assert.Throws<ObjectDisposedException>(() => config.ItemCfgs);
+        Assert.Throws<ObjectDisposedException>(() => config.Item.Items);
+        Assert.Throws<ObjectDisposedException>(() => cache.Items);
     }
 
     /// <summary>记录无效场景：缺字段、错类型、非法范围和未知字段均阻止启动。</summary>
@@ -97,37 +99,39 @@ public sealed class ItemConfigTests : IDisposable
     public void RejectsDuplicateIdsAndMalformedDocuments()
     {
         WriteTable("[" + Row + "," + Row + "]");
-        AssertInvalid("重复的道具 ID：1001");
-        foreach (var text in new[] { "{", "[]", "null", "{\"kind\":\"item\"}", "{\"kind\":\"item\",\"items\":null}" })
+        AssertInvalid("重复的主键 id：1001");
+        foreach (var text in new[] { "{", "{}", "null", "{\"kind\":\"item\"}", "{\"kind\":\"item\",\"items\":null}" })
         {
-            File.WriteAllText(Path.Combine(_directory, "config", "items", "item.json"), text);
+            File.WriteAllText(Path.Combine(_directory, "config", "item.json"), text);
             AssertInvalid("");
         }
     }
 
-    /// <summary>文件契约错误场景：缺表、错误文件名和递归目录中的重复表均拒绝。</summary>
+    /// <summary>文件契约错误场景：缺表、错误文件名和配置子目录均拒绝。</summary>
     [Fact]
-    public void RejectsMissingMisnamedAndDuplicateTables()
+    public void RejectsMissingMisnamedAndNestedTables()
     {
-        var path = Path.Combine(_directory, "config", "items", "item.json");
+        var path = Path.Combine(_directory, "config", "item.json");
         File.Delete(path);
-        AssertInvalid("缺少道具配置");
+        AssertInvalid("缺少配置文件");
         WriteTable("[]");
-        var renamed = Path.Combine(_directory, "config", "items", "wrong.json");
+        var renamed = Path.Combine(_directory, "config", "wrong.json");
         File.Move(path, renamed);
         AssertInvalid("item.json", "wrong.json");
         File.Move(renamed, path);
-        File.Copy(path, Path.Combine(_directory, "config", "item.json"));
-        AssertInvalid("重复的道具配置");
+        var nested = Path.Combine(_directory, "config", "nested");
+        Directory.CreateDirectory(nested);
+        File.Move(path, Path.Combine(nested, "item.json"));
+        AssertInvalid("配置目录不允许子目录", "nested");
     }
 
     /// <summary>用正式环境契约将所有可写数据隔离到本次目录。</summary>
     private EnvService CreateEnv() => new(Path.Combine(_directory, "settings"), Path.Combine(_directory, "server"),
         Path.Combine(_directory, "config"), Path.Combine(ConfigTestFixture.FindRoot(), "schemas"));
 
-    /// <summary>将测试行数组写入嵌套目录，验收递归扫描。</summary>
-    private void WriteTable(string rows) => File.WriteAllText(Path.Combine(_directory, "config", "items", "item.json"),
-        "{\"kind\":\"item\",\"items\":" + rows + "}");
+    /// <summary>将测试行数组直接写入配置根目录。</summary>
+    private void WriteTable(string rows) => File.WriteAllText(Path.Combine(_directory, "config", "item.json"),
+        rows);
 
     /// <summary>用真实 Godot 读取校验失败，并核对文件与原因。</summary>
     private void AssertInvalid(string reason, string fileName = "item.json")

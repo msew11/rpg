@@ -25,7 +25,7 @@ public partial class MapChunkView : Node2D
         _left = left;
         _top = top;
         _chunkSize = chunkSize;
-        var tileSize = GameServices.Config.MapConfig.TileSize;
+        var tileSize = GameServices.Config.Map.Value.TileSize;
         Position = IsometricProjection.ToScreen(new Vector2(left * tileSize, top * tileSize));
     }
 
@@ -41,7 +41,7 @@ public partial class MapChunkView : Node2D
     /// <summary>静态分块只构建一次几何数据，避免每个地块分别跨托管边界提交绘制。</summary>
     private void BuildGeometry()
     {
-        var config = GameServices.Config.MapConfig;
+        var config = GameServices.Config.Map.Value;
         var size = config.TileSize;
         var right = Math.Min(_left + _chunkSize, config.Width);
         var bottom = Math.Min(_top + _chunkSize, config.Height);

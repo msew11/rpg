@@ -11,7 +11,7 @@ namespace Rpg.World.Utils;
 internal static class MapUtils
 {
     /// <summary>将已校验的配置复制为独立只读数据，仅索引稀疏覆盖格。</summary>
-    public static DataMapComponent CreateMap(MapConfig config)
+    public static DataMapComponent CreateMap(MapCfg config)
     {
         var overrides = new Dictionary<(int X, int Y), string>();
         foreach (var tile in config.Overrides)

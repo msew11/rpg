@@ -109,7 +109,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
         fixture.SelectRole(summary.RoleId);
         Assert.Equal(headId, session.Role.HeadId);
         var world = new WorldManager();
-        world.Enqueue(new InitializeWorldAction(MapUtils.CreateMap(new Rpg.Config.Data.MapConfig())));
+        world.Enqueue(new InitializeWorldAction(MapUtils.CreateMap(new Rpg.Config.Data.MapCfg())));
         world.Enqueue(new InitializeRoleAction(session.Role));
         world.Tick(0);
         Assert.Equal(headId, world.ActorState!.HeadId);

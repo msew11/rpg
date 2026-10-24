@@ -9,7 +9,7 @@
 | 服务 | 拥有的状态和行为 | 内部依赖 |
 | --- | --- | --- |
 | `EnvService Env` | 统一持有配置、Schema、设置与模拟服务端目录 | 无依赖根服务 |
-| `ConfigService Config` | 构造时加载、校验并持有配置 | Env；内部 JSON 与 Schema 读取方法 |
+| `ConfigService Config` | 构造时加载、校验并持有配置 | Env；具体 CfgCache 统一读取 JSON 与 Schema |
 | `SettingService Setting` | 构造时加载系统设置，内部持有角色设置并修改、保存 | Env；私有 JSON 读写方法 |
 | `EventBusService EventBus` | 唯一类型事件域、缓存优先分发、监听错误与订阅生命周期 | 内部监听集合与重入队列 |
 | `NetService Net` | protobuf 请求队列、固定帧收发及解码后发布消息 | Env、EventBus；内部 `INetTransport`，通过绑定的 EventBus 实例发布 |
@@ -17,7 +17,7 @@
 | `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部只读地图组件、`MapUtils`、`WorldManager` |
 | `AnimationService Animation` | 分别缓存身体动作与独立头部资源并解析朝向 | Godot 原生资源 |
 
-`ConfigService` 构造时递归扫描 `res://config`，以 `res://schemas` 中的 Draft 2020-12 JSON Schema 校验并持有 `MapConfig` 与按 ID 索引的 `ItemCfg`。地图工具通过服务取得配置并构建只读地图快照；分块和 UI 通过服务读取，不另存配置引用。`config/maps/map.json` 对应 `Rpg.Config.Data.MapConfig`，包含地图尺寸、瓦片规格、默认地块与稀疏覆盖格。未知、重复、无效或文件名不匹配的配置阻止启动；配置与程序同包发布。原始加载方法为私有，构造只接收 `EnvService`；配置和 Schema 使用同一环境，统一通过 Godot 的 `DirAccess` 与 `FileAccess` 读取，不按路径类型切换加载链路。配置加载及整组服务验收在 Godot headless 中复用现有 xUnit 用例，临时目录也通过相同 Godot API 读取。普通 .NET 用例直接提供地图等纯数据，不为测试在正式代码中增加加载分支或替代构造。
+`ConfigService` 显式持有 `MapCfgCache Map` 和 `ItemCfgCache Item`，构造时按缓存类的文件标注读取平铺于 `res://config` 根目录的全部 JSON，拒绝子目录与未注册文件。单例数据通过 `GameServices.Config.Map.Value` 读取，多例通过 `GameServices.Config.Item.Items` 读取。配置缓存统一使用 `res://schemas` 中同名的 Draft 2020-12 JSON Schema 校验；原始加载只走 Godot `DirAccess` 与 `FileAccess`，不保留 System.IO 测试分支。地图工具复制为只读地图快照，UI 与分块通过服务读取。缺失、重复、未注册、无效配置或 Schema 导致启动抛异常；错误保留文件路径及原因。配置与程序同包发布，服务释放全部缓存，已取得的缓存引用也拒绝继续读取。配置及整组服务验收在 Godot headless 执行；普通 .NET 地图用例直接提供 `MapCfg` 纯数据。
 
 主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config、Setting 的公开构造只接收 Env，Net 接收 Env、EventBus，Session 接收 Net，World 接收 Config、Setting、Session，EventBus 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Env、EventBus、Config、Setting、Net、Session、World、Animation 顺序显式创建全部八个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、EventBus、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
 
@@ -35,7 +35,23 @@
 
 本地系统设置保存到 `user://settings/system.json`，角色设置按 `role_id` 保存到 `user://settings/roles/`。`SettingService` 独占当前设置，提供当前值、分辨率、音量、技能栏和 HUD 布局操作；原始读写方法保持私有。离开角色或关闭服务时提交未保存布局并清空角色设置。窗口、声音和 HUD 实际呈现由节点应用，设置不作为服务器权威数据。
 
-`config/items/item.json` 是表格配置，结构为 `{ "kind": "item", "items": [] }`，每行对应 `Rpg.Config.Data.ItemCfg`，包含 `Id`、`Category`（大类）、`SubCategory`（小类）与 `MaxStack`（可堆叠上限）。JSON 字段使用 `id`、`category`、`subCategory`、`maxStack`；均为 Int32，ID 和上限为正数，分类编号为非负数，具体分类语义待定。`ConfigService` 构造时通过 `item.schema.json` 校验，按 ID 建立只读 `ItemCfgs` 字典，调用方可用 `GameServices.Config.ItemCfgs.TryGetValue(id, out var item)` 读取；释放后访问被拒绝。缺表、重复表、重复 ID、文件名或字段错误阻止启动。正式表暂为空；与保留重复 ID 的 GM 图鉴数据独立管理，当前不定义道具内容或背包操作。
+### 配置编写规范
+
+- `config/` 不分目录，文件名唯一；单例根为 `{ ... }`，多例根为 `[{ ... }, { ... }]`。JSON 只存配置数据，不写 `kind`、文件名、缓存类型、主键描述等元数据，不增加外层 `items` 包装。
+- 数据统一命名 `XxxCfg`：单例承载整个对象，多例承载数组中的一行。文件放在 `src/Config/Data/`，使用初始化属性与简明中文注释。
+- 缓存统一命名 `XxxCfgCache`，放在 `src/Config/Cache/`，类上加 `[CfgFile("xxx.json")]`。单例继承 `SingleCfgCache<XxxCfg>`，通过 `Value` 读取；多例继承 `MultiCfgCache<TKey, XxxCfg>`，通过只读 `Items` 字典读取。
+- 多例数据恰有一个公开可读实例属性标注 `[CfgKey]`，其类型与 `TKey` 一致；支持整型和字符串等可用作字典键的类型，不隐式使用 `Id`。缺失、null 或重复主键抛异常。JSON 字段默认使用 camelCase，可用 `JsonPropertyName` 明确别名。
+- 每个文件配套 `schemas/xxx.schema.json`。`CfgCache` 统一读取、Schema 校验、异常诊断和生命周期；两个泛型基类决定对象或数组的解析与存储，具体缓存仅补充必要的跨字段校验。新增缓存后在 ConfigService 显式声明引用并加入统一加载集合，禁止添加按业务类型分派的解析分支。
+
+`config/map.json` 对应 `MapCfgCache : SingleCfgCache<MapCfg>`，保存地图标识、尺寸、瓦片规格、默认地块和稀疏覆盖格；缓存检查覆盖格边界及坐标唯一性。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，当前为 `[]`。每行包含 `id`、`category`（大类）、`subCategory`（小类）、`maxStack`（可堆叠上限），`ItemCfg.Id` 标注 `[CfgKey]`。字段均为 Int32，ID 和上限为正数，分类编号非负；正式道具记录、分类含义和堆叠数值待确认，与 GM 图鉴数据独立管理。
+
+```csharp
+var map = GameServices.Config.Map.Value;
+if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
+{
+    var maxStack = item.MaxStack;
+}
+```
 
 ## 协议与模拟服务端
 

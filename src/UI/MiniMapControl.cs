@@ -15,7 +15,7 @@ public partial class MiniMapControl : Control
         DrawRect(new Rect2(Vector2.Zero, Size), new Color("1c303a"));
         DrawRect(new Rect2(Vector2.Zero, Size), new Color("7a9eaa"), false, 2);
         if (!GameServices.IsInitialized) return;
-        var map = GameServices.Config.MapConfig;
+        var map = GameServices.Config.Map.Value;
         var width = map.Width * map.TileSize;
         var height = map.Height * map.TileSize;
         var point = new Vector2(RolePosition.X / width * Size.X, RolePosition.Y / height * Size.Y);

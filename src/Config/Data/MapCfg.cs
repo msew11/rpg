@@ -3,10 +3,8 @@ using System.Collections.Generic;
 namespace Rpg.Config.Data;
 
 /// <summary>地图尺寸、默认瓦片和稀疏覆盖配置。</summary>
-public sealed class MapConfig
+public sealed class MapCfg
 {
-    /// <summary>配置类型标识。</summary>
-    public string Kind { get; init; } = "";
     /// <summary>地图标识。</summary>
     public string Id { get; init; } = "";
     /// <summary>地图横向瓦片数。</summary>

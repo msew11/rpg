@@ -18,51 +18,52 @@ namespace ClientTests;
 [Trait("Runtime", "Godot")]
 public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
 {
-    /// <summary>合法地图配置能组合为完整地图，未知配置会给出文件诊断。</summary>
+    /// <summary>合法地图配置能组合为完整地图，未注册文件会给出文件诊断。</summary>
     [Fact]
     [Trait("Runtime", "Godot")]
-    public void ConfigLoadsAllFilesAndRejectsUnknownType()
+    public void ConfigLoadsAllFilesAndRejectsUnknownFile()
     {
         var root = ConfigTestFixture.FindRoot();
         var repo = new ConfigService(new EnvService("", configDirectory: Path.Combine(root, "config"), schemaDirectory: Path.Combine(root, "schemas")));
-        Assert.Equal(1000, repo.MapConfig.Width);
-        Assert.Equal(1000, repo.MapConfig.Height);
-        Assert.Equal(32, repo.MapConfig.TileSize);
-        Assert.Equal("map", repo.MapConfig.Id);
-        var map = MapUtils.CreateMap(repo.MapConfig);
+        Assert.Equal(1000, repo.Map.Value.Width);
+        Assert.Equal(1000, repo.Map.Value.Height);
+        Assert.Equal(32, repo.Map.Value.TileSize);
+        Assert.Equal("map", repo.Map.Value.Id);
+        var map = MapUtils.CreateMap(repo.Map.Value);
         Assert.Equal("accent", MapUtils.TileAt(map, 505, 500));
         Assert.Equal("ground", MapUtils.TileAt(map, 1, 1));
 
         var temporary = Path.Combine(Path.GetTempPath(), "rpg-config-test-" + Guid.NewGuid());
         Directory.CreateDirectory(temporary);
+        File.WriteAllText(Path.Combine(temporary, "item.json"), "[]");
         try
         {
-            File.WriteAllText(Path.Combine(temporary, "unexpected.json"), "{\"kind\":\"unknown\"}");
+            File.WriteAllText(Path.Combine(temporary, "unexpected.json"), "{}");
             var error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
             Assert.Contains("unexpected.json", error.Message);
-            Assert.Equal("map", repo.MapConfig.Id);
+            Assert.Equal("map", repo.Map.Value.Id);
             File.Delete(Path.Combine(temporary, "unexpected.json"));
             File.WriteAllText(Path.Combine(temporary, "map.json"),
-                "{\"kind\":\"map\",\"id\":\"bad\",\"width\":0,\"height\":1000,\"tileSize\":32,\"defaultTile\":\"ground\",\"overrides\":[]}");
+                "{\"id\":\"bad\",\"width\":0,\"height\":1000,\"tileSize\":32,\"defaultTile\":\"ground\",\"overrides\":[]}");
             error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
             Assert.Contains("map.json", error.Message);
             Assert.Contains("Schema", error.Message);
             File.Delete(Path.Combine(temporary, "map.json"));
             File.WriteAllText(Path.Combine(temporary, "wrong-name.json"),
-                File.ReadAllText(Path.Combine(root, "config", "maps", "map.json")));
+                File.ReadAllText(Path.Combine(root, "config", "map.json")));
             error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
             Assert.Contains("wrong-name.json", error.Message);
             Assert.Contains("map.json", error.Message);
-            Assert.Equal("map", repo.MapConfig.Id);
+            Assert.Equal("map", repo.Map.Value.Id);
             File.Delete(Path.Combine(temporary, "wrong-name.json"));
             var duplicateDirectory = Path.Combine(temporary, "second");
             Directory.CreateDirectory(duplicateDirectory);
-            var validMap = File.ReadAllText(Path.Combine(root, "config", "maps", "map.json"));
+            var validMap = File.ReadAllText(Path.Combine(root, "config", "map.json"));
             File.WriteAllText(Path.Combine(temporary, "map.json"), validMap);
             File.WriteAllText(Path.Combine(duplicateDirectory, "map.json"), validMap);
             error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
-            Assert.Contains("重复的地图配置", error.Message);
-            Assert.Equal("map", repo.MapConfig.Id);
+            Assert.Contains("配置目录不允许子目录", error.Message);
+            Assert.Equal("map", repo.Map.Value.Id);
         }
         finally { Directory.Delete(temporary, true); }
     }
@@ -71,7 +72,7 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
     [Fact]
     public void MapVisibleRegionDoesNotExpandWholeWorld()
     {
-        var map = MapUtils.CreateMap(new MapConfig { Width = 1000, Height = 1000, TileSize = 32 });
+        var map = MapUtils.CreateMap(new MapCfg { Width = 1000, Height = 1000, TileSize = 32 });
         var region = MapUtils.VisibleTiles(map, new Rect2(16000, 16000, 1280, 720));
         Assert.True((region.Right - region.Left + 1) * (region.Bottom - region.Top + 1) < 1500);
     }
@@ -152,7 +153,7 @@ public sealed class WorldAcceptanceTests
     [Fact]
     public void WorldActionOrderMovementAndCorrection()
     {
-        var map = MapUtils.CreateMap(new MapConfig { Width = 1000, Height = 1000, TileSize = 32 });
+        var map = MapUtils.CreateMap(new MapCfg { Width = 1000, Height = 1000, TileSize = 32 });
         var role = new RoleWorldStatePbData(1, "测试", 1, 10, 10, 10, 10, 0, 10, new Vector2(100, 100), RoleGender.Male, 0, 0);
         var world = new WorldManager();
         world.Enqueue(new InitializeRoleAction(role));

@@ -40,7 +40,7 @@ public sealed class GameServicesTests
             Assert.Throws<InvalidOperationException>(() => GameServices.Env);
             using var lifetime = GameServicesTestFactory.Register(env);
             Assert.Same(env, GameServices.Env);
-            Assert.Equal(1000, GameServices.Config.MapConfig.Width);
+            Assert.Equal(1000, GameServices.Config.Map.Value.Width);
             GameServices.Setting.SetResolution(1600, 900);
             Assert.True(File.Exists(Path.Combine(env.SettingsDirectory, "system.json")));
             GameServices.Session.Login("demo", "demo");
@@ -210,7 +210,7 @@ public sealed class GameServicesTests
             Assert.Throws<InvalidOperationException>(() => GameServices.Session);
             Assert.Throws<InvalidOperationException>(() => GameServices.World);
             Assert.Throws<InvalidOperationException>(() => GameServices.Animation);
-            Assert.Throws<ObjectDisposedException>(() => config.MapConfig);
+            Assert.Throws<ObjectDisposedException>(() => config.Map.Value);
             Assert.Throws<ObjectDisposedException>(() => setting.SetResolution(1280, 720));
             Assert.Throws<ObjectDisposedException>(() => session.SelectRole(1001));
             Assert.Throws<ObjectDisposedException>(() => world.Tick(0));
@@ -241,7 +241,7 @@ public sealed class GameServicesTests
             Assert.True(((IService)net).IsDisposed);
             Assert.False(GameServices.IsInitialized);
             Assert.Throws<ObjectDisposedException>(() => net.Send(new Login()));
-            Assert.Throws<ObjectDisposedException>(() => config.MapConfig);
+            Assert.Throws<ObjectDisposedException>(() => config.Map.Value);
             using var restarted = Register(new DoubleNetTransport());
             Assert.False(GameServices.Session.IsLoggedIn);
             Assert.False(GameServices.World.HasWorld);

@@ -1,23 +1,36 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Client item configuration",
-  "type": "object",
-  "required": ["kind", "items"],
-  "additionalProperties": false,
-  "properties": {
-    "kind": { "const": "item" },
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["id", "category", "subCategory", "maxStack"],
-        "additionalProperties": false,
-        "properties": {
-          "id": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
-          "category": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
-          "subCategory": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
-          "maxStack": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
-        }
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "category",
+      "subCategory",
+      "maxStack"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2147483647
+      },
+      "category": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 2147483647
+      },
+      "subCategory": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 2147483647
+      },
+      "maxStack": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2147483647
       }
     }
   }
