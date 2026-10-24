@@ -16,10 +16,10 @@ namespace Rpg.Config;
 public sealed class ConfigService : Service
 {
     /// <summary>通过 Godot 从环境指定的目录加载配置及配套校验规则。</summary>
-    public ConfigService(EnvService environment)
+    public ConfigService(EnvService env)
     {
-        ObjectDisposedException.ThrowIf(environment.IsDisposed, environment);
-        Load(environment.ConfigDirectory, environment.SchemaDirectory);
+        ObjectDisposedException.ThrowIf(env.IsDisposed, env);
+        Load(env.ConfigDirectory, env.SchemaDirectory);
     }
 
     /// <summary>最近一次成功加载的地图配置。</summary>

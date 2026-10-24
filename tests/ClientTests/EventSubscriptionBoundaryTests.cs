@@ -93,7 +93,7 @@ public sealed class EventSubscriptionBoundaryTests
         Assert.Equal(order.Select(type => type.Name), constructions);
         var disposal = System.Text.RegularExpressions.Regex.Matches(source, @"foreach \(var service in new IService\[\] \{ ([^}]+) \}\)").Last();
         Assert.True(disposal.Success, "整体释放必须显式列出逆依赖顺序");
-        Assert.Equal(new[] { "Animation", "World", "Session", "Net", "Setting", "Config", "Events", "Environment" },
+        Assert.Equal(new[] { "Animation", "World", "Session", "Net", "Setting", "Config", "Events", "Env" },
             disposal.Groups[1].Value.Split(',').Select(name => name.Trim()));
     }
 }

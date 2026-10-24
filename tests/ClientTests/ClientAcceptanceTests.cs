@@ -257,11 +257,11 @@ internal static class ConfigTestFixture
     /// <summary>载入项目自带的地图配置。</summary>
     internal static ConfigService LoadDefault()
     {
-        return new ConfigService(CreateEnvironment());
+        return new ConfigService(CreateEnv());
     }
 
     /// <summary>为 game-services 验收提供独立存档目录，配置使用正式资源路径。</summary>
-    internal static EnvService CreateEnvironment(string settingsDirectory = "", string serverDirectory = "")
+    internal static EnvService CreateEnv(string settingsDirectory = "", string serverDirectory = "")
     {
         return new EnvService(settingsDirectory, serverDirectory);
     }

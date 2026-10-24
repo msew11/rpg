@@ -1,0 +1,62 @@
+## MODIFIED Requirements
+
+### Requirement: 显式注册与统一访问
+
+客户端 SHALL 提供只读的全局 Env、Config、Setting、Events、Net、Session、World、Animation 服务入口。启动流程显式注册全部服务后，调用方无需逐层传递业务对象即可读取状态、提交业务操作、发送请求和订阅消息；初始化前访问 SHALL 明确报错，不得隐式创建实例。全部入口 SHALL 仅检查完整注册是否存在，不单独检查实例释放状态；IsInitialized SHALL 仅表示完整注册存在，业务操作由服务自身检查释放状态。服务未释放时再次注册 SHALL 被拒绝且不替换原实例；空对象和已释放实例 SHALL 不可注册。
+
+#### Scenario: 注册前后访问
+- **WHEN** 业务在注册前访问入口，随后启动流程注册有效网络服务
+- **THEN** 首次访问明确报错，后续访问返回同一注册实例，并保持请求排队和固定帧分发行为
+
+#### Scenario: 无效或重复注册
+- **WHEN** 注册空对象、已释放服务，或已有服务时注册另一个有效实例
+- **THEN** 注册明确失败，全局状态不变，被拒绝的有效实例仍由调用方持有和释放
+
+### Requirement: 按功能聚合业务服务
+客户端 SHALL 声明统一 IService 生命周期接口，由 GameServices 以只读 Env、Config、Setting、Events、Net、Session、World、Animation 入口持有本次启动的业务服务。服务 SHALL 内聚自己的状态与方法，通过显式依赖绑定同次启动的其他服务。配置加载、设置读写、账号缓存和动画缓存 SHALL 直接在相应服务内初始化与持有，不额外增加逐方法转发的包装类；地图与 ECS 管理器 SHALL 作为世界服务的内部实现，不由 Godot 节点持有或逐层传递。内部收敛 SHALL 复用已有实现，删除没有独立职责的转发方法；单纯统一写法 SHALL 不扩大成员可见性或新增抽象层。
+
+#### Scenario: 节点通过统一服务访问
+- **WHEN** 主场景启动并完成登录选角
+- **THEN** 节点通过 GameServices 读取配置、设置、账号和世界快照并提交业务操作，只持有节点、订阅句柄和呈现状态；世界创建、移动提交及权威同步由服务负责
+
+#### Scenario: 服务内部初始化
+- **WHEN** 主场景启动客户端
+- **THEN** 主控制器调用无参 GameServices.Initialize()，GameServices 内部先创建环境服务，再按显式依赖顺序创建其他服务；正式服务构造只接收其他服务；配置服务构造时完成加载，设置与账号服务自行初始化其状态，原始读写和缓存容器不作为节点公开接口
+
+#### Scenario: 收敛设置接口
+- **WHEN** UI 修改系统分辨率、声音或角色 HUD 布局
+- **THEN** 设置服务拥有当前设置并执行修改与保存，UI 不持有设置数据或仓库，也不调用原始 JSON 读写接口；退出角色保存未提交布局并清除当前角色设置
+
+#### Scenario: 服务整体释放与重建
+- **WHEN** 启动失败或场景退出，随后创建新场景
+- **THEN** 全部服务及其会话和消息订阅按依赖顺序清理，即使某个释放失败仍清理其他服务并撤销入口；新场景获得独立服务和空角色状态，旧句柄重复释放不影响新实例
+
+### Requirement: 环境参数统一管理
+客户端 SHALL 由位于 src/Config/EnvService.cs、命名空间为 Rpg.Config 的无依赖 EnvService 统一持有配置、Schema、设置与模拟服务端目录，通过 GameServices.Env 只读访问。正式启动 SHALL 使用无参 GameServices.Initialize()；配置与设置服务公开构造 SHALL 只接收 EnvService；网络服务 SHALL 显式接收 EnvService 与 EventService，账号服务 SHALL 显式接收 NetService；其他正式服务构造 SHALL 只接收前置服务依赖。全部正式服务的构造 SHALL 集中在无参 Initialize 方法体内，按 Env、Events、Config、Setting、Net、Session、World、Animation 的顺序显式书写；Register 和注册句柄构造 SHALL 只接收现成实例，不再创建服务，不引入容器、反射或自动排序。内部测试 SHALL 能覆盖环境目录和网络传输，不增加正式启动参数。
+
+#### Scenario: 无参启动与默认目录
+- **WHEN** 主场景调用 GameServices.Initialize()
+- **THEN** 环境先于其消费者创建，配置和 Schema 从 res://config 与 res://schemas 加载，设置与模拟存档分别使用 user://settings 和 user://server，节点不再传递目录与工厂
+
+#### Scenario: 隔离环境与生命周期
+- **WHEN** 测试提供独立目录并注册服务，随后释放并重新启动
+- **THEN** 配置、设置和模拟存档使用该环境的目录，环境随整组服务最后释放，未初始化或释放后访问环境入口报错，旧句柄不影响新环境
+
+#### Scenario: 构造失败恢复
+- **WHEN** 配置、设置或网络构造失败
+- **THEN** 已成功构造的服务被清理，不留下注册入口或事件域，后续启动仍可成功
+
+### Requirement: 服务依赖必须遵循固定线性顺序
+服务 SHALL 只通过构造取得依赖，不得访问 GameServices、循环依赖、属性回填或延迟解析。固定构造顺序 SHALL 为 Env、Events、Config、Setting、Net、Session、World、Animation，每个服务仅依赖前置服务。整体释放 SHALL 先撤销全局入口，再严格逆序释放，单个服务失败仍继续其余清理；不增加释放前生命周期。Events SHALL 与其他服务统一保存在完整注册中，网络提前释放不得阻止访问仍有效的事件服务。
+
+#### Scenario: 清理不依赖全局入口
+- **WHEN** 完整服务组撤销全局入口后释放已登录账号
+- **THEN** Session 通过构造绑定的 Net 隔离旧消息，Net 通过构造绑定的 Events 清理队列，所有服务按逆序释放且不访问全局入口
+
+#### Scenario: 构造边界检查
+- **WHEN** 检查全部正式服务及其内部类型的依赖调用
+- **THEN** 不存在 GameServices 访问，服务构造参数中的服务均位于固定顺序前方，无循环或后置回填
+
+#### Scenario: 网络单独释放
+- **WHEN** 网络被提前释放而整体注册仍存在
+- **THEN** 所有入口仍返回各自注册实例，IsInitialized 仍为 true；网络业务操作抛出已释放错误，事件仍能分发，整体所有者仍可完成清理

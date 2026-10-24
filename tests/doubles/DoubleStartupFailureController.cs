@@ -21,12 +21,12 @@ public partial class DoubleStartupFailureController : MainController
     /// <summary>注册测试服务组，登录页重置网络时触发启动失败。</summary>
     protected override IDisposable InitializeServices()
     {
-        var environment = new EnvService(Path.Combine(Path.GetTempPath(), "rpg-startup-" + Guid.NewGuid()));
+        var env = new EnvService(Path.Combine(Path.GetTempPath(), "rpg-startup-" + Guid.NewGuid()));
         var events = new EventService();
-        var config = new ConfigService(environment);
-        var setting = new SettingService(environment);
+        var config = new ConfigService(env);
+        var setting = new SettingService(env);
         CreatedNet = new NetService(_transport, events);
-        return GameServicesTestFactory.Register(environment, events, config, setting, CreatedNet);
+        return GameServicesTestFactory.Register(env, events, config, setting, CreatedNet);
     }
 
     /// <summary>第一次会话重置成功，后续重置触发受控的启动异常。</summary>

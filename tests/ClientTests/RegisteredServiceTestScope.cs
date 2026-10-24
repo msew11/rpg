@@ -16,9 +16,9 @@ public abstract class RegisteredServiceTestScope : IDisposable
     /// <summary>在缓存创建前完成注册，复用正式配置加载与测试组装流程。</summary>
     protected RegisteredServiceTestScope()
     {
-        var environment = ConfigTestFixture.CreateEnvironment(Path.Combine(_directory, "settings"),
+        var env = ConfigTestFixture.CreateEnv(Path.Combine(_directory, "settings"),
             Path.Combine(_directory, "server"));
-        _registration = GameServicesTestFactory.Register(environment);
+        _registration = GameServicesTestFactory.Register(env);
         Events = GameServices.Events;
     }
 

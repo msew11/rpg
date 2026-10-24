@@ -31,10 +31,10 @@ public partial class ClientSmoke : Node
             // game-services 无参启动：默认环境统一目录，重复启动不会替换本次服务。
             using (var defaults = GameServices.Initialize())
             {
-                var environment = GameServices.Environment;
-                if (environment.ConfigDirectory != "res://config" || environment.SchemaDirectory != "res://schemas" ||
-                    environment.SettingsDirectory != ProjectSettings.GlobalizePath("user://settings") ||
-                    environment.ServerDirectory != ProjectSettings.GlobalizePath("user://server"))
+                var env = GameServices.Env;
+                if (env.ConfigDirectory != "res://config" || env.SchemaDirectory != "res://schemas" ||
+                    env.SettingsDirectory != ProjectSettings.GlobalizePath("user://settings") ||
+                    env.ServerDirectory != ProjectSettings.GlobalizePath("user://server"))
                     throw new InvalidOperationException("无参启动未使用统一的默认环境");
                 try
                 {
@@ -42,7 +42,7 @@ public partial class ClientSmoke : Node
                     throw new Exception("重复启动未被拒绝");
                 }
                 catch (InvalidOperationException) { }
-                if (!ReferenceEquals(environment, GameServices.Environment))
+                if (!ReferenceEquals(env, GameServices.Env))
                     throw new InvalidOperationException("重复启动替换了环境");
             }
             // game-services 启动失败清理：预期报告一次受控错误，随后正常场景仍能初始化。

@@ -33,27 +33,27 @@ public sealed class GameServicesTests
     public void EnvironmentControlsDirectoriesAndEndsWithItsConsumers()
     {
         var directory = Path.Combine(Path.GetTempPath(), "rpg-environment-" + Guid.NewGuid());
-        using var environment = ConfigTestFixture.CreateEnvironment(Path.Combine(directory, "settings"),
+        using var env = ConfigTestFixture.CreateEnv(Path.Combine(directory, "settings"),
             Path.Combine(directory, "server"));
         try
         {
-            Assert.Throws<InvalidOperationException>(() => GameServices.Environment);
-            using var lifetime = GameServicesTestFactory.Register(environment);
-            Assert.Same(environment, GameServices.Environment);
+            Assert.Throws<InvalidOperationException>(() => GameServices.Env);
+            using var lifetime = GameServicesTestFactory.Register(env);
+            Assert.Same(env, GameServices.Env);
             Assert.Equal(1000, GameServices.Config.MapConfig.Width);
             GameServices.Setting.SetResolution(1600, 900);
-            Assert.True(File.Exists(Path.Combine(environment.SettingsDirectory, "system.json")));
+            Assert.True(File.Exists(Path.Combine(env.SettingsDirectory, "system.json")));
             GameServices.Session.Login("demo", "demo");
             GameServices.Net.Tick(0);
             Assert.True(GameServices.Session.IsLoggedIn);
-            Assert.True(File.Exists(Path.Combine(environment.ServerDirectory, "1001.json")));
+            Assert.True(File.Exists(Path.Combine(env.ServerDirectory, "1001.json")));
             lifetime.Dispose();
-            Assert.True(environment.IsDisposed);
-            Assert.Throws<InvalidOperationException>(() => GameServices.Environment);
-            using var nextEnvironment = ConfigTestFixture.CreateEnvironment(environment.SettingsDirectory, environment.ServerDirectory);
-            using var next = GameServicesTestFactory.Register(nextEnvironment);
+            Assert.True(env.IsDisposed);
+            Assert.Throws<InvalidOperationException>(() => GameServices.Env);
+            using var nextEnv = ConfigTestFixture.CreateEnv(env.SettingsDirectory, env.ServerDirectory);
+            using var next = GameServicesTestFactory.Register(nextEnv);
             lifetime.Dispose();
-            Assert.Same(nextEnvironment, GameServices.Environment);
+            Assert.Same(nextEnv, GameServices.Env);
             Assert.Equal(1600, GameServices.Setting.Width);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
@@ -67,16 +67,16 @@ public sealed class GameServicesTests
     {
         var directory = Path.Combine(Path.GetTempPath(), "rpg-environment-failure-" + Guid.NewGuid());
         var root = ConfigTestFixture.FindRoot();
-        using var environment = new EnvService(directory, "",
+        using var env = new EnvService(directory, "",
             failConfig ? Path.Combine(directory, "missing") : Path.Combine(root, "config"),
             Path.Combine(root, "schemas"));
-        Assert.ThrowsAny<Exception>(() => GameServicesTestFactory.Register(environment));
-        Assert.True(environment.IsDisposed);
+        Assert.ThrowsAny<Exception>(() => GameServicesTestFactory.Register(env));
+        Assert.True(env.IsDisposed);
         Assert.False(GameServices.IsInitialized);
         Assert.Throws<InvalidOperationException>(() => GameServices.Events);
-        using var nextEnvironment = ConfigTestFixture.CreateEnvironment(directory, Path.Combine(directory, "server"));
-        using var next = GameServicesTestFactory.Register(nextEnvironment);
-        Assert.Same(nextEnvironment, GameServices.Environment);
+        using var nextEnv = ConfigTestFixture.CreateEnv(directory, Path.Combine(directory, "server"));
+        using var next = GameServicesTestFactory.Register(nextEnv);
+        Assert.Same(nextEnv, GameServices.Env);
     }
 
     /// <summary>验证 game-services 与 client-session 的非法登录摘要不会触发界面成功回调，且合法重试可恢复。</summary>
@@ -121,9 +121,9 @@ public sealed class GameServicesTests
             var serverDirectory = Path.Combine(directory, "server");
             var server = new MockServer(serverDirectory);
             using var net = new NetService(new MockTransport(server), events);
-            var environment = ConfigTestFixture.CreateEnvironment(Path.Combine(directory, "settings"));
-            var setting = new SettingService(environment);
-            using var services = GameServicesTestFactory.Register(environment, events, new ConfigService(environment), setting, net);
+            var env = ConfigTestFixture.CreateEnv(Path.Combine(directory, "settings"));
+            var setting = new SettingService(env);
+            using var services = GameServicesTestFactory.Register(env, events, new ConfigService(env), setting, net);
             var errors = new List<Exception>();
             GameServices.Events.Error += errors.Add;
             var observedLogin = false;
@@ -188,10 +188,10 @@ public sealed class GameServicesTests
         try
         {
             var config = ConfigTestFixture.LoadDefault();
-            var environment = ConfigTestFixture.CreateEnvironment(directory);
-            var setting = new SettingService(environment);
+            var env = ConfigTestFixture.CreateEnv(directory);
+            var setting = new SettingService(env);
             var net = new NetService(new DoubleLifetimeTransport { FailDispose = true }, events);
-            using var services = GameServicesTestFactory.Register(environment, events, config, setting, net);
+            using var services = GameServicesTestFactory.Register(env, events, config, setting, net);
             var session = GameServices.Session;
             var world = GameServices.World;
             var animation = GameServices.Animation;
@@ -224,10 +224,10 @@ public sealed class GameServicesTests
         try
         {
             var config = ConfigTestFixture.LoadDefault();
-            var environment = ConfigTestFixture.CreateEnvironment(directory);
-            var setting = new SettingService(environment);
+            var env = ConfigTestFixture.CreateEnv(directory);
+            var setting = new SettingService(env);
             var net = new NetService(new DoubleNetTransport(), events);
-            using var services = GameServicesTestFactory.Register(environment, events, config, setting, net);
+            using var services = GameServicesTestFactory.Register(env, events, config, setting, net);
             setting.SelectRole(1001);
             setting.SetHudPosition("portrait", 0.3f, 0.4f);
             File.WriteAllText(directory, "阻止创建设置目录");
@@ -508,7 +508,7 @@ public sealed class GameServicesTests
     public void AllServicesExposeDisposalStateThroughCommonContract()
     {
         using var lifetime = Register(new DoubleNetTransport());
-        IService[] services = [GameServices.Environment, GameServices.Config, GameServices.Setting, GameServices.Events,
+        IService[] services = [GameServices.Env, GameServices.Config, GameServices.Setting, GameServices.Events,
             GameServices.Net, GameServices.Session, GameServices.World, GameServices.Animation];
         Assert.All(services, service => Assert.False(service.IsDisposed));
         lifetime.Dispose();
@@ -533,11 +533,11 @@ public sealed class GameServicesTests
     /// <summary>创建完整服务组，注册失败时释放仍归调用方的配置和设置。</summary>
     private static IDisposable Register(NetService net, EventService events)
     {
-        var environment = ConfigTestFixture.CreateEnvironment(Path.Combine(Path.GetTempPath(), "rpg-services-" + Guid.NewGuid()));
-        var config = new ConfigService(environment);
-        var setting = new SettingService(environment);
-        try { return GameServicesTestFactory.Register(environment, events, config, setting, net); }
-        catch { setting.Dispose(); config.Dispose(); environment.Dispose(); throw; }
+        var env = ConfigTestFixture.CreateEnv(Path.Combine(Path.GetTempPath(), "rpg-services-" + Guid.NewGuid()));
+        var config = new ConfigService(env);
+        var setting = new SettingService(env);
+        try { return GameServicesTestFactory.Register(env, events, config, setting, net); }
+        catch { setting.Dispose(); config.Dispose(); env.Dispose(); throw; }
     }
 
     /// <summary>服务于 game-services 释放契约的计数传输，可模拟关闭失败。</summary>

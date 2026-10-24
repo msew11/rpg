@@ -24,10 +24,10 @@ public sealed class SettingService : Service
     private bool _roleDirty;
 
     /// <summary>从环境指定的目录载入本次启动的系统设置。</summary>
-    public SettingService(EnvService environment)
+    public SettingService(EnvService env)
     {
-        ObjectDisposedException.ThrowIf(environment.IsDisposed, environment);
-        _root = environment.SettingsDirectory;
+        ObjectDisposedException.ThrowIf(env.IsDisposed, env);
+        _root = env.SettingsDirectory;
         _systemSetting = LoadSystem();
     }
 
