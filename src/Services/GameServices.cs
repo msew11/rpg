@@ -98,7 +98,7 @@ public static class GameServices
     private sealed class Registration : IDisposable
     {
         /// <summary>本注册拥有的唯一事件域。</summary>
-        private readonly EventService _events;
+        public EventService Events { get; }
         /// <summary>先就绪的配置服务。</summary>
         public ConfigService Config { get; }
         /// <summary>先就绪的设置服务。</summary>
@@ -117,7 +117,7 @@ public static class GameServices
         /// <summary>先构造依赖，再构造消费者；内部失败只回收新增对象。</summary>
         public Registration(ConfigService config, SettingService setting, NetService net, EventService events)
         {
-            _events = events;
+            Events = events;
             Config = config;
             Setting = setting;
             Net = net;
@@ -133,12 +133,12 @@ public static class GameServices
             _disposed = true;
             if (ReferenceEquals(_current, this)) _current = null;
             var errors = new List<Exception>();
-            foreach (var service in new IService[] { Animation, World, Session, Net, Setting, Config, _events })
+            foreach (var service in new IService[] { Animation, World, Session, Net, Setting, Config, Events })
             {
                 try { service.Dispose(); }
                 catch (Exception error) { errors.Add(error); }
             }
-            if (ReferenceEquals(GameServices._events, _events)) GameServices._events = null;
+            if (ReferenceEquals(GameServices._events, Events)) GameServices._events = null;
             if (errors.Count == 1) ExceptionDispatchInfo.Capture(errors[0]).Throw();
             if (errors.Count > 1) throw new AggregateException("客户端服务释放失败", errors);
         }
