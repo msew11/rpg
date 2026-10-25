@@ -29,10 +29,24 @@ public partial class UiBoundsSmoke : Node
             var name = portraitPanel.FindChildren("PortraitName", "Label", true, false).OfType<Label>().Single();
             var health = portraitPanel.FindChildren("HealthBar", "ProgressBar", true, false).OfType<ProgressBar>().Single();
             var mana = portraitPanel.FindChildren("ManaBar", "ProgressBar", true, false).OfType<ProgressBar>().Single();
+            var healthValue = health.GetNode<Label>("HealthValue");
+            var manaValue = mana.GetNode<Label>("ManaValue");
+            var level = avatar.GetNode<Label>("LevelLabel");
+            var statusBackground = portraitPanel.FindChildren("PortraitBackground", "Panel", true, false)
+                .OfType<Panel>().Single();
             Check(avatar.Level == 5 && avatar.Portrait?.ResourcePath.EndsWith("DThed011_01.png") == true,
                 "头像或等级与选中角色不一致");
             Check(name.Text == "晨星" && Math.Abs(health.Value - 86) < 0.01 &&
-                Math.Abs(mana.Value - 70) < 0.01, "头像右侧未按角色快照显示名字和比例");
+                Math.Abs(mana.Value - 70) < 0.01 && healthValue.Text == "86/100" &&
+                manaValue.Text == "42/60", "头像右侧未按角色快照显示名字和数值");
+            Check(level.Text == "5" && level.GetGlobalRect().GetCenter().DistanceTo(
+                avatar.GlobalPosition + new Vector2(13, 60)) < 1, "等级没有居中于左下角徽标");
+            Check(name.HorizontalAlignment == HorizontalAlignment.Center &&
+                statusBackground.GlobalPosition.X > portraitPanel.GlobalPosition.X + 30 &&
+                statusBackground.GetGlobalRect().End.Y < avatar.GetGlobalRect().End.Y &&
+                statusBackground.GetGlobalRect().End.X - health.GetGlobalRect().End.X >= 6 &&
+                statusBackground.GetGlobalRect().End.X - mana.GetGlobalRect().End.X >= 6,
+                "头像底框或状态条留白不正确");
             Check(!portraitPanel.FindChildren("*", "Label", true, false).OfType<Label>()
                 .Any(label => label.Text.Contains("经验") || label.Text.Contains("Lv.")), "头像区域出现多余信息");
             Check(GameHud.HealthColor(0.51f) == new Color("3ca66d") &&
@@ -40,14 +54,14 @@ public partial class UiBoundsSmoke : Node
                 GameHud.HealthColor(0.26f) == new Color("d89137") &&
                 GameHud.HealthColor(0.25f) == new Color("c94d4d"), "生命百分比边界颜色错误");
             // client-ui：GM 百分比仅覆盖本次 HUD 血条，角色缓存保留服务器原值。
-            var healthPercent = hud.GetNode<Control>("GM").FindChildren("HealthPercent", "SpinBox", true, false)
-                .OfType<SpinBox>().Single();
+            var healthPercent = hud.GetNode<Control>("GM").FindChildren("HealthPercent", "HSlider", true, false)
+                .OfType<HSlider>().Single();
             healthPercent.Value = 50;
             Check(health.Value == 50 && ((StyleBoxFlat)health.GetThemeStylebox("fill")).BgColor ==
-                new Color("d89137"), "GM 50% 血条没有变为橙色");
+                new Color("d89137") && healthValue.Text == "50/100", "GM 50% 血条没有变为橙色");
             healthPercent.Value = 25;
             Check(health.Value == 25 && ((StyleBoxFlat)health.GetThemeStylebox("fill")).BgColor ==
-                new Color("c94d4d"), "GM 25% 血条没有变为红色");
+                new Color("c94d4d") && healthValue.Text == "25/100", "GM 25% 血条没有变为红色");
             healthPercent.Value = 75;
             Check(health.Value == 75 && ((StyleBoxFlat)health.GetThemeStylebox("fill")).BgColor ==
                 new Color("3ca66d") && GameServices.Session.Role.Health == 86,

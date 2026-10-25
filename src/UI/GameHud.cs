@@ -32,10 +32,20 @@ public partial class GameHud : Control
     private ProgressBar _healthBar = null!;
     /// <summary>显示当前魔力比例的状态条。</summary>
     private ProgressBar _manaBar = null!;
+    /// <summary>生命条中央的当前值与上限。</summary>
+    private Label _healthValue = null!;
+    /// <summary>魔力条中央的当前值与上限。</summary>
+    private Label _manaValue = null!;
+    /// <summary>当前角色真实生命值，供临时预览换算。</summary>
+    private int _currentHealth;
+    /// <summary>当前角色生命上限，供临时预览换算。</summary>
+    private int _maxHealth;
     /// <summary>仅在当前 HUD 生命周期生效的 GM 血条百分比。</summary>
     private double? _healthPreviewPercent;
     /// <summary>GM 面板中显示当前或预览生命百分比的输入框。</summary>
-    private SpinBox _healthPercentInput = null!;
+    private HSlider _healthPercentInput = null!;
+    /// <summary>GM 滑动条右侧的百分比。</summary>
+    private Label _healthPercentText = null!;
     /// <summary>角色面板中的详细状态文字。</summary>
     private Label _characterText = null!;
     /// <summary>大地图面板中的地图和位置文字。</summary>
@@ -250,21 +260,30 @@ public partial class GameHud : Control
     private void BuildHud()
     {
         var portrait = Movable("portrait", "角色头像");
-        var portraitRow = new HBoxContainer();
-        portrait.AddChild(portraitRow);
-        portraitRow.AddThemeConstantOverride("separation", 7);
+        var backgroundStyle = (StyleBox) _movable["portrait"].GetThemeStylebox("panel").Duplicate();
+        _movable["portrait"].AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
+        var portraitStage = new Control { Name = "PortraitStage", CustomMinimumSize = new Vector2(244, 72) };
+        portrait.AddChild(portraitStage);
+        var statusBackground = new Panel { Name = "PortraitBackground", Position = new Vector2(45, 0),
+            Size = new Vector2(199, 64), MouseFilter = MouseFilterEnum.Ignore };
+        statusBackground.AddThemeStyleboxOverride("panel", backgroundStyle);
+        portraitStage.AddChild(statusBackground);
         _avatar = new AvatarControl { Name = "Avatar", CustomMinimumSize = new Vector2(72, 72), MouseFilter = MouseFilterEnum.Ignore };
-        portraitRow.AddChild(_avatar);
-        var status = new VBoxContainer { CustomMinimumSize = new Vector2(155, 0) };
-        status.AddThemeConstantOverride("separation", 5);
-        portraitRow.AddChild(status);
+        portraitStage.AddChild(_avatar);
+        var status = new VBoxContainer { Name = "PortraitStatus", Position = new Vector2(80, 4),
+            Size = new Vector2(155, 56), MouseFilter = MouseFilterEnum.Ignore };
+        status.AddThemeConstantOverride("separation", 3);
+        portraitStage.AddChild(status);
         _portraitName = Text("", 14);
         _portraitName.Name = "PortraitName";
+        _portraitName.HorizontalAlignment = HorizontalAlignment.Center;
         status.AddChild(_portraitName);
         _healthBar = CreateStatusBar("HealthBar", new Color("3ca66d"));
         status.AddChild(_healthBar);
+        _healthValue = CreateBarValue("HealthValue", _healthBar);
         _manaBar = CreateStatusBar("ManaBar", new Color("418ec4"));
         status.AddChild(_manaBar);
+        _manaValue = CreateBarValue("ManaValue", _manaBar);
 
         var radarBox = Movable("radar", "小地图");
         _movable["radar"].Name = "Radar";
@@ -453,18 +472,22 @@ public partial class GameHud : Control
         gm.AddChild(flushRow);
         var healthRow = new HBoxContainer { Name = "HealthPreviewControls" };
         healthRow.AddChild(new Label { Text = "血条预览（%）" });
-        _healthPercentInput = new SpinBox
+        _healthPercentInput = new HSlider
         {
             Name = "HealthPercent", MinValue = 0, MaxValue = 100, Step = 1,
             Value = HealthPercent(GameServices.Session.Role.Health, GameServices.Session.Role.MaxHealth),
-            CustomMinimumSize = new Vector2(100, 0)
+            CustomMinimumSize = new Vector2(150, 26), SizeFlagsHorizontal = SizeFlags.ExpandFill
         };
+        _healthPercentText = new Label { Name = "HealthPercentText", CustomMinimumSize = new Vector2(46, 0),
+            HorizontalAlignment = HorizontalAlignment.Right, Text = $"{_healthPercentInput.Value:0}%" };
         _healthPercentInput.ValueChanged += value =>
         {
             _healthPreviewPercent = value;
+            _healthPercentText.Text = $"{value:0}%";
             UpdateHealthBar(value);
         };
         healthRow.AddChild(_healthPercentInput);
+        healthRow.AddChild(_healthPercentText);
         gm.AddChild(healthRow);
         var gmActions = new HBoxContainer { Name = "GmActions" };
         gm.AddChild(gmActions);
@@ -934,10 +957,17 @@ public partial class GameHud : Control
         _avatar.Level = state.Level;
         _avatar.Portrait = LoadPortrait(state.Gender, state.HeadId);
         _avatar.QueueRedraw();
+        _currentHealth = state.Health;
+        _maxHealth = state.MaxHealth;
         var currentHealthPercent = HealthPercent(state.Health, state.MaxHealth);
-        if (_healthPreviewPercent is null) _healthPercentInput.SetValueNoSignal(currentHealthPercent);
+        if (_healthPreviewPercent is null)
+        {
+            _healthPercentInput.SetValueNoSignal(currentHealthPercent);
+            _healthPercentText.Text = $"{currentHealthPercent:0}%";
+        }
         UpdateHealthBar(_healthPreviewPercent ?? currentHealthPercent);
         _manaBar.Value = Mathf.Clamp((float)state.Mana / Mathf.Max(1, state.MaxMana), 0, 1) * 100;
+        _manaValue.Text = $"{state.Mana}/{state.MaxMana}";
         _characterText.Text = $"角色 ID：{state.RoleId}\n等级：{state.Level}\n生命：{state.Health}/{state.MaxHealth}\n魔力：{state.Mana}/{state.MaxMana}\n经验：{state.Experience}/{state.NextExperience}";
         var mapConfig = GameServices.World.MapConfig;
         _mapText.Text = $"地图：{mapConfig.Id}  {mapConfig.Width}×{mapConfig.Height}\n位置：{state.Position.X:0}, {state.Position.Y:0}";
@@ -956,6 +986,9 @@ public partial class GameHud : Control
     {
         _healthBar.Value = percent;
         _healthBar.AddThemeStyleboxOverride("fill", BarFill(HealthColor((float)percent / 100)));
+        var visibleHealth = _healthPreviewPercent is null ? _currentHealth :
+            (int)Math.Round(percent / 100 * _maxHealth, MidpointRounding.AwayFromZero);
+        _healthValue.Text = $"{visibleHealth}/{_maxHealth}";
     }
 
     /// <summary>读取原游戏专用头像，超出该图集范围时使用所选头型的正面帧。</summary>
@@ -976,7 +1009,7 @@ public partial class GameHud : Control
     /// <summary>创建与 HUD 配色一致的紧凑状态条。</summary>
     private static ProgressBar CreateStatusBar(string name, Color color)
     {
-        var bar = new ProgressBar { Name = name, CustomMinimumSize = new Vector2(155, 13),
+        var bar = new ProgressBar { Name = name, CustomMinimumSize = new Vector2(155, 16),
             ShowPercentage = false, MinValue = 0, MaxValue = 100, MouseFilter = MouseFilterEnum.Ignore };
         var background = new StyleBoxFlat { BgColor = new Color("182630"), BorderColor = new Color("7899a6") };
         background.SetBorderWidthAll(1);
@@ -984,6 +1017,20 @@ public partial class GameHud : Control
         bar.AddThemeStyleboxOverride("background", background);
         bar.AddThemeStyleboxOverride("fill", BarFill(color));
         return bar;
+    }
+
+    /// <summary>在状态条中央显示实际生命或魔力数值。</summary>
+    private static Label CreateBarValue(string name, ProgressBar bar)
+    {
+        var label = Text("", 11);
+        label.Name = name;
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.SetAnchorsPreset(LayoutPreset.FullRect);
+        label.AddThemeColorOverride("font_outline_color", Colors.Black);
+        label.AddThemeConstantOverride("outline_size", 2);
+        bar.AddChild(label);
+        return label;
     }
 
     /// <summary>生成生命与魔力条共用的填充样式。</summary>
