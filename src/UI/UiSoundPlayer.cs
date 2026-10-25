@@ -66,16 +66,26 @@ public partial class UiSoundPlayer : Node
         if (node is not Button button) return;
         button.Pressed += () =>
         {
-            if (button.Name.ToString().StartsWith("SelectRole") || button.Text == "系统" ||
-                button.Text is "返回角色选择" or "角色设置" or "系统设置")
-                Play(this, 1003);
-            else if (button.Text.Contains("取消") || button.Text.Contains("关闭") || button.Text.Contains("退出") ||
-                     button.Text.StartsWith("返回") ||
-                     button.Name.ToString().StartsWith("Cancel"))
-                Play(this, 1007);
-            else if (button.Text is not "登录" and not "进入游戏")
-                Play(this, 1006);
+            var id = SoundIdForButton(button);
+            if (id != 0) Play(this, id);
         };
+    }
+
+    /// <summary>按固定入口与操作语义区分界面切换、取消和确认音效。</summary>
+    internal static int SoundIdForButton(Button button)
+    {
+        var name = button.Name.ToString();
+        if (name.StartsWith("SelectRole") || name.StartsWith("HeadChoice") ||
+            name is "OpenCreateRole" or "SubmitCreate" or "GenderMale" or "GenderFemale" or
+                "RotateCounterclockwise" or "RotateClockwise" or "OpenItemCatalog" or
+                "OpenUserDataDirectory" ||
+            button.Text is "系统" or "角色" or "背包" or "大地图" or "GM" or
+                "返回角色选择" or "角色设置" or "系统设置" or "进入 HUD 调整")
+            return 1003;
+        if (button.Text.Contains("取消") || button.Text.Contains("关闭") || button.Text.Contains("退出") ||
+            button.Text.StartsWith("返回") || name.StartsWith("Cancel"))
+            return 1007;
+        return button.Text is "登录" or "进入游戏" ? 0 : 1006;
     }
 
     /// <summary>在没有项目音频总线配置时创建业务总线。</summary>
