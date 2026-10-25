@@ -39,6 +39,19 @@ public partial class UiBoundsSmoke : Node
                 GameHud.HealthColor(0.5f) == new Color("d89137") &&
                 GameHud.HealthColor(0.26f) == new Color("d89137") &&
                 GameHud.HealthColor(0.25f) == new Color("c94d4d"), "生命百分比边界颜色错误");
+            // client-ui：GM 百分比仅覆盖本次 HUD 血条，角色缓存保留服务器原值。
+            var healthPercent = hud.GetNode<Control>("GM").FindChildren("HealthPercent", "SpinBox", true, false)
+                .OfType<SpinBox>().Single();
+            healthPercent.Value = 50;
+            Check(health.Value == 50 && ((StyleBoxFlat)health.GetThemeStylebox("fill")).BgColor ==
+                new Color("d89137"), "GM 50% 血条没有变为橙色");
+            healthPercent.Value = 25;
+            Check(health.Value == 25 && ((StyleBoxFlat)health.GetThemeStylebox("fill")).BgColor ==
+                new Color("c94d4d"), "GM 25% 血条没有变为红色");
+            healthPercent.Value = 75;
+            Check(health.Value == 75 && ((StyleBoxFlat)health.GetThemeStylebox("fill")).BgColor ==
+                new Color("3ca66d") && GameServices.Session.Role.Health == 86,
+                "GM 预览未恢复绿色或改变了角色缓存");
             // client-ui：全部创角头型均有当前性别的专用头像或正面头部帧。
             foreach (var gender in new[] { RoleGender.Male, RoleGender.Female })
             foreach (var headId in Enumerable.Range(1, 74))

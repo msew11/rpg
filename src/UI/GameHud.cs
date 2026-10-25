@@ -32,6 +32,10 @@ public partial class GameHud : Control
     private ProgressBar _healthBar = null!;
     /// <summary>显示当前魔力比例的状态条。</summary>
     private ProgressBar _manaBar = null!;
+    /// <summary>仅在当前 HUD 生命周期生效的 GM 血条百分比。</summary>
+    private double? _healthPreviewPercent;
+    /// <summary>GM 面板中显示当前或预览生命百分比的输入框。</summary>
+    private SpinBox _healthPercentInput = null!;
     /// <summary>角色面板中的详细状态文字。</summary>
     private Label _characterText = null!;
     /// <summary>大地图面板中的地图和位置文字。</summary>
@@ -447,6 +451,21 @@ public partial class GameHud : Control
         flushInterval.ValueChanged += seconds => SetServerFlushInterval(flushInterval, seconds);
         flushRow.AddChild(flushInterval);
         gm.AddChild(flushRow);
+        var healthRow = new HBoxContainer { Name = "HealthPreviewControls" };
+        healthRow.AddChild(new Label { Text = "血条预览（%）" });
+        _healthPercentInput = new SpinBox
+        {
+            Name = "HealthPercent", MinValue = 0, MaxValue = 100, Step = 1,
+            Value = HealthPercent(GameServices.Session.Role.Health, GameServices.Session.Role.MaxHealth),
+            CustomMinimumSize = new Vector2(100, 0)
+        };
+        _healthPercentInput.ValueChanged += value =>
+        {
+            _healthPreviewPercent = value;
+            UpdateHealthBar(value);
+        };
+        healthRow.AddChild(_healthPercentInput);
+        gm.AddChild(healthRow);
         var gmActions = new HBoxContainer { Name = "GmActions" };
         gm.AddChild(gmActions);
         var openUserData = new Button
@@ -915,9 +934,9 @@ public partial class GameHud : Control
         _avatar.Level = state.Level;
         _avatar.Portrait = LoadPortrait(state.Gender, state.HeadId);
         _avatar.QueueRedraw();
-        var healthRatio = Mathf.Clamp((float)state.Health / Mathf.Max(1, state.MaxHealth), 0, 1);
-        _healthBar.Value = healthRatio * 100;
-        _healthBar.AddThemeStyleboxOverride("fill", BarFill(HealthColor(healthRatio)));
+        var currentHealthPercent = HealthPercent(state.Health, state.MaxHealth);
+        if (_healthPreviewPercent is null) _healthPercentInput.SetValueNoSignal(currentHealthPercent);
+        UpdateHealthBar(_healthPreviewPercent ?? currentHealthPercent);
         _manaBar.Value = Mathf.Clamp((float)state.Mana / Mathf.Max(1, state.MaxMana), 0, 1) * 100;
         _characterText.Text = $"角色 ID：{state.RoleId}\n等级：{state.Level}\n生命：{state.Health}/{state.MaxHealth}\n魔力：{state.Mana}/{state.MaxMana}\n经验：{state.Experience}/{state.NextExperience}";
         var mapConfig = GameServices.World.MapConfig;
@@ -926,6 +945,17 @@ public partial class GameHud : Control
         _largeMap.RolePosition = state.Position;
         _miniMap.QueueRedraw();
         _largeMap.QueueRedraw();
+    }
+
+    /// <summary>将角色生命值换算为百分比并限制在状态条范围内。</summary>
+    private static double HealthPercent(int health, int maxHealth) =>
+        Mathf.Clamp((double)health / Math.Max(1, maxHealth) * 100, 0, 100);
+
+    /// <summary>更新当前 HUD 血条长度与危险色阶。</summary>
+    private void UpdateHealthBar(double percent)
+    {
+        _healthBar.Value = percent;
+        _healthBar.AddThemeStyleboxOverride("fill", BarFill(HealthColor((float)percent / 100)));
     }
 
     /// <summary>读取原游戏专用头像，超出该图集范围时使用所选头型的正面帧。</summary>
