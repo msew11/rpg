@@ -11,7 +11,7 @@ namespace Rpg.Config;
 /// <summary>持有具体配置缓存，并按文件标注统一加载全部客户端配置。</summary>
 public sealed class ConfigService : Service
 {
-    /// <summary>本次启动拥有的单例地图缓存。</summary>
+    /// <summary>本次启动拥有的多例地图缓存。</summary>
     private readonly MapCfgCache _map;
     /// <summary>本次启动拥有的多例道具缓存。</summary>
     private readonly ItemCfgCache _item;
@@ -20,7 +20,7 @@ public sealed class ConfigService : Service
     /// <summary>供统一加载和释放使用的缓存集合。</summary>
     private readonly CfgCache[] _caches;
 
-    /// <summary>已完成加载的单例地图缓存。</summary>
+    /// <summary>已完成加载的多例地图缓存。</summary>
     public MapCfgCache Map
     {
         get { ThrowIfDisposed(); return _map; }
@@ -62,6 +62,8 @@ public sealed class ConfigService : Service
                 throw new InvalidDataException($"缺少配置文件：{configDirectory}/{cache.FileName}");
         }
         foreach (var cache in _caches) cache.Load(files[cache.FileName], schemaDirectory);
+        if (!_map.Items.ContainsKey(_basic.Value.InitialMapId))
+            throw new InvalidDataException("basic.json 的 initialMapId 不存在于 map.json");
     }
 
     /// <summary>通过 Godot 收集配置根目录的文件，拒绝子目录和未注册文件名。</summary>

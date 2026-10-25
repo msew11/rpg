@@ -20,10 +20,11 @@ namespace Rpg.Session.Data;
 /// <param name="Revision">服务器权威状态版本。</param>
 /// <param name="AcknowledgedAction">当前会话已确认的移动序号。</param>
 /// <param name="HeadId">性别内头型编号，0 表示旧版默认头型。</param>
+/// <param name="MapId">角色当前地图 ID。</param>
 /// <param name="BagExtraRows">角色增加的背包行数。</param>
 public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, int Health, int MaxHealth,
     int Mana, int MaxMana, int Experience, int NextExperience, Vector2 Position, RoleGender Gender,
-    long Revision, long AcknowledgedAction, int HeadId = 0, int BagExtraRows = 0)
+    long Revision, long AcknowledgedAction, int HeadId = 0, int BagExtraRows = 0, int MapId = 1)
 {
     /// <summary>校验协议并复制角色属性、位置与版本，不保留协议对象。</summary>
     public static RoleWorldStatePbData FromPb(RoleWorldStatePb message)
@@ -38,7 +39,7 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
         var position = new Vector2(message.X, message.Y);
         var data = new RoleWorldStatePbData(message.RoleId, message.Name, message.Level, message.Health, message.MaxHealth,
             message.Mana, message.MaxMana, message.Experience, message.NextExperience, position, gender,
-            message.Revision, message.AcknowledgedAction, message.HeadId, message.BagExtraRows);
+            message.Revision, message.AcknowledgedAction, message.HeadId, message.BagExtraRows, message.MapId == 0 ? 1 : message.MapId);
         data.Validate();
         return data;
     }
@@ -54,7 +55,7 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
             Experience = Experience, NextExperience = NextExperience,
             X = Position.X, Y = Position.Y,
             HeadId = HeadId,
-            BagExtraRows = BagExtraRows,
+            BagExtraRows = BagExtraRows, MapId = MapId,
             Gender = Gender == RoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female,
             Revision = Revision, AcknowledgedAction = AcknowledgedAction
         };
@@ -63,7 +64,7 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
     /// <summary>确保双向转换保留有效角色属性、逻辑坐标和权威版本。</summary>
     private void Validate()
     {
-        if (BagExtraRows < 0 || HeadId < 0 || HeadId > 74 || RoleId <= 0 || string.IsNullOrWhiteSpace(Name) || Level <= 0 ||
+        if (MapId <= 0 || BagExtraRows < 0 || HeadId < 0 || HeadId > 74 || RoleId <= 0 || string.IsNullOrWhiteSpace(Name) || Level <= 0 ||
             MaxHealth <= 0 || Health < 0 || Health > MaxHealth ||
             MaxMana < 0 || Mana < 0 || Mana > MaxMana ||
             Experience < 0 || NextExperience <= 0 || !float.IsFinite(Position.X) || !float.IsFinite(Position.Y) ||

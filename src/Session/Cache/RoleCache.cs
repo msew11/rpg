@@ -74,6 +74,7 @@ public sealed class RoleCache : CacheBase
         if (message.RoleId != RoleId || (_state is null && !initialize) ||
             (_state is not null && message.Revision <= _state.Revision)) return;
         var state = RoleWorldStatePbData.FromPb(message);
+        if (_state is not null && state.MapId != _state.MapId) throw new InvalidDataException("跨地图角色更新尚未开放");
         if (_bag is not null) ConvertBag(_bag.ToPb(), state.BagExtraRows);
         else GameServices.Config.Basic.Value.GetBagCapacity(state.BagExtraRows);
         _state = state;

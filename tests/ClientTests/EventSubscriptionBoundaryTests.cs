@@ -10,6 +10,22 @@ namespace ClientTests;
 /// <summary>验证 openspec/specs/session-events 的业务订阅只属于缓存与 Godot UI。</summary>
 public sealed class EventSubscriptionBoundaryTests
 {
+    /// <summary>验证 server-map-state 的模块边界：服务端不反向引用客户端服务、世界和 UI。</summary>
+    [Fact]
+    public void ServerModulesHaveNoClientServiceOrUiDependencies()
+    {
+        var serverDirectory = Path.Combine(ConfigTestFixture.FindRoot(), "src", "Server");
+        foreach (var path in Directory.EnumerateFiles(serverDirectory, "*.cs", SearchOption.AllDirectories))
+        {
+            var source = File.ReadAllText(path);
+            Assert.DoesNotMatch(@"\bRpg\.(?:Session|World|UI|Services)\b|\bGameServices\s*\.", source);
+        }
+        var aoi = File.ReadAllText(Path.Combine(serverDirectory, "MapAoiTracker.cs"));
+        Assert.DoesNotMatch(@"\bSystem\.IO\b|\bRepoServerMap\b", aoi);
+        var repo = File.ReadAllText(Path.Combine(serverDirectory, "RepoServerMap.cs"));
+        Assert.DoesNotMatch(@"\bMapAoiTracker\b|\bMockServer\b", repo);
+    }
+
     /// <summary>遍历正式类型的调用指令，防止服务或辅助包装类重新注册协议监听。</summary>
     [Fact]
     public void BusinessSubscriptionsBelongToCachesOrGodotUi()

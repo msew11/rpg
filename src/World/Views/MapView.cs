@@ -19,7 +19,7 @@ public partial class MapView : Node2D
     /// <summary>视口进入新的分块范围时增删分块，其余帧复用已有绘制。</summary>
     public override void _Process(double delta)
     {
-        if (!GameServices.IsInitialized) return;
+        if (!GameServices.IsInitialized || !GameServices.World.HasWorld) return;
         var viewport = GetViewport();
         var inverse = viewport.GetCanvasTransform().AffineInverse();
         var screenSize = viewport.GetVisibleRect().Size;

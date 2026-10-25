@@ -19,6 +19,8 @@ public sealed class SessionService : Service
     private LoginCache? _login;
     /// <summary>登录尝试时建立，选角后接纳状态的角色缓存。</summary>
     private RoleCache? _role;
+    /// <summary>当前角色独立地图缓存，与 RoleCache 平级。</summary>
+    private MapCache? _map;
     /// <summary>当前账号拥有的网络代次。</summary>
     private long _generation;
 
@@ -34,6 +36,10 @@ public sealed class SessionService : Service
     public RoleWorldStatePbData Role => IsLoggedIn ? RoleCache.State : throw new InvalidOperationException("尚未登录");
     /// <summary>选角成功后的完整只读背包。</summary>
     public BagPbData Bag => HasRole ? RoleCache.Bag : throw new InvalidOperationException("尚未进入角色");
+    /// <summary>当前地图的不可变对象快照，首次快照到达前为空。</summary>
+    public DataMapAoiSnapshotPbData? Map => HasRole ? _map?.Snapshot : null;
+    /// <summary>当前地图是否已经收到完整快照。</summary>
+    public bool HasMap => Map is not null;
     /// <summary>账号缓存供缓存契约验证，节点通过 Roles 和 IsLoggedIn 读取。</summary>
     internal LoginCache LoginCache => _login ?? throw new InvalidOperationException("尚未登录");
     /// <summary>角色缓存供缓存契约验证，节点通过 Role 和 HasRole 读取。</summary>
@@ -57,9 +63,10 @@ public sealed class SessionService : Service
         {
             ResetNetwork();
             _role = new RoleCache();
+            _map = new MapCache();
             _login = login;
         }
-        catch { login.Dispose(); throw; }
+        catch { _map?.Dispose(); _role?.Dispose(); login.Dispose(); throw; }
     }
 
     /// <summary>结束旧账号并在请求前隔离网络代次。</summary>
@@ -71,11 +78,14 @@ public sealed class SessionService : Service
         try
         {
             _role = new RoleCache();
+            _map = new MapCache();
             _login = login;
             _net.Send(new Login { Username = username, Password = password });
         }
         catch
         {
+            _map?.Dispose();
+            _map = null;
             _role?.Dispose();
             login.Dispose();
             _role = null;
@@ -93,6 +103,7 @@ public sealed class SessionService : Service
         var role = RoleCache;
         ResetNetwork();
         role.Reset(roleId);
+        _map?.Reset(roleId);
         _net.Send(new SelectRole { RoleId = roleId });
     }
 
@@ -103,6 +114,7 @@ public sealed class SessionService : Service
         if (_role is not null && RoleId == 0) return;
         ResetNetwork();
         _role?.Reset();
+        _map?.Reset();
     }
 
     /// <summary>在选角列表提交创建，名称与外观由服务器最终校验。</summary>
@@ -156,12 +168,24 @@ public sealed class SessionService : Service
             TargetSlotIndex = targetSlotIndex, ExpectedRevision = expectedRevision });
     }
 
+    /// <summary>只为已发现缺口且没有在途请求的当前地图申请一次快照。</summary>
+    public bool ResyncMapIfNeeded()
+    {
+        EnsureActive();
+        if (!HasRole || _map is not { NeedsResync: true, ResyncPending: false }) return false;
+        _net.Send(new ResyncMapAoi { RoleId = RoleId, MapId = Role.MapId });
+        _map.MarkResyncPending();
+        return true;
+    }
+
     /// <summary>释放账号缓存，保留服务本身供重新登录。</summary>
     public void Logout()
     {
         EnsureActive();
+        _map?.Dispose();
         _role?.Dispose();
         _login?.Dispose();
+        _map = null;
         _role = null;
         _login = null;
     }
@@ -178,6 +202,7 @@ public sealed class SessionService : Service
     {
         if (IsDisposed) return;
         IsDisposed = true;
+        _map?.Dispose();
         _role?.Dispose();
         _login?.Dispose();
         if (_login is not null && !_net.IsDisposed && _net.Generation == _generation) _net.ResetSession();

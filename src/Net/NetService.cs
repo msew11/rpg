@@ -38,7 +38,9 @@ public sealed class NetService : Service
         : this(new MockTransport(new MockServer(env.ServerDirectory,
             new DataServerBagRules(config.Basic.Value.BagColumns, config.Basic.Value.BagRows,
                 config.Item.Items.Values.Select(item => new DataServerItemDefinition(item.Id, item.Name, item.MaxStack))),
-            log.ServerIO, () => env.ServerFlushIntervalSeconds)), eventBus, log) { }
+            log.ServerIO, () => env.ServerFlushIntervalSeconds,
+            config.Map.Items.Values.Select(map => new DataServerMapRules(map.Id, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles)),
+            config.Basic.Value.InitialMapId)), eventBus, log) { }
 
     /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>
     internal NetService(INetTransport transport, EventBusService eventBus, LogService log)

@@ -55,6 +55,7 @@ public partial class MainController : Control
             _subscriptions.Add(GameServices.EventBus.Subscribe<DeleteRoleRt>(OnDeletedRole));
             _subscriptions.Add(GameServices.EventBus.Subscribe<MoveRt>(OnMoved));
             _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStateNotice>(OnRoleNotice));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<MapAoiNotice>(OnMapNotice));
             ShowLogin();
         }
         catch (Exception error)
@@ -261,6 +262,12 @@ public partial class MainController : Control
     {
         if (notice.State?.RoleId == GameServices.Session.RoleId)
             GameServices.World.SyncRole();
+    }
+
+    /// <summary>地图缓存已处理通知后，只协调缺口重同步，不处理对象数据。</summary>
+    private void OnMapNotice(MapAoiNotice notice)
+    {
+        if (notice.RoleId == GameServices.Session.RoleId) GameServices.Session.ResyncMapIfNeeded();
     }
 
     /// <summary>为服务已经初始化的世界建立地图、角色、摄像机与 HUD 表现。</summary>

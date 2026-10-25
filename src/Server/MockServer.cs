@@ -15,6 +15,16 @@ public sealed class MockServer
 {
     /// <summary>角色 JSON 存储边界。</summary>
     private readonly RepoServerRole _roles;
+    /// <summary>按地图身份保存独立规格，不依赖客户端配置服务。</summary>
+    private readonly IReadOnlyDictionary<int, DataServerMapRules> _mapRules;
+    /// <summary>本服务端已经加载的地图，跨玩家会话保留。</summary>
+    private readonly Dictionary<int, ServerMap> _maps = new();
+    /// <summary>独立地图文件仓库。</summary>
+    private readonly RepoServerMap _mapRepo;
+    /// <summary>新角色的初始地图身份。</summary>
+    private readonly int _initialMapId;
+    /// <summary>当前角色的范围观察者，重置会话时移除。</summary>
+    private MapAoiTracker? _aoi;
     /// <summary>由运行环境提供当前检测秒数，隔离测试默认五秒。</summary>
     private readonly Func<int> _flushInterval;
     /// <summary>当前使用的检测周期，用于设置变更后重新计时。</summary>
@@ -42,11 +52,16 @@ public sealed class MockServer
 
     /// <summary>绑定独立服务端存储目录。</summary>
     public MockServer(string directory, DataServerBagRules bagRules, Action<string, string>? writeLog = null,
-        Func<int>? flushInterval = null)
+        Func<int>? flushInterval = null, IEnumerable<DataServerMapRules>? maps = null, int initialMapId = 1)
     {
         _roles = new RepoServerRole(directory, writeLog, deferWrites: true);
         _flushInterval = flushInterval ?? (() => 5);
         _bagRules = bagRules;
+        _mapRules = (maps ?? [new DataServerMapRules(1, 1000, 1000, 32, 32)]).ToDictionary(map => map.MapId);
+        foreach (var map in _mapRules.Values) map.Validate();
+        if (!_mapRules.ContainsKey(initialMapId)) throw new ArgumentException("初始地图不存在");
+        _initialMapId = initialMapId;
+        _mapRepo = new RepoServerMap(directory, writeLog);
     }
 
     /// <summary>结束角色模拟并更新代次；保留账号登录供返回选角使用。</summary>
@@ -54,6 +69,7 @@ public sealed class MockServer
     {
         _generation = generation;
         _current = null;
+        _aoi = null;
         _pending.Clear();
         _lastAction = 0;
     }
@@ -72,6 +88,7 @@ public sealed class MockServer
             case Move move: HandleMove(move); break;
             case Gm gm: HandleGm(gm); break;
             case MoveItem moveItem: HandleMoveItem(moveItem); break;
+            case ResyncMapAoi resync: HandleResyncMapAoi(resync); break;
         }
     }
 
@@ -80,6 +97,11 @@ public sealed class MockServer
     {
         if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
         AdvanceMovement(delta);
+        if (_current is not null && _aoi is not null)
+        {
+            var change = _aoi.Move(GetMap(_current.MapId), _position.X, _position.Y);
+            if (change is not null) Send(change);
+        }
         var interval = _flushInterval();
         if (interval != _lastFlushInterval)
         {
@@ -94,7 +116,72 @@ public sealed class MockServer
     }
 
     /// <summary>在关闭或显式保存节点提交所有待写文件，失败保留数据供重试。</summary>
-    public void Flush() => _roles.Flush();
+    public void Flush()
+    {
+        var errors = new List<Exception>();
+        try { _roles.Flush(); } catch (Exception error) { errors.Add(error); }
+        foreach (var map in _maps.Values)
+            try { map.Flush(); } catch (Exception error) { errors.Add(error); }
+        if (errors.Count != 0) throw new AggregateException("服务端落地失败", errors);
+    }
+
+    /// <summary>按身份按需加载一张地图，完整校验后才发布到服务端集合。</summary>
+    internal ServerMap GetMap(int mapId)
+    {
+        if (!_mapRules.TryGetValue(mapId, out var rules)) throw new InvalidOperationException("地图不存在");
+        if (_maps.TryGetValue(mapId, out var existing)) return existing;
+        var map = new ServerMap(rules, _mapRepo, _bagRules.Items.ToDictionary(item => item.Key, item => item.Value.MaxStack));
+        _maps.Add(mapId, map);
+        return map;
+    }
+
+    /// <summary>创建权威地图对象并交付当前观察者可见的增量。</summary>
+    public DataServerMapObject CreateMapObject(int mapId, DataServerMapObject value)
+    {
+        var map = GetMap(mapId);
+        var change = map.Create(value);
+        PublishMapChange(map, change);
+        return change.After!;
+    }
+
+    /// <summary>更新权威对象，地图边界及预期版本由地图校验。</summary>
+    public DataServerMapObject UpdateMapObject(int mapId, DataServerMapObject value)
+    {
+        var map = GetMap(mapId);
+        var change = map.Update(value);
+        PublishMapChange(map, change);
+        return change.After!;
+    }
+
+    /// <summary>删除权威对象，离开 AOI 本身不会调用此接口。</summary>
+    public void RemoveMapObject(int mapId, Guid id)
+    {
+        var map = GetMap(mapId);
+        PublishMapChange(map, map.Remove(id));
+    }
+
+    /// <summary>地图通过返回值交付修改，不反向调用通信层。</summary>
+    private void PublishMapChange(ServerMap map, DataServerMapChange change)
+    {
+        if (change.Before == change.After || _current?.MapId != map.Rules.MapId || _aoi is null) return;
+        var notice = _aoi.Change(map, change);
+        if (notice is not null) Send(notice);
+    }
+
+    /// <summary>重同步只能读取当前角色的权威范围，不能申请其他地图。</summary>
+    private void HandleResyncMapAoi(ResyncMapAoi request)
+    {
+        var response = new ResyncMapAoiRt { RoleId = request.RoleId, MapId = request.MapId };
+        try
+        {
+            if (_current is null || _aoi is null || request.RoleId != _current.RoleId || request.MapId != _current.MapId)
+                throw new InvalidOperationException("重同步角色或地图身份无效");
+            response.Snapshot = _aoi.Snapshot(GetMap(_current.MapId), _position.X, _position.Y);
+            response.Success = true;
+        }
+        catch (Exception error) { response.Error = error.Message; }
+        Send(response);
+    }
 
     /// <summary>按既有模拟速度推进位置，延迟 0.45 秒后提交内存并返回移动确认。</summary>
     private void AdvanceMovement(double delta)
@@ -111,7 +198,7 @@ public sealed class MockServer
             DataServerRole candidate;
             try
             {
-                candidate = _current with { X = _position.X + 3, Y = _position.Y,
+                candidate = _current with { X = Math.Clamp(_position.X + 3, 0, (long)_mapRules[_current.MapId].Width * _mapRules[_current.MapId].TileSize - 1), Y = _position.Y,
                     Revision = checked(_current.Revision + 1), AcknowledgedAction = pending.ActionId };
                 _roles.SaveRole(candidate);
             }
@@ -136,10 +223,14 @@ public sealed class MockServer
         if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色状态");
         var candidate = update with { Revision = checked(_current.Revision + 1), AcknowledgedAction = _current.AcknowledgedAction };
         _bagRules.Validate(candidate);
+        if (candidate.MapId != _current.MapId || !GetMap(candidate.MapId).Rules.Contains(candidate.X, candidate.Y))
+            throw new InvalidOperationException("角色地图或位置无效，跨地图迁移尚未开放");
         _roles.Save(candidate);
         _current = candidate;
         _position = _target = new Vector2(candidate.X, candidate.Y);
         Send(new RoleStateNotice { State = ToMessage(candidate) });
+        var notice = _aoi?.Move(GetMap(candidate.MapId), _position.X, _position.Y);
+        if (notice is not null) Send(notice);
     }
 
     /// <summary>验证演示账号并从服务端缓存读取独立角色摘要。</summary>
@@ -147,6 +238,7 @@ public sealed class MockServer
     {
         _authenticated = false;
         _current = null;
+        _aoi = null;
         _pending.Clear();
         if (request.Username != "demo" || request.Password != "demo")
         {
@@ -167,21 +259,29 @@ public sealed class MockServer
     private void HandleSelectRole(SelectRole request)
     {
         var response = new SelectRoleRt { RoleId = request.RoleId };
+        MapAoiSnapshotPb? snapshot = null;
         try
         {
             if (!_authenticated) throw new InvalidOperationException("请先登录");
             var role = _roles.Load(request.RoleId) with { AcknowledgedAction = 0 };
             _bagRules.Validate(role);
+            var map = GetMap(role.MapId);
+            if (!map.Rules.Contains(role.X, role.Y)) throw new InvalidOperationException("角色位置超出所属地图");
+            var observer = new MapAoiTracker(role.RoleId, role.MapId);
+            snapshot = observer.Snapshot(map, role.X, role.Y);
             _pending.Clear();
             _lastAction = 0;
             _position = _target = new Vector2(role.X, role.Y);
             _current = role;
+            _aoi = observer;
             response.Success = true;
             response.State = ToMessage(role);
             response.Bag = ToBagMessage(role.Bag);
         }
         catch (Exception error) { response.Error = error.Message; }
         Send(response);
+        if (response.Success && snapshot is not null) Send(new MapAoiNotice
+        { RoleId = request.RoleId, MapId = snapshot.MapId, Sequence = snapshot.Sequence, Snapshot = snapshot });
     }
 
     /// <summary>认证后在角色列表创建角色，成功列表在写入前完整准备。</summary>
@@ -199,7 +299,10 @@ public sealed class MockServer
                 RoleGenderPb.Female => ServerRoleGender.Female,
                 _ => throw new ArgumentException("角色性别无效")
             };
-            var role = _roles.Create(request.Name, gender, request.HeadId);
+            var rules = _mapRules[_initialMapId];
+            var role = _roles.Create(request.Name, gender, request.HeadId, _initialMapId,
+                Math.Min(gender == ServerRoleGender.Male ? 16016 : 16144, (long)rules.Width * rules.TileSize - 1),
+                Math.Min(gender == ServerRoleGender.Male ? 16016 : 16080, (long)rules.Height * rules.TileSize - 1));
             summaries.Add(ToSummary(role));
             response.Roles.AddRange(summaries);
             response.Success = true;
@@ -236,7 +339,7 @@ public sealed class MockServer
     private void HandleMove(Move request)
     {
         if (_current is null || request.RoleId != _current.RoleId || request.ActionId <= _lastAction ||
-            !float.IsFinite(request.X) || !float.IsFinite(request.Y))
+            !_mapRules[_current.MapId].Contains(request.X, request.Y))
         {
             Send(new MoveRt { RoleId = request.RoleId, ActionId = request.ActionId, Error = "无效的角色、坐标或移动序号" });
             return;
@@ -394,7 +497,7 @@ public sealed class MockServer
     /// <summary>将完整角色世界状态复制为协议对象，不向客户端共享服务端模型。</summary>
     private static RoleWorldStatePb ToMessage(DataServerRole role) => new()
     {
-        RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId, Health = role.Health, MaxHealth = role.MaxHealth,
+        RoleId = role.RoleId, MapId = role.MapId, Name = role.Name, Level = role.Level, HeadId = role.HeadId, Health = role.Health, MaxHealth = role.MaxHealth,
         Mana = role.Mana, MaxMana = role.MaxMana, Experience = role.Experience, NextExperience = role.NextExperience,
         X = role.X, Y = role.Y, Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female,
             Revision = role.Revision, AcknowledgedAction = role.AcknowledgedAction, BagExtraRows = role.BagExtraRows

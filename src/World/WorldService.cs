@@ -1,4 +1,7 @@
 using System;
+using System.IO;
+using Rpg.Config.Data;
+using Rpg.Session.Data;
 using Godot;
 using Rpg.Config;
 using Rpg.Services;
@@ -18,7 +21,14 @@ public sealed class WorldService : Service
     /// <summary>本次启动的角色设置服务。</summary>
     private readonly SettingService _setting;
     /// <summary>供查询与世界初始化共用的只读地图数据。</summary>
-    private readonly DataMapComponent _map;
+    private DataMapComponent? _map;
+    /// <summary>构造绑定地图配置，进入角色时按服务器身份选择。</summary>
+    private readonly ConfigService _config;
+    /// <summary>当前世界使用的地图配置，无角色时不可读取。</summary>
+    public MapCfg MapConfig => !IsDisposed && HasWorld && _session.HasRole && _config.Map.Items.TryGetValue(_session.Role.MapId, out var value)
+        ? value : throw new InvalidOperationException("当前地图尚未初始化");
+    /// <summary>只读借用会话地图快照，不复制到 ECS。</summary>
+    public DataMapAoiSnapshotPbData? MapObjects => HasRole ? _session.Map : null;
     /// <summary>活动角色的 ECS 实例。</summary>
     private WorldManager? _world;
     /// <summary>当前启动内递增的移动意图序号。</summary>
@@ -40,7 +50,7 @@ public sealed class WorldService : Service
     {
         _session = session;
         _setting = setting;
-        _map = MapUtils.CreateMap(config.Map.Value);
+        _config = config;
     }
 
     /// <summary>将未消费的逻辑坐标点击变成世界 Action 与网络请求。</summary>
@@ -48,7 +58,7 @@ public sealed class WorldService : Service
     {
         ThrowIfDisposed();
         if (_world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
-        var action = new MoveAction(++_nextActionId, MapUtils.Clamp(_map, logicalPosition));
+        var action = new MoveAction(++_nextActionId, MapUtils.Clamp(RequireMap(), logicalPosition));
         _session.SubmitMove(action.ActionId, action.Destination);
         _world.Enqueue(action);
         return true;
@@ -58,16 +68,24 @@ public sealed class WorldService : Service
     public void Tick(double delta) { ThrowIfDisposed(); _world?.Tick(delta); }
 
     /// <summary>计算视口覆盖的地图格范围。</summary>
-    public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area) => MapUtils.VisibleTiles(_map, area);
+    public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area) => MapUtils.VisibleTiles(RequireMap(), area);
 
     /// <summary>读取指定格的静态地块类型。</summary>
-    public string TileAt(int x, int y) => MapUtils.TileAt(_map, x, y);
+    public string TileAt(int x, int y) => MapUtils.TileAt(RequireMap(), x, y);
+
+    /// <summary>地图查询只在世界初始化完成后开放，避免空引用和默认选图。</summary>
+    private DataMapComponent RequireMap()
+    {
+        ThrowIfDisposed();
+        return _map ?? throw new InvalidOperationException("当前地图尚未初始化");
+    }
 
     /// <summary>移除 ECS 并保存、清除当前角色设置。</summary>
     public void LeaveRole()
     {
         ThrowIfDisposed();
         _world = null;
+        _map = null;
         _setting.LeaveRole();
     }
 
@@ -76,9 +94,13 @@ public sealed class WorldService : Service
     {
         ThrowIfDisposed();
         if (!_session.HasRole) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
+        if (!_config.Map.Items.TryGetValue(_session.Role.MapId, out var config))
+            throw new InvalidDataException("角色所属地图不存在");
+        var map = MapUtils.CreateMap(config);
         _setting.SelectRole(_session.RoleId);
+        _map = map;
         var world = new WorldManager();
-        world.Enqueue(new InitializeWorldAction(_map));
+        world.Enqueue(new InitializeWorldAction(_map!));
         world.Enqueue(new InitializeRoleAction(_session.Role));
         world.Tick(0);
         _world = world;
@@ -97,6 +119,7 @@ public sealed class WorldService : Service
         if (IsDisposed) return;
         IsDisposed = true;
         _world = null;
+        _map = null;
     }
 
 }

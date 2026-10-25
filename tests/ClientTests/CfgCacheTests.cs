@@ -118,7 +118,7 @@ public sealed class CfgCacheTests : IDisposable
         config.Dispose();
         Assert.Throws<ObjectDisposedException>(() => config.Map);
         Assert.Throws<ObjectDisposedException>(() => config.Item);
-        Assert.Throws<ObjectDisposedException>(() => map.Value);
+        Assert.Throws<ObjectDisposedException>(() => map.Items);
         Assert.Throws<ObjectDisposedException>(() => item.Items);
     }
 
@@ -129,7 +129,7 @@ public sealed class CfgCacheTests : IDisposable
     public void MapCachePreservesCrossFieldValidation(string tiles, string reason)
     {
         File.WriteAllText(Path.Combine(_directory, "map.json"),
-            """{"id":"map","width":1000,"height":1000,"tileSize":32,"defaultTile":"ground","overrides":[""" + tiles + "]}");
+            """[{"id":1,"width":1000,"height":1000,"tileSize":32,"chunkSizeTiles":32,"defaultTile":"ground","overrides":[""" + tiles + "]}]");
         File.WriteAllText(Path.Combine(_directory, "item.json"), "[]");
         File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "basic.json"), Path.Combine(_directory, "basic.json"));
         using var env = new EnvService("", configDirectory: _directory,

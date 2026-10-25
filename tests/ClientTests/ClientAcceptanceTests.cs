@@ -25,11 +25,11 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
     {
         var root = ConfigTestFixture.FindRoot();
         var repo = new ConfigService(new EnvService("", configDirectory: Path.Combine(root, "config"), schemaDirectory: Path.Combine(root, "schemas")));
-        Assert.Equal(1000, repo.Map.Value.Width);
-        Assert.Equal(1000, repo.Map.Value.Height);
-        Assert.Equal(32, repo.Map.Value.TileSize);
-        Assert.Equal("map", repo.Map.Value.Id);
-        var map = MapUtils.CreateMap(repo.Map.Value);
+        Assert.Equal(1000, repo.Map.Items[1].Width);
+        Assert.Equal(1000, repo.Map.Items[1].Height);
+        Assert.Equal(32, repo.Map.Items[1].TileSize);
+        Assert.Equal(1, repo.Map.Items[1].Id);
+        var map = MapUtils.CreateMap(repo.Map.Items[1]);
         Assert.Equal("accent", MapUtils.TileAt(map, 505, 500));
         Assert.Equal("ground", MapUtils.TileAt(map, 1, 1));
 
@@ -42,7 +42,7 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
             File.WriteAllText(Path.Combine(temporary, "unexpected.json"), "{}");
             var error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
             Assert.Contains("unexpected.json", error.Message);
-            Assert.Equal("map", repo.Map.Value.Id);
+            Assert.Equal(1, repo.Map.Items[1].Id);
             File.Delete(Path.Combine(temporary, "unexpected.json"));
             File.WriteAllText(Path.Combine(temporary, "map.json"),
                 "{\"id\":\"bad\",\"width\":0,\"height\":1000,\"tileSize\":32,\"defaultTile\":\"ground\",\"overrides\":[]}");
@@ -55,7 +55,7 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
             error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
             Assert.Contains("wrong-name.json", error.Message);
             Assert.Contains("map.json", error.Message);
-            Assert.Equal("map", repo.Map.Value.Id);
+            Assert.Equal(1, repo.Map.Items[1].Id);
             File.Delete(Path.Combine(temporary, "wrong-name.json"));
             var duplicateDirectory = Path.Combine(temporary, "second");
             Directory.CreateDirectory(duplicateDirectory);
@@ -64,7 +64,7 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
             File.WriteAllText(Path.Combine(duplicateDirectory, "map.json"), validMap);
             error = Assert.Throws<InvalidDataException>(() => new ConfigService(new EnvService("", configDirectory: temporary, schemaDirectory: Path.Combine(root, "schemas"))));
             Assert.Contains("配置目录不允许子目录", error.Message);
-            Assert.Equal("map", repo.Map.Value.Id);
+            Assert.Equal(1, repo.Map.Items[1].Id);
         }
         finally { Directory.Delete(temporary, true); }
     }

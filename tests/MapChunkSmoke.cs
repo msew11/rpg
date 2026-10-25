@@ -26,6 +26,13 @@ public partial class MapChunkSmoke : Node
             AddChild(viewport);
             using var services = GameServicesTestFactory.Register(new EnvService(
                 System.IO.Path.Combine(temporary, "settings"), System.IO.Path.Combine(temporary, "server")));
+            GameServices.Session.Login("demo", "demo");
+            GameServices.Net.Tick(0);
+            GameServices.Session.CreateRole("分块验收", Rpg.Const.RoleGender.Male, 1);
+            GameServices.Net.Tick(0);
+            GameServices.Session.SelectRole(GameServices.Session.Roles[0].RoleId);
+            GameServices.Net.Tick(0);
+            GameServices.World.InitializeRole();
             var view = new MapView();
             viewport.AddChild(view);
             var camera = new Camera2D { Position = IsometricProjection.ToScreen(new Vector2(16016, 16016)) };

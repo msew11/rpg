@@ -25,14 +25,14 @@ public partial class MapChunkView : Node2D
         _left = left;
         _top = top;
         _chunkSize = chunkSize;
-        var tileSize = GameServices.Config.Map.Value.TileSize;
+        var tileSize = GameServices.World.MapConfig.TileSize;
         Position = IsometricProjection.ToScreen(new Vector2(left * tileSize, top * tileSize));
     }
 
     /// <summary>只绘制地图范围内属于该分块的等轴地块。</summary>
     public override void _Draw()
     {
-        if (!GameServices.IsInitialized) return;
+        if (!GameServices.IsInitialized || !GameServices.World.HasWorld) return;
         if (_surface is null) BuildGeometry();
         DrawMesh(_surface!, null);
         DrawMultiline(_gridLines, new Color("38515b"), 1);
@@ -41,7 +41,7 @@ public partial class MapChunkView : Node2D
     /// <summary>静态分块只构建一次几何数据，避免每个地块分别跨托管边界提交绘制。</summary>
     private void BuildGeometry()
     {
-        var config = GameServices.Config.Map.Value;
+        var config = GameServices.World.MapConfig;
         var size = config.TileSize;
         var right = Math.Min(_left + _chunkSize, config.Width);
         var bottom = Math.Min(_top + _chunkSize, config.Height);

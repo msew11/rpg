@@ -686,7 +686,7 @@ public partial class GameHud : Control
         var state = GameServices.Session.Role;
         _portraitText.Text = $"● {state.Name}  Lv.{state.Level}\n生命 {state.Health}/{state.MaxHealth}\n魔力 {state.Mana}/{state.MaxMana}\n经验 {state.Experience}/{state.NextExperience}";
         _characterText.Text = $"角色 ID：{state.RoleId}\n等级：{state.Level}\n生命：{state.Health}/{state.MaxHealth}\n魔力：{state.Mana}/{state.MaxMana}\n经验：{state.Experience}/{state.NextExperience}";
-        var mapConfig = GameServices.Config.Map.Value;
+        var mapConfig = GameServices.World.MapConfig;
         _mapText.Text = $"地图：{mapConfig.Id}  {mapConfig.Width}×{mapConfig.Height}\n位置：{state.Position.X:0}, {state.Position.Y:0}";
         _miniMap.RolePosition = state.Position;
         _largeMap.RolePosition = state.Position;

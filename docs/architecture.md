@@ -14,11 +14,11 @@
 | `SettingService Setting` | 构造时加载系统设置，内部持有角色设置并修改、保存 | Env、Log；私有 JSON 读写方法 |
 | `EventBusService EventBus` | 唯一类型事件域、缓存优先分发、监听错误与订阅生命周期 | 内部监听集合与重入队列 |
 | `NetService Net` | protobuf 请求队列、固定帧收发及解码后发布消息 | Env、Log、EventBus、Config；内部 `INetTransport`，通过绑定的 EventBus 实例发布 |
-| `SessionService Session` | 持有登录尝试的摘要与角色缓存，提交登录、选角和角色管理请求并提供快照 | `NetService`、内部 `LoginCache` 与 `RoleCache` |
+| `SessionService Session` | 持有登录尝试的摘要与角色缓存，提交登录、选角和角色管理请求并提供快照 | `NetService`、内部 `LoginCache`、`RoleCache` 与 `MapCache` |
 | `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部只读地图组件、`MapUtils`、`WorldManager` |
 | `AnimationService Animation` | 分别缓存身体动作与独立头部资源并解析朝向 | Godot 原生资源 |
 
-`ConfigService` 显式持有 `MapCfgCache Map`、`ItemCfgCache Item` 和 `BasicCfgCache Basic`，构造时按缓存类的文件标注读取平铺于 `res://config` 根目录的全部 JSON，拒绝子目录与未注册文件。单例数据通过 `GameServices.Config.Map.Value` 读取，多例通过 `GameServices.Config.Item.Items` 读取。配置缓存统一使用 `res://schemas` 中同名的 Draft 2020-12 JSON Schema 校验；原始加载只走 Godot `DirAccess` 与 `FileAccess`，不保留 System.IO 测试分支。地图工具复制为只读地图快照，UI 与分块通过服务读取。缺失、重复、未注册、无效配置或 Schema 导致启动抛异常；错误保留文件路径及原因。配置与程序同包发布，服务释放全部缓存，已取得的缓存引用也拒绝继续读取。配置及整组服务验收在 Godot headless 执行；普通 .NET 地图用例直接提供 `MapCfg` 纯数据。
+`ConfigService` 显式持有 `MapCfgCache Map`、`ItemCfgCache Item` 和 `BasicCfgCache Basic`，构造时按缓存类的文件标注读取平铺于 `res://config` 根目录的全部 JSON，拒绝子目录与未注册文件。单例数据通过 `GameServices.Config.Basic.Value` 读取，地图和道具多例分别通过 `GameServices.Config.Map.Items[mapId]` 与 `GameServices.Config.Item.Items` 读取。配置缓存统一使用 `res://schemas` 中同名的 Draft 2020-12 JSON Schema 校验；原始加载只走 Godot `DirAccess` 与 `FileAccess`，不保留 System.IO 测试分支。地图工具复制为只读地图快照，UI 与分块通过服务读取。缺失、重复、未注册、无效配置或 Schema 导致启动抛异常；错误保留文件路径及原因。配置与程序同包发布，服务释放全部缓存，已取得的缓存引用也拒绝继续读取。配置及整组服务验收在 Godot headless 执行；普通 .NET 地图用例直接提供 `MapCfg` 纯数据。
 
 主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config 的公开构造只接收 Env，Setting 接收 Env、Log，Net 接收 Env、EventBus、Config、Log，Session 接收 Net，World 接收 Config、Setting、Session，EventBus 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Env、Log、EventBus、Config、Setting、Net、Session、World、Animation 顺序显式创建全部九个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、EventBus、Log、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
 
@@ -44,10 +44,10 @@
 - 多例数据恰有一个公开可读实例属性标注 `[CfgKey]`，其类型与 `TKey` 一致；支持整型和字符串等可用作字典键的类型，不隐式使用 `Id`。缺失、null 或重复主键抛异常。JSON 字段默认使用 camelCase，可用 `JsonPropertyName` 明确别名。
 - 每个文件配套 `schemas/xxx.schema.json`。`CfgCache` 统一读取、Schema 校验、异常诊断和生命周期；两个泛型基类决定对象或数组的解析与存储，具体缓存仅补充必要的跨字段校验。新增缓存后在 ConfigService 显式声明引用并加入统一加载集合，禁止添加按业务类型分派的解析分支。
 
-`config/map.json` 对应 `MapCfgCache : SingleCfgCache<MapCfg>`，保存地图标识、尺寸、瓦片规格、默认地块和稀疏覆盖格；缓存检查覆盖格边界及坐标唯一性。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，当前包含 1012—1018 七件测试装备。每行包含 `id`、`name`（名称）、`category`（大类）、`subCategory`（小类）、`maxStack`（可堆叠上限）、可选 `iconAssetId`（图集素材键），`ItemCfg.Id` 标注 `[CfgKey]`。名称为非空字符串，数值字段均为 Int32，ID 和上限为正数，分类编号非负。已确认大类 1=武器、2=防具；七件装备分别为测试长剑（小类2）、测试双手剑（4）、测试盾牌（105，大类2）、测试木杖（16）、测试枪（1）、测试拳刃（8）、测试飞刀（32），堆叠上限均为1；其余大类及道具内容仍待确认，与 GM 图鉴数据独立管理。
+`config/map.json` 对应 `MapCfgCache : MultiCfgCache<int, MapCfg>`，根为数组，各行以正整数 id 为主键，保存尺寸、瓦片规格、AOI chunkSizeTiles、默认地块和稀疏覆盖格；basic.json 的 initialMapId 必须存在于地图表；缓存检查覆盖格边界及坐标唯一性。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，当前包含 1012—1018 七件测试装备。每行包含 `id`、`name`（名称）、`category`（大类）、`subCategory`（小类）、`maxStack`（可堆叠上限）、可选 `iconAssetId`（图集素材键），`ItemCfg.Id` 标注 `[CfgKey]`。名称为非空字符串，数值字段均为 Int32，ID 和上限为正数，分类编号非负。已确认大类 1=武器、2=防具；七件装备分别为测试长剑（小类2）、测试双手剑（4）、测试盾牌（105，大类2）、测试木杖（16）、测试枪（1）、测试拳刃（8）、测试飞刀（32），堆叠上限均为1；其余大类及道具内容仍待确认，与 GM 图鉴数据独立管理。
 
 ```csharp
-var map = GameServices.Config.Map.Value;
+var map = GameServices.Config.Map.Items[mapId];
 if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
 {
     var maxStack = item.MaxStack;
@@ -195,3 +195,22 @@ HUD 布局刷新只更新已展开系统菜单的位置，不收起菜单或重�
 `MockServer` 启用 `RepoServerRole` 的延迟模式，直接磁盘仓库用于迁移与独立验证。`NetService` 通过构造绑定的 Env 提供当前检测秒数，服务端每次 Tick 在业务推进后累计时间，即使未选角也检测。默认 5 秒，GM 的“Server 落地检测”使用 5 秒步长，0 关闭定时检测；`Env.ServerFlushIntervalSeconds` 严格校验非负五秒倍数，保存在 `user://.env` 的 `RPG_SERVER_FLUSH_INTERVAL_SECONDS`，非法文件值回退 5，设置失败恢复输入并反馈。修改后下一 Tick 重新计时，不读写系统环境变量。
 
 切换角色、返回登录与会话重置不清理服务端缓存；正常传输关闭调用 Flush 补写全部待写文件。某角色落地失败保留内存及待写标记，继续其他角色，汇总异常沿用 Net.Error 报告，下个检测节点重试。业务成功不再保证已刷盘，异常退出可能丢失待写数据；0 仅禁用周期检测，正常关闭仍补写。落地仍在主线程同步执行，不新增后台线程或并发文件写入。IO 日志只记录实际成功替换的文件。
+
+
+## 多地图状态与九块 AOI
+
+地图以数值 ID 寻址，当前地图为 1，chunkSizeTiles=32；静态绘制仍使用 8 格分块。WorldService 构造只绑定 Config/Setting/Session，进入角色时按 Role.MapId 建立当前 DataMapComponent，离开清空。MapConfig 是当前选图入口，MapObjects 只读借用 Session.Map；不把动态对象另存到 ECS。表现节点在世界未就绪或离开后等待释放期间跳过地图查询。
+
+角色 MapId 缺失兼容地图 1，读取不改文件，下次正常角色保存写入；新角色使用 basic.initialMapId。RoleWorldStatePb 追加 map_id=17，PbData 保持独立转换。MockServer 复制地图规则和道具规则，验证移动目标的地图边界，不依赖客户端配置服务。
+
+MockServer 拥有按地图 ID 保存的 ServerMap 及当前观察者 MapAoiTracker。ServerMap 独占对象表、chunk 身份索引和 dirty 集合，向下调用 RepoServerMap；仓库只读写文件，不拥有业务状态。MapAoiTracker 只维护观察者范围和序号，不存对象、不写文件。权威对象创建/更新/删除通过 MockServer 的 CreateMapObject、UpdateMapObject、RemoveMapObject 返回变化并发送可见增量；不增加内部事件总线或反向业务回调。对象以 GUID 稳定寻址，载荷仅定义怪物类型标识或合法道具编号/数量。
+
+文件为 user://server/maps/<mapId>/manifest.json 与 chunks/<x>_<y>.<commitId>.json。版本均为 formatVersion=1，清单保存地图身份、布局、提交 GUID 与有效块引用；块保存坐标、提交 GUID 和完整对象。每轮只写变化的非空块，空块移除引用，最后原子替换清单。清单是唯一提交点，跨块移动两侧共同生效；中断候选不参与恢复。已有清单损坏、缺失引用、重复对象或布局不符明确报错。成功提交后清理旧版本，清理失败报告并在下一检测重试，不撤销已提交状态。文件替换沿用单进程及操作系统持久性边界。
+
+地图与角色共用已有检测周期，0 禁用周期，正常关闭补写；切换角色及返回登录只清理观察者而保留地图内存。每个地图/角色独立尝试落地，最后汇总错误。日志只记录完成提交的块及清单，不将候选或临时文件作为业务 IO。
+
+服务器按实际模拟位置选择中心及周围八个有效块。首次选角后推送完整 MapAoiNotice 快照，跨界只发进入块快照及离开块坐标，交集复用；可见对象变化发送完整 upsert 或身份 remove，其他地图与远处变化不发送。对象版本、观察者消息序号和磁盘提交 GUID 分别建模，磁盘编号不进入协议。
+
+Session 持有与 RoleCache 平级的 MapCache，统一创建、重置和释放。CacheBase 的缓存阶段先检查身份、布局、归属、道具配置和序号，成功后原子替换不可变 PbData；客户端只维护这一份地图状态。缺口后暂停增量，MainController 在普通阶段调用 Session.ResyncMapIfNeeded 入队一次请求，服务端只返回当前角色地图范围。成功快照恢复，失败走现有错误路径；旧会话仍由 Net.generation 隔离。全局仍为九服务，构造依赖和逆序释放不变。
+
+当前首次访问会加载该地图全部动态对象，尚无服务器内存卸载、传送、怪物行为或表现、真实丢弃与拾取。未来背包到地图的转移须将 bag 和地图纳入共同提交，不能分别保存冒充事务。

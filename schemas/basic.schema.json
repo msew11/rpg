@@ -2,9 +2,26 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
-  "required": ["bagColumns", "bagRows"],
+  "required": [
+    "bagColumns",
+    "bagRows",
+    "initialMapId"
+  ],
   "properties": {
-    "bagColumns": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
-    "bagRows": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+    "bagColumns": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "bagRows": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "initialMapId": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    }
   }
 }

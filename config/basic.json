@@ -1,4 +1,5 @@
 {
   "bagColumns": 8,
-  "bagRows": 5
+  "bagRows": 5,
+  "initialMapId": 1
 }

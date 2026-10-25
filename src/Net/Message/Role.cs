@@ -27,31 +27,32 @@ namespace Rpg.Net.Message {
             "Cgpyb2xlLnByb3RvEgNycGcaCWJhZy5wcm90byJxCg1Sb2xlU3VtbWFyeVBi",
             "Eg8KB3JvbGVfaWQYASABKAMSDAoEbmFtZRgCIAEoCRINCgVsZXZlbBgDIAEo",
             "BRIhCgZnZW5kZXIYBCABKA4yES5ycGcuUm9sZUdlbmRlclBiEg8KB2hlYWRf",
-            "aWQYBSABKAUiwgIKEFJvbGVXb3JsZFN0YXRlUGISDwoHcm9sZV9pZBgBIAEo",
+            "aWQYBSABKAUi0gIKEFJvbGVXb3JsZFN0YXRlUGISDwoHcm9sZV9pZBgBIAEo",
             "AxIMCgRuYW1lGAIgASgJEg0KBWxldmVsGAMgASgFEg4KBmhlYWx0aBgEIAEo",
             "BRISCgptYXhfaGVhbHRoGAUgASgFEgwKBG1hbmEYBiABKAUSEAoIbWF4X21h",
             "bmEYByABKAUSEgoKZXhwZXJpZW5jZRgIIAEoBRIXCg9uZXh0X2V4cGVyaWVu",
             "Y2UYCSABKAUSCQoBeBgKIAEoAhIJCgF5GAsgASgCEiEKBmdlbmRlchgMIAEo",
             "DjIRLnJwZy5Sb2xlR2VuZGVyUGISEAoIcmV2aXNpb24YDSABKAMSGwoTYWNr",
             "bm93bGVkZ2VkX2FjdGlvbhgOIAEoAxIPCgdoZWFkX2lkGA8gASgFEhYKDmJh",
-            "Z19leHRyYV9yb3dzGBAgASgFIh0KClNlbGVjdFJvbGUSDwoHcm9sZV9pZBgB",
-            "IAEoAyJ+CgxTZWxlY3RSb2xlUnQSDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJv",
-            "chgCIAEoCRIPCgdyb2xlX2lkGAMgASgDEiQKBXN0YXRlGAQgASgLMhUucnBn",
-            "LlJvbGVXb3JsZFN0YXRlUGISFwoDYmFnGAUgASgLMgoucnBnLkJhZ1BiIk4K",
-            "CkNyZWF0ZVJvbGUSDAoEbmFtZRgBIAEoCRIhCgZnZW5kZXIYAiABKA4yES5y",
-            "cGcuUm9sZUdlbmRlclBiEg8KB2hlYWRfaWQYAyABKAUiUQoMQ3JlYXRlUm9s",
-            "ZVJ0Eg8KB3N1Y2Nlc3MYASABKAgSDQoFZXJyb3IYAiABKAkSIQoFcm9sZXMY",
-            "AyADKAsyEi5ycGcuUm9sZVN1bW1hcnlQYiIdCgpEZWxldGVSb2xlEg8KB3Jv",
-            "bGVfaWQYASABKAMiUQoMRGVsZXRlUm9sZVJ0Eg8KB3N1Y2Nlc3MYASABKAgS",
-            "DQoFZXJyb3IYAiABKAkSIQoFcm9sZXMYAyADKAsyEi5ycGcuUm9sZVN1bW1h",
-            "cnlQYipiCgxSb2xlR2VuZGVyUGISHgoaUk9MRV9HRU5ERVJfUEJfVU5TUEVD",
-            "SUZJRUQQABIXChNST0xFX0dFTkRFUl9QQl9NQUxFEAESGQoVUk9MRV9HRU5E",
-            "RVJfUEJfRkVNQUxFEAJCEqoCD1JwZy5OZXQuTWVzc2FnZWIGcHJvdG8z"));
+            "Z19leHRyYV9yb3dzGBAgASgFEg4KBm1hcF9pZBgRIAEoBSIdCgpTZWxlY3RS",
+            "b2xlEg8KB3JvbGVfaWQYASABKAMifgoMU2VsZWN0Um9sZVJ0Eg8KB3N1Y2Nl",
+            "c3MYASABKAgSDQoFZXJyb3IYAiABKAkSDwoHcm9sZV9pZBgDIAEoAxIkCgVz",
+            "dGF0ZRgEIAEoCzIVLnJwZy5Sb2xlV29ybGRTdGF0ZVBiEhcKA2JhZxgFIAEo",
+            "CzIKLnJwZy5CYWdQYiJOCgpDcmVhdGVSb2xlEgwKBG5hbWUYASABKAkSIQoG",
+            "Z2VuZGVyGAIgASgOMhEucnBnLlJvbGVHZW5kZXJQYhIPCgdoZWFkX2lkGAMg",
+            "ASgFIlEKDENyZWF0ZVJvbGVSdBIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9y",
+            "GAIgASgJEiEKBXJvbGVzGAMgAygLMhIucnBnLlJvbGVTdW1tYXJ5UGIiHQoK",
+            "RGVsZXRlUm9sZRIPCgdyb2xlX2lkGAEgASgDIlEKDERlbGV0ZVJvbGVSdBIP",
+            "CgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJEiEKBXJvbGVzGAMgAygL",
+            "MhIucnBnLlJvbGVTdW1tYXJ5UGIqYgoMUm9sZUdlbmRlclBiEh4KGlJPTEVf",
+            "R0VOREVSX1BCX1VOU1BFQ0lGSUVEEAASFwoTUk9MRV9HRU5ERVJfUEJfTUFM",
+            "RRABEhkKFVJPTEVfR0VOREVSX1BCX0ZFTUFMRRACQhKqAg9ScGcuTmV0Lk1l",
+            "c3NhZ2ViBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Rpg.Net.Message.BagReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rpg.Net.Message.RoleGenderPb), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleSummaryPb), global::Rpg.Net.Message.RoleSummaryPb.Parser, new[]{ "RoleId", "Name", "Level", "Gender", "HeadId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldStatePb), global::Rpg.Net.Message.RoleWorldStatePb.Parser, new[]{ "RoleId", "Name", "Level", "Health", "MaxHealth", "Mana", "MaxMana", "Experience", "NextExperience", "X", "Y", "Gender", "Revision", "AcknowledgedAction", "HeadId", "BagExtraRows" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldStatePb), global::Rpg.Net.Message.RoleWorldStatePb.Parser, new[]{ "RoleId", "Name", "Level", "Health", "MaxHealth", "Mana", "MaxMana", "Experience", "NextExperience", "X", "Y", "Gender", "Revision", "AcknowledgedAction", "HeadId", "BagExtraRows", "MapId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.SelectRole), global::Rpg.Net.Message.SelectRole.Parser, new[]{ "RoleId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.SelectRoleRt), global::Rpg.Net.Message.SelectRoleRt.Parser, new[]{ "Success", "Error", "RoleId", "State", "Bag" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.CreateRole), global::Rpg.Net.Message.CreateRole.Parser, new[]{ "Name", "Gender", "HeadId" }, null, null, null, null),
@@ -503,6 +504,7 @@ namespace Rpg.Net.Message {
       acknowledgedAction_ = other.acknowledgedAction_;
       headId_ = other.headId_;
       bagExtraRows_ = other.bagExtraRows_;
+      mapId_ = other.mapId_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -752,6 +754,21 @@ namespace Rpg.Net.Message {
       }
     }
 
+    /// <summary>Field number for the "map_id" field.</summary>
+    public const int MapIdFieldNumber = 17;
+    private int mapId_;
+    /// <summary>
+    /// 当前所属的数值地图 ID。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int MapId {
+      get { return mapId_; }
+      set {
+        mapId_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -783,6 +800,7 @@ namespace Rpg.Net.Message {
       if (AcknowledgedAction != other.AcknowledgedAction) return false;
       if (HeadId != other.HeadId) return false;
       if (BagExtraRows != other.BagExtraRows) return false;
+      if (MapId != other.MapId) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -806,6 +824,7 @@ namespace Rpg.Net.Message {
       if (AcknowledgedAction != 0L) hash ^= AcknowledgedAction.GetHashCode();
       if (HeadId != 0) hash ^= HeadId.GetHashCode();
       if (BagExtraRows != 0) hash ^= BagExtraRows.GetHashCode();
+      if (MapId != 0) hash ^= MapId.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -888,6 +907,10 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(128, 1);
         output.WriteInt32(BagExtraRows);
       }
+      if (MapId != 0) {
+        output.WriteRawTag(136, 1);
+        output.WriteInt32(MapId);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -962,6 +985,10 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(128, 1);
         output.WriteInt32(BagExtraRows);
       }
+      if (MapId != 0) {
+        output.WriteRawTag(136, 1);
+        output.WriteInt32(MapId);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1019,6 +1046,9 @@ namespace Rpg.Net.Message {
       }
       if (BagExtraRows != 0) {
         size += 2 + pb::CodedOutputStream.ComputeInt32Size(BagExtraRows);
+      }
+      if (MapId != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeInt32Size(MapId);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1079,6 +1109,9 @@ namespace Rpg.Net.Message {
       }
       if (other.BagExtraRows != 0) {
         BagExtraRows = other.BagExtraRows;
+      }
+      if (other.MapId != 0) {
+        MapId = other.MapId;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1163,6 +1196,10 @@ namespace Rpg.Net.Message {
             BagExtraRows = input.ReadInt32();
             break;
           }
+          case 136: {
+            MapId = input.ReadInt32();
+            break;
+          }
         }
       }
     #endif
@@ -1244,6 +1281,10 @@ namespace Rpg.Net.Message {
           }
           case 128: {
             BagExtraRows = input.ReadInt32();
+            break;
+          }
+          case 136: {
+            MapId = input.ReadInt32();
             break;
           }
         }

@@ -1,12 +1,27 @@
-{
-  "id": "map",
-  "width": 1000,
-  "height": 1000,
-  "tileSize": 32,
-  "defaultTile": "ground",
-  "overrides": [
-    { "x": 505, "y": 500, "tile": "accent" },
-    { "x": 505, "y": 501, "tile": "accent" },
-    { "x": 505, "y": 502, "tile": "accent" }
-  ]
-}
+[
+  {
+    "id": 1,
+    "width": 1000,
+    "height": 1000,
+    "tileSize": 32,
+    "defaultTile": "ground",
+    "overrides": [
+      {
+        "x": 505,
+        "y": 500,
+        "tile": "accent"
+      },
+      {
+        "x": 505,
+        "y": 501,
+        "tile": "accent"
+      },
+      {
+        "x": 505,
+        "y": 502,
+        "tile": "accent"
+      }
+    ],
+    "chunkSizeTiles": 32
+  }
+]

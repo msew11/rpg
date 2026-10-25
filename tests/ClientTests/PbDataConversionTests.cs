@@ -36,7 +36,7 @@ public sealed class PbDataConversionTests
         {
             RoleId = 1002, Name = "世界角色", Level = 12, Health = 43, MaxHealth = 120,
             Mana = 27, MaxMana = 80, Experience = 16, NextExperience = 250,
-            X = 123.5f, Y = 456.25f, Gender = gender, Revision = 9, AcknowledgedAction = 3
+            MapId = 2, X = 123.5f, Y = 456.25f, Gender = gender, Revision = 9, AcknowledgedAction = 3
         };
         var data = RoleWorldStatePbData.FromPb(original);
         var result = data.ToPb();

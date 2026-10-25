@@ -320,7 +320,7 @@ public sealed class RepoServerRole
     }
 
     /// <summary>校验名称及外观，提交仓库状态后允许列表展示新角色。</summary>
-    public DataServerRole Create(string name, ServerRoleGender gender, int headId)
+    public DataServerRole Create(string name, ServerRoleGender gender, int headId, int mapId = 1, float? spawnX = null, float? spawnY = null)
     {
         var roles = List();
         name = name.Trim();
@@ -332,10 +332,10 @@ public sealed class RepoServerRole
         var id = checked((_cache is null ? StoredIds() : _cache.Keys).DefaultIfEmpty(1002).Max() + 1);
         var role = new DataServerRole
         {
-            RoleId = id, Name = name, Gender = gender, HeadId = headId, Level = 1,
+            RoleId = id, MapId = mapId, Name = name, Gender = gender, HeadId = headId, Level = 1,
             Health = 100, MaxHealth = 100, Mana = 60, MaxMana = 60, Experience = 0, NextExperience = 500,
-            X = gender == ServerRoleGender.Male ? 16016 : 16144,
-            Y = gender == ServerRoleGender.Male ? 16016 : 16080
+            X = spawnX ?? (gender == ServerRoleGender.Male ? 16016 : 16144),
+            Y = spawnY ?? (gender == ServerRoleGender.Male ? 16016 : 16080)
         };
         Save(role);
         return role;
@@ -368,7 +368,7 @@ public sealed class RepoServerRole
     private static void ValidateRole(DataServerRole role)
     {
         ArgumentNullException.ThrowIfNull(role);
-        if (role.RoleId <= 0 || string.IsNullOrWhiteSpace(role.Name) || role.Level <= 0 ||
+        if (role.MapId <= 0 || role.RoleId <= 0 || string.IsNullOrWhiteSpace(role.Name) || role.Level <= 0 ||
             role.MaxHealth <= 0 || role.Health < 0 || role.Health > role.MaxHealth ||
             role.MaxMana < 0 || role.Mana < 0 || role.Mana > role.MaxMana ||
             role.Experience < 0 || role.NextExperience <= 0 ||

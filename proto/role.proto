@@ -62,6 +62,8 @@ message RoleWorldStatePb {
   int32 head_id = 15;
   // 角色增加的背包行数，旧数据默认为零。
   int32 bag_extra_rows = 16;
+  // 当前所属的数值地图 ID。
+  int32 map_id = 17;
 }
 
 // 请求进入指定角色会话。

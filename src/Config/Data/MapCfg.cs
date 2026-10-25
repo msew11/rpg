@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Rpg.Config.Cache;
 
 namespace Rpg.Config.Data;
 
@@ -6,7 +7,10 @@ namespace Rpg.Config.Data;
 public sealed class MapCfg
 {
     /// <summary>地图标识。</summary>
-    public string Id { get; init; } = "";
+    [CfgKey]
+    public int Id { get; init; }
+    /// <summary>网络兴趣块的单边格子数，独立于绘制分块。</summary>
+    public int ChunkSizeTiles { get; init; } = 32;
     /// <summary>地图横向瓦片数。</summary>
     public int Width { get; init; }
     /// <summary>地图纵向瓦片数。</summary>

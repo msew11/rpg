@@ -58,6 +58,8 @@ if ($Tests) {
     # 外观与角色管理必须通过真实节点、帧推进和按钮验收。
     Invoke-GodotCheck 'actor animation' @('--headless', '--path', $projectPath, 'res://tests/actor_animation_smoke.tscn')
     Invoke-GodotCheck 'role management' @('--headless', '--path', $projectPath, 'res://tests/role_management_smoke.tscn')
+    # 多地图初始化及离开后仍验证静态分块复用与边缘。
+    Invoke-GodotCheck 'map chunks' @('--headless', '--path', $projectPath, 'res://tests/map_chunk_smoke.tscn')
     # 图鉴验收覆盖全部素材目录及实际 GM 分类浏览交互。
     Invoke-GodotCheck 'item catalog' @('--headless', '--path', $projectPath, 'res://tests/item_catalog_smoke.tscn')
     # 指针与点地反馈验收覆盖完整图块、真实输入隔离及淡出释放。

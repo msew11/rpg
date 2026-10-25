@@ -4,7 +4,7 @@
 TBD - created by archiving change data-driven-rpg-client. Update Purpose after archive.
 ## Requirements
 ### Requirement: 启动加载全部客户端配置
-客户端 SHALL 统一通过 Godot 的 DirAccess 和 FileAccess 读取平铺于配置根目录的 JSON 并拒绝子目录，不为独立 .NET 测试保留 System.IO 加载分支；配置加载及依赖该加载的验收 SHALL 在 Godot headless 环境执行。客户端 SHALL 加载全部 JSON，以对应 JSON Schema 验证并组合成类型化游戏配置；地图配置文件 SHALL 命名为 `map.json`。地图 SHALL 使用标注 map.json 的 MapCfgCache : SingleCfgCache<MapCfg>，以根对象承载全部配置且不含 kind；未知、重复或无效配置 SHALL 给出文件相关错误。
+客户端 SHALL 统一通过 Godot 的 DirAccess 和 FileAccess 读取平铺于配置根目录的 JSON 并拒绝子目录，不为独立 .NET 测试保留 System.IO 加载分支；配置加载及依赖该加载的验收 SHALL 在 Godot headless 环境执行。客户端 SHALL 加载全部 JSON，以对应 JSON Schema 验证并组合成类型化游戏配置；地图配置文件 SHALL 命名为 `map.json`。地图 SHALL 使用标注 map.json 的 MapCfgCache : MultiCfgCache<int, MapCfg>，以根数组承载多地图配置且不含 kind；每行 SHALL 包含正整数主键 id 和正整数 chunkSizeTiles，basic.json 的 initialMapId SHALL 引用存在的地图；未知、重复或无效配置 SHALL 给出文件相关错误。
 
 #### Scenario: 加载地图配置
 - **WHEN** 配置目录有合法的 `map.json`
@@ -17,6 +17,14 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 #### Scenario: 文件名与类型不对应
 - **WHEN** 地图配置文件名不是 MapCfgCache 标注的 `map.json`
 - **THEN** 加载失败并指出该文件
+
+#### Scenario: 多地图引用与初始化
+- **WHEN** 地图表包含不同数值 ID 且角色进入其中一张地图
+- **THEN** 按角色地图 ID 初始化世界，不依赖表中顺序，离开世界后清理当前地图
+
+#### Scenario: 初始地图不存在或身份重复
+- **WHEN** initialMapId 不存在、地图 ID 重复或分块尺寸无效
+- **THEN** 启动报出相关配置错误，不进入世界
 
 ### Requirement: 大地图按可见范围呈现
 MapUtils SHALL 基于纯数据地图组件封装地图读取、坐标与边界计算；地图表现 SHALL 仅绘制视口附近的瓦片。静态地图表现 SHALL 复用已经绘制的可见分块，在可见分块范围变化时更新覆盖。每个分块 SHALL 将地表合为一个二维顶点颜色网格、网格线合为一次线段绘制，避免逐格提交绘制命令；分块离树时 SHALL 释放所拥有的网格。

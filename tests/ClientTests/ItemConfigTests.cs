@@ -43,7 +43,7 @@ public sealed class ItemConfigTests : IDisposable
         Assert.Equal(0, items[1002].SubCategory);
         Assert.Equal(1, items[1002].MaxStack);
         Assert.False(items.TryGetValue(9999, out _));
-        Assert.Equal(1000, GameServices.Config.Map.Value.Width);
+        Assert.Equal(1000, GameServices.Config.Map.Items[1].Width);
     }
 
     /// <summary>空表场景：临时空配置不自动补建道具。</summary>

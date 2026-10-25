@@ -14,6 +14,8 @@ public sealed record DataServerRole
 {
     /// <summary>角色唯一标识。</summary>
     public long RoleId { get; init; }
+    /// <summary>角色所属地图，缺失的旧存档兼容原地图 1。</summary>
+    public int MapId { get; init; } = 1;
     /// <summary>显示名称。</summary>
     public string Name { get; init; } = "";
     /// <summary>角色等级。</summary>
