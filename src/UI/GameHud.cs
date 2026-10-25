@@ -185,16 +185,21 @@ public partial class GameHud : Control
         _miniMap = new MiniMapControl { CustomMinimumSize = new Vector2(150, 145) };
         radarBox.AddChild(_miniMap);
 
+        var slotStyle = new StyleBoxFlat { DrawCenter = false, BorderColor = new Color(0.45f, 0.55f, 0.65f, 0.85f) };
+        slotStyle.SetBorderWidthAll(1);
         for (var bar = 1; bar <= 3; bar++)
         {
             var panel = Movable($"hotbar{bar}", $"技能栏 {bar}");
+            _movable[$"hotbar{bar}"].AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
             var row = new HBoxContainer();
             panel.AddChild(row);
             for (var slot = 1; slot <= 9; slot++)
             {
-                var cell = new PanelContainer { CustomMinimumSize = new Vector2(44, 36) };
+                var cell = new PanelContainer { CustomMinimumSize = new Vector2(44, 44) };
+                cell.AddThemeStyleboxOverride("panel", slotStyle);
                 var label = Text(slot.ToString(), 13);
                 label.HorizontalAlignment = HorizontalAlignment.Center;
+                label.VerticalAlignment = VerticalAlignment.Center;
                 cell.AddChild(label);
                 row.AddChild(cell);
             }
@@ -275,12 +280,12 @@ public partial class GameHud : Control
             Mathf.Clamp(desired.Y, 0, Mathf.Max(0, viewport.Y - _systemMenu.Size.Y)));
     }
 
-    /// <summary>收起系统菜单并将键盘焦点还给入口按钮。</summary>
+    /// <summary>收起系统菜单并释放入口焦点，避免残留高亮。</summary>
     private void CloseSystemMenu()
     {
         if (!_systemMenuOverlay.Visible) return;
         _systemMenuOverlay.Hide();
-        _systemButton.GrabFocus();
+        _systemButton.ReleaseFocus();
     }
 
     /// <summary>创建一个可在 HUD 编辑模式拖动的元素。</summary>

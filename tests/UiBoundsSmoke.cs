@@ -38,7 +38,15 @@ public partial class UiBoundsSmoke : Node
                 await Frames();
                 Check(GetViewport().GuiGetHoveredControl() == menuItems[0], "菜单条目无法正常悬停");
                 using (var escape = new InputEventKey { Keycode = Key.Escape, Pressed = true }) GetViewport().PushInput(escape, true);
+                Check(!menuButton.HasFocus(), "Esc 收起菜单后系统按钮残留焦点高亮");
             }
+            Click(menuButton.GetGlobalRect().GetCenter());
+            await Frames();
+            Click(menuItems[0].GetGlobalRect().GetCenter());
+            Move(new Vector2(400, 160));
+            await Frames();
+            Check(hud.GetNode<Control>("系统设置").Visible && !menuButton.HasFocus(), "打开系统设置后系统按钮残留焦点高亮");
+            Press(hud.GetNode<Control>("系统设置"), "关闭");
             foreach (var title in new[] { "角色", "大地图", "GM", "系统设置" })
             {
                 Open(hud, title);
