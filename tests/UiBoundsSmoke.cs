@@ -22,6 +22,13 @@ public partial class UiBoundsSmoke : Node
             RoleTestData.Seed(Path.Combine(directory, "server"));
             main = await StartMain(directory);
             var hud = main.FindChildren("*", "Control", true, false).OfType<GameHud>().Single();
+            // client-ui：普通窗口样式不改变聊天、雷达和角色信息的原有边距。
+            foreach (var key in new[] { "portrait", "Radar", "Chat" })
+            {
+                var panel = hud.GetNode<PanelContainer>(key);
+                Check(panel.GetThemeStylebox("panel").GetContentMargin(Side.Left) < PopupPanelStyle.ContentInset,
+                    key + " 被普通窗口样式改变");
+            }
             var target = GameServices.World.RoleTarget;
             // client-ui：首次与再次展开不主动聚焦菜单首项，鼠标悬停继续可用。
             var menuButton = hud.GetNode("menu").FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "系统");
@@ -51,6 +58,8 @@ public partial class UiBoundsSmoke : Node
             {
                 Open(hud, title);
                 var panel = hud.GetNode<ViewportPanelControl>(title);
+                await Frames();
+                AssertPopupPadding(panel, title);
                 foreach (var size in new[] { new Vector2I(1920, 1080), new Vector2I(640, 360), new Vector2I(480, 270), new Vector2I(1280, 720) })
                 {
                     Resize(size);
@@ -103,6 +112,7 @@ public partial class UiBoundsSmoke : Node
             var bagPanel = hud.GetNode<BagControl>("背包");
             var bagScroll = bagPanel.FindChildren("*", "ScrollContainer", true, false).OfType<ScrollContainer>().Single();
             var bagGrid = bagPanel.FindChildren("BagGrid", "GridContainer", true, false).OfType<GridContainer>().Single();
+            AssertPopupPadding(bagPanel, "背包");
             Check(!roleScroll.GetHScrollBar().Visible && !roleScroll.GetVScrollBar().Visible, "角色面板在完整窗口出现滚动条");
             Check(!bagScroll.GetHScrollBar().Visible && !bagScroll.GetVScrollBar().Visible, "背包在完整窗口出现滚动条");
             Check(bagScroll.Size.X >= bagGrid.GetCombinedMinimumSize().X + 3 &&
@@ -254,6 +264,21 @@ public partial class UiBoundsSmoke : Node
 
     /// <summary>检查完整控件外框均位于视口内。</summary>
     private void AssertInside(Control control, string label) => Check(GetViewport().GetVisibleRect().Encloses(control.GetGlobalRect()), label + " 超出窗口");
+
+    /// <summary>验收 client-ui 六个普通窗口的共用四边间距和实际标题栏布局。</summary>
+    private static void AssertPopupPadding(PanelContainer panel, string label)
+    {
+        var style = panel.GetThemeStylebox("panel");
+        foreach (var side in new[] { Side.Left, Side.Top, Side.Right, Side.Bottom })
+            Check(style.GetContentMargin(side) >= PopupPanelStyle.ContentInset, label + " 缺少统一内边距");
+        var header = (Control)panel.FindChild("PanelHeader", true, false);
+        var outer = panel.GetGlobalRect();
+        var title = header.GetGlobalRect();
+        Check(title.Position.X >= outer.Position.X + PopupPanelStyle.ContentInset - 1 &&
+            title.Position.Y >= outer.Position.Y + PopupPanelStyle.ContentInset - 1 &&
+            title.End.X <= outer.End.X - PopupPanelStyle.ContentInset + 1,
+            label + " 标题栏仍贴近窗口边缘");
+    }
 
     /// <summary>经真实视口发送鼠标按钮。</summary>
     private void Button(Vector2 point, bool pressed)

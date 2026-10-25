@@ -534,6 +534,7 @@ public partial class GameHud : Control
         var outer = new ViewportPanelControl
         {
             Name = title, Title = title, PreferredWidth = minimum.X, Visible = false,
+            UseContentPadding = true,
             WindowSettingKey = title == "角色" ? "character" : title == "大地图" ? "map" : ""
         };
         AddChild(outer);

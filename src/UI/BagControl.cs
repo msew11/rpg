@@ -59,6 +59,7 @@ public partial class BagControl : PanelContainer
     {
         Name = "背包";
         MouseFilter = MouseFilterEnum.Stop;
+        PopupPanelStyle.ApplyPadding(this);
         _column = new VBoxContainer();
         AddChild(_column);
         _header = new HBoxContainer { Name = "PanelHeader" };

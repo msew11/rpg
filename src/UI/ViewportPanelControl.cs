@@ -13,6 +13,8 @@ public partial class ViewportPanelControl : PanelContainer
     public float PreferredWidth { get; init; }
     /// <summary>可拖动窗口的角色设置键，空值表示保持居中。</summary>
     public string WindowSettingKey { get; init; } = "";
+    /// <summary>普通窗口启用统一内边距；HUD 调整窗口保留原布局。</summary>
+    public bool UseContentPadding { get; init; }
     /// <summary>选配的标题拖动与持久化行为。</summary>
     private WindowDragControl? _windowDrag;
     /// <summary>业务控件加入的可滚动内容列。</summary>
@@ -28,6 +30,7 @@ public partial class ViewportPanelControl : PanelContainer
     public override void _Ready()
     {
         MouseFilter = MouseFilterEnum.Stop;
+        if (UseContentPadding) PopupPanelStyle.ApplyPadding(this);
         _column = new VBoxContainer();
         AddChild(_column);
         _header = new HBoxContainer { Name = "PanelHeader" };
