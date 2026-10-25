@@ -117,6 +117,8 @@ public partial class GameHud : Control
         _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStateNotice>(OnRoleNotice));
         _subscriptions.Add(GameServices.EventBus.Subscribe<RoleProfileNotice>(OnProfileNotice));
         _subscriptions.Add(GameServices.EventBus.Subscribe<RolePositionNotice>(OnPositionNotice));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStatusNotice>(OnStatusNotice));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<RoleChangedNotice>(OnRoleChanged));
         _subscriptions.Add(GameServices.EventBus.Subscribe<BagChangedNotice>(OnBagNotice));
     }
 
@@ -850,6 +852,20 @@ public partial class GameHud : Control
     private void OnPositionNotice(RolePositionNotice notice)
     {
         if (notice.Position?.RoleId == GameServices.Session.RoleId) RefreshData();
+    }
+
+    /// <summary>可见生命和魔力更新后刷新角色 HUD。</summary>
+    private void OnStatusNotice(RoleStatusNotice notice)
+    {
+        if (notice.Status?.RoleId == GameServices.Session.RoleId) RefreshData();
+    }
+
+    /// <summary>私有玩法数据更新后刷新经验与背包容量。</summary>
+    private void OnRoleChanged(RoleChangedNotice notice)
+    {
+        if (notice.Role?.RoleId != GameServices.Session.RoleId) return;
+        RefreshData();
+        _bag.Refresh();
     }
 
     /// <summary>在缓存阶段接纳背包后刷新已打开的格子。</summary>

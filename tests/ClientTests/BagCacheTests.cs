@@ -90,8 +90,8 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
         var session = fixture.SelectRole(1001);
         var state = session.Role.ToPb();
         session.RoleCache.Reset(1001);
-        state.Profile.BagExtraRows = int.MaxValue;
-        EventBus.Publish(new SelectRoleRt { RoleId = 1001, Success = true, State = state, Bag = new BagPb() });
+        EventBus.Publish(new SelectRoleRt { RoleId = 1001, Success = true, State = state,
+            Role = new RolePb { RoleId = 1001, BagExtraRows = int.MaxValue, NextExperience = 1 }, Bag = new BagPb() });
         Assert.False(session.HasRole);
         Assert.Single(fixture.Errors);
     }

@@ -85,14 +85,15 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
         var loginCache = session.LoginCache;
         var state = new RoleWorldStatePb
         {
-            Profile = new RoleWorldProfilePb { RoleId = 1001, Name = "晨星", Level = 1, Health = 80,
-                MaxHealth = 100, MaxMana = 10, NextExperience = 20, Gender = RoleGenderPb.Male },
+            Profile = new RoleWorldProfilePb { RoleId = 1001, Name = "晨星", Level = 1, Gender = RoleGenderPb.Male },
+            Status = new RoleWorldStatusPb { RoleId = 1001, Health = 80, MaxHealth = 100, MaxMana = 10 },
             Position = new RoleWorldPositionPb { RoleId = 1001, MapId = 1, X = 100, Y = 200 }
         };
         session.SelectRole(1001);
         net.Tick(0);
         var oldGeneration = MessageCodec.ReadEnvelope(transport.Sent[^1]).Generation;
-        transport.Inject(MessageCodec.Encode(new SelectRoleRt { Success = true, RoleId = 1001, State = state }, oldGeneration, false));
+        transport.Inject(MessageCodec.Encode(new SelectRoleRt { Success = true, RoleId = 1001, State = state,
+            Role = new RolePb { RoleId = 1001, NextExperience = 20 } }, oldGeneration, false));
         net.Tick(0);
         session.LeaveRole();
         session.SelectRole(1001);
@@ -101,11 +102,12 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
         net.Tick(0);
         var generation = MessageCodec.ReadEnvelope(transport.Sent[^1]).Generation;
         Assert.True(generation > oldGeneration);
-        transport.Inject(MessageCodec.Encode(new SelectRoleRt { Success = true, RoleId = 1001, State = state }, generation, false));
+        transport.Inject(MessageCodec.Encode(new SelectRoleRt { Success = true, RoleId = 1001, State = state,
+            Role = new RolePb { RoleId = 1001, NextExperience = 20 } }, generation, false));
         var staleState = state.Clone();
         staleState.Profile.Revision = 99;
         staleState.Position.Revision = 99;
-        staleState.Profile.Health = 1;
+        staleState.Status.Health = 1;
         staleState.Position.AcknowledgedAction = 7;
         transport.Inject(MessageCodec.Encode(new MoveRt { Success = true, RoleId = 1001, ActionId = 7, Position = staleState.Position }, oldGeneration, false));
         transport.Inject(MessageCodec.Encode(new RoleStateNotice { State = staleState }, oldGeneration, false));

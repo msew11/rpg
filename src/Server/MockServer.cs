@@ -263,6 +263,7 @@ public sealed class MockServer
     public void PublishRoleState(DataServerRole update)
     {
         if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色状态");
+        var previous = _current;
         var candidate = update with { Revision = checked(_current.Revision + 1), AcknowledgedAction = _current.AcknowledgedAction };
         _bagRules.Validate(candidate);
         if (candidate.MapId != _current.MapId || !GetMap(candidate.MapId).Rules.Contains(candidate.X, candidate.Y))
@@ -271,6 +272,9 @@ public sealed class MockServer
         _current = candidate;
         _position = _target = new Vector2(candidate.X, candidate.Y);
         Send(new RoleStateNotice { State = ToMessage(candidate) });
+        if (candidate.Experience != previous.Experience || candidate.NextExperience != previous.NextExperience ||
+            candidate.BagExtraRows != previous.BagExtraRows)
+            Send(new RoleChangedNotice { Role = ToRoleMessage(candidate) });
         var notice = _aoi?.Move(GetMap(candidate.MapId), _position.X, _position.Y);
         if (notice is not null) Send(notice);
     }
@@ -279,13 +283,36 @@ public sealed class MockServer
     public void PublishRoleProfile(DataServerRole update)
     {
         if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色资料");
-        var candidate = update with { X = _current.X, Y = _current.Y, MapId = _current.MapId,
-            Bag = _current.Bag, BagExtraRows = _current.BagExtraRows,
-            AcknowledgedAction = _current.AcknowledgedAction, Revision = checked(_current.Revision + 1) };
+        var candidate = _current with { Name = update.Name, Level = update.Level,
+            Gender = update.Gender, HeadId = update.HeadId, Revision = checked(_current.Revision + 1) };
         _bagRules.Validate(candidate);
         _roles.SaveRole(candidate);
         _current = candidate;
         Send(new RoleProfileNotice { Profile = ToProfileMessage(candidate) });
+    }
+
+    /// <summary>单独提交可见生命和魔力状态并推送。</summary>
+    public void PublishRoleStatus(DataServerRole update)
+    {
+        if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色状态");
+        var candidate = _current with { Health = update.Health, MaxHealth = update.MaxHealth,
+            Mana = update.Mana, MaxMana = update.MaxMana, Revision = checked(_current.Revision + 1) };
+        _bagRules.Validate(candidate);
+        _roles.SaveRole(candidate);
+        _current = candidate;
+        Send(new RoleStatusNotice { Status = ToStatusMessage(candidate) });
+    }
+
+    /// <summary>单独提交当前玩家私有角色数据并推送。</summary>
+    public void PublishRole(DataServerRole update)
+    {
+        if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色玩法数据");
+        var candidate = _current with { Experience = update.Experience, NextExperience = update.NextExperience,
+            BagExtraRows = update.BagExtraRows, Revision = checked(_current.Revision + 1) };
+        _bagRules.Validate(candidate);
+        _roles.Save(candidate);
+        _current = candidate;
+        Send(new RoleChangedNotice { Role = ToRoleMessage(candidate) });
     }
 
     /// <summary>单独提交当前角色位置并推送，保留原有资料。</summary>
@@ -347,6 +374,7 @@ public sealed class MockServer
             _aoi = observer;
             response.Success = true;
             response.State = ToMessage(role);
+            response.Role = ToRoleMessage(role);
             response.Bag = ToBagMessage(role.Bag);
         }
         catch (Exception error) { response.Error = error.Message; }
@@ -712,16 +740,29 @@ public sealed class MockServer
     /// <summary>将完整角色世界状态复制为协议对象，不向客户端共享服务端模型。</summary>
     private static RoleWorldStatePb ToMessage(DataServerRole role) => new()
     {
-        Profile = ToProfileMessage(role), Position = ToPositionMessage(role)
+        Profile = ToProfileMessage(role), Position = ToPositionMessage(role), Status = ToStatusMessage(role)
     };
 
     /// <summary>复制角色资料到独立协议对象。</summary>
     private static RoleWorldProfilePb ToProfileMessage(DataServerRole role) => new()
     {
-        RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId, Health = role.Health, MaxHealth = role.MaxHealth,
-        Mana = role.Mana, MaxMana = role.MaxMana, Experience = role.Experience, NextExperience = role.NextExperience,
+        RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId,
         Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female,
-        Revision = role.Revision, BagExtraRows = role.BagExtraRows
+        Revision = role.Revision
+    };
+
+    /// <summary>复制可见的生命和魔力状态。</summary>
+    private static RoleWorldStatusPb ToStatusMessage(DataServerRole role) => new()
+    {
+        RoleId = role.RoleId, Health = role.Health, MaxHealth = role.MaxHealth,
+        Mana = role.Mana, MaxMana = role.MaxMana, Revision = role.Revision
+    };
+
+    /// <summary>复制仅当前玩家可见的角色玩法领域。</summary>
+    private static RolePb ToRoleMessage(DataServerRole role) => new()
+    {
+        RoleId = role.RoleId, Experience = role.Experience, NextExperience = role.NextExperience,
+        BagExtraRows = role.BagExtraRows, Revision = role.Revision
     };
 
     /// <summary>复制角色位置和移动确认到独立协议对象。</summary>

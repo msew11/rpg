@@ -48,6 +48,18 @@ message RolePositionNotice {
   RoleWorldPositionPb position = 1;
 }
 
+// 主动提交的可见生命与魔力状态。
+message RoleStatusNotice {
+  // 最新权威状态。
+  RoleWorldStatusPb status = 1;
+}
+
+// 当前玩家私有的角色玩法数据变更。
+message RoleChangedNotice {
+  // 最新私有角色领域。
+  RolePb role = 1;
+}
+
 // 一块逻辑坐标，不包含地图身份。
 message MapChunkCoordPb {
   // 横向块坐标。

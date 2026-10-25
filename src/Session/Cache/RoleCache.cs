@@ -15,8 +15,12 @@ public sealed class RoleCache : CacheBase
     private RoleWorldStatePbData? _state;
     /// <summary>独立版本过滤的角色资料。</summary>
     private RoleWorldProfilePbData? _profile;
+    /// <summary>独立版本过滤的生命和魔力状态。</summary>
+    private RoleWorldStatusPbData? _status;
     /// <summary>独立版本过滤的角色位置。</summary>
     private RoleWorldPositionPbData? _position;
+    /// <summary>当前玩家私有角色领域。</summary>
+    private RolePbData? _role;
     /// <summary>当前角色的独立背包快照。</summary>
     private BagPbData? _bag;
     /// <summary>选角完成后的只读完整背包。</summary>
@@ -34,6 +38,8 @@ public sealed class RoleCache : CacheBase
         Subscribe<RoleStateNotice>(OnNotice);
         Subscribe<RoleProfileNotice>(OnProfileNotice);
         Subscribe<RolePositionNotice>(OnPositionNotice);
+        Subscribe<RoleStatusNotice>(OnStatusNotice);
+        Subscribe<RoleChangedNotice>(OnRoleChanged);
         Subscribe<BagChangedNotice>(OnBagChanged);
     }
 
@@ -43,7 +49,9 @@ public sealed class RoleCache : CacheBase
         RoleId = roleId;
         _state = null;
         _profile = null;
+        _status = null;
         _position = null;
+        _role = null;
         _bag = null;
     }
 
@@ -51,12 +59,15 @@ public sealed class RoleCache : CacheBase
     private void OnSelected(SelectRoleRt response)
     {
         if (RoleId == 0 || !response.Success || response.RoleId != RoleId) return;
-        var state = RoleWorldStatePbData.FromPb(response.State);
+        if (response.Role is null) throw new InvalidDataException("选角响应缺少私有角色数据");
+        var state = RoleWorldStatePbData.FromPb(response.State, response.Role);
         if (state.RoleId != response.RoleId) throw new InvalidDataException("选角响应角色状态不一致");
         if (_state is not null && state.Revision <= _state.Revision) return;
         var bag = ConvertBag(response.Bag ?? new BagPb(), state.BagExtraRows);
         _profile = RoleWorldProfilePbData.FromPb(response.State.Profile);
+        _status = RoleWorldStatusPbData.FromPb(response.State.Status);
         _position = RoleWorldPositionPbData.FromPb(response.State.Position);
+        _role = RolePbData.FromPb(response.Role);
         _state = state;
         _bag = bag;
     }
@@ -92,21 +103,39 @@ public sealed class RoleCache : CacheBase
         if (notice.Position is not null) ApplyPosition(notice.Position);
     }
 
+    /// <summary>接纳当前角色可见生命和魔力状态。</summary>
+    private void OnStatusNotice(RoleStatusNotice notice)
+    {
+        if (RoleId != 0 && notice.Status is null) throw new InvalidDataException("角色状态推送缺少状态");
+        if (notice.Status is not null) ApplyStatus(notice.Status);
+    }
+
+    /// <summary>接纳当前玩家私有角色领域。</summary>
+    private void OnRoleChanged(RoleChangedNotice notice)
+    {
+        if (RoleId != 0 && notice.Role is null) throw new InvalidDataException("私有角色推送缺少数据");
+        if (notice.Role is not null) ApplyRole(notice.Role);
+    }
+
     /// <summary>完整推送先校验两部分，再分别按版本更新。</summary>
     private void Apply(RoleWorldStatePb message)
     {
         if (_state is null) return;
-        if (message.Profile is null || message.Position is null) throw new InvalidDataException("完整角色推送缺少资料或位置");
-        if (message.Profile.RoleId != RoleId && message.Position.RoleId != RoleId) return;
-        if (message.Profile.RoleId != RoleId || message.Position.RoleId != RoleId)
+        if (message.Profile is null || message.Status is null || message.Position is null)
+            throw new InvalidDataException("完整角色推送缺少资料、状态或位置");
+        if (message.Profile.RoleId != RoleId && message.Status.RoleId != RoleId && message.Position.RoleId != RoleId) return;
+        if (message.Profile.RoleId != RoleId || message.Status.RoleId != RoleId || message.Position.RoleId != RoleId)
             throw new InvalidDataException("完整角色推送身份不一致");
         var profile = RoleWorldProfilePbData.FromPb(message.Profile);
+        var status = RoleWorldStatusPbData.FromPb(message.Status);
         var position = RoleWorldPositionPbData.FromPb(message.Position);
         var newerProfile = profile.Revision > _profile!.Revision;
+        var newerStatus = status.Revision > _status!.Revision;
         var newerPosition = position.Revision > _position!.Revision &&
             position.AcknowledgedAction >= _position.AcknowledgedAction;
-        if (!newerProfile && !newerPosition) return;
-        Accept(newerProfile ? profile : _profile, newerPosition ? position : _position);
+        if (!newerProfile && !newerStatus && !newerPosition) return;
+        Accept(newerProfile ? profile : _profile, newerStatus ? status : _status,
+            newerPosition ? position : _position, _role!);
     }
 
     /// <summary>只合并较新的当前角色资料。</summary>
@@ -114,7 +143,7 @@ public sealed class RoleCache : CacheBase
     {
         if (_state is null || message.RoleId != RoleId) return;
         var profile = RoleWorldProfilePbData.FromPb(message);
-        if (profile.Revision > _profile!.Revision) Accept(profile, _position!);
+        if (profile.Revision > _profile!.Revision) Accept(profile, _status!, _position!, _role!);
     }
 
     /// <summary>只合并较新的当前角色位置。</summary>
@@ -123,18 +152,37 @@ public sealed class RoleCache : CacheBase
         if (_state is null || message.RoleId != RoleId) return;
         var position = RoleWorldPositionPbData.FromPb(message);
         if (position.AcknowledgedAction < _position!.AcknowledgedAction) return;
-        if (position.Revision > _position!.Revision) Accept(_profile!, position);
+        if (position.Revision > _position!.Revision) Accept(_profile!, _status!, position, _role!);
+    }
+
+    /// <summary>只合并较新的可见状态。</summary>
+    private void ApplyStatus(RoleWorldStatusPb message)
+    {
+        if (_state is null || message.RoleId != RoleId) return;
+        var status = RoleWorldStatusPbData.FromPb(message);
+        if (status.Revision > _status!.Revision) Accept(_profile!, status, _position!, _role!);
+    }
+
+    /// <summary>只合并较新的当前玩家私有角色数据。</summary>
+    private void ApplyRole(RolePb message)
+    {
+        if (_state is null || message.RoleId != RoleId) return;
+        var role = RolePbData.FromPb(message);
+        if (role.Revision > _role!.Revision) Accept(_profile!, _status!, _position!, role);
     }
 
     /// <summary>完成跨领域校验后一次替换组合快照。</summary>
-    private void Accept(RoleWorldProfilePbData profile, RoleWorldPositionPbData position)
+    private void Accept(RoleWorldProfilePbData profile, RoleWorldStatusPbData status,
+        RoleWorldPositionPbData position, RolePbData role)
     {
-        var state = RoleWorldStatePbData.FromParts(profile, position);
+        var state = RoleWorldStatePbData.FromParts(profile, status, position, role);
         if (state.MapId != _state!.MapId) throw new InvalidDataException("跨地图角色更新尚未开放");
         if (_bag is not null) ConvertBag(_bag.ToPb(), state.BagExtraRows);
         else GameServices.Config.Basic.Value.GetBagCapacity(state.BagExtraRows);
         _profile = profile;
+        _status = status;
         _position = position;
+        _role = role;
         _state = state;
     }
 

@@ -34,17 +34,21 @@ public sealed class PbDataConversionTests
     {
         var original = new RoleWorldStatePb
         {
-            Profile = new RoleWorldProfilePb { RoleId = 1002, Name = "世界角色", Level = 12, Health = 43,
-                MaxHealth = 120, Mana = 27, MaxMana = 80, Experience = 16, NextExperience = 250,
+            Profile = new RoleWorldProfilePb { RoleId = 1002, Name = "世界角色", Level = 12,
                 Gender = gender, Revision = 9 },
+            Status = new RoleWorldStatusPb { RoleId = 1002, Health = 43, MaxHealth = 120,
+                Mana = 27, MaxMana = 80, Revision = 9 },
             Position = new RoleWorldPositionPb { RoleId = 1002, MapId = 2, X = 123.5f, Y = 456.25f,
                 Revision = 9, AcknowledgedAction = 3 }
         };
-        var data = RoleWorldStatePbData.FromPb(original);
+        var data = RoleWorldStatePbData.FromPb(original, new RolePb { RoleId = 1002,
+            Experience = 16, NextExperience = 250, Revision = 9 });
         var result = data.ToPb();
         Assert.Equal(original, result);
+        Assert.Equal(16, data.ToRolePb().Experience);
+        Assert.Equal(250, data.ToRolePb().NextExperience);
         Assert.NotSame(original, result);
-        result.Profile.Health = 0;
+        result.Status.Health = 0;
         result.Position.X = 0;
         Assert.Equal(original, data.ToPb());
         original.Profile.Name = "修改输入协议";

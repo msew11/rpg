@@ -38,6 +38,13 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         using var selectionListener = EventBus.Subscribe<SelectRoleRt>(response => selectionResponse = response);
         using var session = fixture.SelectRole(summary.RoleId);
         Assert.IsType<RoleWorldStatePb>(selectionResponse!.State);
+        Assert.IsType<RolePb>(selectionResponse.Role);
+        Assert.Equal(updated.Experience, selectionResponse.Role.Experience);
+        Assert.Equal(updated.NextExperience, selectionResponse.Role.NextExperience);
+        Assert.Null(RoleWorldStatePb.Descriptor.FindFieldByName("role"));
+        var worldJson = Google.Protobuf.JsonFormatter.Default.Format(selectionResponse.State);
+        Assert.DoesNotContain("experience", worldJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("bagExtraRows", worldJson, StringComparison.OrdinalIgnoreCase);
         Assert.IsType<RoleWorldStatePbData>(session.RoleCache.State);
         Assert.Equal(updated.Health, session.Role.Health);
         Assert.Equal(new Godot.Vector2(updated.X, updated.Y), session.Role.Position);
@@ -63,16 +70,18 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         var previous = session.RoleCache.State;
         var message = initialMessage!.Clone();
         message.Profile.Name = "更新角色";
-        message.Profile.Health = 42;
+        message.Status.Health = 42;
         message.Profile.Gender = RoleGenderPb.Female;
         message.Position.X = 123;
         message.Position.Y = 456;
         message.Profile.Revision++;
+        message.Status.Revision++;
         message.Position.Revision++;
         message.Position.AcknowledgedAction = 1;
         object response = source switch
         {
-            "select" => new SelectRoleRt { Success = true, RoleId = 1001, State = message },
+            "select" => new SelectRoleRt { Success = true, RoleId = 1001, State = message,
+                Role = session.Role.ToRolePb(), Bag = session.Bag.ToPb() },
             _ => new RoleStateNotice { State = message }
         };
         EventBus.Publish(response);
@@ -86,10 +95,10 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         Assert.Equal(1, cached.AcknowledgedAction);
 
         message.Profile.Name = "篡改协议";
-        message.Profile.Health = 0;
+        message.Status.Health = 0;
         message.Profile.Gender = RoleGenderPb.Male;
         message.Position.X = message.Position.Y = 0;
-        message.Profile.Revision = message.Position.Revision = message.Position.AcknowledgedAction = 999;
+        message.Profile.Revision = message.Status.Revision = message.Position.Revision = message.Position.AcknowledgedAction = 999;
         Assert.Same(cached, session.RoleCache.State);
         Assert.Equal("更新角色", cached.Name);
         Assert.Equal(42, cached.Health);
@@ -98,7 +107,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         Assert.Equal(previous.Revision + 1, cached.Revision);
         Assert.Equal(1, cached.AcknowledgedAction);
         Assert.Equal("晨星", previous.Name);
-        Assert.Equal(initialMessage.Profile.Health, previous.Health);
+        Assert.Equal(initialMessage.Status.Health, previous.Health);
         Assert.Empty(fixture.Errors);
     }
 
@@ -141,6 +150,94 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         position.X = 0;
         Assert.Equal("更新资料", session.Role.Name);
         Assert.NotEqual(0, session.Role.Position.X);
+        Assert.Empty(fixture.Errors);
+    }
+
+    /// <summary>验证 client-session：可见状态和私有 Role 独立合并，旧世界快照不回滚玩法数据。</summary>
+    [Fact]
+    public void StatusAndPrivateRoleUpdatesStaySeparate()
+    {
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
+        fixture.Login();
+        using var session = fixture.SelectRole(1001);
+        var oldWorld = session.Role.ToPb();
+        var status = oldWorld.Status.Clone();
+        status.Revision = 2;
+        status.Health = 40;
+        EventBus.Publish(new RoleStatusNotice { Status = status });
+        var role = session.Role.ToRolePb();
+        role.Revision = 3;
+        role.Experience += 10;
+        role.BagExtraRows = 1;
+        EventBus.Publish(new RoleChangedNotice { Role = role });
+        Assert.Equal(40, session.Role.Health);
+        Assert.Equal(role.Experience, session.Role.Experience);
+        Assert.Equal(1, session.Role.BagExtraRows);
+        Assert.Equal(2, session.Role.StatusRevision);
+        Assert.Equal(3, session.Role.RoleRevision);
+        EventBus.Publish(new RoleStateNotice { State = oldWorld });
+        Assert.Equal(40, session.Role.Health);
+        Assert.Equal(role.Experience, session.Role.Experience);
+        Assert.Equal(1, session.Role.BagExtraRows);
+        Assert.Null(RoleWorldProfilePb.Descriptor.FindFieldByName("experience"));
+        role.Experience = 0;
+        status.Health = 0;
+        Assert.NotEqual(0, session.Role.Experience);
+        Assert.Equal(40, session.Role.Health);
+        Assert.Empty(fixture.Errors);
+    }
+
+    /// <summary>验证 client-session：选角缺失或错配私有领域时不提交任何角色快照。</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SelectionRequiresMatchingPrivateRole(bool wrongRole)
+    {
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
+        fixture.Login();
+        using var session = fixture.SelectRole(1001);
+        var state = session.Role.ToPb();
+        session.RoleCache.Reset(1001);
+        EventBus.Publish(new SelectRoleRt { Success = true, RoleId = 1001, State = state,
+            Role = wrongRole ? new RolePb { RoleId = 1002, NextExperience = 100 } : null,
+            Bag = new BagPb() });
+        Assert.False(session.HasRole);
+        Assert.Single(fixture.Errors);
+    }
+
+    /// <summary>验证 mock-server：状态与私有领域只发对应推送，完整世界快照不携带私有数据。</summary>
+    [Fact]
+    public void ServerSeparatesStatusAndPrivateRoleNotices()
+    {
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
+        fixture.Login();
+        using var session = fixture.SelectRole(1001);
+        var original = new RepoServerRole(fixture.DirectoryPath).Load(1001);
+        var statuses = 0;
+        var roles = 0;
+        var full = 0;
+        using var statusListener = EventBus.Subscribe<RoleStatusNotice>(_ => statuses++);
+        using var roleListener = EventBus.Subscribe<RoleChangedNotice>(_ => roles++);
+        using var fullListener = EventBus.Subscribe<RoleStateNotice>(_ => full++);
+        fixture.Server.PublishRoleStatus(original with { Health = 50 });
+        fixture.Net.Tick(0);
+        Assert.Equal(50, session.Role.Health);
+        Assert.Equal(original.Experience, session.Role.Experience);
+        fixture.Server.PublishRole(original with { Experience = original.Experience + 5, BagExtraRows = 1 });
+        fixture.Net.Tick(0);
+        Assert.Equal(original.Experience + 5, session.Role.Experience);
+        Assert.Equal(1, session.Role.BagExtraRows);
+        Assert.Equal(1, statuses);
+        Assert.Equal(1, roles);
+        Assert.Equal(0, full);
+        Assert.Equal(original.Name, session.Role.Name);
+        fixture.Server.PublishRoleState(original with { Experience = original.Experience + 12,
+            Health = 45, BagExtraRows = 1 });
+        fixture.Net.Tick(0);
+        Assert.Equal(45, session.Role.Health);
+        Assert.Equal(original.Experience + 12, session.Role.Experience);
+        Assert.Equal(2, roles);
+        Assert.Equal(1, full);
         Assert.Empty(fixture.Errors);
     }
 
@@ -261,12 +358,14 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         var update = selectedState!.Clone();
         update.Profile.Revision = 2;
         update.Position.Revision = 2;
-        update.Profile.Health = 50;
+        update.Status.Health = 50;
+        update.Status.Revision = 2;
         EventBus.Publish(new RoleStateNotice { State = update });
         var current = session.RoleCache.State;
         EventBus.Publish(new RoleStateNotice { State = selectedState });
         EventBus.Publish(new RoleStateNotice { State = new RoleWorldStatePb {
             Profile = new RoleWorldProfilePb { RoleId = 1002, Revision = 3 },
+            Status = new RoleWorldStatusPb { RoleId = 1002, Revision = 3 },
             Position = new RoleWorldPositionPb { RoleId = 1002, Revision = 3 } } });
         EventBus.Publish(new MoveRt { RoleId = 1001, Error = "保存失败" });
         Assert.Same(current, session.RoleCache.State);

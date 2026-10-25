@@ -28,7 +28,7 @@ message RoleSummaryPb {
   int32 head_id = 5;
 }
 
-// 角色资料；生命、魔力等字段暂归此结构。
+// 角色可见资料。
 message RoleWorldProfilePb {
   // 唯一角色 ID。
   int64 role_id = 1;
@@ -36,26 +36,42 @@ message RoleWorldProfilePb {
   string name = 2;
   // 当前等级。
   int32 level = 3;
-  // 当前生命值。
-  int32 health = 4;
-  // 生命上限。
-  int32 max_health = 5;
-  // 当前魔力。
-  int32 mana = 6;
-  // 魔力上限。
-  int32 max_mana = 7;
-  // 当前经验。
-  int32 experience = 8;
-  // 升级所需经验。
-  int32 next_experience = 9;
   // 基础身体性别。
-  RoleGenderPb gender = 10;
+  RoleGenderPb gender = 4;
   // 性别内头型编号。
-  int32 head_id = 11;
-  // 角色增加的背包行数。
-  int32 bag_extra_rows = 12;
+  int32 head_id = 5;
   // 递增权威状态版本。
-  int64 revision = 13;
+  int64 revision = 6;
+}
+
+// 角色可见的生命与魔力状态。
+message RoleWorldStatusPb {
+  // 唯一角色 ID。
+  int64 role_id = 1;
+  // 当前生命值。
+  int32 health = 2;
+  // 生命上限。
+  int32 max_health = 3;
+  // 当前魔力。
+  int32 mana = 4;
+  // 魔力上限。
+  int32 max_mana = 5;
+  // 递增权威状态版本。
+  int64 revision = 6;
+}
+
+// 当前玩家私有的角色玩法领域。
+message RolePb {
+  // 唯一角色 ID。
+  int64 role_id = 1;
+  // 当前经验。
+  int32 experience = 2;
+  // 升级所需经验。
+  int32 next_experience = 3;
+  // 角色增加的背包行数。
+  int32 bag_extra_rows = 4;
+  // 递增权威状态版本。
+  int64 revision = 5;
 }
 
 // 当前地图及逻辑位置，包含移动确认信息。
@@ -74,12 +90,14 @@ message RoleWorldPositionPb {
   int64 acknowledged_action = 6;
 }
 
-// 角色世界状态，由资料和位置构成。
+// 角色可见世界状态，由资料、生命魔力和位置构成。
 message RoleWorldStatePb {
   // 角色资料。
   RoleWorldProfilePb profile = 1;
   // 角色位置。
   RoleWorldPositionPb position = 2;
+  // 生命与魔力状态。
+  RoleWorldStatusPb status = 3;
 }
 
 // 请求进入指定角色会话。
@@ -100,6 +118,8 @@ message SelectRoleRt {
   RoleWorldStatePb state = 4;
   // 独立于世界状态的初始完整背包。
   BagPb bag = 5;
+  // 当前玩家私有的玩法数据，与背包并列。
+  RolePb role = 6;
 }
 
 // 在选角列表创建角色。
