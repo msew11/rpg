@@ -33,18 +33,19 @@ namespace Rpg.Net.Message {
             "dGFyZ2V0X3Nsb3RfaW5kZXgYAyABKAUSGQoRZXhwZWN0ZWRfcmV2aXNpb24Y",
             "BCABKAMibQoKTW92ZUl0ZW1SdBIPCgdyb2xlX2lkGAEgASgDEhMKC2luc3Rh",
             "bmNlX2lkGAIgASgDEhkKEXRhcmdldF9zbG90X2luZGV4GAMgASgFEg8KB3N1",
-            "Y2Nlc3MYBCABKAgSDQoFZXJyb3IYBSABKAkiawoIRHJvcEl0ZW0SDwoHcm9s",
-            "ZV9pZBgBIAEoAxITCgtpbnN0YW5jZV9pZBgCIAEoAxINCgVjb3VudBgDIAEo",
-            "BRIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoAxIPCgdkZXN0cm95GAUgASgI",
-            "ImUKCkRyb3BJdGVtUnQSDwoHcm9sZV9pZBgBIAEoAxITCgtpbnN0YW5jZV9p",
-            "ZBgCIAEoAxIPCgdzdWNjZXNzGAMgASgIEg0KBWVycm9yGAQgASgJEhEKCW9i",
-            "amVjdF9pZBgFIAEoCSKJAQoKUGlja3VwSXRlbRIPCgdyb2xlX2lkGAEgASgD",
-            "EhEKCW9iamVjdF9pZBgCIAEoCRIgChhleHBlY3RlZF9vYmplY3RfcmV2aXNp",
-            "b24YAyABKAMSHQoVZXhwZWN0ZWRfYmFnX3JldmlzaW9uGAQgASgDEhYKDm1v",
-            "dmVfYWN0aW9uX2lkGAUgASgDImoKDFBpY2t1cEl0ZW1SdBIPCgdyb2xlX2lk",
-            "GAEgASgDEhEKCW9iamVjdF9pZBgCIAEoCRIWCg5tb3ZlX2FjdGlvbl9pZBgD",
-            "IAEoAxIPCgdzdWNjZXNzGAQgASgIEg0KBWVycm9yGAUgASgJQhKqAg9ScGcu",
-            "TmV0Lk1lc3NhZ2ViBnByb3RvMw=="));
+            "Y2Nlc3MYBCABKAgSDQoFZXJyb3IYBSABKAkiqwEKCERyb3BJdGVtEg8KB3Jv",
+            "bGVfaWQYASABKAMSEwoLaW5zdGFuY2VfaWQYAiABKAMSDQoFY291bnQYAyAB",
+            "KAUSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAMSDwoHZGVzdHJveRgFIAEo",
+            "CBITCgZkcm9wX3gYBiABKAJIAIgBARITCgZkcm9wX3kYByABKAJIAYgBAUIJ",
+            "CgdfZHJvcF94QgkKB19kcm9wX3kiZQoKRHJvcEl0ZW1SdBIPCgdyb2xlX2lk",
+            "GAEgASgDEhMKC2luc3RhbmNlX2lkGAIgASgDEg8KB3N1Y2Nlc3MYAyABKAgS",
+            "DQoFZXJyb3IYBCABKAkSEQoJb2JqZWN0X2lkGAUgASgJIokBCgpQaWNrdXBJ",
+            "dGVtEg8KB3JvbGVfaWQYASABKAMSEQoJb2JqZWN0X2lkGAIgASgJEiAKGGV4",
+            "cGVjdGVkX29iamVjdF9yZXZpc2lvbhgDIAEoAxIdChVleHBlY3RlZF9iYWdf",
+            "cmV2aXNpb24YBCABKAMSFgoObW92ZV9hY3Rpb25faWQYBSABKAMiagoMUGlj",
+            "a3VwSXRlbVJ0Eg8KB3JvbGVfaWQYASABKAMSEQoJb2JqZWN0X2lkGAIgASgJ",
+            "EhYKDm1vdmVfYWN0aW9uX2lkGAMgASgDEg8KB3N1Y2Nlc3MYBCABKAgSDQoF",
+            "ZXJyb3IYBSABKAlCEqoCD1JwZy5OZXQuTWVzc2FnZWIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -53,7 +54,7 @@ namespace Rpg.Net.Message {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.BagChangedNotice), global::Rpg.Net.Message.BagChangedNotice.Parser, new[]{ "RoleId", "Bag" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.MoveItem), global::Rpg.Net.Message.MoveItem.Parser, new[]{ "RoleId", "InstanceId", "TargetSlotIndex", "ExpectedRevision" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.MoveItemRt), global::Rpg.Net.Message.MoveItemRt.Parser, new[]{ "RoleId", "InstanceId", "TargetSlotIndex", "Success", "Error" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItem), global::Rpg.Net.Message.DropItem.Parser, new[]{ "RoleId", "InstanceId", "Count", "ExpectedRevision", "Destroy" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItem), global::Rpg.Net.Message.DropItem.Parser, new[]{ "RoleId", "InstanceId", "Count", "ExpectedRevision", "Destroy", "DropX", "DropY" }, new[]{ "DropX", "DropY" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItemRt), global::Rpg.Net.Message.DropItemRt.Parser, new[]{ "RoleId", "InstanceId", "Success", "Error", "ObjectId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.PickupItem), global::Rpg.Net.Message.PickupItem.Parser, new[]{ "RoleId", "ObjectId", "ExpectedObjectRevision", "ExpectedBagRevision", "MoveActionId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.PickupItemRt), global::Rpg.Net.Message.PickupItemRt.Parser, new[]{ "RoleId", "ObjectId", "MoveActionId", "Success", "Error" }, null, null, null, null)
@@ -1562,7 +1563,7 @@ namespace Rpg.Net.Message {
   }
 
   /// <summary>
-  /// 从背包丢弃指定数量，支持直接销毁，不接受客户端位置。
+  /// 从背包丢弃指定数量；普通丢弃可携带客户端提议的落点。
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class DropItem : pb::IMessage<DropItem>
@@ -1572,6 +1573,7 @@ namespace Rpg.Net.Message {
   {
     private static readonly pb::MessageParser<DropItem> _parser = new pb::MessageParser<DropItem>(() => new DropItem());
     private pb::UnknownFieldSet _unknownFields;
+    private int _hasBits0;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pb::MessageParser<DropItem> Parser { get { return _parser; } }
@@ -1599,11 +1601,14 @@ namespace Rpg.Net.Message {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public DropItem(DropItem other) : this() {
+      _hasBits0 = other._hasBits0;
       roleId_ = other.roleId_;
       instanceId_ = other.instanceId_;
       count_ = other.count_;
       expectedRevision_ = other.expectedRevision_;
       destroy_ = other.destroy_;
+      dropX_ = other.dropX_;
+      dropY_ = other.dropY_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -1688,6 +1693,63 @@ namespace Rpg.Net.Message {
       }
     }
 
+    /// <summary>Field number for the "drop_x" field.</summary>
+    public const int DropXFieldNumber = 6;
+    private readonly static float DropXDefaultValue = 0F;
+
+    private float dropX_;
+    /// <summary>
+    /// 客户端选出的逻辑像素落点；旧请求缺省时由服务端沿用原有选点。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public float DropX {
+      get { if ((_hasBits0 & 1) != 0) { return dropX_; } else { return DropXDefaultValue; } }
+      set {
+        _hasBits0 |= 1;
+        dropX_ = value;
+      }
+    }
+    /// <summary>Gets whether the "drop_x" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasDropX {
+      get { return (_hasBits0 & 1) != 0; }
+    }
+    /// <summary>Clears the value of the "drop_x" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearDropX() {
+      _hasBits0 &= ~1;
+    }
+
+    /// <summary>Field number for the "drop_y" field.</summary>
+    public const int DropYFieldNumber = 7;
+    private readonly static float DropYDefaultValue = 0F;
+
+    private float dropY_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public float DropY {
+      get { if ((_hasBits0 & 2) != 0) { return dropY_; } else { return DropYDefaultValue; } }
+      set {
+        _hasBits0 |= 2;
+        dropY_ = value;
+      }
+    }
+    /// <summary>Gets whether the "drop_y" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasDropY {
+      get { return (_hasBits0 & 2) != 0; }
+    }
+    /// <summary>Clears the value of the "drop_y" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearDropY() {
+      _hasBits0 &= ~2;
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -1708,6 +1770,8 @@ namespace Rpg.Net.Message {
       if (Count != other.Count) return false;
       if (ExpectedRevision != other.ExpectedRevision) return false;
       if (Destroy != other.Destroy) return false;
+      if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(DropX, other.DropX)) return false;
+      if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(DropY, other.DropY)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1720,6 +1784,8 @@ namespace Rpg.Net.Message {
       if (Count != 0) hash ^= Count.GetHashCode();
       if (ExpectedRevision != 0L) hash ^= ExpectedRevision.GetHashCode();
       if (Destroy != false) hash ^= Destroy.GetHashCode();
+      if (HasDropX) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(DropX);
+      if (HasDropY) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(DropY);
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1758,6 +1824,14 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(40);
         output.WriteBool(Destroy);
       }
+      if (HasDropX) {
+        output.WriteRawTag(53);
+        output.WriteFloat(DropX);
+      }
+      if (HasDropY) {
+        output.WriteRawTag(61);
+        output.WriteFloat(DropY);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1788,6 +1862,14 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(40);
         output.WriteBool(Destroy);
       }
+      if (HasDropX) {
+        output.WriteRawTag(53);
+        output.WriteFloat(DropX);
+      }
+      if (HasDropY) {
+        output.WriteRawTag(61);
+        output.WriteFloat(DropY);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1812,6 +1894,12 @@ namespace Rpg.Net.Message {
       }
       if (Destroy != false) {
         size += 1 + 1;
+      }
+      if (HasDropX) {
+        size += 1 + 4;
+      }
+      if (HasDropY) {
+        size += 1 + 4;
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1839,6 +1927,12 @@ namespace Rpg.Net.Message {
       }
       if (other.Destroy != false) {
         Destroy = other.Destroy;
+      }
+      if (other.HasDropX) {
+        DropX = other.DropX;
+      }
+      if (other.HasDropY) {
+        DropY = other.DropY;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1879,6 +1973,14 @@ namespace Rpg.Net.Message {
             Destroy = input.ReadBool();
             break;
           }
+          case 53: {
+            DropX = input.ReadFloat();
+            break;
+          }
+          case 61: {
+            DropY = input.ReadFloat();
+            break;
+          }
         }
       }
     #endif
@@ -1916,6 +2018,14 @@ namespace Rpg.Net.Message {
           }
           case 40: {
             Destroy = input.ReadBool();
+            break;
+          }
+          case 53: {
+            DropX = input.ReadFloat();
+            break;
+          }
+          case 61: {
+            DropY = input.ReadFloat();
             break;
           }
         }

@@ -169,11 +169,13 @@ public sealed class SessionService : Service
     }
 
     /// <summary>请求丢弃或销毁指定数量，不预先修改背包和地图缓存。</summary>
-    public void DropItem(long instanceId, int count, long expectedRevision, bool destroy = false)
+    public void DropItem(long instanceId, int count, long expectedRevision, bool destroy = false, Vector2? position = null)
     {
         EnsureActive();
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
-        _net.Send(new DropItem { RoleId = RoleId, InstanceId = instanceId, Count = count, ExpectedRevision = expectedRevision, Destroy = destroy });
+        var request = new DropItem { RoleId = RoleId, InstanceId = instanceId, Count = count, ExpectedRevision = expectedRevision, Destroy = destroy };
+        if (position is { } point) { request.DropX = point.X; request.DropY = point.Y; }
+        _net.Send(request);
     }
 
     /// <summary>绑定已经提交的走近移动，服务端决定何时可以整份拾取。</summary>

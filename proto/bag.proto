@@ -56,7 +56,7 @@ message MoveItemRt {
   string error = 5;
 }
 
-// 从背包丢弃指定数量，支持直接销毁，不接受客户端位置。
+// 从背包丢弃指定数量；普通丢弃可携带客户端提议的落点。
 message DropItem {
   // 当前角色身份。
   int64 role_id = 1;
@@ -68,6 +68,9 @@ message DropItem {
   int64 expected_revision = 4;
   // 为真时直接销毁指定数量，不生成地面对象；默认仍为普通丢弃。
   bool destroy = 5;
+  // 客户端选出的逻辑像素落点；旧请求缺省时由服务端沿用原有选点。
+  optional float drop_x = 6;
+  optional float drop_y = 7;
 }
 
 // 丢弃响应，两侧状态仍经已有背包及 AOI 通知交付。

@@ -523,7 +523,9 @@ public sealed class MockServer
             if (!request.Destroy)
             {
                 map = GetMap(_current.MapId);
-                var point = GroundDropPosition(map.Rules);
+                if (request.HasDropX != request.HasDropY) throw new ArgumentException("丢弃落点坐标不完整");
+                var point = request.HasDropX && request.HasDropY
+                    ? ValidateGroundDropPosition(request, map.Rules) : GroundDropPosition(map.Rules);
                 var ground = new DataServerMapObject { X = point.X, Y = point.Y, ItemId = source.ItemId, Count = request.Count };
                 // 创建地面物品后绑定共同落地；销毁不产生新的地图变更关系。
                 change = map.Create(ground);
@@ -546,7 +548,23 @@ public sealed class MockServer
         Send(response);
     }
 
-    /// <summary>在等轴画面周围随机选取避开身体的落点；狭小地图使用裁剪后最远候选。</summary>
+    /// <summary>只验证客户端落点与权威角色位置、身体避让区及地图的关系。</summary>
+    private Vector2 ValidateGroundDropPosition(DropItem request, DataServerMapRules rules)
+    {
+        var point = new Vector2(request.DropX, request.DropY);
+        if (!rules.Contains(point.X, point.Y)) throw new ArgumentException("丢弃落点超出地图");
+        var delta = point - _position;
+        var screenX = (delta.X - delta.Y) * 0.5f;
+        var screenY = (delta.X + delta.Y) * 0.25f;
+        var radiusSquared = screenX * screenX + screenY * screenY;
+        // 移动确认的 3 逻辑像素修正及一帧同步差容许约 2 屏幕像素误差。
+        if (!float.IsFinite(radiusSquared) || radiusSquared > 58f * 58f ||
+            radiusSquared < 46f * 46f || (MathF.Abs(screenX) < 38f && screenY < 22f))
+            throw new ArgumentException("丢弃落点不在角色周围的有效区域");
+        return point;
+    }
+
+    /// <summary>兼容旧请求，在等轴画面周围选点；狭小地图使用裁剪后最远候选。</summary>
     private Vector2 GroundDropPosition(DataServerMapRules rules)
     {
         var candidates = new List<Vector2>();

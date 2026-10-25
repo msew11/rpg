@@ -1,4 +1,5 @@
 using Google.Protobuf;
+using System.Numerics;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
@@ -59,10 +60,12 @@ public sealed class GroundItemDropTests : IDisposable
     }
 
     /// <summary>构造可指定旧版本、非法数量和身份的请求。</summary>
-    private DropItemRt Drop(int count, long revision = 1, long? role = null, long instance = 1, bool destroy = false)
+    private DropItemRt Drop(int count, long revision = 1, long? role = null, long instance = 1, bool destroy = false, Vector2? position = null)
     {
         _messages.Clear();
-        Send(new DropItem { RoleId = role ?? _id, InstanceId = instance, Count = count, ExpectedRevision = revision, Destroy = destroy });
+        var request = new DropItem { RoleId = role ?? _id, InstanceId = instance, Count = count, ExpectedRevision = revision, Destroy = destroy };
+        if (position is { } point) { request.DropX = point.X; request.DropY = point.Y; }
+        Send(request);
         return Assert.Single(_messages.OfType<DropItemRt>());
     }
 
@@ -70,7 +73,7 @@ public sealed class GroundItemDropTests : IDisposable
     [Fact]
     public void PartialThenFullDropPreservesTotalAndIdentity()
     {
-        Assert.True(Drop(2).Success);
+        Assert.True(Drop(2, position: new Vector2(1550, 1450)).Success);
         var bag = Assert.Single(_messages.OfType<BagChangedNotice>()).Bag;
         Assert.Equal(3, Assert.Single(bag.Items).Count);
         Assert.Equal(1, bag.Items[0].InstanceId);
@@ -79,18 +82,46 @@ public sealed class GroundItemDropTests : IDisposable
         AssertDropClearance(ground, 1500, 1500);
         Assert.Equal(2, ground.Count);
         Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
-        Assert.True(Drop(3, 2).Success);
+        Assert.True(Drop(3, 2, position: new Vector2(1450, 1550)).Success);
         Assert.Empty(Assert.Single(_messages.OfType<BagChangedNotice>()).Bag.Items);
-        Assert.Equal(5, _server.GetMap(1).Objects.Values.Sum(item => item.Count));
-        // ground-item-drop：连续落点允许小数坐标，避免固定方向和半径的整齐排列。
-        Assert.Contains(_server.GetMap(1).Objects.Values,
-            item => item.X != MathF.Truncate(item.X) || item.Y != MathF.Truncate(item.Y));
+        var dropped = _server.GetMap(1).Objects.Values.ToArray();
+        Assert.Equal(5, dropped.Sum(item => item.Count));
+        Assert.Contains(dropped, item => item.X == 1550 && item.Y == 1450);
+        Assert.Contains(dropped, item => item.X == 1450 && item.Y == 1550);
+        // ground-item-drop：两次丢弃的真实坐标投影后须让 32 像素图标分开。
+        var dx = dropped[0].X - dropped[1].X;
+        var dy = dropped[0].Y - dropped[1].Y;
+        var screenDistance = new Vector2((dx - dy) * 0.5f, (dx + dy) * 0.25f).Length();
+        Assert.True(screenDistance >= 40f, $"连续丢弃间距过小：{screenDistance}");
         _server.Flush();
         Assert.Empty(_repo.Load(_id).Bag.Items);
         Assert.Equal(2, _repo.Load(_id).Bag.NextInstanceId);
         _server = Start(); Enter(_id);
         Assert.Equal(5, _server.GetMap(1).Objects.Values.Sum(item => item.Count));
         Assert.Empty(_server.GetMap(2).Objects);
+    }
+
+    /// <summary>对应 ground-item-drop：客户端提议越界或偏离权威角色时不扣背包。</summary>
+    [Theory]
+    [InlineData(1500, 1500)]
+    [InlineData(1650, 1500)]
+    [InlineData(1400, 1400)]
+    [InlineData(-1, 1500)]
+    public void InvalidClientDropPositionIsRejected(float x, float y)
+    {
+        Assert.False(Drop(1, position: new Vector2(x, y)).Success);
+        Assert.Empty(_server.GetMap(1).Objects);
+        Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
+    }
+
+    /// <summary>对应 ground-item-drop：不完整坐标不得绕过显式落点校验。</summary>
+    [Fact]
+    public void PartialClientDropPositionIsRejected()
+    {
+        _messages.Clear();
+        Send(new DropItem { RoleId = _id, InstanceId = 1, Count = 1, ExpectedRevision = 1, DropX = 1550 });
+        Assert.False(Assert.Single(_messages.OfType<DropItemRt>()).Success);
+        Assert.Empty(_server.GetMap(1).Objects);
     }
 
     /// <summary>对应周围避让与边缘场景：四边和四角仍保留完整距离并位于地图内。</summary>

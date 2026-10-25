@@ -215,7 +215,8 @@ public partial class BagControl : PanelContainer
             var item = GameServices.Session.Bag.Items.Single(item => item.InstanceId == payload["instance"].AsInt64());
             if (item.Count == 1 && !click.CtrlPressed)
             {
-                try { GameServices.Session.DropItem(item.InstanceId, 1, payload["revision"].AsInt64()); }
+                try { GameServices.Session.DropItem(item.InstanceId, 1, payload["revision"].AsInt64(),
+                    position: GameServices.World.SelectGroundDropPosition()); }
                 catch (Exception error) { ShowMoveStatus(error.Message); }
                 GetViewport().SetInputAsHandled();
                 return;
@@ -305,7 +306,8 @@ public partial class BagControl : PanelContainer
         if (!int.TryParse(_dropCount.GetLineEdit().Text.Trim(), out var count) || count < 1 || count > _dropCount.MaxValue)
         { ShowMoveStatus("丢弃数量无效"); return; }
         var payload = data.AsGodotDictionary();
-        try { GameServices.Session.DropItem(payload["instance"].AsInt64(), count, payload["revision"].AsInt64(), destroy); }
+        try { GameServices.Session.DropItem(payload["instance"].AsInt64(), count, payload["revision"].AsInt64(), destroy,
+            destroy ? null : GameServices.World.SelectGroundDropPosition()); }
         catch (Exception error) { ShowMoveStatus(error.Message); }
     }
 

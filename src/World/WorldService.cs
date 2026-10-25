@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Rpg.Config.Data;
 using Rpg.Session.Data;
@@ -76,6 +77,67 @@ public sealed class WorldService : Service
         _session.SubmitMove(action.ActionId, action.Destination);
         _world.Enqueue(action);
         _session.PickupItem(item.ObjectId, item.Revision, action.ActionId);
+    }
+
+    /// <summary>依据当前 ECS 地面物品选取分散落点；狭小地图交给服务端旧路径处理。</summary>
+    public Vector2? SelectGroundDropPosition()
+    {
+        ThrowIfDisposed();
+        if (!HasRole || _map is null || MapObjects is not { } objects)
+            throw new InvalidOperationException("地面物品尚未同步");
+        return SelectGroundDropPosition(RolePosition, _map, objects);
+    }
+
+    /// <summary>从指定世界快照选择落点，供正式世界和验收使用。</summary>
+    internal static Vector2? SelectGroundDropPosition(Vector2 origin, DataMapComponent map, DataWorldObjectsState objects)
+    {
+        var occupied = new List<Vector2>();
+        foreach (var item in objects.Objects.Values)
+        {
+            if (item.MonsterTypeId is not null) continue;
+            var dx = item.X - origin.X;
+            var dy = item.Y - origin.Y;
+            var screen = new Vector2((dx - dy) * 0.5f, (dx + dy) * 0.25f);
+            if (screen.LengthSquared() < 96f * 96f) occupied.Add(screen);
+        }
+        Span<Vector2> clear = stackalloc Vector2[68];
+        var clearCount = 0;
+        var best = origin;
+        var bestDistance = -1f;
+        var maxX = (long)map.Width * map.TileSize;
+        var maxY = (long)map.Height * map.TileSize;
+        for (var index = 0; index < 68; index++)
+        {
+            Vector2 screen;
+            if (index < 64)
+            {
+                var angle = Random.Shared.NextSingle() * MathF.Tau;
+                var radius = 48f + Random.Shared.NextSingle() * 8f;
+                screen = new Vector2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
+            }
+            else screen = index switch
+            {
+                64 => new Vector2(0, 50),
+                65 => new Vector2(-50, 0),
+                66 => new Vector2(50, 0),
+                _ => new Vector2(45, -25)
+            };
+            if (MathF.Abs(screen.X) < 40f && screen.Y < 24f) continue;
+            var point = origin + new Vector2(screen.X + 2f * screen.Y, 2f * screen.Y - screen.X);
+            if (point.X < 0 || point.Y < 0 || point.X >= maxX || point.Y >= maxY) continue;
+            var nearest = float.PositiveInfinity;
+            foreach (var other in occupied)
+            {
+                var dx = screen.X - other.X;
+                var dy = screen.Y - other.Y;
+                var squared = dx * dx + dy * dy;
+                if (squared < nearest) nearest = squared;
+            }
+            if (nearest >= 40f * 40f) clear[clearCount++] = point;
+            if (nearest > bestDistance) { bestDistance = nearest; best = point; }
+        }
+        if (clearCount > 0) return clear[Random.Shared.Next(clearCount)];
+        return bestDistance >= 0 ? best : null;
     }
 
     /// <summary>在网络推进之后按固定帧处理 ECS。</summary>
