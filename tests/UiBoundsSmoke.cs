@@ -61,6 +61,12 @@ public partial class UiBoundsSmoke : Node
                     AssertInside(close, "关闭按钮");
                     Check(close.IsVisibleInTree(), "关闭按钮不可见");
                     var scroll = (ScrollContainer)panel.FindChild("PanelContentScroll", true, false);
+                    if (size.X == 1280)
+                    {
+                        Check(!scroll.GetHScrollBar().Visible && !scroll.GetVScrollBar().Visible, title + "在正常窗口出现多余滚动条");
+                        Check(scroll.Size.X >= panel.Content.GetCombinedMinimumSize().X + 3 &&
+                            scroll.Size.Y >= panel.Content.GetCombinedMinimumSize().Y + 3, title + "未给内容留出缩放余量");
+                    }
                     if (panel.Content.GetCombinedMinimumSize().Y > scroll.Size.Y)
                     {
                         scroll.ScrollVertical = (int)scroll.GetVScrollBar().MaxValue;
@@ -87,6 +93,27 @@ public partial class UiBoundsSmoke : Node
                 await Frames();
                 Check(!panel.Visible, "真实点击无法关闭弹窗");
             }
+
+            Resize(new Vector2I(1920, 1080));
+            Open(hud, "角色");
+            Open(hud, "背包");
+            await Frames();
+            var rolePanel = hud.GetNode<ViewportPanelControl>("角色");
+            var roleScroll = (ScrollContainer)rolePanel.FindChild("PanelContentScroll", true, false);
+            var bagPanel = hud.GetNode<BagControl>("背包");
+            var bagScroll = bagPanel.FindChildren("*", "ScrollContainer", true, false).OfType<ScrollContainer>().Single();
+            var bagGrid = bagPanel.FindChildren("BagGrid", "GridContainer", true, false).OfType<GridContainer>().Single();
+            Check(!roleScroll.GetHScrollBar().Visible && !roleScroll.GetVScrollBar().Visible, "角色面板在完整窗口出现滚动条");
+            Check(!bagScroll.GetHScrollBar().Visible && !bagScroll.GetVScrollBar().Visible, "背包在完整窗口出现滚动条");
+            Check(bagScroll.Size.X >= bagGrid.GetCombinedMinimumSize().X + 3 &&
+                bagScroll.Size.Y >= bagGrid.GetCombinedMinimumSize().Y + 3, "背包网格未留出缩放余量");
+            if (OS.GetCmdlineUserArgs().Contains("--capture-ui-bounds") && DisplayServer.GetName() != "headless")
+            {
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                GetViewport().GetTexture().GetImage().SavePng("build/ui-bounds-panels.png");
+            }
+            rolePanel.Hide();
+            bagPanel.Hide();
 
             Open(hud, "GM");
             Press(hud, "查看道具图鉴");

@@ -644,13 +644,15 @@ public partial class BagGmSmoke : Node
         }
     }
 
-    /// <summary>验收 client-ui 背包完整展示：完整网格右侧和底部仅有主题边距。</summary>
+    /// <summary>验收 client-ui 背包完整展示：留少量缩放余量且无滚动条。</summary>
     private static void CheckBagLayout(BagControl bag, GridContainer grid)
     {
         var gap = bag.GetGlobalRect().End - grid.GetGlobalRect().End;
         var style = bag.GetThemeStylebox("panel");
-        Check(Mathf.Abs(gap.X - style.GetContentMargin(Side.Right)) <= 1, "背包右侧仍有空白");
-        Check(Mathf.Abs(gap.Y - style.GetContentMargin(Side.Bottom)) <= 1, "背包底部仍有空白");
+        Check(gap.X >= style.GetContentMargin(Side.Right) + 3 && gap.X <= style.GetContentMargin(Side.Right) + 5,
+            "背包右侧缩放余量不正确");
+        Check(gap.Y >= style.GetContentMargin(Side.Bottom) + 3 && gap.Y <= style.GetContentMargin(Side.Bottom) + 5,
+            "背包底部缩放余量不正确");
         var scroll = (ScrollContainer)grid.GetParent();
         Check(!scroll.GetVScrollBar().Visible && !scroll.GetHScrollBar().Visible, "完整网格不应显示滚动条");
     }

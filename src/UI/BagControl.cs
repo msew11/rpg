@@ -11,6 +11,8 @@ namespace Rpg.UI;
 /// <summary>绘制权威背包快照并提交物品拖放，滚动网格适配小窗口。</summary>
 public partial class BagControl : PanelContainer
 {
+    /// <summary>为缩放后的格子边界留出取整余量，避免完整背包出现滚动条。</summary>
+    private const float FitAllowance = 4f;
     /// <summary>按基础配置列数排列的格子网格。</summary>
     private GridContainer _grid = null!;
     /// <summary>计算标题与网格之间的主题间隔。</summary>
@@ -107,7 +109,7 @@ public partial class BagControl : PanelContainer
         var header = _header.GetCombinedMinimumSize();
         var content = grid + _scroll.GetThemeStylebox("panel").GetMinimumSize();
         var desired = new Vector2(Mathf.Max(header.X, content.X), header.Y + _column.GetThemeConstant("separation") + content.Y)
-            + GetThemeStylebox("panel").GetMinimumSize();
+            + GetThemeStylebox("panel").GetMinimumSize() + new Vector2(FitAllowance, FitAllowance);
         if (_moveStatus.Visible) desired.Y += _moveStatus.GetCombinedMinimumSize().Y + _column.GetThemeConstant("separation");
         var available = (viewport - new Vector2(32, 32)).Max(Vector2.One);
         var vertical = desired.Y > available.Y;

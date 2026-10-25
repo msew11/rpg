@@ -5,6 +5,8 @@ namespace Rpg.UI;
 /// <summary>限制在视口内的弹窗，可选标题拖动，固定标题并滚动展示溢出内容。</summary>
 public partial class ViewportPanelControl : PanelContainer
 {
+    /// <summary>避免高 DPI 缩放和容器取整将刚好放下的内容误判为溢出。</summary>
+    private const float FitAllowance = 4f;
     /// <summary>显示在左侧标题栏的面板名称。</summary>
     public string Title { get; init; } = "";
     /// <summary>自然布局期望的最小宽度，小窗口时允许收窄。</summary>
@@ -64,8 +66,8 @@ public partial class ViewportPanelControl : PanelContainer
         var header = _header.GetCombinedMinimumSize();
         var content = Content.GetCombinedMinimumSize() + _scroll.GetThemeStylebox("panel").GetMinimumSize();
         var padding = GetThemeStylebox("panel").GetMinimumSize();
-        var desired = new Vector2(Mathf.Max(PreferredWidth, Mathf.Max(header.X, content.X) + padding.X),
-            header.Y + _column.GetThemeConstant("separation") + content.Y + padding.Y);
+        var desired = new Vector2(Mathf.Max(PreferredWidth, Mathf.Max(header.X, content.X) + padding.X + FitAllowance),
+            header.Y + _column.GetThemeConstant("separation") + content.Y + padding.Y + FitAllowance);
         var barWidth = _scroll.GetVScrollBar().GetCombinedMinimumSize().X;
         var barHeight = _scroll.GetHScrollBar().GetCombinedMinimumSize().Y;
         var vertical = desired.Y > available.Y;
