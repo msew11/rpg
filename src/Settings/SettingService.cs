@@ -228,6 +228,13 @@ public sealed class SettingService : Service
             else { position.X = Math.Clamp(position.X, 0, 1); position.Y = Math.Clamp(position.Y, 0, 1); }
         }
         setting.Shortcuts ??= RoleSetting.DefaultShortcuts();
+        // 旧角色可能已将 Z 分配给其他操作，补入新动作时保留既有绑定。
+        if (!setting.Shortcuts.ContainsKey("groundItems"))
+        {
+            var key = new[] { Godot.Key.Z, Godot.Key.X, Godot.Key.V, Godot.Key.G, Godot.Key.F }
+                .First(candidate => setting.Shortcuts.Values.All(value => value != new DataShortcut { Key = candidate }));
+            setting.Shortcuts["groundItems"] = new DataShortcut { Key = key };
+        }
         foreach (var (key, value) in RoleSetting.DefaultShortcuts()) setting.Shortcuts.TryAdd(key, value);
         var shortcuts = RoleSetting.DefaultShortcuts().Keys.Select(key => setting.Shortcuts[key]).ToArray();
         if (shortcuts.Any(value => value is null || !value.IsAllowed()) || shortcuts.Distinct().Count() != shortcuts.Length)

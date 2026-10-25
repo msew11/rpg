@@ -15,6 +15,8 @@ public partial class GroundItemsView : Node2D
 {
     /// <summary>稳定 GUID 对应的表现节点，离开 AOI 后立即移除。</summary>
     private readonly Dictionary<Guid, Node2D> _views = new();
+    /// <summary>当前 AOI 物品在 UI 画布上的信息控件。</summary>
+    private readonly Dictionary<Guid, GroundItemInfoControl> _infoViews = new();
     /// <summary>资源图集解析缓存，不保存对象快照。</summary>
     private readonly ItemIconResolver _icons = new();
     /// <summary>图标资源按素材键复用，不保存第二份地图状态。</summary>
@@ -25,12 +27,26 @@ public partial class GroundItemsView : Node2D
     private bool _focused = true;
     /// <summary>与背包共用名称呈现，不保存地图业务数据。</summary>
     private ItemNamePopup _itemName = null!;
+    /// <summary>信息框所在的独立 UI 画布层。</summary>
+    private CanvasLayer _infoLayer = null!;
+    /// <summary>当前会话的地面信息显隐状态。</summary>
+    private bool _infoVisible;
     /// <summary>GM 实体原点标记的当前显隐状态。</summary>
     private bool _anchorsVisible;
     /// <summary>GM 实体原点标记的当前颜色。</summary>
     private Color _anchorColor = Colors.Yellow;
     /// <summary>当前悬停的稳定身份，供鼠标表现读取。</summary>
     public Guid? HoveredObjectId { get; private set; }
+    /// <summary>信息框点击后请求拾取对应的对象。</summary>
+    public event Action<Guid>? PickupRequested;
+
+    /// <summary>切换当前 AOI 物品信息框的显示。</summary>
+    public void SetInfoVisible(bool visible)
+    {
+        _infoVisible = visible;
+        if (!visible)
+            foreach (var info in _infoViews.Values) info.Hide();
+    }
 
     /// <summary>同步当前及后续 AOI 物品的锚点标记。</summary>
     public void SetAnchorMarkers(bool visible, Color color)
@@ -49,6 +65,8 @@ public partial class GroundItemsView : Node2D
     public override void _Ready()
     {
         AddToGroup("GroundItemViews");
+        _infoLayer = new CanvasLayer { Name = "GroundItemInfoLayer", Layer = 5 };
+        AddChild(_infoLayer);
         var layer = new CanvasLayer { Name = "GroundItemPointerLayer", Layer = 100 };
         AddChild(layer);
         _itemName = new ItemNamePopup { Name = "ItemNamePopup" };
@@ -80,7 +98,9 @@ public partial class GroundItemsView : Node2D
             _previous = snapshot;
             Refresh(snapshot);
         }
-        SetHovered(ItemAt(_pointerPosition));
+        if (_infoVisible) LayoutInfoViews();
+        var infoId = InfoAt(_pointerPosition);
+        SetHovered(infoId ?? ItemAt(_pointerPosition), infoId is not null);
     }
 
     /// <summary>只有快照变化才同步表现节点，静止悬停不重建资源。</summary>
@@ -92,6 +112,7 @@ public partial class GroundItemsView : Node2D
                 RemoveChild(view);
                 view.QueueFree();
                 _views.Remove(id);
+                if (_infoViews.Remove(id, out var info)) info.QueueFree();
             }
         if (snapshot is null) return;
         var offsets = new Dictionary<(float X, float Y), int>();
@@ -103,7 +124,7 @@ public partial class GroundItemsView : Node2D
                 _views.Add(value.ObjectId, view);
                 AddChild(view);
             }
-            // 同落点只错开表现，不改权威坐标，避免多次丢弃的图标和数量完全重叠。
+            // 同落点只错开图标，不改权威坐标与信息框的 UI 层级。
             var point = (value.X, value.Y);
             var offset = offsets.GetValueOrDefault(point);
             offsets[point] = offset + 1;
@@ -121,16 +142,63 @@ public partial class GroundItemsView : Node2D
                 Position = new Vector2(-16, -24) + visualOffset, Size = new Vector2(32, 32),
                 MouseFilter = Control.MouseFilterEnum.Ignore, TextureFilter = TextureFilterEnum.Nearest };
             view.AddChild(icon);
-            var label = new Label { Name = "GroundItemCount", Text = $"×{value.Count}",
-                MouseFilter = Control.MouseFilterEnum.Ignore };
-            label.AddThemeColorOverride("font_outline_color", Colors.Black);
-            label.AddThemeConstantOverride("outline_size", 4);
-            view.AddChild(label);
-            label.Position = new Vector2(-label.GetCombinedMinimumSize().X / 2, 10) + visualOffset;
             var marker = new EntityAnchorView { Name = "EntityAnchor", Visible = _anchorsVisible };
             marker.SetMarkerColor(_anchorColor);
             view.AddChild(marker);
+            if (!_infoViews.TryGetValue(value.ObjectId, out var info))
+            {
+                info = new GroundItemInfoControl(value.ObjectId);
+                info.PickupRequested += id => PickupRequested?.Invoke(id);
+                _infoViews.Add(value.ObjectId, info);
+                _infoLayer.AddChild(info);
+            }
+            info.SetItem(config.Name, value.Count);
+            info.Visible = _infoVisible;
         }
+    }
+
+    /// <summary>按稳定对象顺序在视口内寻找不与已放置信息框相交的位置。</summary>
+    private void LayoutInfoViews()
+    {
+        var viewport = GetViewportRect().Size;
+        var occupied = new List<Rect2>();
+        foreach (var (id, info) in _infoViews.OrderBy(entry => entry.Key))
+        {
+            var icon = _views[id].GetNode<TextureRect>("GroundItemIcon");
+            var anchor = icon.GetGlobalTransformWithCanvas() * new Vector2(16, 0);
+            var size = info.GetCombinedMinimumSize();
+            if (anchor.X < 0 || anchor.Y < 0 || anchor.X > viewport.X || anchor.Y > viewport.Y ||
+                size.X > viewport.X || size.Y > viewport.Y)
+            { info.Hide(); continue; }
+            var placed = false;
+            for (var row = 0; row < 18 && !placed; row++)
+            for (var column = 0; column < 9 && !placed; column++)
+            {
+                var side = column == 0 ? 0 : (column % 2 == 1 ? 1 : -1) * ((column + 1) / 2);
+                var x = Mathf.Clamp(anchor.X - size.X / 2 + side * (size.X + 4), 0, viewport.X - size.X);
+                var y = anchor.Y - size.Y - 6 - row * (size.Y + 4);
+                if (y < 0) y = anchor.Y + 12 + row * (size.Y + 4);
+                if (y < 0 || y + size.Y > viewport.Y) continue;
+                var rect = new Rect2(new Vector2(x, y), size);
+                if (occupied.Any(other => other.Grow(2).Intersects(rect))) continue;
+                info.Position = rect.Position;
+                info.Size = size;
+                info.Show();
+                occupied.Add(rect);
+                placed = true;
+            }
+            if (!placed) info.Hide();
+        }
+    }
+
+    /// <summary>信息框占用鼠标时仍能找出对应的地面物品。</summary>
+    private Guid? InfoAt(Vector2 viewportPosition)
+    {
+        if (!_infoVisible || !_focused) return null;
+        var hovered = GetViewport().GuiGetHoveredControl();
+        if (hovered is not GroundItemInfoControl info || !info.Visible ||
+            !_infoViews.ContainsKey(info.ObjectId) || !info.GetGlobalRect().HasPoint(viewportPosition)) return null;
+        return info.ObjectId;
     }
 
     /// <summary>返回最上层可见物品，UI 或模态窗口遮挡时不参与拾取。</summary>
@@ -150,12 +218,13 @@ public partial class GroundItemsView : Node2D
     }
 
     /// <summary>一次只显示当前对象的真实轮廓，移出及失效时清除。</summary>
-    private void SetHovered(Guid? id)
+    private void SetHovered(Guid? id, bool overInfo = false)
     {
         HoveredObjectId = id;
         foreach (var (key, view) in _views) view.GetNode<TextureRect>("GroundItemOutline").Visible = key == id;
+        foreach (var (key, info) in _infoViews) info.SetHighlighted(key == id && overInfo);
         if (_itemName is null) return;
-        if (id is { } hovered && _previous is not null && _previous.Objects.TryGetValue(hovered, out var item))
+        if (!overInfo && id is { } hovered && _previous is not null && _previous.Objects.TryGetValue(hovered, out var item))
             _itemName.ShowName(GameServices.Config.Item.Items[item.ItemId].Name, _pointerPosition);
         else _itemName.Hide();
     }

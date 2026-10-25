@@ -57,7 +57,14 @@ public partial class GroundItemDropSmoke : Node
             var ground = GameServices.Session.Map!.Objects.Values.Single();
             Check(ground.Count == 2 && ground.ItemId == 2000, "AOI 未接纳地面道具");
             var view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
-            Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 1 && ((Label)view.FindChild("GroundItemCount", true, false)).Text == "×2" && view.FindChild("GroundItemName", true, false) is null, "地面数量或常驻名称错误");
+            // ground-item-drop：图标下不再常驻显示数量，信息框默认隐藏。
+            var firstInfo = view.FindChildren("*", "PanelContainer", true, false).OfType<GroundItemInfoControl>().Single();
+            Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 1 &&
+                view.FindChild("GroundItemCount", true, false) is null && !firstInfo.Visible,
+                "地面仍常驻数量或信息框未默认隐藏");
+            SendKey(Key.Z); await Frames();
+            Check(firstInfo.Visible && firstInfo.GetNode<Label>("InfoText").Text == "验收堆叠 ×2" &&
+                firstInfo.GetParent<CanvasLayer>().Layer > 0, "Z 未在 UI 层显示堆叠信息");
             Check(view.FindChild("GroundItemIcon", true, false) is TextureRect { Texture: not null }, "缺图没有占位");
             Check(GameServices.World.RoleTarget == originalTarget, "丢弃点击触发世界走路");
 
@@ -86,6 +93,14 @@ public partial class GroundItemDropSmoke : Node
             await Frames();
             Check(GameServices.Session.Bag.Items.All(item => item.InstanceId != 2), "全部丢弃未移除源");
             Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "配置图标未显示");
+            var infoViews = view.FindChildren("*", "PanelContainer", true, false).OfType<GroundItemInfoControl>().ToArray();
+            Check(infoViews.Length == 2 && infoViews.All(info => info.Visible) &&
+                infoViews.Any(info => info.GetNode<Label>("InfoText").Text == "测试长剑") &&
+                infoViews.All(info => !info.GetNode<Label>("InfoText").Text.Contains("×1")) &&
+                !infoViews[0].GetGlobalRect().Intersects(infoViews[1].GetGlobalRect()),
+                "单件信息仍显示 ×1 或信息框重叠");
+            SendKey(Key.Z); await Frames();
+            Check(infoViews.All(info => !info.Visible), "再次按 Z 未隐藏地面信息");
 
             // client-actor-presentation、ground-item-pickup：同点实体保持真实坐标，图标仍错开并参与 Y 排序。
             var worldVisual = main.GetChildren().OfType<Node2D>().Single(node => node.Name == "WorldVisual");
@@ -138,11 +153,13 @@ public partial class GroundItemDropSmoke : Node
             Check(GameServices.Session.Map!.Objects.Count == 2, "重启后地图未恢复");
             view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
             Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "重启后地面表现未恢复");
-            GameServices.Session.SubmitMove(1, new Vector2(23000, 23000));
+            using var moveOut = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true };
+            GameServices.World.HandleInput(moveOut, new Vector2(23000, 23000));
             GameServices.Net.Tick(100);
             await Frames();
             Check(GameServices.Session.Map.Objects.Count == 0 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 0, "离开 AOI 未移除地面表现");
-            GameServices.Session.SubmitMove(2, new Vector2(ground.X, ground.Y));
+            using var moveBack = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true };
+            GameServices.World.HandleInput(moveBack, new Vector2(ground.X, ground.Y));
             GameServices.Net.Tick(100);
             await Frames();
             Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "再次进入 AOI 未恢复表现");
@@ -170,6 +187,28 @@ public partial class GroundItemDropSmoke : Node
             main.QueueFree(); await Frames(); main = null;
             main = await StartMain(directory, config);
             Check(GameServices.Session.Bag.Items.Count == 0 && GameServices.Session.Map!.Objects.Count == 2, "关闭重启复活销毁物品或改变地面");
+            // ground-item-drop：信息框悬停联动轮廓，点击走现有拾取且不穿透到地图。
+            view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
+            bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
+            bag.Hide();
+            SendKey(Key.Z); await Frames();
+            var pickupInfo = view.FindChildren("*", "PanelContainer", true, false).OfType<GroundItemInfoControl>()
+                .First(info => info.Visible);
+            var infoPoint = pickupInfo.GetGlobalRect().GetCenter();
+            MouseMotionAt(infoPoint); await Frames();
+            Check(pickupInfo.IsHighlighted && view.HoveredObjectId == pickupInfo.ObjectId &&
+                view.GetNode<Node2D>("Item_" + pickupInfo.ObjectId.ToString("N"))
+                    .GetNode<TextureRect>("GroundItemOutline").Visible,
+                "信息框悬停未联动高亮");
+            var beforeInfoPickup = GameServices.Session.Map.Objects.Count;
+            var infoClicked = false;
+            pickupInfo.PickupRequested += _ => infoClicked = true;
+            MouseButtonAt(infoPoint, true); MouseButtonAt(infoPoint, false);
+            GameServices.Net.Tick(3); GameServices.World.Tick(3); await Frames();
+            Check(infoClicked && (GameServices.Session.Map.Objects.Count < beforeInfoPickup || GameServices.World.RoleTarget is not null),
+                "点击信息框未发起拾取");
+            Check(!main.FindChildren("*", "Node", true, false).OfType<GroundClickView>().Any(),
+                "点击信息框触发了普通地图反馈");
             PressTitle(main, "系统"); PressTitle(main, "返回角色选择"); await Frames();
             Check(!main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Any(), "离开世界未释放表现");
             GD.Print("Ground item drop smoke passed: quantity, Ctrl destroy confirmation/cancel/partial/full/single/restart, partial/full, stale confirmation, UI input isolation, icons, AOI, restart.");
@@ -216,6 +255,22 @@ public partial class GroundItemDropSmoke : Node
         using var button = new InputEventMouseButton { Position = point, GlobalPosition = point,
             ButtonIndex = MouseButton.Left, Pressed = pressed, CtrlPressed = ctrl, ButtonMask = pressed ? MouseButtonMask.Left : 0 };
         GetViewport().PushInput(button, true);
+    }
+
+    /// <summary>移动真实指针以触发信息框悬停状态。</summary>
+    private void MouseMotionAt(Vector2 point)
+    {
+        using var motion = new InputEventMouseMotion { Position = point, GlobalPosition = point };
+        GetViewport().PushInput(motion, true);
+    }
+
+    /// <summary>通过视口提交快捷键按下和释放。</summary>
+    private void SendKey(Key key)
+    {
+        using var press = new InputEventKey { Keycode = key, Pressed = true };
+        using var release = new InputEventKey { Keycode = key, Pressed = false };
+        GetViewport().PushInput(press, true);
+        GetViewport().PushInput(release, true);
     }
 
     /// <summary>通过实际按钮进入或打开面板。</summary>

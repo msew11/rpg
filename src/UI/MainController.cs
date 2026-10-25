@@ -86,8 +86,7 @@ public partial class MainController : Control
         if (_servicesLifetime is null || _worldVisual is null || input is not InputEventMouseButton click) return;
         if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && _groundItems?.ItemAt(click.Position) is { } objectId)
         {
-            try { GameServices.World.PickupItem(objectId); }
-            catch (Exception error) { _hud?.ShowNetworkError(error.Message); }
+            RequestPickup(objectId);
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -97,6 +96,13 @@ public partial class MainController : Control
             _worldVisual.AddChild(new GroundClickView { Position = projectedPosition });
             GetViewport().SetInputAsHandled();
         }
+    }
+
+    /// <summary>图标或 UI 信息框拾取均使用同一世界服务入口。</summary>
+    private void RequestPickup(Guid objectId)
+    {
+        try { GameServices.World.PickupItem(objectId); }
+        catch (Exception error) { _hud?.ShowNetworkError(error.Message); }
     }
 
     /// <summary>关闭场景时恢复鼠标并释放角色、所有常驻监听及网络传输。</summary>
@@ -298,6 +304,7 @@ public partial class MainController : Control
         _worldVisual.AddChild(new MapView { Name = "MapView" });
         _groundItems = new GroundItemsView { Name = "GroundItemsView", ZIndex = 1, YSortEnabled = true };
         _worldVisual.AddChild(_groundItems);
+        _groundItems.PickupRequested += RequestPickup;
         _actor = new ActorView { Name = "ActorView", ZIndex = 1, Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
         _worldVisual.AddChild(_actor);
         _actor.Present(GameServices.World.ActorState!);
@@ -308,6 +315,7 @@ public partial class MainController : Control
         AddChild(_hudLayer);
         _hud = new GameHud { Name = "GameHud" };
         _hudLayer.AddChild(_hud);
+        _hud.GroundItemInfoChanged += visible => _groundItems?.SetInfoVisible(visible);
         _hud.AnchorMarkersChanged += (visible, color) =>
         {
             _actor?.SetAnchorMarker(visible, color);

@@ -23,6 +23,14 @@ public partial class RoleSettingsSmoke : Node
             RoleTestData.Seed(Path.Combine(directory, "server"));
             main = await Start(directory);
             var hud = main.FindChildren("*", "Control", true, false).OfType<GameHud>().Single();
+            // client-settings：地面物品信息默认 Z，重复按键在当前世界会话中切换。
+            bool? groundInfoVisible = null;
+            hud.GroundItemInfoChanged += visible => groundInfoVisible = visible;
+            Check(GameServices.Setting.GetShortcut("groundItems").Key == Key.Z, "地面物品信息默认快捷键错误");
+            SendKey(Key.Z);
+            Check(groundInfoVisible == true, "Z 未打开地面物品信息");
+            SendKey(Key.Z);
+            Check(groundInfoVisible == false, "Z 未关闭地面物品信息");
             // client-ui：普通小地图不显示标题，调整框仍保留名称。
             var radar = hud.GetNode<Control>("Radar");
             Check(!radar.FindChildren("*", "Label", true, false).OfType<Label>().Any(label => label.Text == "小地图") &&
@@ -99,6 +107,16 @@ public partial class RoleSettingsSmoke : Node
             Check(systemTabs.GetTabCount() == 2, "系统设置仍包含 HUD 页签");
             tabs.CurrentTab = 1;
             await Frames();
+            var groundBind = (Button)rolePanel.FindChild("Shortcut_groundItems", true, false);
+            Click(groundBind.GetGlobalRect().GetCenter());
+            SendKey(Key.N);
+            Check(GameServices.Setting.GetShortcut("groundItems").Key == Key.N && groundBind.Text == "N",
+                "地面物品信息改绑未保存");
+            groundInfoVisible = null;
+            SendKey(Key.Z);
+            Check(groundInfoVisible is null, "改绑后旧 Z 仍生效");
+            SendKey(Key.N);
+            Check(groundInfoVisible == true, "改绑后的地面信息快捷键未生效");
             var bind = (Button)rolePanel.FindChild("Shortcut_character", true, false);
             Click(bind.GetGlobalRect().GetCenter());
             Check(bind.ButtonPressed, "点击后未高亮");
@@ -137,6 +155,9 @@ public partial class RoleSettingsSmoke : Node
             chat.GrabFocus();
             SendKey(Key.B);
             Check(!hud.GetNode<Control>("背包").Visible, "聊天输入触发了快捷键");
+            groundInfoVisible = null;
+            SendKey(Key.N);
+            Check(groundInfoVisible is null, "聊天输入触发了地面物品信息快捷键");
             chat.ReleaseFocus();
             var roleId = GameServices.Session.RoleId;
             GameServices.Setting.SelectRole(roleId + 10000);
@@ -152,12 +173,19 @@ public partial class RoleSettingsSmoke : Node
             GameServices.Setting.SelectRole(roleId + 10000);
             Check(GameServices.Setting.GetShortcut("character").Key == Key.C && GameServices.Setting.GetShortcut("map").Key == Key.M,
                 "非法或重复存档绑定没有回退默认");
+            File.WriteAllText(legacyPath, "{\"Shortcuts\":{\"character\":{\"Key\":90},\"bag\":{\"Key\":66},\"map\":{\"Key\":77}}}");
+            GameServices.Setting.SelectRole(roleId + 10000);
+            Check(GameServices.Setting.GetShortcut("character").Key == Key.Z &&
+                GameServices.Setting.GetShortcut("groundItems").Key == Key.X,
+                "旧角色已占用 Z 时重置了已有快捷键");
             GameServices.Setting.SelectRole(roleId);
             Check(GameServices.Setting.GetShortcut("character").Ctrl, "重选角色丢失快捷键");
+            Check(GameServices.Setting.GetShortcut("groundItems").Key == Key.N, "重选角色丢失地面信息快捷键");
             var position = GameServices.Setting.GetWindowPosition("character")!;
             main.QueueFree(); await Frames(); main = null;
             main = await Start(directory);
             hud = main.FindChildren("*", "Control", true, false).OfType<GameHud>().Single();
+            Check(GameServices.Setting.GetShortcut("groundItems").Key == Key.N, "重启未恢复地面信息快捷键");
             SendKey(Key.R, ctrl: true); await Frames();
             var restored = hud.GetNode<Control>("角色");
             Check(restored.Visible && restored.Position.DistanceTo(GetViewport().GetVisibleRect().Size * new Vector2(position.X, position.Y)) < 1,

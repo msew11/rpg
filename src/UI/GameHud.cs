@@ -84,8 +84,12 @@ public partial class GameHud : Control
     public event Action? LoginRequested;
     /// <summary>需要关闭客户端时通知主控制器。</summary>
     public event Action? QuitRequested;
+    /// <summary>通知世界表现切换地面物品信息框。</summary>
+    public event Action<bool>? GroundItemInfoChanged;
     /// <summary>通知世界表现更新 GM 实体锚点调试样式。</summary>
     public event Action<bool, Color>? AnchorMarkersChanged;
+    /// <summary>当前世界会话的地面物品信息显示状态。</summary>
+    private bool _groundItemInfoVisible;
 
     /// <summary>从已注册服务读取选中角色，创建游戏界面及其监听。</summary>
     public override void _Ready()
@@ -203,6 +207,10 @@ public partial class GameHud : Control
             GetViewport().SetInputAsHandled();
             return;
         }
+        if (GameServices.Setting.GetShortcut("groundItems") != value) return;
+        _groundItemInfoVisible = !_groundItemInfoVisible;
+        GroundItemInfoChanged?.Invoke(_groundItemInfoVisible);
+        GetViewport().SetInputAsHandled();
     }
 
     /// <summary>模态确认框存在时保留它的键盘操作。</summary>
@@ -570,12 +578,12 @@ public partial class GameHud : Control
         page.AddChild(reset);
     }
 
-    /// <summary>创建按角色保存的三项快捷键，点击后持续高亮等待合法输入。</summary>
+    /// <summary>创建按角色保存的窗口及地面信息快捷键。</summary>
     private void BuildShortcutTab(TabContainer tabs)
     {
         var page = new VBoxContainer { Name = "快捷键" };
         tabs.AddChild(page);
-        foreach (var (key, title) in new[] { ("character", "角色"), ("bag", "道具"), ("map", "地图") })
+        foreach (var (key, title) in new[] { ("character", "角色"), ("bag", "道具"), ("map", "地图"), ("groundItems", "地面物品信息") })
         {
             var row = new HBoxContainer();
             page.AddChild(row);

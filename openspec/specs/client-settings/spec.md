@@ -70,7 +70,7 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 - **THEN** 可操作原技能栏显隐、HUD 调整与恢复默认，原保存取消行为保持一致
 
 ### Requirement: 角色快捷键自定义
-快捷键 SHALL 提供角色 C、道具 B、地图 M 三项默认绑定，并按角色持久化。点击一项 SHALL 高亮并监听键盘；合法且不冲突的键 SHALL 保存、立即生效并解除高亮。允许字母、数字、F1–F12 及 Ctrl/Alt/Shift 组合；禁止 Meta、系统组合键 Alt+Tab/Alt+F4/Ctrl+Alt+Delete、其他操作键与重复绑定。非法输入 SHALL 被消费、给出提示并保持高亮等待，关闭窗口或切换页签 SHALL 取消等待。
+快捷键 SHALL 提供角色 C、道具 B、地图 M、地面物品信息 Z 四项默认绑定，并按角色持久化。点击一项 SHALL 高亮并监听键盘；合法且不冲突的键 SHALL 保存、立即生效并解除高亮。允许字母、数字、F1–F12 及 Ctrl/Alt/Shift 组合；禁止 Meta、系统组合键 Alt+Tab/Alt+F4/Ctrl+Alt+Delete、其他操作键与重复绑定。非法输入 SHALL 被消费、给出提示并保持高亮等待，关闭窗口或切换页签 SHALL 取消等待。
 
 #### Scenario: 成功与恢复
 - **WHEN** 将角色改为 Ctrl+R 后重启或重新选角
@@ -83,6 +83,11 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 #### Scenario: 输入隔离
 - **WHEN** 聊天输入、模态窗口、HUD 调整期间或按键重复时输入绑定
 - **THEN** 不触发窗口快捷键，捕获期间的按键也不会触发窗口或文本输入
+
+#### Scenario: 地面物品信息快捷键
+
+- **WHEN** 玩家按 Z 显示信息、再次按 Z 隐藏，改绑后重进角色，并在聊天输入原绑定
+- **THEN** 新绑定按角色恢复并能切换，旧键与聊天输入不切换信息
 
 ### Requirement: 窗口拖动 Fetch 指针
 角色、道具与地图窗口的可拖动标题区域 SHALL 在悬停时显示 Fetch 开手，按住拖动时显示握手，使用既有 1.25 倍缩放与源热点 (6,6)。拖出标题区域 SHALL 保持握手；释放后 SHALL 按实际悬停恢复，关闭、失焦和离开界面 SHALL 清理抓取反馈。关闭按钮和内容 SHALL 不被当作可拖动标题，标题区域 SHALL 不显示系统移动十字鼠标。

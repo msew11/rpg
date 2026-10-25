@@ -22,15 +22,16 @@ public sealed class RoleSetting
 {
     /// <summary>角色、道具和地图窗口的相对视口坐标；缺失时采用初始布局。</summary>
     public Dictionary<string, HudPosition> WindowPositions { get; set; } = new();
-    /// <summary>按角色独立保存的窗口快捷键。</summary>
+    /// <summary>按角色独立保存的窗口与地面信息快捷键。</summary>
     public Dictionary<string, DataShortcut> Shortcuts { get; set; } = DefaultShortcuts();
 
-    /// <summary>提供角色 C、道具 B、地图 M 的初始绑定。</summary>
+    /// <summary>提供角色 C、道具 B、地图 M 和地面信息 Z 的初始绑定。</summary>
     public static Dictionary<string, DataShortcut> DefaultShortcuts() => new()
     {
         ["character"] = new() { Key = Godot.Key.C },
         ["bag"] = new() { Key = Godot.Key.B },
-        ["map"] = new() { Key = Godot.Key.M }
+        ["map"] = new() { Key = Godot.Key.M },
+        ["groundItems"] = new() { Key = Godot.Key.Z }
     };
 
     /// <summary>三条技能栏各自是否可见。</summary>
