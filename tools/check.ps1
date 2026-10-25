@@ -70,6 +70,8 @@ if ($Tests) {
     Invoke-GodotCheck 'item movement' @('--headless', '--path', $projectPath, 'res://tests/item_movement_smoke.tscn')
     # 数量丢弃通过真实点击验证背包、AOI、地面表现及共同恢复。
     Invoke-GodotCheck 'ground item drop' @('--headless', '--path', $projectPath, 'res://tests/ground_item_drop_smoke.tscn')
+    # 拾取覆盖轮廓、Fetch、走近距离、单件丢弃及满包反馈。
+    Invoke-GodotCheck 'ground item pickup' @('--headless', '--path', $projectPath, 'res://tests/ground_item_pickup_smoke.tscn')
     # 普通弹窗与 HUD 在缩放、加载和拖动后都不得越出窗口。
     Invoke-GodotCheck 'UI bounds' @('--headless', '--path', $projectPath, 'res://tests/ui_bounds_smoke.tscn')
 }

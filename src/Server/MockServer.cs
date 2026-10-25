@@ -43,6 +43,8 @@ public sealed class MockServer
     private readonly List<DataPendingMove> _pending = [];
     /// <summary>已确认的当前角色内存状态。</summary>
     private DataServerRole? _current;
+    /// <summary>绑定当前移动的拾取请求，只持有身份及预期版本。</summary>
+    private PickupItem? _pickup;
     /// <summary>当前模拟位置，尚未确认为已保存状态。</summary>
     private Vector2 _position;
     /// <summary>最近的移动目标。</summary>
@@ -79,6 +81,7 @@ public sealed class MockServer
         _current = null;
         _aoi = null;
         _pending.Clear();
+        _pickup = null;
         _lastAction = 0;
     }
 
@@ -97,6 +100,7 @@ public sealed class MockServer
             case Gm gm: HandleGm(gm); break;
             case MoveItem moveItem: HandleMoveItem(moveItem); break;
             case DropItem dropItem: HandleDropItem(dropItem); break;
+            case PickupItem pickup: HandlePickupItem(pickup); break;
             case ResyncMapAoi resync: HandleResyncMapAoi(resync); break;
         }
     }
@@ -106,6 +110,7 @@ public sealed class MockServer
     {
         if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
         AdvanceMovement(delta);
+        AdvancePickup();
         if (_current is not null && _aoi is not null)
         {
             var change = _aoi.Move(GetMap(_current.MapId), _position.X, _position.Y);
@@ -243,6 +248,7 @@ public sealed class MockServer
                 _position = _target = new Vector2(_current.X, _current.Y);
                 var failed = _pending.ToArray();
                 _pending.Clear();
+                _pickup = null;
                 foreach (var move in failed) Send(new MoveRt { RoleId = _current.RoleId, ActionId = move.ActionId,
                     Error = $"角色存档保存失败：{error.Message}" });
                 return;
@@ -276,6 +282,7 @@ public sealed class MockServer
         _current = null;
         _aoi = null;
         _pending.Clear();
+        _pickup = null;
         if (request.Username != "demo" || request.Password != "demo")
         {
             Send(new LoginRt { Error = "用户名或密码错误" });
@@ -306,6 +313,7 @@ public sealed class MockServer
             var observer = new MapAoiTracker(role.RoleId, role.MapId);
             snapshot = observer.Snapshot(map, role.X, role.Y);
             _pending.Clear();
+            _pickup = null;
             _lastAction = 0;
             _position = _target = new Vector2(role.X, role.Y);
             _current = role;
@@ -380,6 +388,11 @@ public sealed class MockServer
             Send(new MoveRt { RoleId = request.RoleId, ActionId = request.ActionId, Error = "无效的角色、坐标或移动序号" });
             return;
         }
+        if (_pickup is { } canceled)
+        {
+            _pickup = null;
+            Send(PickupResponse(canceled, "拾取已取消"));
+        }
         _lastAction = request.ActionId;
         _target = new Vector2(request.X, request.Y);
         _pending.Add(new DataPendingMove(request.ActionId, 0.45));
@@ -403,37 +416,7 @@ public sealed class MockServer
             if (args.Length == 3 && (!int.TryParse(args[2], NumberStyles.None, CultureInfo.InvariantCulture, out count) || count <= 0))
                 throw new ArgumentException("道具数量必须是有效的正整数");
             if (!_bagRules.Items.TryGetValue(itemId, out var definition)) throw new ArgumentException($"道具配置不存在：{itemId}");
-            _bagRules.Validate(_current);
-            var capacity = _bagRules.GetCapacity(_current.BagExtraRows);
-            var available = (long)(capacity - _current.Bag.Items.Count) * definition.MaxStack;
-            available += _current.Bag.Items.Where(item => item.ItemId == itemId).Sum(item => (long)definition.MaxStack - item.Count);
-            if (available < count) throw new InvalidOperationException("背包空间不足，本次未发放任何道具");
-            var items = _current.Bag.Items.OrderBy(item => item.SlotIndex).ToList();
-            var remaining = count;
-            for (var index = 0; index < items.Count && remaining > 0; index++)
-            {
-                var item = items[index];
-                if (item.ItemId != itemId) continue;
-                var added = Math.Min(remaining, definition.MaxStack - item.Count);
-                items[index] = item with { Count = item.Count + added };
-                remaining -= added;
-            }
-            var occupied = items.Select(item => item.SlotIndex).ToHashSet();
-            var nextId = _current.Bag.NextInstanceId;
-            for (var slot = 0; remaining > 0 && slot < capacity; slot++)
-            {
-                if (occupied.Contains(slot)) continue;
-                var added = Math.Min(remaining, definition.MaxStack);
-                items.Add(new DataServerItem(nextId, itemId, slot, added));
-                nextId = checked(nextId + 1);
-                remaining -= added;
-            }
-            candidate = _current with { Bag = new DataServerBag
-            {
-                Revision = checked(_current.Bag.Revision + 1), NextInstanceId = nextId,
-                Items = items.OrderBy(item => item.SlotIndex).ToList().AsReadOnly()
-            } };
-            _bagRules.Validate(candidate);
+            candidate = _bagRules.Add(_current, itemId, count);
             _roles.SaveBag(candidate);
             response.Success = true;
             response.Message = $"已发放 {definition.Name}（{itemId}）× {count}";
@@ -558,6 +541,79 @@ public sealed class MockServer
         PublishMapChange(map, change);
         Send(response);
     }
+
+    /// <summary>只接纳当前 AOI 对象及匹配的走近目标，远处暂存意图，近处立即尝试。</summary>
+    private void HandlePickupItem(PickupItem request)
+    {
+        try
+        {
+            _ = ValidatePickup(request);
+            if (_pickup is not null)
+            {
+                if (_pickup.Equals(request)) return;
+                throw new InvalidOperationException("已有待完成的拾取");
+            }
+        }
+        catch (Exception error) { Send(PickupResponse(request, error.Message)); return; }
+        _pickup = request.Clone();
+        AdvancePickup();
+    }
+
+    /// <summary>校验身份、对象和背包版本，以及服务端当前位置的九块范围与移动绑定。</summary>
+    private DataServerMapObject ValidatePickup(PickupItem request)
+    {
+        if (!_authenticated || _current is null || request.RoleId != _current.RoleId || request.MoveActionId <= 0 || request.MoveActionId != _lastAction)
+            throw new InvalidOperationException("拾取角色或移动意图无效");
+        if (request.ExpectedBagRevision != _current.Bag.Revision) throw new InvalidOperationException("背包已更新，请重新拾取");
+        var map = GetMap(_current.MapId);
+        if (!Guid.TryParseExact(request.ObjectId, "N", out var id) || !map.Objects.TryGetValue(id, out var item) || item.MonsterTypeId is not null)
+            throw new InvalidOperationException("地面物品已不存在");
+        if (request.ExpectedObjectRevision != item.Revision) throw new InvalidOperationException("地面物品已变化，请重新拾取");
+        var center = map.Rules.ChunkAt(_position.X, _position.Y);
+        if (!map.Rules.Neighborhood(center.X, center.Y).Contains(map.Rules.ChunkAt(item.X, item.Y)) ||
+            Vector2.DistanceSquared(_target, new Vector2(item.X, item.Y)) > 0.01f)
+            throw new InvalidOperationException("物品不在当前范围或走近目标不匹配");
+        return item;
+    }
+
+    /// <summary>移动推进后按权威距离整份入包，复用现有转移关系与文件提交。</summary>
+    private void AdvancePickup()
+    {
+        if (_pickup is not { } request) return;
+        DataServerRole candidate;
+        ServerMap map;
+        DataServerMapChange change;
+        try
+        {
+            var item = ValidatePickup(request);
+            map = GetMap(_current!.MapId);
+            if (Vector2.DistanceSquared(_position, new Vector2(item.X, item.Y)) > (double)map.Rules.TileSize * map.Rules.TileSize) return;
+            candidate = _bagRules.Add(_current, item.ItemId, item.Count);
+            RepoServerRole.Validate(candidate);
+            change = map.Remove(item.ObjectId);
+            _roles.SaveBag(candidate);
+            if (!_transferGroups.TryGetValue(candidate.MapId, out var ids)) _transferGroups[candidate.MapId] = ids = new();
+            ids.Add(candidate.RoleId);
+        }
+        catch (Exception error)
+        {
+            _pickup = null;
+            Send(PickupResponse(request, error.Message));
+            return;
+        }
+        _pickup = null;
+        _current = candidate;
+        Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+        PublishMapChange(map, change);
+        Send(PickupResponse(request));
+    }
+
+    /// <summary>最终结果只携带关联身份，两侧缓存走已有独立通知。</summary>
+    private static PickupItemRt PickupResponse(PickupItem request, string error = "") => new()
+    {
+        RoleId = request.RoleId, ObjectId = request.ObjectId, MoveActionId = request.MoveActionId,
+        Success = error.Length == 0, Error = error
+    };
 
     /// <summary>复制服务端实例为独立完整背包协议。</summary>
     private static BagPb ToBagMessage(DataServerBag bag)

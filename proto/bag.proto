@@ -81,3 +81,31 @@ message DropItemRt {
   // 成功创建的地面对象 GUID。
   string object_id = 5;
 }
+
+// 绑定当前移动意图，进入服务端拾取距离后整份取回背包。
+message PickupItem {
+  // 当前角色身份。
+  int64 role_id = 1;
+  // 地面对象稳定 GUID。
+  string object_id = 2;
+  // 点击时的对象版本。
+  int64 expected_object_revision = 3;
+  // 点击时的背包版本。
+  int64 expected_bag_revision = 4;
+  // 已先提交的走近移动序号。
+  int64 move_action_id = 5;
+}
+
+// 最终拾取结果，状态仍由背包及 AOI 通知交付。
+message PickupItemRt {
+  // 请求所属角色。
+  int64 role_id = 1;
+  // 请求的地面对象。
+  string object_id = 2;
+  // 关联移动序号，区分先后操作。
+  int64 move_action_id = 3;
+  // 是否整份转移成功。
+  bool success = 4;
+  // 失败或取消原因。
+  string error = 5;
+}

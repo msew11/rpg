@@ -29,6 +29,8 @@ public partial class MainController : Control
     private bool _roleRequestPending;
     /// <summary>地图、角色和摄像机的表现根节点。</summary>
     private Node2D? _worldVisual;
+    /// <summary>只读地面表现与命中查询，不复制地图对象。</summary>
+    private GroundItemsView? _groundItems;
     /// <summary>角色绘制节点。</summary>
     private ActorView? _actor;
     /// <summary>跟随角色的世界摄像机。</summary>
@@ -56,6 +58,7 @@ public partial class MainController : Control
             _subscriptions.Add(GameServices.EventBus.Subscribe<MoveRt>(OnMoved));
             _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStateNotice>(OnRoleNotice));
             _subscriptions.Add(GameServices.EventBus.Subscribe<MapAoiNotice>(OnMapNotice));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<PickupItemRt>(OnPickedUp));
             ShowLogin();
         }
         catch (Exception error)
@@ -81,6 +84,13 @@ public partial class MainController : Control
     public override void _UnhandledInput(InputEvent input)
     {
         if (_servicesLifetime is null || _worldVisual is null || input is not InputEventMouseButton click) return;
+        if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && _groundItems?.ItemAt(click.Position) is { } objectId)
+        {
+            try { GameServices.World.PickupItem(objectId); }
+            catch (Exception error) { _hud?.ShowNetworkError(error.Message); }
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         var projectedPosition = GetViewport().GetCanvasTransform().AffineInverse() * click.Position;
         if (GameServices.World.HandleInput(input, IsometricProjection.ToLogical(projectedPosition)))
         {
@@ -264,6 +274,12 @@ public partial class MainController : Control
             GameServices.World.SyncRole();
     }
 
+    /// <summary>拾取最终结果只显示反馈，两侧状态已由原缓存通知维护。</summary>
+    private void OnPickedUp(PickupItemRt response)
+    {
+        if (response.RoleId == GameServices.Session.RoleId) _hud?.ShowNetworkError(response.Success ? "" : response.Error);
+    }
+
     /// <summary>地图缓存已处理通知后，只协调缺口重同步，不处理对象数据。</summary>
     private void OnMapNotice(MapAoiNotice notice)
     {
@@ -280,7 +296,8 @@ public partial class MainController : Control
         _worldVisual = new Node2D { Name = "WorldVisual" };
         AddChild(_worldVisual);
         _worldVisual.AddChild(new MapView { Name = "MapView" });
-        _worldVisual.AddChild(new GroundItemsView { Name = "GroundItemsView", ZIndex = 1 });
+        _groundItems = new GroundItemsView { Name = "GroundItemsView", ZIndex = 1 };
+        _worldVisual.AddChild(_groundItems);
         _actor = new ActorView { Name = "ActorView", ZIndex = 2, Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
         _worldVisual.AddChild(_actor);
         _actor.Present(GameServices.World.ActorState!);
@@ -344,6 +361,7 @@ public partial class MainController : Control
         _hud = null;
         _worldVisual?.QueueFree();
         _worldVisual = null;
+        _groundItems = null;
         _actor = null;
         _camera = null;
     }

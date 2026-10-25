@@ -64,6 +64,18 @@ public sealed class WorldService : Service
         return true;
     }
 
+    /// <summary>按唯一地图快照选择物品，沿已有移动流程走近，再提交绑定此意图的拾取。</summary>
+    public void PickupItem(Guid objectId)
+    {
+        ThrowIfDisposed();
+        if (_world is null || MapObjects is not { } map || !map.Objects.TryGetValue(objectId, out var item) || item.MonsterTypeId is not null)
+            throw new InvalidOperationException("地面物品已不存在");
+        var action = new MoveAction(++_nextActionId, new Vector2(item.X, item.Y));
+        _session.SubmitMove(action.ActionId, action.Destination);
+        _world.Enqueue(action);
+        _session.PickupItem(item.ObjectId, item.Revision, action.ActionId);
+    }
+
     /// <summary>在网络推进之后按固定帧处理 ECS。</summary>
     public void Tick(double delta) { ThrowIfDisposed(); _world?.Tick(delta); }
 

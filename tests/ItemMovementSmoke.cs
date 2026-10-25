@@ -56,7 +56,7 @@ public partial class ItemMovementSmoke : Node
 
             var revision = GameServices.Session.Bag.Revision;
             await Drag(grid.GetChild<Control>(2), grid.GetChild<Control>(2));
-            await BeginDrag(grid.GetChild<Control>(2));
+            await BeginDrag(grid.GetChild<Control>(7));
             await EndDrag(new Vector2(20, 220));
             var dropDialog = (ConfirmationDialog)bag.FindChild("DropItemDialog", true, false);
             Check(dropDialog.Visible, "点击地图没有打开丢弃数量确认");

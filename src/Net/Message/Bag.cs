@@ -37,8 +37,14 @@ namespace Rpg.Net.Message {
             "ZV9pZBgBIAEoAxITCgtpbnN0YW5jZV9pZBgCIAEoAxINCgVjb3VudBgDIAEo",
             "BRIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoAyJlCgpEcm9wSXRlbVJ0Eg8K",
             "B3JvbGVfaWQYASABKAMSEwoLaW5zdGFuY2VfaWQYAiABKAMSDwoHc3VjY2Vz",
-            "cxgDIAEoCBINCgVlcnJvchgEIAEoCRIRCglvYmplY3RfaWQYBSABKAlCEqoC",
-            "D1JwZy5OZXQuTWVzc2FnZWIGcHJvdG8z"));
+            "cxgDIAEoCBINCgVlcnJvchgEIAEoCRIRCglvYmplY3RfaWQYBSABKAkiiQEK",
+            "ClBpY2t1cEl0ZW0SDwoHcm9sZV9pZBgBIAEoAxIRCglvYmplY3RfaWQYAiAB",
+            "KAkSIAoYZXhwZWN0ZWRfb2JqZWN0X3JldmlzaW9uGAMgASgDEh0KFWV4cGVj",
+            "dGVkX2JhZ19yZXZpc2lvbhgEIAEoAxIWCg5tb3ZlX2FjdGlvbl9pZBgFIAEo",
+            "AyJqCgxQaWNrdXBJdGVtUnQSDwoHcm9sZV9pZBgBIAEoAxIRCglvYmplY3Rf",
+            "aWQYAiABKAkSFgoObW92ZV9hY3Rpb25faWQYAyABKAMSDwoHc3VjY2VzcxgE",
+            "IAEoCBINCgVlcnJvchgFIAEoCUISqgIPUnBnLk5ldC5NZXNzYWdlYgZwcm90",
+            "bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -48,7 +54,9 @@ namespace Rpg.Net.Message {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.MoveItem), global::Rpg.Net.Message.MoveItem.Parser, new[]{ "RoleId", "InstanceId", "TargetSlotIndex", "ExpectedRevision" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.MoveItemRt), global::Rpg.Net.Message.MoveItemRt.Parser, new[]{ "RoleId", "InstanceId", "TargetSlotIndex", "Success", "Error" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItem), global::Rpg.Net.Message.DropItem.Parser, new[]{ "RoleId", "InstanceId", "Count", "ExpectedRevision" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItemRt), global::Rpg.Net.Message.DropItemRt.Parser, new[]{ "RoleId", "InstanceId", "Success", "Error", "ObjectId" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItemRt), global::Rpg.Net.Message.DropItemRt.Parser, new[]{ "RoleId", "InstanceId", "Success", "Error", "ObjectId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.PickupItem), global::Rpg.Net.Message.PickupItem.Parser, new[]{ "RoleId", "ObjectId", "ExpectedObjectRevision", "ExpectedBagRevision", "MoveActionId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.PickupItemRt), global::Rpg.Net.Message.PickupItemRt.Parser, new[]{ "RoleId", "ObjectId", "MoveActionId", "Success", "Error" }, null, null, null, null)
           }));
     }
     #endregion
@@ -2232,6 +2240,734 @@ namespace Rpg.Net.Message {
           }
           case 42: {
             ObjectId = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 绑定当前移动意图，进入服务端拾取距离后整份取回背包。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class PickupItem : pb::IMessage<PickupItem>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<PickupItem> _parser = new pb::MessageParser<PickupItem>(() => new PickupItem());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<PickupItem> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.Net.Message.BagReflection.Descriptor.MessageTypes[7]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PickupItem() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PickupItem(PickupItem other) : this() {
+      roleId_ = other.roleId_;
+      objectId_ = other.objectId_;
+      expectedObjectRevision_ = other.expectedObjectRevision_;
+      expectedBagRevision_ = other.expectedBagRevision_;
+      moveActionId_ = other.moveActionId_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PickupItem Clone() {
+      return new PickupItem(this);
+    }
+
+    /// <summary>Field number for the "role_id" field.</summary>
+    public const int RoleIdFieldNumber = 1;
+    private long roleId_;
+    /// <summary>
+    /// 当前角色身份。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long RoleId {
+      get { return roleId_; }
+      set {
+        roleId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "object_id" field.</summary>
+    public const int ObjectIdFieldNumber = 2;
+    private string objectId_ = "";
+    /// <summary>
+    /// 地面对象稳定 GUID。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ObjectId {
+      get { return objectId_; }
+      set {
+        objectId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "expected_object_revision" field.</summary>
+    public const int ExpectedObjectRevisionFieldNumber = 3;
+    private long expectedObjectRevision_;
+    /// <summary>
+    /// 点击时的对象版本。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long ExpectedObjectRevision {
+      get { return expectedObjectRevision_; }
+      set {
+        expectedObjectRevision_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "expected_bag_revision" field.</summary>
+    public const int ExpectedBagRevisionFieldNumber = 4;
+    private long expectedBagRevision_;
+    /// <summary>
+    /// 点击时的背包版本。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long ExpectedBagRevision {
+      get { return expectedBagRevision_; }
+      set {
+        expectedBagRevision_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "move_action_id" field.</summary>
+    public const int MoveActionIdFieldNumber = 5;
+    private long moveActionId_;
+    /// <summary>
+    /// 已先提交的走近移动序号。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long MoveActionId {
+      get { return moveActionId_; }
+      set {
+        moveActionId_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as PickupItem);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(PickupItem other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RoleId != other.RoleId) return false;
+      if (ObjectId != other.ObjectId) return false;
+      if (ExpectedObjectRevision != other.ExpectedObjectRevision) return false;
+      if (ExpectedBagRevision != other.ExpectedBagRevision) return false;
+      if (MoveActionId != other.MoveActionId) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RoleId != 0L) hash ^= RoleId.GetHashCode();
+      if (ObjectId.Length != 0) hash ^= ObjectId.GetHashCode();
+      if (ExpectedObjectRevision != 0L) hash ^= ExpectedObjectRevision.GetHashCode();
+      if (ExpectedBagRevision != 0L) hash ^= ExpectedBagRevision.GetHashCode();
+      if (MoveActionId != 0L) hash ^= MoveActionId.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (ObjectId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(ObjectId);
+      }
+      if (ExpectedObjectRevision != 0L) {
+        output.WriteRawTag(24);
+        output.WriteInt64(ExpectedObjectRevision);
+      }
+      if (ExpectedBagRevision != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(ExpectedBagRevision);
+      }
+      if (MoveActionId != 0L) {
+        output.WriteRawTag(40);
+        output.WriteInt64(MoveActionId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (ObjectId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(ObjectId);
+      }
+      if (ExpectedObjectRevision != 0L) {
+        output.WriteRawTag(24);
+        output.WriteInt64(ExpectedObjectRevision);
+      }
+      if (ExpectedBagRevision != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(ExpectedBagRevision);
+      }
+      if (MoveActionId != 0L) {
+        output.WriteRawTag(40);
+        output.WriteInt64(MoveActionId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RoleId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(RoleId);
+      }
+      if (ObjectId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(ObjectId);
+      }
+      if (ExpectedObjectRevision != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(ExpectedObjectRevision);
+      }
+      if (ExpectedBagRevision != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(ExpectedBagRevision);
+      }
+      if (MoveActionId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(MoveActionId);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(PickupItem other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RoleId != 0L) {
+        RoleId = other.RoleId;
+      }
+      if (other.ObjectId.Length != 0) {
+        ObjectId = other.ObjectId;
+      }
+      if (other.ExpectedObjectRevision != 0L) {
+        ExpectedObjectRevision = other.ExpectedObjectRevision;
+      }
+      if (other.ExpectedBagRevision != 0L) {
+        ExpectedBagRevision = other.ExpectedBagRevision;
+      }
+      if (other.MoveActionId != 0L) {
+        MoveActionId = other.MoveActionId;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 18: {
+            ObjectId = input.ReadString();
+            break;
+          }
+          case 24: {
+            ExpectedObjectRevision = input.ReadInt64();
+            break;
+          }
+          case 32: {
+            ExpectedBagRevision = input.ReadInt64();
+            break;
+          }
+          case 40: {
+            MoveActionId = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 18: {
+            ObjectId = input.ReadString();
+            break;
+          }
+          case 24: {
+            ExpectedObjectRevision = input.ReadInt64();
+            break;
+          }
+          case 32: {
+            ExpectedBagRevision = input.ReadInt64();
+            break;
+          }
+          case 40: {
+            MoveActionId = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 最终拾取结果，状态仍由背包及 AOI 通知交付。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class PickupItemRt : pb::IMessage<PickupItemRt>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<PickupItemRt> _parser = new pb::MessageParser<PickupItemRt>(() => new PickupItemRt());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<PickupItemRt> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.Net.Message.BagReflection.Descriptor.MessageTypes[8]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PickupItemRt() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PickupItemRt(PickupItemRt other) : this() {
+      roleId_ = other.roleId_;
+      objectId_ = other.objectId_;
+      moveActionId_ = other.moveActionId_;
+      success_ = other.success_;
+      error_ = other.error_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PickupItemRt Clone() {
+      return new PickupItemRt(this);
+    }
+
+    /// <summary>Field number for the "role_id" field.</summary>
+    public const int RoleIdFieldNumber = 1;
+    private long roleId_;
+    /// <summary>
+    /// 请求所属角色。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long RoleId {
+      get { return roleId_; }
+      set {
+        roleId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "object_id" field.</summary>
+    public const int ObjectIdFieldNumber = 2;
+    private string objectId_ = "";
+    /// <summary>
+    /// 请求的地面对象。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ObjectId {
+      get { return objectId_; }
+      set {
+        objectId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "move_action_id" field.</summary>
+    public const int MoveActionIdFieldNumber = 3;
+    private long moveActionId_;
+    /// <summary>
+    /// 关联移动序号，区分先后操作。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long MoveActionId {
+      get { return moveActionId_; }
+      set {
+        moveActionId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "success" field.</summary>
+    public const int SuccessFieldNumber = 4;
+    private bool success_;
+    /// <summary>
+    /// 是否整份转移成功。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Success {
+      get { return success_; }
+      set {
+        success_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "error" field.</summary>
+    public const int ErrorFieldNumber = 5;
+    private string error_ = "";
+    /// <summary>
+    /// 失败或取消原因。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Error {
+      get { return error_; }
+      set {
+        error_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as PickupItemRt);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(PickupItemRt other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RoleId != other.RoleId) return false;
+      if (ObjectId != other.ObjectId) return false;
+      if (MoveActionId != other.MoveActionId) return false;
+      if (Success != other.Success) return false;
+      if (Error != other.Error) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RoleId != 0L) hash ^= RoleId.GetHashCode();
+      if (ObjectId.Length != 0) hash ^= ObjectId.GetHashCode();
+      if (MoveActionId != 0L) hash ^= MoveActionId.GetHashCode();
+      if (Success != false) hash ^= Success.GetHashCode();
+      if (Error.Length != 0) hash ^= Error.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (ObjectId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(ObjectId);
+      }
+      if (MoveActionId != 0L) {
+        output.WriteRawTag(24);
+        output.WriteInt64(MoveActionId);
+      }
+      if (Success != false) {
+        output.WriteRawTag(32);
+        output.WriteBool(Success);
+      }
+      if (Error.Length != 0) {
+        output.WriteRawTag(42);
+        output.WriteString(Error);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (ObjectId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(ObjectId);
+      }
+      if (MoveActionId != 0L) {
+        output.WriteRawTag(24);
+        output.WriteInt64(MoveActionId);
+      }
+      if (Success != false) {
+        output.WriteRawTag(32);
+        output.WriteBool(Success);
+      }
+      if (Error.Length != 0) {
+        output.WriteRawTag(42);
+        output.WriteString(Error);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RoleId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(RoleId);
+      }
+      if (ObjectId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(ObjectId);
+      }
+      if (MoveActionId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(MoveActionId);
+      }
+      if (Success != false) {
+        size += 1 + 1;
+      }
+      if (Error.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Error);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(PickupItemRt other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RoleId != 0L) {
+        RoleId = other.RoleId;
+      }
+      if (other.ObjectId.Length != 0) {
+        ObjectId = other.ObjectId;
+      }
+      if (other.MoveActionId != 0L) {
+        MoveActionId = other.MoveActionId;
+      }
+      if (other.Success != false) {
+        Success = other.Success;
+      }
+      if (other.Error.Length != 0) {
+        Error = other.Error;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 18: {
+            ObjectId = input.ReadString();
+            break;
+          }
+          case 24: {
+            MoveActionId = input.ReadInt64();
+            break;
+          }
+          case 32: {
+            Success = input.ReadBool();
+            break;
+          }
+          case 42: {
+            Error = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 18: {
+            ObjectId = input.ReadString();
+            break;
+          }
+          case 24: {
+            MoveActionId = input.ReadInt64();
+            break;
+          }
+          case 32: {
+            Success = input.ReadBool();
+            break;
+          }
+          case 42: {
+            Error = input.ReadString();
             break;
           }
         }

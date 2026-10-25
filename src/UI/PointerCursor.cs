@@ -1,5 +1,6 @@
 using Godot;
 using System.Linq;
+using Rpg.World.Views;
 
 namespace Rpg.UI;
 
@@ -20,6 +21,8 @@ public partial class PointerCursor : Node
     public bool IsHudHovering { get; private set; }
     /// <summary>当前是否保持 HUD 握手拖动。</summary>
     public bool IsHudDragging { get; private set; }
+    /// <summary>当前是否提示可拾取地面物品。</summary>
+    public bool IsItemHovering { get; private set; }
     /// <summary>当前硬件指针的缩放后热点。</summary>
     public Vector2 CurrentHotspot { get; private set; }
     /// <summary>应用失焦期间禁止恢复悬停状态。</summary>
@@ -48,6 +51,7 @@ public partial class PointerCursor : Node
         IsPressed = click.Pressed;
         _elapsed = 0;
         if (!hudActive) Present(IsPressed ? _pressed[0] : _normal);
+        else RefreshHudCursor();
     }
 
     /// <summary>优先呈现 HUD 抓取；普通点击播放两帧并保持末帧至释放。</summary>
@@ -66,6 +70,7 @@ public partial class PointerCursor : Node
         _focused = false;
         IsHudHovering = false;
         IsHudDragging = false;
+        IsItemHovering = false;
         IsPressed = false;
         Present(_normal);
     }
@@ -76,12 +81,20 @@ public partial class PointerCursor : Node
         var dragging = _focused && GetTree().GetNodesInGroup("HudEditOverlays")
             .OfType<HudEditOverlay>().Any(overlay => overlay.IsVisibleInTree() && overlay.Dragging);
         var hovering = _focused && GetViewport().GuiGetHoveredControl() is HudEditOverlay overlay && overlay.IsVisibleInTree();
-        var previous = IsHudDragging || IsHudHovering;
+        var itemHover = _focused && GetTree().GetNodesInGroup("GroundItemViews")
+            .OfType<GroundItemsView>().Any(view => view.HoveredObjectId is not null);
+        var previous = IsHudDragging || IsHudHovering || IsItemHovering;
+        IsItemHovering = itemHover;
         IsHudDragging = dragging;
         IsHudHovering = hovering;
         if (dragging || hovering)
         {
             Present(_fetch[dragging ? 1 : 0], new Vector2(6, 6) * DisplayScale);
+            return true;
+        }
+        if (itemHover)
+        {
+            Present(_fetch[IsPressed ? 1 : 0], new Vector2(6, 6) * DisplayScale);
             return true;
         }
         if (previous)

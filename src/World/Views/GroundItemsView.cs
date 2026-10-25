@@ -16,6 +16,33 @@ public partial class GroundItemsView : Node2D
     private readonly Dictionary<Guid, Node2D> _views = new();
     /// <summary>资源图集解析缓存，不保存对象快照。</summary>
     private readonly ItemIconResolver _icons = new();
+    /// <summary>图标资源按素材键复用，不保存第二份地图状态。</summary>
+    private readonly Dictionary<string, DataItemOutline> _resources = new();
+    /// <summary>表现节点对应的像素命中资源。</summary>
+    private readonly Dictionary<Guid, DataItemOutline> _hitResources = new();
+    /// <summary>输入事件提供的视口坐标，摄像机移动后也重新投影。</summary>
+    private Vector2 _pointerPosition = new(-10000, -10000);
+    /// <summary>失焦期间禁止悬停恢复。</summary>
+    private bool _focused = true;
+    /// <summary>当前悬停的稳定身份，供鼠标表现读取。</summary>
+    public Guid? HoveredObjectId { get; private set; }
+
+    /// <summary>标记表现组，鼠标可查询悬停状态而无需新服务或反向调用。</summary>
+    public override void _Ready() => AddToGroup("GroundItemViews");
+
+    /// <summary>只观察坐标，不抢占 GUI 或普通地图输入。</summary>
+    public override void _Input(InputEvent input)
+    {
+        if (input is InputEventMouse mouse) _pointerPosition = mouse.Position;
+    }
+
+    /// <summary>失焦立即清除高亮，重新聚焦后按实际悬停重新计算。</summary>
+    public override void _Notification(int what)
+    {
+        if (what == NotificationApplicationFocusOut) { _focused = false; SetHovered(null); }
+        if (what == NotificationApplicationFocusIn) _focused = true;
+    }
+
     /// <summary>上次观察的不可变快照引用，静止时跳过节点更新。</summary>
     private DataMapAoiSnapshotPbData? _previous;
 
@@ -23,14 +50,24 @@ public partial class GroundItemsView : Node2D
     public override void _Process(double delta)
     {
         var snapshot = GameServices.World.MapObjects;
-        if (ReferenceEquals(snapshot, _previous)) return;
-        _previous = snapshot;
+        if (!ReferenceEquals(snapshot, _previous))
+        {
+            _previous = snapshot;
+            Refresh(snapshot);
+        }
+        SetHovered(ItemAt(_pointerPosition));
+    }
+
+    /// <summary>只有快照变化才同步表现节点，静止悬停不重建资源。</summary>
+    private void Refresh(DataMapAoiSnapshotPbData? snapshot)
+    {
         foreach (var (id, view) in _views.ToArray())
             if (snapshot is null || !snapshot.Objects.TryGetValue(id, out var value) || value.MonsterTypeId is not null)
             {
                 RemoveChild(view);
                 view.QueueFree();
                 _views.Remove(id);
+                _hitResources.Remove(id);
             }
         if (snapshot is null) return;
         var offsets = new Dictionary<(float X, float Y), int>();
@@ -49,15 +86,16 @@ public partial class GroundItemsView : Node2D
             view.Position = IsometricProjection.ToScreen(new Vector2(value.X, value.Y)) + new Vector2(0, offset * 48);
             foreach (var child in view.GetChildren()) { view.RemoveChild(child); child.QueueFree(); }
             var config = GameServices.Config.Item.Items[value.ItemId];
-            var texture = _icons.Resolve(config.IconAssetId);
-            Control icon = texture is null
-                ? new Label { Text = "?", HorizontalAlignment = HorizontalAlignment.Center }
-                : new TextureRect { Texture = texture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-                    StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.Nearest };
-            icon.Name = "GroundItemIcon";
-            icon.Position = new Vector2(-16, -24);
-            icon.Size = new Vector2(32, 32);
-            icon.MouseFilter = Control.MouseFilterEnum.Ignore;
+            if (!_resources.TryGetValue(config.IconAssetId, out var resource))
+                _resources[config.IconAssetId] = resource = new DataItemOutline(_icons.Resolve(config.IconAssetId));
+            _hitResources[value.ObjectId] = resource;
+            var outline = new TextureRect { Name = "GroundItemOutline", Texture = resource.Outline,
+                Position = new Vector2(-18, -26), Size = new Vector2(36, 36), Visible = false,
+                MouseFilter = Control.MouseFilterEnum.Ignore, TextureFilter = TextureFilterEnum.Nearest };
+            view.AddChild(outline);
+            var icon = new TextureRect { Name = "GroundItemIcon", Texture = resource.Icon,
+                Position = new Vector2(-16, -24), Size = new Vector2(32, 32),
+                MouseFilter = Control.MouseFilterEnum.Ignore, TextureFilter = TextureFilterEnum.Nearest };
             view.AddChild(icon);
             var label = new Label { Name = "GroundItemName", Text = $"{config.Name} ×{value.Count}",
                 MouseFilter = Control.MouseFilterEnum.Ignore };
@@ -67,4 +105,28 @@ public partial class GroundItemsView : Node2D
             label.Position = new Vector2(-label.GetCombinedMinimumSize().X / 2, 10);
         }
     }
+
+    /// <summary>返回最上层可见物品，UI 或模态窗口遮挡时不参与拾取。</summary>
+    public Guid? ItemAt(Vector2 viewportPosition)
+    {
+        if (!_focused || !IsVisibleInTree() || GetViewport().GuiGetHoveredControl() is not null || GetLastExclusiveWindow() != GetWindow())
+            return null;
+        foreach (var (id, view) in _views.Reverse())
+        {
+            var local = view.GetGlobalTransformWithCanvas().AffineInverse() * viewportPosition;
+            var iconLocal = local - new Vector2(-16, -24);
+            var label = view.GetNode<Label>("GroundItemName");
+            if (_hitResources[id].IsOpaque(Mathf.FloorToInt(iconLocal.X), Mathf.FloorToInt(iconLocal.Y)) || label.GetRect().HasPoint(local))
+                return id;
+        }
+        return null;
+    }
+
+    /// <summary>一次只显示当前对象的真实轮廓，移出及失效时清除。</summary>
+    private void SetHovered(Guid? id)
+    {
+        HoveredObjectId = id;
+        foreach (var (key, view) in _views) view.GetNode<TextureRect>("GroundItemOutline").Visible = key == id;
+    }
+
 }

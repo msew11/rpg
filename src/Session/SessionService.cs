@@ -176,6 +176,15 @@ public sealed class SessionService : Service
         _net.Send(new DropItem { RoleId = RoleId, InstanceId = instanceId, Count = count, ExpectedRevision = expectedRevision });
     }
 
+    /// <summary>绑定已经提交的走近移动，服务端决定何时可以整份拾取。</summary>
+    internal void PickupItem(Guid objectId, long objectRevision, long moveActionId)
+    {
+        EnsureActive();
+        if (!HasRole) throw new InvalidOperationException("请先进入角色");
+        _net.Send(new PickupItem { RoleId = RoleId, ObjectId = objectId.ToString("N"),
+            ExpectedObjectRevision = objectRevision, ExpectedBagRevision = Bag.Revision, MoveActionId = moveActionId });
+    }
+
     /// <summary>只为已发现缺口且没有在途请求的当前地图申请一次快照。</summary>
     public bool ResyncMapIfNeeded()
     {

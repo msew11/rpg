@@ -36,6 +36,44 @@ public sealed class DataServerBagRules
         catch (OverflowException error) { throw new InvalidDataException("背包容量超出整数范围", error); }
     }
 
+    /// <summary>原子构造完整入包候选，先补堆叠再占空格，不修改源状态或消耗失败编号。</summary>
+    public DataServerRole Add(DataServerRole role, int itemId, int count)
+    {
+        if (count <= 0 || !Items.TryGetValue(itemId, out var definition)) throw new InvalidDataException("道具或数量无效");
+        Validate(role);
+        var capacity = GetCapacity(role.BagExtraRows);
+        var available = (long)(capacity - role.Bag.Items.Count) * definition.MaxStack;
+        available += role.Bag.Items.Where(item => item.ItemId == itemId).Sum(item => (long)definition.MaxStack - item.Count);
+        if (available < count) throw new InvalidOperationException("背包空间不足");
+        var items = role.Bag.Items.OrderBy(item => item.SlotIndex).ToList();
+        var remaining = count;
+        for (var index = 0; index < items.Count && remaining > 0; index++)
+        {
+            var item = items[index];
+            if (item.ItemId != itemId) continue;
+            var added = Math.Min(remaining, definition.MaxStack - item.Count);
+            items[index] = item with { Count = item.Count + added };
+            remaining -= added;
+        }
+        var occupied = items.Select(item => item.SlotIndex).ToHashSet();
+        var nextId = role.Bag.NextInstanceId;
+        for (var slot = 0; remaining > 0 && slot < capacity; slot++)
+        {
+            if (occupied.Contains(slot)) continue;
+            var added = Math.Min(remaining, definition.MaxStack);
+            items.Add(new DataServerItem(nextId, itemId, slot, added));
+            nextId = checked(nextId + 1);
+            remaining -= added;
+        }
+        var candidate = role with { Bag = new DataServerBag
+        {
+            Revision = checked(role.Bag.Revision + 1), NextInstanceId = nextId,
+            Items = items.OrderBy(item => item.SlotIndex).ToList().AsReadOnly()
+        } };
+        Validate(candidate);
+        return candidate;
+    }
+
     /// <summary>在存档结构校验后核对当前配置与容量。</summary>
     public void Validate(DataServerRole role)
     {

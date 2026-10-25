@@ -57,7 +57,7 @@ public partial class GroundItemDropSmoke : Node
             Check(ground.Count == 2 && ground.ItemId == 2000, "AOI 未接纳地面道具");
             var view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
             Check(view.GetChildCount() == 1 && ((Label)view.FindChild("GroundItemName", true, false)).Text == "验收堆叠 ×2", "地面名称数量错误");
-            Check(view.FindChild("GroundItemIcon", true, false) is Label { Text: "?" }, "缺图没有占位");
+            Check(view.FindChild("GroundItemIcon", true, false) is TextureRect { Texture: not null }, "缺图没有占位");
             Check(GameServices.World.RoleTarget == originalTarget, "丢弃点击触发世界走路");
 
             // 确认期间收到新背包，必须取消旧上下文。
@@ -71,10 +71,10 @@ public partial class GroundItemDropSmoke : Node
             Check(GameServices.Session.Bag.Revision == revision && GameServices.Session.Map.Objects.Count == 1, "旧确认扣除了新背包");
 
             await ChooseGroundDrop(grid.GetChild<Control>(1));
-            dialog.GetOkButton().EmitSignal(Button.SignalName.Pressed);
+            Check(!dialog.Visible, "单件丢弃仍弹出数量窗");
             await Frames();
             Check(GameServices.Session.Bag.Items.All(item => item.InstanceId != 2), "全部丢弃未移除源");
-            Check(view.GetChildCount() == 2 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 1, "配置图标未显示");
+            Check(view.GetChildCount() == 2 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "配置图标未显示");
 
             Check(view.GetChildren().OfType<Node2D>().Select(child => child.Position).Distinct().Count() == 2, "同落点表现完全重叠");
 

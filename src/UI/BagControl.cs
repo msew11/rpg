@@ -210,6 +210,13 @@ public partial class BagControl : PanelContainer
         {
             var payload = data.AsGodotDictionary();
             var item = GameServices.Session.Bag.Items.Single(item => item.InstanceId == payload["instance"].AsInt64());
+            if (item.Count == 1)
+            {
+                try { GameServices.Session.DropItem(item.InstanceId, 1, payload["revision"].AsInt64()); }
+                catch (Exception error) { ShowMoveStatus(error.Message); }
+                GetViewport().SetInputAsHandled();
+                return;
+            }
             _dropContext = data;
             _dropCount.MaxValue = item.Count;
             _dropCount.Value = item.Count;
