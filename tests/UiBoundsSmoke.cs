@@ -79,7 +79,7 @@ public partial class UiBoundsSmoke : Node
             await Frames();
             Open(hud, "系统设置");
             Press(hud, "进入 HUD 调整");
-            hud.GetNode<Control>("系统设置").Hide();
+            Press(hud.GetNode<Control>("HudEditWindow"), "关闭");
             await Frames();
             var portrait = hud.GetNode<Control>("portrait");
             var handle = portrait.GetNode<HudEditOverlay>("HudEditOverlay");
@@ -107,11 +107,12 @@ public partial class UiBoundsSmoke : Node
             Button(menuStart + new Vector2(-30, -80), false);
             Check(menu.Position.IsEqualApprox(menuBefore + new Vector2(-30, -80)), "菜单按钮内容区无法拖动");
             Check(!hud.GetNode<Control>("SystemMenuOverlay").Visible, "菜单拖动触发了系统按钮");
-            // 调整覆盖按钮后仍能重新打开设置，完成与取消入口始终可达。
+            // client-ui：关闭独立调整窗后 Esc 可再次呼出，保留拖动草稿。
+            var editWindow = hud.GetNode<ViewportPanelControl>("HudEditWindow");
             using (var escape = new InputEventKey { Keycode = Key.Escape, Pressed = true }) GetViewport().PushInput(escape, true);
-            Check(hud.GetNode<Control>("系统设置").Visible, "调整中 Esc 未重新打开系统设置");
+            Check(editWindow.Visible && !hud.GetNode<Control>("系统设置").Visible, "调整中 Esc 未呼出专用窗口");
             using (var escape = new InputEventKey { Keycode = Key.Escape, Pressed = true }) GetViewport().PushInput(escape, true);
-            Check(!hud.GetNode<Control>("系统设置").Visible, "调整中 Esc 未收起系统设置");
+            Check(editWindow.Visible, "重复 Esc 不应隐藏调整窗");
             foreach (var key in new[] { "portrait", "hotbar1", "menu" }) GameServices.Setting.SetHudPosition(key, 1, 1);
             GameServices.Setting.SaveCurrentRole();
             foreach (var size in new[] { new Vector2I(480, 270), new Vector2I(1920, 1080) })
@@ -119,6 +120,8 @@ public partial class UiBoundsSmoke : Node
                 Resize(size);
                 await Frames();
                 foreach (var key in new[] { "portrait", "hotbar1", "menu" }) AssertInside(hud.GetNode<Control>(key), key);
+                AssertInside(editWindow, "调整操作窗口");
+                AssertInside(hud.GetNode<Control>("HudEditHint"), "顶部 ESC 提示");
             }
             Check(GameServices.World.RoleTarget == target, "UI 输入穿透地面");
             main.QueueFree();

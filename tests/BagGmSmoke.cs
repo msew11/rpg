@@ -122,7 +122,7 @@ public partial class BagGmSmoke : Node
             PressTitle(main, "进入 HUD 调整");
             await Frames();
             CheckHudLayout(main, chat);
-            PressTitle(main, "完成 HUD 调整");
+            PressTitle(main, "完成");
             await Frames();
             CheckHudLayout(main, chat);
             GameServices.Setting.SetHudPosition("hotbar1", 0.4f, 0.5f);
@@ -385,9 +385,24 @@ public partial class BagGmSmoke : Node
         var target = GameServices.World.RoleTarget;
         for (var attempt = 0; attempt < 2; attempt++)
         {
+            PressTitle(main, "系统");
+            PressTitle(main, "系统设置");
+            Check(hud.GetNode<Control>("系统设置").Visible, "进入调整前系统设置未打开");
             PressTitle(main, "进入 HUD 调整");
-            hud.GetNode<Control>("系统设置").Hide();
             await Frames();
+            var editWindow = hud.GetNode<ViewportPanelControl>("HudEditWindow");
+            var hint = hud.GetNode<Label>("HudEditHint");
+            Check(!hud.GetNode<Control>("系统设置").Visible && editWindow.Visible && hint.Visible,
+                "进入调整未关闭系统设置或显示独立窗口及提示");
+            Check(editWindow.Content.GetChildren().OfType<Button>().Select(button => button.Text)
+                .SequenceEqual(new[] { "完成", "退出", "恢复" }), "调整窗口操作或顺序错误");
+            Check(hint.Text.Contains("ESC") && hint.MouseFilter == Control.MouseFilterEnum.Ignore, "顶部提示内容或输入隔离错误");
+            var close = editWindow.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "关闭");
+            Click(close.GetGlobalRect().GetCenter());
+            await Frames();
+            Check(!editWindow.Visible && hint.Visible && radar.GetNode<HudEditOverlay>("HudEditOverlay").Visible,
+                "关闭调整窗意外退出模式或隐藏顶部提示");
+            Check(File.ReadAllText(path) == originalFile, "关闭操作窗意外提交布局");
             foreach (var (key, rect) in originalSizes)
                 Check(hud.GetNode<Control>(key).GetRect() == rect, key + " 进入调整改变外框尺寸或位置");
             // 图形运行可导出调整覆盖层，核对名称位置与绿色高亮外框。
@@ -426,11 +441,21 @@ public partial class BagGmSmoke : Node
             Check(radar.Position.DistanceTo(originalRadar) > 50 && chat.Position.DistanceTo(originalChat) > 50, "小地图或聊天拖动未生效");
             Check(File.ReadAllText(path) == originalFile, "拖动松开提前保存布局");
             Check(GameServices.World.RoleTarget == target, "HUD 拖动穿透世界");
+            var draftChat = chat.Position;
+            var draftRadar = radar.Position;
+            PushKey(Key.Escape);
+            await Frames();
+            Check(editWindow.Visible && !hud.GetNode<Control>("系统设置").Visible, "Esc 未重新显示调整窗或错误打开系统设置");
+            Check(chat.Position == draftChat && radar.Position == draftRadar && File.ReadAllText(path) == originalFile,
+                "Esc 呼出修改或保存了草稿");
+            PushKey(Key.Escape);
+            Check(editWindow.Visible, "重复 Esc 隐藏了调整窗");
             if (attempt == 1)
             {
-                PressTitle(main, "完成 HUD 调整");
+                PressTitle(main, "完成");
                 await Frames();
                 Check(File.ReadAllText(path) != originalFile, "完成拖动后未保存位置");
+                Check(!editWindow.Visible && !hint.Visible, "完成后仍显示调整窗或提示");
                 var chatPosition = chat.Position;
                 var radarPosition = radar.Position;
                 GameServices.Setting.SelectRole(GameServices.Session.RoleId);
@@ -441,10 +466,11 @@ public partial class BagGmSmoke : Node
                     GameServices.Setting.GetHudPosition("radar").Y)) < 1, "小地图拖动未持久化");
                 break;
             }
-            PressTitle(main, "退出 HUD 调整");
+            PressTitle(main, "退出");
             await Frames();
             Check(chat.Position.DistanceTo(originalChat) < 1 && radar.Position.DistanceTo(originalRadar) < 1, "取消未还原进入前位置");
             Check(File.ReadAllText(path) == originalFile, "退出调整写入文件");
+            Check(!editWindow.Visible && !hint.Visible, "退出后仍显示调整窗或提示");
 
         }
 
@@ -457,19 +483,19 @@ public partial class BagGmSmoke : Node
         var savedChat = chat.Position;
         var savedRadar = radar.Position;
         PressTitle(main, "进入 HUD 调整");
-        PressTitle(main, "恢复默认布局");
+        PressTitle(main, "恢复");
         await Frames();
         Check(File.ReadAllText(path) == savedFile, "调整中恢复默认提前保存");
         Check(chat.Position.DistanceTo(savedChat) > 20, "默认草稿未应用");
         // 显隐设置照常保存，也不能把草稿写入角色文件。
         GameServices.Setting.SetHotbarVisible(2, false);
         Check(File.ReadAllText(path) == savedFile, "其他角色设置保存泄漏布局草稿");
-        PressTitle(main, "退出 HUD 调整");
+        PressTitle(main, "退出");
         await Frames();
         Check(chat.Position.DistanceTo(savedChat) < 1 && radar.Position.DistanceTo(savedRadar) < 1, "默认草稿取消未恢复自定义位置");
         PressTitle(main, "进入 HUD 调整");
-        PressTitle(main, "恢复默认布局");
-        PressTitle(main, "完成 HUD 调整");
+        PressTitle(main, "恢复");
+        PressTitle(main, "完成");
         await Frames();
         Check(File.ReadAllText(path) != savedFile, "完成未保存默认布局");
         GameServices.Setting.SelectRole(GameServices.Session.RoleId);

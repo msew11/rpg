@@ -36,8 +36,10 @@ public partial class GameHud : Control
     private CheckBox _secondBar = null!;
     /// <summary>第三条技能栏的显隐选项。</summary>
     private CheckBox _thirdBar = null!;
-    /// <summary>HUD 调整模式的切换按钮。</summary>
-    private Button _editButton = null!;
+    /// <summary>独立于系统设置的 HUD 调整操作窗口。</summary>
+    private ViewportPanelControl _hudEditWindow = null!;
+    /// <summary>调整期间持续显示的顶部快捷键提示。</summary>
+    private Label _hudEditHint = null!;
     /// <summary>用于定位上拉菜单和恢复键盘焦点的系统按钮。</summary>
     private Button _systemButton = null!;
     /// <summary>菜单展开时消费外部点击的透明遮罩。</summary>
@@ -48,8 +50,6 @@ public partial class GameHud : Control
     private bool _editing;
     /// <summary>调整期间独立于设置服务的坐标草稿。</summary>
     private Dictionary<string, HudPosition> _draftPositions = new();
-    /// <summary>丢弃草稿并还原布局的退出按钮。</summary>
-    private Button _cancelEditButton = null!;
     /// <summary>正在拖动的 HUD 元素键。</summary>
     private string? _dragging;
     /// <summary>鼠标与被拖动元素左上角的距离。</summary>
@@ -82,6 +82,7 @@ public partial class GameHud : Control
         AddChild(_chat);
         RegisterMovable("chat", "聊天框", _chat);
         BuildSystemMenu();
+        BuildHudEditWindow();
         ApplyLayout();
         RefreshData();
         _networkError = Text("", 14);
@@ -125,7 +126,8 @@ public partial class GameHud : Control
         {
             if (_dragging is not null) _handles[_dragging].Dragging = false;
             _dragging = null;
-            TogglePanel("系统设置");
+            _hudEditWindow.Show();
+            _hudEditWindow.FitToViewport();
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -429,20 +431,46 @@ public partial class GameHud : Control
         page.AddChild(_thirdBar);
         _secondBar.Toggled += enabled => SetBarVisible(2, enabled);
         _thirdBar.Toggled += enabled => SetBarVisible(3, enabled);
-        _editButton = new Button { Text = "进入 HUD 调整" };
-        _editButton.Pressed += ToggleEdit;
-        page.AddChild(_editButton);
-        _cancelEditButton = new Button { Text = "退出 HUD 调整", Visible = false };
-        _cancelEditButton.Pressed += CancelEdit;
-        page.AddChild(_cancelEditButton);
+        var edit = new Button { Text = "进入 HUD 调整" };
+        edit.Pressed += BeginEdit;
+        page.AddChild(edit);
         var reset = new Button { Text = "恢复默认布局" };
-        reset.Pressed += () =>
-        {
-            if (_editing) _draftPositions = RoleSetting.DefaultPositions();
-            else GameServices.Setting.ResetHudPositions();
-            ApplyLayout();
-        };
+        reset.Pressed += ResetHudLayout;
         page.AddChild(reset);
+    }
+
+    /// <summary>创建可独立关闭的调整操作窗，以及不拦截输入的顶部提示。</summary>
+    private void BuildHudEditWindow()
+    {
+        _hudEditHint = Text("按 ESC 呼出 HUD 调整窗口", 16);
+        _hudEditHint.Name = "HudEditHint";
+        _hudEditHint.Visible = false;
+        _hudEditHint.AnchorRight = 1;
+        _hudEditHint.OffsetTop = 8;
+        _hudEditHint.HorizontalAlignment = HorizontalAlignment.Center;
+        AddChild(_hudEditHint);
+        _hudEditWindow = new ViewportPanelControl
+        {
+            Name = "HudEditWindow", Title = "HUD 调整", PreferredWidth = 260, Visible = false
+        };
+        AddChild(_hudEditWindow);
+        var complete = new Button { Text = "完成" };
+        complete.Pressed += CompleteEdit;
+        _hudEditWindow.Content.AddChild(complete);
+        var cancel = new Button { Text = "退出" };
+        cancel.Pressed += CancelEdit;
+        _hudEditWindow.Content.AddChild(cancel);
+        var reset = new Button { Text = "恢复" };
+        reset.Pressed += ResetHudLayout;
+        _hudEditWindow.Content.AddChild(reset);
+    }
+
+    /// <summary>调整期间仅重置位置草稿，否则立即保存默认布局。</summary>
+    private void ResetHudLayout()
+    {
+        if (_editing) _draftPositions = RoleSetting.DefaultPositions();
+        else GameServices.Setting.ResetHudPositions();
+        ApplyLayout();
     }
 
     /// <summary>根据角色设置显示或隐藏指定技能栏。</summary>
@@ -452,33 +480,37 @@ public partial class GameHud : Control
         _movable[$"hotbar{index}"].Visible = visible;
     }
 
-    /// <summary>进入时复制布局草稿，完成时才提交并保存。</summary>
-    private void ToggleEdit()
+    /// <summary>复制布局草稿，关闭系统设置并进入调整模式。</summary>
+    private void BeginEdit()
     {
-        if (!_editing)
-        {
-            _draftPositions.Clear();
-            foreach (var key in _movable.Keys) _draftPositions[key] = GameServices.Setting.GetHudPosition(key);
-        }
-        else
-        {
-            foreach (var (key, position) in _draftPositions)
-                GameServices.Setting.SetHudPosition(key, position.X, position.Y);
-            GameServices.Setting.SaveCurrentRole();
-        }
-        SetEditing(!_editing);
+        if (_editing) return;
+        _draftPositions.Clear();
+        foreach (var key in _movable.Keys) _draftPositions[key] = GameServices.Setting.GetHudPosition(key);
+        foreach (var panel in _panels) panel.Hide();
+        SetEditing(true);
+    }
+
+    /// <summary>保存当前布局草稿后结束调整模式。</summary>
+    private void CompleteEdit()
+    {
+        if (!_editing) return;
+        foreach (var (key, position) in _draftPositions)
+            GameServices.Setting.SetHudPosition(key, position.X, position.Y);
+        GameServices.Setting.SaveCurrentRole();
+        SetEditing(false);
     }
 
     /// <summary>丢弃当前布局草稿，恢复已提交的位置。</summary>
     private void CancelEdit() => SetEditing(false);
 
-    /// <summary>同步调整入口、退出入口和所有调整覆盖框。</summary>
+    /// <summary>同步操作窗口、顶部提示与所有调整覆盖框。</summary>
     private void SetEditing(bool editing)
     {
         _editing = editing;
         _dragging = null;
-        _editButton.Text = editing ? "完成 HUD 调整" : "进入 HUD 调整";
-        _cancelEditButton.Visible = editing;
+        _hudEditWindow.Visible = editing;
+        _hudEditHint.Visible = editing;
+        if (editing) _hudEditWindow.FitToViewport();
         foreach (var handle in _handles.Values)
         {
             handle.Dragging = false;
@@ -614,6 +646,8 @@ public partial class GameHud : Control
             handle.Dragging = false;
             handle.Hide();
         }
+        _hudEditWindow?.Hide();
+        _hudEditHint?.Hide();
         _editing = false;
         _dragging = null;
         _draftPositions.Clear();
