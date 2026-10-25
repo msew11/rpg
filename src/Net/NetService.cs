@@ -116,6 +116,15 @@ public sealed class NetService : Service
         _transport.ResetSession(_generation);
     }
 
+    /// <summary>离开角色前发送已排队请求，再提交本地服务端已接纳的状态。</summary>
+    public void FlushServerWrites()
+    {
+        ThrowIfDisposed();
+        if (_transport is not IServerWriteBackTransport local) return;
+        Tick(0);
+        local.FlushServerWrites();
+    }
+
     /// <summary>释放传输及网络队列，事件服务由 GameServices 管理。</summary>
     public override void Dispose()
     {

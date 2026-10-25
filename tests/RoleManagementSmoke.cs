@@ -13,7 +13,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验证 openspec/specs/role-management 的实际创建、旋转、删除 UI 及全部分层头型。</summary>
+/// <summary>验证 openspec/specs/role-management、server-write-back 的角色界面与离角落地。</summary>
 public partial class RoleManagementSmoke : Node
 {
     /// <summary>隔离存档，自动操作真实按钮并以退出码报告验收结果。</summary>
@@ -29,6 +29,7 @@ public partial class RoleManagementSmoke : Node
             main.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "登录")
                 .EmitSignal(Button.SignalName.Pressed);
             await Frames();
+            GameServices.Env.ServerFlushIntervalSeconds = 0;
             var selection = (RoleSelectionControl)main.FindChild("RoleSelectionPage", true, false);
             AssertLayout(selection, "ReturnLogin");
             Check(GameServices.Session.Roles.Count == 0, "全新存档登录生成了角色");
@@ -139,12 +140,15 @@ public partial class RoleManagementSmoke : Node
             Press(main, "EnterRole");
             await Frames();
             Check(GameServices.World.ActorState?.HeadId == 74, "选角没有把头型交给世界");
+            var rolePath = Path.Combine(directory, "server", $"{role.RoleId}.role.json");
+            Check(!File.Exists(rolePath), "禁用定时检测时角色已提前落地");
             var hud = (GameHud)main.FindChild("GameHud", true, false);
             hud.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "系统")
                 .EmitSignal(Button.SignalName.Pressed);
             hud.GetNode("SystemMenuOverlay/SystemMenu").FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text == "返回角色选择").EmitSignal(Button.SignalName.Pressed);
             await Frame();
+            Check(File.Exists(rolePath), "返回角色选择没有在清理会话前落地角色文件");
             foreach (var summary in GameServices.Session.Roles.ToArray())
             {
                 Press(main, $"DeleteRole{summary.RoleId}");

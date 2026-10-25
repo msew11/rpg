@@ -2,6 +2,7 @@ using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
 using Rpg.Server.Data;
+using Rpg.Services;
 
 namespace ClientTests;
 
@@ -102,6 +103,23 @@ public sealed class ServerWriteBackTests : IDisposable
         Assert.Equal(2, Directory.GetFiles(_directory, "*.role.json").Length);
         transport.Dispose();
         Assert.Equal(3, new RepoServerRole(_directory).List().Count);
+    }
+
+    /// <summary>验证 openspec/specs/server-write-back 的离角显式落地：周期未到时仍写盘，重置会话后可读。</summary>
+    [Fact]
+    public void LeavingRoleFlushesBeforeSessionReset()
+    {
+        using var eventBus = new EventBusService();
+        var server = new MockServer(_directory, new DataServerBagRules(8, 5, []), flushInterval: () => 0);
+        using var net = new NetService(new MockTransport(server), eventBus, new LogService(Console.WriteLine));
+        net.Send(new Login { Username = "demo", Password = "demo" });
+        net.Tick(0);
+        net.Send(new CreateRole { Name = "离角落地", HeadId = 1, Gender = RoleGenderPb.Male });
+        Assert.Empty(Directory.GetFiles(_directory, "*.role.json"));
+
+        net.FlushServerWrites();
+        net.ResetSession();
+        Assert.Equal("离角落地", Assert.Single(new RepoServerRole(_directory).List()).Name);
     }
 
     /// <summary>移除本次验收独占文件。</summary>

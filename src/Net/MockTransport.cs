@@ -4,7 +4,7 @@ using Rpg.Server;
 namespace Rpg.Net;
 
 /// <summary>在同进程内连接独立 MockServer，边界仅允许 protobuf 字节。</summary>
-public sealed class MockTransport : INetTransport
+public sealed class MockTransport : INetTransport, IServerWriteBackTransport
 {
     /// <summary>此传输连接的本地模拟服务端。</summary>
     private readonly MockServer _server;
@@ -34,6 +34,13 @@ public sealed class MockTransport : INetTransport
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _server.Tick(delta);
+    }
+
+    /// <summary>在角色会话重置前同步提交本地服务端待写文件。</summary>
+    public void FlushServerWrites()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _server.Flush();
     }
 
     /// <summary>清理服务端角色工作，切换会话代次。</summary>

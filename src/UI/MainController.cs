@@ -142,6 +142,7 @@ public partial class MainController : Control
     /// <summary>展示用户名和密码输入及失败反馈。</summary>
     private void ShowLogin()
     {
+        if (!TryFlushBeforeLeavingRole()) return;
         ClearGame();
         GameServices.Session.Logout();
         var box = CenteredScreen("网络 RPG 客户端 · 模拟登录");
@@ -166,6 +167,7 @@ public partial class MainController : Control
     /// <summary>读取登录缓存展示角色列表及可选错误反馈。</summary>
     private void ShowRoles(string error = "")
     {
+        if (!TryFlushBeforeLeavingRole()) return;
         ClearGame();
         _screen = new CanvasLayer { Name = "ScreenLayer", Layer = 10 };
         AddChild(_screen);
@@ -361,8 +363,26 @@ public partial class MainController : Control
     /// <summary>释放当前世界与会话后正常关闭客户端。</summary>
     private void QuitGame()
     {
+        if (!TryFlushBeforeLeavingRole()) return;
         ClearGame();
         GetTree().Quit();
+    }
+
+    /// <summary>离开当前角色前同步落地；失败时保留角色和界面以便重试。</summary>
+    private bool TryFlushBeforeLeavingRole()
+    {
+        if (_servicesLifetime is null || !GameServices.Session.HasRole) return true;
+        try
+        {
+            GameServices.Net.FlushServerWrites();
+            return true;
+        }
+        catch (Exception error)
+        {
+            _hud?.ShowNetworkError(error.Message);
+            GD.PushError(error.ToString());
+            return false;
+        }
     }
 
     /// <summary>显示网络及事件监听错误，选角阶段失败时恢复可操作的角色列表。</summary>
