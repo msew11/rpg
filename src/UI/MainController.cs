@@ -50,6 +50,7 @@ public partial class MainController : Control
         {
             AddChild(new PointerCursor { Name = "PointerCursor" });
             _servicesLifetime = InitializeServices();
+            AddChild(new UiSoundPlayer { Name = "UiSound" });
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;
             GameServices.EventBus.Error += OnNetworkError;
@@ -252,6 +253,7 @@ public partial class MainController : Control
         if (_loginButton is null) return;
         _loginButton.Disabled = false;
         if (!response.Success) { _feedback!.Text = response.Error; return; }
+        UiSoundPlayer.Play(this, 1005);
         ShowRoles();
     }
 
@@ -266,6 +268,7 @@ public partial class MainController : Control
             return;
         }
         if (!GameServices.Session.HasRole) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
+        UiSoundPlayer.Play(this, 1005);
         GameServices.World.InitializeRole();
         BuildRoleWorld();
     }
@@ -299,7 +302,9 @@ public partial class MainController : Control
     /// <summary>拾取最终结果只显示反馈，两侧状态已由原缓存通知维护。</summary>
     private void OnPickedUp(PickupItemRt response)
     {
-        if (response.RoleId == GameServices.Session.RoleId) _hud?.ShowNetworkError(response.Success ? "" : response.Error);
+        if (response.RoleId != GameServices.Session.RoleId) return;
+        if (response.Success) UiSoundPlayer.Play(this, 1001);
+        _hud?.ShowNetworkError(response.Success ? "" : response.Error);
     }
 
     /// <summary>地图缓存已处理通知后，只协调缺口重同步，不处理对象数据。</summary>
@@ -433,8 +438,7 @@ public partial class MainController : Control
         var width = Math.Clamp(GameServices.Setting.Width, 800, 3840);
         var height = Math.Clamp(GameServices.Setting.Height, 600, 2160);
         DisplaySettings.Apply(GetWindow(), new Vector2I(width, height), GameServices.Setting.WindowMode);
-        var bus = AudioServer.GetBusIndex("Master");
-        if (bus >= 0) AudioServer.SetBusVolumeLinear(bus, Mathf.Clamp(GameServices.Setting.MasterVolume, 0, 1));
+        UiSoundPlayer.SetVolumes(GameServices.Setting.MasterVolume, GameServices.Setting.EffectsVolume);
     }
 
     /// <summary>创建指定字号的文本控件。</summary>

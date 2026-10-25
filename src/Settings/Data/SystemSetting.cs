@@ -22,4 +22,6 @@ public sealed class SystemSetting
     public WindowDisplayMode WindowMode { get; set; } = WindowDisplayMode.Windowed;
     /// <summary>主音量，范围为零到一。</summary>
     public float MasterVolume { get; set; } = 0.8f;
+    /// <summary>音效音量，范围为零到一。</summary>
+    public float EffectsVolume { get; set; } = 0.8f;
 }
