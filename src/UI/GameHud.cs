@@ -194,7 +194,7 @@ public partial class GameHud : Control
         }
         if (_systemMenuOverlay.Visible && input is InputEventKey { Keycode: Key.Escape, Pressed: true })
         {
-            UiSoundPlayer.Play(this, 1007);
+            UiSoundPlayer.Play(this, 1003);
             CloseSystemMenu();
             GetViewport().SetInputAsHandled();
             return;
@@ -344,7 +344,7 @@ public partial class GameHud : Control
         {
             if (input is not InputEventMouseButton { Pressed: true }) return;
             _systemMenuOverlay.AcceptEvent();
-            UiSoundPlayer.Play(this, 1007);
+            UiSoundPlayer.Play(this, 1003);
             CloseSystemMenu();
         };
         _systemMenu = new PanelContainer { Name = "SystemMenu", CustomMinimumSize = new Vector2(180, 0), MouseFilter = MouseFilterEnum.Stop };

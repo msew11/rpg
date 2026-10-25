@@ -16,7 +16,7 @@ public partial class UiSoundPlayer : Node
     {
         EnsureBus("BGM");
         EnsureBus("SFX");
-        foreach (var id in new[] { 1001, 1003, 1007, 1010 })
+        foreach (var id in new[] { 1001, 1003, 1005, 1010 })
         {
             var stream = ResourceLoader.Load<AudioStream>($"{SoundDirectory}{id}.wav");
             if (stream is null) continue;
@@ -58,7 +58,7 @@ public partial class UiSoundPlayer : Node
         player.Play();
     }
 
-    /// <summary>按控件用途选择通用或取消反馈。</summary>
+    /// <summary>为按钮与页签绑定界面反馈。</summary>
     private void OnNodeAdded(Node node)
     {
         if (node is TabContainer tabs)
@@ -71,13 +71,9 @@ public partial class UiSoundPlayer : Node
         };
     }
 
-    /// <summary>登录和进入游戏等待成功反馈，取消与其他按钮分别使用对应音效。</summary>
+    /// <summary>登录和进入游戏等待成功反馈，其余按钮统一使用界面音效。</summary>
     internal static int SoundIdForButton(Button button)
     {
-        var name = button.Name.ToString();
-        if (button.Text.Contains("取消") || button.Text.Contains("关闭") || button.Text.Contains("退出") ||
-            button.Text.StartsWith("返回") && button.Text != "返回角色选择" || name.StartsWith("Cancel"))
-            return 1007;
         return button.Text is "登录" or "进入游戏" ? 0 : 1003;
     }
 

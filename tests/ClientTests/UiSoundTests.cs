@@ -34,16 +34,18 @@ public sealed class UiSoundTests
         button.Free();
     }
 
-    /// <summary>确认用 1003，取消用 1007；登录和进入游戏等待成功响应。</summary>
+    /// <summary>确认与取消关闭均用 1003；登录和进入游戏等待成功响应。</summary>
     [Theory]
     [InlineData("ConfirmCreate", "确认创建", 1003)]
     [InlineData("SoundCase", "保存", 1003)]
     [InlineData("SoundCase", "发送", 1003)]
-    [InlineData("ClosePanel", "关闭", 1007)]
-    [InlineData("CancelName", "取消", 1007)]
+    [InlineData("ClosePanel", "关闭", 1003)]
+    [InlineData("CancelName", "取消", 1003)]
+    [InlineData("SoundCase", "退出游戏", 1003)]
+    [InlineData("SoundCase", "返回登陆", 1003)]
     [InlineData("SoundCase", "登录", 0)]
     [InlineData("SoundCase", "进入游戏", 0)]
-    public void ConfirmationAndCancellationKeepTheirSound(string name, string label, int expected)
+    public void ConfirmationAndCancellationUseUnifiedSound(string name, string label, int expected)
     {
         var button = new Button { Name = name, Text = label };
         Assert.Equal(expected, UiSoundPlayer.SoundIdForButton(button));
