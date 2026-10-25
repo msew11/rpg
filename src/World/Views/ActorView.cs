@@ -16,6 +16,8 @@ public partial class ActorView : Node2D
         { Name = "Head", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
     /// <summary>上次读取的快照，用来区分动作变化和普通位置变化。</summary>
     private DataActorState? _previous;
+    /// <summary>角色实体原点的 GM 调试标记。</summary>
+    private readonly EntityAnchorView _anchor = new() { Name = "EntityAnchor", Visible = false };
 
     /// <summary>创建身体节点；镜像以玩家位置为原点，保持锚点稳定。</summary>
     public override void _Ready()
@@ -23,6 +25,7 @@ public partial class ActorView : Node2D
         AddChild(_facingRoot);
         _facingRoot.AddChild(_body);
         _facingRoot.AddChild(_head);
+        AddChild(_anchor);
         _body.FrameChanged += UpdateHead;
         _body.AnimationChanged += UpdateHead;
         if (_previous is { } state)
@@ -30,6 +33,13 @@ public partial class ActorView : Node2D
             _previous = null;
             Present(state);
         }
+    }
+
+    /// <summary>设置当前角色锚点的显隐和颜色。</summary>
+    public void SetAnchorMarker(bool visible, Color color)
+    {
+        _anchor.Visible = visible;
+        _anchor.SetMarkerColor(color);
     }
 
     /// <summary>同步位置、动作和朝向；同动作持续呈现时不重启播放。</summary>

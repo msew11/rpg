@@ -9,6 +9,7 @@ using Rpg.Server.Data;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
+using Rpg.World.Utils;
 using Rpg.World.Views;
 
 namespace Rpg.Tests;
@@ -56,7 +57,7 @@ public partial class GroundItemDropSmoke : Node
             var ground = GameServices.Session.Map!.Objects.Values.Single();
             Check(ground.Count == 2 && ground.ItemId == 2000, "AOI 未接纳地面道具");
             var view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
-            Check(view.GetChildCount() == 1 && ((Label)view.FindChild("GroundItemName", true, false)).Text == "验收堆叠 ×2", "地面名称数量错误");
+            Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 1 && ((Label)view.FindChild("GroundItemCount", true, false)).Text == "×2" && view.FindChild("GroundItemName", true, false) is null, "地面数量或常驻名称错误");
             Check(view.FindChild("GroundItemIcon", true, false) is TextureRect { Texture: not null }, "缺图没有占位");
             Check(GameServices.World.RoleTarget == originalTarget, "丢弃点击触发世界走路");
 
@@ -78,15 +79,50 @@ public partial class GroundItemDropSmoke : Node
             Check(ReferenceEquals(beforeDestroy, GameServices.Session.Bag), "确认前已扣除物品");
             dialog.GetCancelButton().EmitSignal(Button.SignalName.Pressed);
             await Frames();
-            Check(ReferenceEquals(beforeDestroy, GameServices.Session.Bag) && view.GetChildCount() == 1, "取消销毁改变了状态");
+            Check(ReferenceEquals(beforeDestroy, GameServices.Session.Bag) && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 1, "取消销毁改变了状态");
 
             await ChooseGroundDrop(grid.GetChild<Control>(1));
             Check(!dialog.Visible, "单件丢弃仍弹出数量窗");
             await Frames();
             Check(GameServices.Session.Bag.Items.All(item => item.InstanceId != 2), "全部丢弃未移除源");
-            Check(view.GetChildCount() == 2 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "配置图标未显示");
+            Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "配置图标未显示");
 
-            Check(view.GetChildren().OfType<Node2D>().Select(child => child.Position).Distinct().Count() == 2, "同落点表现完全重叠");
+            // client-actor-presentation、ground-item-pickup：同点实体保持真实坐标，图标仍错开并参与 Y 排序。
+            var worldVisual = main.GetChildren().OfType<Node2D>().Single(node => node.Name == "WorldVisual");
+            var actorView = worldVisual.GetChildren().OfType<ActorView>().Single();
+            var itemNodes = view.GetChildren().OfType<Node2D>().ToArray();
+            Check(worldVisual.YSortEnabled && view.YSortEnabled && actorView.ZIndex == view.ZIndex,
+                "角色与地面物品未共用 Y 排序层");
+            Check(itemNodes.Select(child => child.Position).Distinct().Count() == 2 ||
+                itemNodes.GroupBy(child => child.Position).Any(group => group.Count() > 1 &&
+                    group.Select(child => child.GetNode<TextureRect>("GroundItemIcon").Position).Distinct().Count() > 1),
+                "同落点图标没有错开");
+            foreach (var itemNode in itemNodes)
+                Check(GameServices.Session.Map!.Objects.Values.Any(item =>
+                    IsometricProjection.ToScreen(new Vector2(item.X, item.Y)).IsEqualApprox(itemNode.Position)),
+                    "物品节点偏离权威实体坐标");
+            // client-ui：GM 开关默认关闭，开启后每个标记在实体原点，改色即时同步。
+            PressTitle(main, "GM"); await Frames();
+            var gmPanel = (Control)main.FindChild("GM", true, false);
+            var anchorToggle = (CheckButton)gmPanel.FindChild("ShowEntityAnchors", true, false);
+            var anchorColor = (ColorPickerButton)gmPanel.FindChild("EntityAnchorColor", true, false);
+            Check(!anchorToggle.ButtonPressed && anchorColor.Color == Colors.Yellow, "GM 锚点默认值错误");
+            anchorToggle.ButtonPressed = true; await Frames();
+            var actorAnchor = actorView.GetNode<EntityAnchorView>("EntityAnchor");
+            Check(actorAnchor.Visible && itemNodes.All(node => node.GetNode<EntityAnchorView>("EntityAnchor").Visible),
+                "GM 未显示角色或地面物品锚点");
+            Check(itemNodes.All(node => node.GetNode<EntityAnchorView>("EntityAnchor").Position == Vector2.Zero),
+                "地面物品锚点未处于真实实体坐标");
+            anchorColor.Color = Colors.Cyan;
+            anchorColor.EmitSignal(ColorPickerButton.SignalName.ColorChanged, Colors.Cyan);
+            await Frames();
+            Check(actorAnchor.MarkerColor == Colors.Cyan &&
+                itemNodes.All(node => node.GetNode<EntityAnchorView>("EntityAnchor").MarkerColor == Colors.Cyan),
+                "GM 锚点颜色未即时更新");
+            anchorToggle.ButtonPressed = false; await Frames();
+            Check(!actorAnchor.Visible && itemNodes.All(node => !node.GetNode<EntityAnchorView>("EntityAnchor").Visible),
+                "关闭 GM 锚点后仍显示标记");
+            PressTitle(main, "GM"); await Frames();
 
             // 数量窗打开时关闭背包，不允许继续确认。
             await ChooseGroundDrop(grid.GetChild<Control>(0));
@@ -101,15 +137,15 @@ public partial class GroundItemDropSmoke : Node
             Check(GameServices.Session.Bag.Revision == saved.Revision && GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.Count)).SequenceEqual(saved.Items.Select(item => (item.InstanceId, item.Count))), "重启后背包未恢复");
             Check(GameServices.Session.Map!.Objects.Count == 2, "重启后地图未恢复");
             view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
-            Check(view.GetChildCount() == 2, "重启后地面表现未恢复");
+            Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "重启后地面表现未恢复");
             GameServices.Session.SubmitMove(1, new Vector2(23000, 23000));
             GameServices.Net.Tick(100);
             await Frames();
-            Check(GameServices.Session.Map.Objects.Count == 0 && view.GetChildCount() == 0, "离开 AOI 未移除地面表现");
+            Check(GameServices.Session.Map.Objects.Count == 0 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 0, "离开 AOI 未移除地面表现");
             GameServices.Session.SubmitMove(2, new Vector2(ground.X, ground.Y));
             GameServices.Net.Tick(100);
             await Frames();
-            Check(view.GetChildCount() == 2, "再次进入 AOI 未恢复表现");
+            Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "再次进入 AOI 未恢复表现");
             // 对应部分/全部销毁与模式冻结，真实点击确认后地面数量始终不变。
             bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
             bag.Show(); await Frames();
@@ -121,15 +157,15 @@ public partial class GroundItemDropSmoke : Node
             Check(dialog.Visible && count.Value == 4, "整叠销毁未默认当前数量");
             count.GetLineEdit().Text = "2";
             dialog.GetOkButton().EmitSignal(Button.SignalName.Pressed); await Frames();
-            Check(GameServices.Session.Bag.Items.Single().Count == 2 && view.GetChildCount() == 2, "部分销毁数量或地面状态错误");
+            Check(GameServices.Session.Bag.Items.Single().Count == 2 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "部分销毁数量或地面状态错误");
             await ChooseGroundDrop(grid.GetChild<Control>(0), true);
             dialog.GetOkButton().EmitSignal(Button.SignalName.Pressed); await Frames();
-            Check(GameServices.Session.Bag.Items.Count == 0 && view.GetChildCount() == 2, "全部销毁未移除源或生成了地面对象");
+            Check(GameServices.Session.Bag.Items.Count == 0 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "全部销毁未移除源或生成了地面对象");
             GameServices.Session.SendGm("item 1012 1"); await Frames();
             await ChooseGroundDrop(grid.GetChild<Control>(0), true);
             Check(dialog.Visible && count.Value == 1, "单件销毁跳过了确认");
             dialog.GetOkButton().EmitSignal(Button.SignalName.Pressed); await Frames();
-            Check(GameServices.Session.Bag.Items.Count == 0 && view.GetChildCount() == 2, "单件销毁错误");
+            Check(GameServices.Session.Bag.Items.Count == 0 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "单件销毁错误");
             Check(GameServices.World.RoleTarget == targetBeforeDestroy, "销毁点击触发了走路");
             main.QueueFree(); await Frames(); main = null;
             main = await StartMain(directory, config);

@@ -5,6 +5,7 @@ using Godot;
 using Rpg.Services;
 using Rpg.Session.Data;
 using Rpg.Items;
+using Rpg.UI;
 using Rpg.World.Utils;
 
 namespace Rpg.World.Views;
@@ -22,11 +23,37 @@ public partial class GroundItemsView : Node2D
     private Vector2 _pointerPosition = new(-10000, -10000);
     /// <summary>失焦期间禁止悬停恢复。</summary>
     private bool _focused = true;
+    /// <summary>与背包共用名称呈现，不保存地图业务数据。</summary>
+    private ItemNamePopup _itemName = null!;
+    /// <summary>GM 实体原点标记的当前显隐状态。</summary>
+    private bool _anchorsVisible;
+    /// <summary>GM 实体原点标记的当前颜色。</summary>
+    private Color _anchorColor = Colors.Yellow;
     /// <summary>当前悬停的稳定身份，供鼠标表现读取。</summary>
     public Guid? HoveredObjectId { get; private set; }
 
+    /// <summary>同步当前及后续 AOI 物品的锚点标记。</summary>
+    public void SetAnchorMarkers(bool visible, Color color)
+    {
+        _anchorsVisible = visible;
+        _anchorColor = color;
+        foreach (var view in _views.Values)
+        {
+            var marker = view.GetNode<EntityAnchorView>("EntityAnchor");
+            marker.Visible = visible;
+            marker.SetMarkerColor(color);
+        }
+    }
+
     /// <summary>标记表现组，鼠标可查询悬停状态而无需新服务或反向调用。</summary>
-    public override void _Ready() => AddToGroup("GroundItemViews");
+    public override void _Ready()
+    {
+        AddToGroup("GroundItemViews");
+        var layer = new CanvasLayer { Name = "GroundItemPointerLayer", Layer = 100 };
+        AddChild(layer);
+        _itemName = new ItemNamePopup { Name = "ItemNamePopup" };
+        layer.AddChild(_itemName);
+    }
 
     /// <summary>只观察坐标，不抢占 GUI 或普通地图输入。</summary>
     public override void _Input(InputEvent input)
@@ -76,29 +103,33 @@ public partial class GroundItemsView : Node2D
                 _views.Add(value.ObjectId, view);
                 AddChild(view);
             }
-            // 同落点只错开表现，不改权威坐标，避免多次丢弃的图标和文字完全重叠。
+            // 同落点只错开表现，不改权威坐标，避免多次丢弃的图标和数量完全重叠。
             var point = (value.X, value.Y);
             var offset = offsets.GetValueOrDefault(point);
             offsets[point] = offset + 1;
-            view.Position = IsometricProjection.ToScreen(new Vector2(value.X, value.Y)) + new Vector2(0, offset * 48);
+            view.Position = IsometricProjection.ToScreen(new Vector2(value.X, value.Y));
             foreach (var child in view.GetChildren()) { view.RemoveChild(child); child.QueueFree(); }
+            var visualOffset = new Vector2(0, offset * 48);
             var config = GameServices.Config.Item.Items[value.ItemId];
             if (!_resources.TryGetValue(config.GroundAssetId, out var resource))
                 _resources[config.GroundAssetId] = resource = new DataItemOutline(_icons.Resolve(config.GroundAssetId));
             var outline = new TextureRect { Name = "GroundItemOutline", Texture = resource.Outline,
-                Position = new Vector2(-18, -26), Size = new Vector2(36, 36), Visible = false,
+                Position = new Vector2(-18, -26) + visualOffset, Size = new Vector2(36, 36), Visible = false,
                 MouseFilter = Control.MouseFilterEnum.Ignore, TextureFilter = TextureFilterEnum.Nearest };
             view.AddChild(outline);
             var icon = new TextureRect { Name = "GroundItemIcon", Texture = resource.Icon,
-                Position = new Vector2(-16, -24), Size = new Vector2(32, 32),
+                Position = new Vector2(-16, -24) + visualOffset, Size = new Vector2(32, 32),
                 MouseFilter = Control.MouseFilterEnum.Ignore, TextureFilter = TextureFilterEnum.Nearest };
             view.AddChild(icon);
-            var label = new Label { Name = "GroundItemName", Text = $"{config.Name} ×{value.Count}",
+            var label = new Label { Name = "GroundItemCount", Text = $"×{value.Count}",
                 MouseFilter = Control.MouseFilterEnum.Ignore };
             label.AddThemeColorOverride("font_outline_color", Colors.Black);
             label.AddThemeConstantOverride("outline_size", 4);
             view.AddChild(label);
-            label.Position = new Vector2(-label.GetCombinedMinimumSize().X / 2, 10);
+            label.Position = new Vector2(-label.GetCombinedMinimumSize().X / 2, 10) + visualOffset;
+            var marker = new EntityAnchorView { Name = "EntityAnchor", Visible = _anchorsVisible };
+            marker.SetMarkerColor(_anchorColor);
+            view.AddChild(marker);
         }
     }
 
@@ -111,9 +142,8 @@ public partial class GroundItemsView : Node2D
         {
             var local = view.GetGlobalTransformWithCanvas().AffineInverse() * viewportPosition;
             // 完整显示框外扩八像素，狭长图案和透明区域也容易选中；描边仍遵循 alpha。
-            var hitRect = new Rect2(-24, -32, 48, 48);
-            var label = view.GetNode<Label>("GroundItemName");
-            if (hitRect.HasPoint(local) || label.GetRect().HasPoint(local))
+            var hitRect = new Rect2(view.GetNode<TextureRect>("GroundItemIcon").Position - new Vector2(8, 8), new Vector2(48, 48));
+            if (hitRect.HasPoint(local))
                 return id;
         }
         return null;
@@ -124,6 +154,10 @@ public partial class GroundItemsView : Node2D
     {
         HoveredObjectId = id;
         foreach (var (key, view) in _views) view.GetNode<TextureRect>("GroundItemOutline").Visible = key == id;
+        if (_itemName is null) return;
+        if (id is { } hovered && _previous is not null && _previous.Objects.TryGetValue(hovered, out var item))
+            _itemName.ShowName(GameServices.Config.Item.Items[item.ItemId].Name, _pointerPosition);
+        else _itemName.Hide();
     }
 
 }

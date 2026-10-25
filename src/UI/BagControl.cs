@@ -46,7 +46,7 @@ public partial class BagControl : PanelContainer
     /// <summary>拿起时冻结的角色、版本与实例。</summary>
     private Variant _pickedItem;
     /// <summary>没有默认等待时间的普通文本名称。</summary>
-    private Label _itemName = null!;
+    private ItemNamePopup _itemName = null!;
     /// <summary>输入事件提供的视口坐标，不受世界摄像机或滚动影响。</summary>
     private Vector2 _pointerPosition;
     /// <summary>背包标题栏拖动与角色位置存储。</summary>
@@ -74,9 +74,7 @@ public partial class BagControl : PanelContainer
         _scroll.AddChild(_grid);
         _itemLayer = new CanvasLayer { Name = "ItemPointerLayer", Layer = 100 };
         AddChild(_itemLayer);
-        _itemName = new Label { Name = "ItemNamePopup", Visible = false, MouseFilter = MouseFilterEnum.Ignore };
-        _itemName.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = new Color(0.08f, 0.10f, 0.14f, 0.95f),
-            ContentMarginLeft = 8, ContentMarginRight = 8, ContentMarginTop = 4, ContentMarginBottom = 4 });
+        _itemName = new ItemNamePopup { Name = "ItemNamePopup" };
         _itemLayer.AddChild(_itemName);
         VisibilityChanged += () => { _dragEpoch++; if (IsVisibleInTree()) Refresh(); else CancelItemDrag(); };
         _moveSubscription = GameServices.EventBus.Subscribe<MoveItemRt>(OnItemMoved);
@@ -85,7 +83,7 @@ public partial class BagControl : PanelContainer
         _dropDialog.GetOkButton().Text = "丢弃";
         _dropDialog.GetCancelButton().Text = "取消";
         var form = new VBoxContainer();
-        form.AddChild(new Label { Name = "DropItemPrompt", Text = "选择丢弃数量（丢在角色脚下）" });
+        form.AddChild(new Label { Name = "DropItemPrompt", Text = "选择丢弃数量（丢在角色周围）" });
         _dropCount = new SpinBox { Name = "DropItemCount", MinValue = 1, MaxValue = 1, Step = 1, Rounded = true };
         form.AddChild(_dropCount);
         _dropDialog.AddChild(form);
@@ -103,8 +101,7 @@ public partial class BagControl : PanelContainer
     {
         var mouse = _pointerPosition;
         if (_itemPreview is not null) _itemPreview.Position = mouse - _itemPreview.Size / 2;
-        if (_itemName.Visible) _itemName.Position = (mouse + new Vector2(24, 24)).Min(
-            (GetViewportRect().Size - _itemName.Size).Max(Vector2.Zero));
+        if (_itemName.Visible) _itemName.MoveTo(mouse);
         var viewport = GetViewportRect().Size;
         var grid = _grid.GetCombinedMinimumSize();
         var header = _header.GetCombinedMinimumSize();
@@ -228,7 +225,7 @@ public partial class BagControl : PanelContainer
             _dropDialog.Title = _destroyOnConfirm ? "销毁道具" : "丢弃道具";
             _dropDialog.GetOkButton().Text = _destroyOnConfirm ? "销毁" : "丢弃";
             ((Label)_dropDialog.FindChild("DropItemPrompt", true, false)).Text = _destroyOnConfirm
-                ? "确认销毁所选数量？永久删除，不会掉落地面。" : "选择丢弃数量（丢在角色脚下）";
+                ? "确认销毁所选数量？永久删除，不会掉落地面。" : "选择丢弃数量（丢在角色周围）";
             _dropCount.MaxValue = item.Count;
             _dropCount.Value = item.Count;
             _dropDialog.PopupCentered(new Vector2I(300, 160));
@@ -242,11 +239,7 @@ public partial class BagControl : PanelContainer
         if (_itemPreview is not null || !IsVisibleInTree()) return;
         var item = GameServices.Session.Bag.Items.FirstOrDefault(item => item.SlotIndex == slotIndex);
         if (item is null) { HideItemName(); return; }
-        _itemName.Text = GameServices.Config.Item.Items[item.ItemId].Name;
-        _itemName.Size = _itemName.GetCombinedMinimumSize();
-        _itemName.Visible = true;
-        _itemName.Position = (_pointerPosition + new Vector2(24, 24)).Min(
-            (GetViewportRect().Size - _itemName.Size).Max(Vector2.Zero));
+        _itemName.ShowName(GameServices.Config.Item.Items[item.ItemId].Name, _pointerPosition);
     }
 
     /// <summary>离开物品或拿起时立即隐藏名称。</summary>

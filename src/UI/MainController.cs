@@ -293,12 +293,12 @@ public partial class MainController : Control
         _screen = null;
         _feedback = null;
         _loginButton = null;
-        _worldVisual = new Node2D { Name = "WorldVisual" };
+        _worldVisual = new Node2D { Name = "WorldVisual", YSortEnabled = true };
         AddChild(_worldVisual);
         _worldVisual.AddChild(new MapView { Name = "MapView" });
-        _groundItems = new GroundItemsView { Name = "GroundItemsView", ZIndex = 1 };
+        _groundItems = new GroundItemsView { Name = "GroundItemsView", ZIndex = 1, YSortEnabled = true };
         _worldVisual.AddChild(_groundItems);
-        _actor = new ActorView { Name = "ActorView", ZIndex = 2, Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
+        _actor = new ActorView { Name = "ActorView", ZIndex = 1, Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
         _worldVisual.AddChild(_actor);
         _actor.Present(GameServices.World.ActorState!);
         _camera = new Camera2D { Name = "WorldCamera", Position = IsometricProjection.ToScreen(GameServices.World.RolePosition), Enabled = true };
@@ -308,6 +308,11 @@ public partial class MainController : Control
         AddChild(_hudLayer);
         _hud = new GameHud { Name = "GameHud" };
         _hudLayer.AddChild(_hud);
+        _hud.AnchorMarkersChanged += (visible, color) =>
+        {
+            _actor?.SetAnchorMarker(visible, color);
+            _groundItems?.SetAnchorMarkers(visible, color);
+        };
         _hud.ChangeRoleRequested += ReturnToRoles;
         _hud.LoginRequested += ShowLogin;
         _hud.QuitRequested += QuitGame;

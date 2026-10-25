@@ -76,17 +76,51 @@ public sealed class GroundItemDropTests : IDisposable
         Assert.Equal(1, bag.Items[0].InstanceId);
         Assert.Single(_messages.OfType<MapAoiNotice>());
         var ground = Assert.Single(_server.GetMap(1).Objects).Value;
-        Assert.Equal((1500f, 1500f, 2), (ground.X, ground.Y, ground.Count));
+        AssertDropClearance(ground, 1500, 1500);
+        Assert.Equal(2, ground.Count);
         Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
         Assert.True(Drop(3, 2).Success);
         Assert.Empty(Assert.Single(_messages.OfType<BagChangedNotice>()).Bag.Items);
         Assert.Equal(5, _server.GetMap(1).Objects.Values.Sum(item => item.Count));
+        // ground-item-drop：连续落点允许小数坐标，避免固定方向和半径的整齐排列。
+        Assert.Contains(_server.GetMap(1).Objects.Values,
+            item => item.X != MathF.Truncate(item.X) || item.Y != MathF.Truncate(item.Y));
         _server.Flush();
         Assert.Empty(_repo.Load(_id).Bag.Items);
         Assert.Equal(2, _repo.Load(_id).Bag.NextInstanceId);
         _server = Start(); Enter(_id);
         Assert.Equal(5, _server.GetMap(1).Objects.Values.Sum(item => item.Count));
         Assert.Empty(_server.GetMap(2).Objects);
+    }
+
+    /// <summary>对应周围避让与边缘场景：四边和四角仍保留完整距离并位于地图内。</summary>
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(3199, 0)]
+    [InlineData(0, 3199)]
+    [InlineData(3199, 3199)]
+    [InlineData(0, 1500)]
+    [InlineData(3199, 1500)]
+    [InlineData(1500, 0)]
+    [InlineData(1500, 3199)]
+    public void DropAroundMapEdgesAvoidsBody(float x, float y)
+    {
+        _server.PublishRoleState(_repo.Load(_id) with { X = x, Y = y });
+        Assert.True(Drop(1).Success);
+        var item = Assert.Single(_server.GetMap(1).Objects).Value;
+        AssertDropClearance(item, x, y);
+        Assert.True(_maps[0].Contains(item.X, item.Y));
+    }
+
+    /// <summary>验证画面距离和身体避让区域，不依赖随机选择的具体方向。</summary>
+    private static void AssertDropClearance(DataServerMapObject item, float x, float y)
+    {
+        var dx = item.X - x;
+        var dy = item.Y - y;
+        var screenX = (dx - dy) * 0.5f;
+        var screenY = (dx + dy) * 0.25f;
+        Assert.InRange(MathF.Sqrt(screenX * screenX + screenY * screenY), 47.99f, 56.01f);
+        Assert.True(MathF.Abs(screenX) >= 39.99f || screenY >= 23.99f);
     }
 
     /// <summary>非法和重复请求不递增版本，不生成对象或成功通知。</summary>
@@ -256,8 +290,7 @@ public sealed class GroundItemDropTests : IDisposable
         _server.Tick(0.2);
         Assert.True(Drop(2).Success);
         var ground = Assert.Single(_server.GetMap(1).Objects).Value;
-        Assert.Equal(1536f, ground.X);
-        Assert.Equal(1500f, ground.Y);
+        AssertDropClearance(ground, 1536, 1500);
     }
 
     /// <summary>旧聚合存档迁移失败恢复旧格式，重试成功后两侧一起迁移。</summary>

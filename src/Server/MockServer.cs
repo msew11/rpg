@@ -523,7 +523,8 @@ public sealed class MockServer
             if (!request.Destroy)
             {
                 map = GetMap(_current.MapId);
-                var ground = new DataServerMapObject { X = _position.X, Y = _position.Y, ItemId = source.ItemId, Count = request.Count };
+                var point = GroundDropPosition(map.Rules);
+                var ground = new DataServerMapObject { X = point.X, Y = point.Y, ItemId = source.ItemId, Count = request.Count };
                 // 创建地面物品后绑定共同落地；销毁不产生新的地图变更关系。
                 change = map.Create(ground);
                 if (!_transferGroups.TryGetValue(candidate.MapId, out var ids)) _transferGroups[candidate.MapId] = ids = new();
@@ -543,6 +544,33 @@ public sealed class MockServer
         Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
         if (map is not null && change is not null) PublishMapChange(map, change);
         Send(response);
+    }
+
+    /// <summary>在等轴画面周围随机选取避开身体的落点；狭小地图使用裁剪后最远候选。</summary>
+    private Vector2 GroundDropPosition(DataServerMapRules rules)
+    {
+        var candidates = new List<Vector2>();
+        var farthest = _position;
+        var farthestDistance = -1f;
+        for (var index = 0; index < 64; index++)
+        {
+            var angle = Random.Shared.NextSingle() * MathF.Tau;
+            var radius = 48 + Random.Shared.NextSingle() * 8;
+            var screen = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+            var point = _position + new Vector2(screen.X + 2 * screen.Y, 2 * screen.Y - screen.X);
+            var clamped = Vector2.Clamp(point, Vector2.Zero,
+                new Vector2((long)rules.Width * rules.TileSize - 1, (long)rules.Height * rules.TileSize - 1));
+            var delta = clamped - _position;
+            var projected = new Vector2((delta.X - delta.Y) * 0.5f, (delta.X + delta.Y) * 0.25f);
+            if (projected.LengthSquared() > farthestDistance)
+            {
+                farthestDistance = projected.LengthSquared();
+                farthest = clamped;
+            }
+            if (rules.Contains(point.X, point.Y) && (MathF.Abs(screen.X) >= 40 || screen.Y >= 24))
+                candidates.Add(point);
+        }
+        return candidates.Count > 0 ? candidates[Random.Shared.Next(candidates.Count)] : farthest;
     }
 
     /// <summary>只接纳当前 AOI 对象及匹配的走近目标，远处暂存意图，近处立即尝试。</summary>

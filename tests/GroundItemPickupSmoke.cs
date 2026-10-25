@@ -57,17 +57,20 @@ public partial class GroundItemPickupSmoke : Node
             Motion(point); await Frames();
             Check(groundView.HoveredObjectId is not null && cursor.IsItemHovering, "悬停未命中地面物品或未切 Fetch");
             var outline = (TextureRect)groundView.FindChild("GroundItemOutline", true, false);
+            var namePopup = (ItemNamePopup)groundView.FindChild("ItemNamePopup", true, false);
+            Check(namePopup.Visible && namePopup.Text == GameServices.Config.Item.Items[1012].Name, "地面未复用即时 name 浮层");
+            Check(bag.FindChild("ItemNamePopup", true, false) is ItemNamePopup, "背包未使用共用名称控件");
             Check(outline.Visible && cursor.CurrentHotspot.IsEqualApprox(new Vector2(7.5f, 7.5f)), "轮廓或 Fetch 热点错误");
             var openHand = cursor.CurrentTexture;
             MouseButtonAt(point, true);
             Check(cursor.CurrentTexture != openHand, "按下未显示 Fetch 握手");
             MouseButtonAt(point, false);
-            await Frames();
+            GameServices.Net.Tick(2); GameServices.World.Tick(2); await Frames();
             Check(GameServices.Session.Map!.Objects.Count == 0 && GameServices.Session.Bag.Items.Any(item => item.ItemId == 1012), "近距离点击没有拾回背包");
-            Check(!cursor.IsItemHovering && groundView.GetChildCount() == 0, "拾取后仍残留 Fetch 或地面表现");
+            Check(!cursor.IsItemHovering && groundView.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 0, "拾取后仍残留 Fetch 或地面表现");
             Check(!main.FindChildren("*", "Node", true, false).OfType<GroundClickView>().Any(), "点击物品同时触发普通点地反馈");
 
-            // 再丢出有图物品，验证透明区域、扩展范围、名称命中、遮挡和失焦。
+            // 再丢出有图物品，验证透明区域、扩展范围、悬停名称、遮挡和失焦。
             PressTitle(main, "背包"); await Frames();
             var sword = GameServices.Session.Bag.Items.Single(item => item.ItemId == 1012);
             await DropAtGround(grid.GetChild<Control>(sword.SlotIndex));
@@ -80,27 +83,27 @@ public partial class GroundItemPickupSmoke : Node
             Check(groundView.HoveredObjectId is not null && cursor.IsItemHovering, "扩展区域未触发高亮");
             Motion(icon.GetGlobalTransformWithCanvas() * new Vector2(-9, -9)); await Frames();
             Check(groundView.HoveredObjectId is null && !cursor.IsItemHovering, "超出扩展区域仍触发高亮");
-            var label = (Label)groundView.FindChild("GroundItemName", true, false);
-            Motion(label.GetGlobalTransformWithCanvas() * (label.Size / 2)); await Frames();
-            Check(groundView.HoveredObjectId is not null, "名称未命中同一地面物品");
+            Check(!namePopup.Visible, "移出物品后名称仍显示");
             Motion(point); await Frames();
+            Check(namePopup.Visible && namePopup.Text == GameServices.Config.Item.Items[1012].Name, "悬停名称不正确");
+            Check((namePopup.Position + namePopup.Size).X <= GetViewport().GetVisibleRect().Size.X, "名称越出视口");
             var overlayLayer = new CanvasLayer { Layer = 30 };
             var blocker = new Panel { Position = point - new Vector2(25, 25), Size = new Vector2(50, 50), MouseFilter = Control.MouseFilterEnum.Stop };
             overlayLayer.AddChild(blocker); main.AddChild(overlayLayer);
             Motion(point + Vector2.One); Motion(point); await Frames();
-            Check(!cursor.IsItemHovering && groundView.HoveredObjectId is null, "覆盖 UI 后仍有拾取高亮");
+            Check(!namePopup.Visible && !cursor.IsItemHovering && groundView.HoveredObjectId is null, "覆盖 UI 后仍有拾取高亮");
             var before = GameServices.Session.Bag.Revision;
             MouseButtonAt(point, true); MouseButtonAt(point, false); await Frames();
             Check(GameServices.Session.Bag.Revision == before && GameServices.Session.Map!.Objects.Count == 1, "UI 点击穿透拾取");
             overlayLayer.QueueFree(); await Frames(); Motion(point); await Frames();
             var modal = new ConfirmationDialog { Exclusive = true }; main.AddChild(modal); modal.PopupCentered(); await Frames();
             Motion(point); await Frames();
-            Check(!cursor.IsItemHovering, "模态窗口未阻断 Fetch");
+            Check(!namePopup.Visible && !cursor.IsItemHovering, "模态窗口未阻断 Fetch");
             modal.Hide(); modal.QueueFree(); await Frames(); Motion(point); await Frames();
             groundView.Notification((int)Node.NotificationApplicationFocusOut);
             cursor.Notification((int)Node.NotificationApplicationFocusOut);
             await Frames();
-            Check(!cursor.IsItemHovering && groundView.HoveredObjectId is null, "失焦残留悬停");
+            Check(!namePopup.Visible && !cursor.IsItemHovering && groundView.HoveredObjectId is null, "失焦残留悬停");
             groundView.Notification((int)Node.NotificationApplicationFocusIn);
             cursor.Notification((int)Node.NotificationApplicationFocusIn);
             Motion(point); await Frames();
@@ -129,7 +132,8 @@ public partial class GroundItemPickupSmoke : Node
             GameServices.Session.SendGm("item 2000 387"); await Frames();
             icon = groundView.FindChildren("GroundItemIcon", "TextureRect", true, false).OfType<TextureRect>().Single();
             point = PixelPoint(icon, true); Motion(point); await Frames();
-            MouseButtonAt(point, true); MouseButtonAt(point, false); await Frames();
+            MouseButtonAt(point, true); MouseButtonAt(point, false);
+            GameServices.Net.Tick(2); GameServices.World.Tick(2); await Frames();
             Check(GameServices.Session.Map.Objects.Count == 1 && ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("背包空间不足"), "背包满未保留地面物品和反馈");
             GameServices.Net.Tick(5);
             var savedTotal = repo.Load(1001).Bag.Items.Sum(item => item.Count);

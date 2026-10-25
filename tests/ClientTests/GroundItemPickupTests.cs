@@ -213,6 +213,7 @@ public sealed class GroundItemPickupTests : IDisposable
         Send(new DropItem { RoleId = _id, InstanceId = 1, Count = 2, ExpectedRevision = 1 });
         var item = Assert.Single(_server.GetMap(1).Objects).Value;
         Begin(item, 2);
+        _server.Tick(2);
         Assert.True(Assert.Single(_messages.OfType<PickupItemRt>()).Success);
         new MockTransport(_server).Dispose();
         Assert.Equal(8, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
@@ -229,6 +230,7 @@ public sealed class GroundItemPickupTests : IDisposable
         Send(new DropItem { RoleId = _id, InstanceId = 1, Count = 3, ExpectedRevision = 1 });
         var item = Assert.Single(_server.GetMap(1).Objects).Value;
         Enter(second.RoleId); Begin(item, 0, second.RoleId);
+        _server.Tick(2);
         _server.Transfers.BeforeComplete = () => throw new IOException("模拟跨角色失败");
         Assert.Throws<AggregateException>(_server.Flush);
         Assert.Equal(8, _repo.Load(_id).Bag.Items.Sum(item => item.Count));

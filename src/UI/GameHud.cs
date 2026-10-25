@@ -84,6 +84,8 @@ public partial class GameHud : Control
     public event Action? LoginRequested;
     /// <summary>需要关闭客户端时通知主控制器。</summary>
     public event Action? QuitRequested;
+    /// <summary>通知世界表现更新 GM 实体锚点调试样式。</summary>
+    public event Action<bool, Color>? AnchorMarkersChanged;
 
     /// <summary>从已注册服务读取选中角色，创建游戏界面及其监听。</summary>
     public override void _Ready()
@@ -390,6 +392,18 @@ public partial class GameHud : Control
         };
         consoleLog.Toggled += enabled => SetConsoleLogging(consoleLog, enabled);
         gm.AddChild(consoleLog);
+        var anchorRow = new HBoxContainer { Name = "EntityAnchorControls" };
+        var showAnchors = new CheckButton { Name = "ShowEntityAnchors", Text = "显示物体锚点" };
+        var anchorColor = new ColorPickerButton
+        {
+            Name = "EntityAnchorColor", Color = Colors.Yellow,
+            CustomMinimumSize = new Vector2(42, 32), TooltipText = "物体锚点颜色"
+        };
+        showAnchors.Toggled += visible => AnchorMarkersChanged?.Invoke(visible, anchorColor.Color);
+        anchorColor.ColorChanged += color => AnchorMarkersChanged?.Invoke(showAnchors.ButtonPressed, color);
+        anchorRow.AddChild(showAnchors);
+        anchorRow.AddChild(anchorColor);
+        gm.AddChild(anchorRow);
         var flushRow = new HBoxContainer();
         flushRow.AddChild(new Label { Text = "Server 落地检测（秒，0 关闭）" });
         var flushInterval = new SpinBox
