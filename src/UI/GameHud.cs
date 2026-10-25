@@ -539,29 +539,11 @@ public partial class GameHud : Control
         return outer.Content;
     }
 
-    /// <summary>加入普通窗口分辨率、显示模式和应用操作。</summary>
+    /// <summary>先选择显示模式，再按模式提供普通窗口分辨率或当前屏幕分辨率。</summary>
     private void BuildDisplayTab(TabContainer tabs)
     {
         var page = new VBoxContainer { Name = "显示" };
         tabs.AddChild(page);
-        page.AddChild(Text("窗口分辨率", 16));
-        var options = new OptionButton();
-        var sizes = new[]
-        {
-            new Vector2I(800, 600), new Vector2I(1024, 768), new Vector2I(1280, 720),
-            new Vector2I(1280, 800), new Vector2I(1366, 768), new Vector2I(1440, 900),
-            new Vector2I(1600, 900), new Vector2I(1920, 1080), new Vector2I(2560, 1440),
-            new Vector2I(3840, 2160)
-        };
-        for (var i = 0; i < sizes.Length; i++) options.AddItem($"{sizes[i].X} × {sizes[i].Y}", i);
-        var selected = Array.FindIndex(sizes, size => size.X == GameServices.Setting.Width && size.Y == GameServices.Setting.Height);
-        if (selected < 0)
-        {
-            selected = sizes.Length;
-            options.AddItem($"{GameServices.Setting.Width} × {GameServices.Setting.Height}", selected);
-        }
-        options.Select(selected);
-        page.AddChild(options);
         page.AddChild(Text("显示模式", 16));
         var modes = new OptionButton();
         modes.AddItem("窗口", (int)WindowDisplayMode.Windowed);
@@ -569,15 +551,49 @@ public partial class GameHud : Control
         modes.AddItem("无边框窗口全屏", (int)WindowDisplayMode.BorderlessFullscreen);
         modes.Select((int)GameServices.Setting.WindowMode);
         page.AddChild(modes);
+        page.AddChild(Text("分辨率", 16));
+        var options = new OptionButton();
+        page.AddChild(options);
+        var sizes = new List<Vector2I>
+        {
+            new Vector2I(800, 600), new Vector2I(1024, 768), new Vector2I(1280, 720),
+            new Vector2I(1280, 800), new Vector2I(1366, 768), new Vector2I(1440, 900),
+            new Vector2I(1600, 900), new Vector2I(1920, 1080), new Vector2I(2560, 1440),
+            new Vector2I(3840, 2160)
+        };
+        var windowSize = new Vector2I(GameServices.Setting.Width, GameServices.Setting.Height);
+        if (!sizes.Contains(windowSize)) sizes.Add(windowSize);
+
+        // 待应用模式改变时保留窗口尺寸，全屏只展示当前显示器尺寸。
+        void UpdateResolutionOptions(long modeIndex)
+        {
+            options.Clear();
+            if (modeIndex == (long)WindowDisplayMode.Windowed)
+            {
+                for (var i = 0; i < sizes.Count; i++) options.AddItem($"{sizes[i].X} × {sizes[i].Y}", i);
+                options.Select(sizes.IndexOf(windowSize));
+                options.Disabled = false;
+                return;
+            }
+
+            var screenSize = DisplayServer.ScreenGetSize(GetWindow().CurrentScreen);
+            if (screenSize.X <= 0 || screenSize.Y <= 0) screenSize = GetWindow().Size;
+            options.AddItem($"{screenSize.X} × {screenSize.Y}");
+            options.Select(0);
+            options.Disabled = true;
+        }
+        options.ItemSelected += index =>
+        {
+            if (modes.Selected == (int)WindowDisplayMode.Windowed) windowSize = sizes[(int)index];
+        };
+        modes.ItemSelected += UpdateResolutionOptions;
+        UpdateResolutionOptions(modes.Selected);
         var apply = new Button { Text = "应用并保存" };
         apply.Pressed += () =>
         {
-            var size = options.Selected == sizes.Length
-                ? new Vector2I(GameServices.Setting.Width, GameServices.Setting.Height)
-                : sizes[options.Selected];
             var mode = (WindowDisplayMode)modes.Selected;
-            GameServices.Setting.SetDisplay(size.X, size.Y, mode);
-            DisplaySettings.Apply(GetWindow(), size, mode);
+            GameServices.Setting.SetDisplay(windowSize.X, windowSize.Y, mode);
+            DisplaySettings.Apply(GetWindow(), windowSize, mode);
             ApplyLayout();
         };
         page.AddChild(apply);

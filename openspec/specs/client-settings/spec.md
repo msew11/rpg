@@ -4,7 +4,7 @@
 TBD - created by archiving change data-driven-rpg-client. Update Purpose after archive.
 ## Requirements
 ### Requirement: 系统设置本地持久化
-系统设置 SHALL 独立文件保存，按显示与声音页签分类。显示页 SHALL 提供常用 4:3、16:10 和 16:9 分辨率，以及窗口、全屏、无边框窗口全屏三种模式；声音页 SHALL 允许调整主音量。应用显示设置 SHALL 立即切换并保存，分辨率作为普通窗口尺寸使用。旧文件没有模式时 SHALL 使用窗口模式并保留已有分辨率；非法模式 SHALL 回退窗口模式。
+系统设置 SHALL 独立文件保存，按显示与声音页签分类。显示页 SHALL 先显示窗口模式，再显示分辨率。窗口模式 SHALL 提供常用 4:3、16:10 和 16:9 分辨率供选择；全屏及无边框窗口全屏模式 SHALL 显示当前显示器分辨率并禁用分辨率选择，保留待应用的普通窗口尺寸。声音页 SHALL 允许调整主音量。应用显示设置 SHALL 立即切换并保存。旧文件没有模式时 SHALL 使用窗口模式并保留已有分辨率；非法模式 SHALL 回退窗口模式。
 
 #### Scenario: 重启后保留
 - **WHEN** 修改并保存系统设置后重启客户端
@@ -17,6 +17,14 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 #### Scenario: 旧设置与自定义尺寸
 - **WHEN** 载入缺少模式字段或包含非预设有效分辨率的旧系统设置
 - **THEN** 默认使用窗口模式，原分辨率仍可在显示页选中并保存
+
+#### Scenario: 全屏只读分辨率
+- **WHEN** 在显示页从窗口切换待应用模式为全屏或无边框窗口全屏
+- **THEN** 分辨率下拉框仅显示当前显示器分辨率且不可操作
+
+#### Scenario: 返回窗口尺寸
+- **WHEN** 玩家选择窗口分辨率，切换到任一全屏模式，再切回窗口模式
+- **THEN** 分辨率下拉框恢复可用，并保留先前选择的窗口尺寸
 
 ### Requirement: 角色 HUD 设置隔离
 每个角色 SHALL 按 `role_id` 保存角色设置。三条 9 格技能栏默认只显示第一条，其他两条可分别开启；HUD 调整模式 SHALL 可移动技能栏、系统按钮条、角色头像、小地图和聊天框，并保存相对屏幕位置。

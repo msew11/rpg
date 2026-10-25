@@ -108,10 +108,29 @@ public partial class RoleSettingsSmoke : Node
             // client-settings：显示页提供常用尺寸与三种桌面窗口模式。
             var displayPage = systemTabs.GetTabControl(0);
             var displayOptions = displayPage.FindChildren("*", "OptionButton", true, false).OfType<OptionButton>().ToArray();
-            Check(displayOptions.Length == 2 && displayOptions[0].ItemCount >= 10 && displayOptions[1].ItemCount == 3,
+            Check(displayOptions.Length == 2 && displayOptions[0].ItemCount == 3 && displayOptions[1].ItemCount >= 10,
                 "显示页分辨率或模式选项不完整");
-            Check(displayOptions[1].GetItemText(0) == "窗口" && displayOptions[1].GetItemText(1) == "全屏" &&
-                displayOptions[1].GetItemText(2) == "无边框窗口全屏", "窗口模式顺序或名称错误");
+            var modes = displayOptions[0];
+            var resolutions = displayOptions[1];
+            Check(modes.GetItemText(0) == "窗口" && modes.GetItemText(1) == "全屏" &&
+                modes.GetItemText(2) == "无边框窗口全屏", "窗口模式顺序或名称错误");
+            resolutions.Select(7);
+            resolutions.EmitSignal(OptionButton.SignalName.ItemSelected, 7);
+            var selectedResolution = resolutions.GetItemText(7);
+            foreach (var mode in new[] { 1, 2 })
+            {
+                modes.Select(mode);
+                modes.EmitSignal(OptionButton.SignalName.ItemSelected, mode);
+                var screenSize = DisplayServer.ScreenGetSize(GetWindow().CurrentScreen);
+                if (screenSize.X <= 0 || screenSize.Y <= 0) screenSize = GetWindow().Size;
+                Check(resolutions.Disabled && resolutions.ItemCount == 1 &&
+                    resolutions.GetItemText(0) == $"{screenSize.X} × {screenSize.Y}",
+                    "全屏模式未显示当前分辨率或未灰化选择");
+            }
+            modes.Select(0);
+            modes.EmitSignal(OptionButton.SignalName.ItemSelected, 0);
+            Check(!resolutions.Disabled && resolutions.GetItemText(resolutions.Selected) == selectedResolution,
+                "切回窗口模式丢失待应用的分辨率");
             tabs.CurrentTab = 1;
             await Frames();
             var groundBind = (Button)rolePanel.FindChild("Shortcut_groundItems", true, false);
