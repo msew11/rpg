@@ -23,6 +23,22 @@ public partial class UiBoundsSmoke : Node
             main = await StartMain(directory);
             var hud = main.FindChildren("*", "Control", true, false).OfType<GameHud>().Single();
             var target = GameServices.World.RoleTarget;
+            // client-ui：首次与再次展开不主动聚焦菜单首项，鼠标悬停继续可用。
+            var menuButton = hud.GetNode("menu").FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "系统");
+            var menuItems = hud.GetNode("SystemMenuOverlay/SystemMenu").FindChildren("*", "Button", true, false).OfType<Button>().ToArray();
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                Move(menuButton.GetGlobalRect().GetCenter());
+                Button(menuButton.GetGlobalRect().GetCenter(), true);
+                Button(menuButton.GetGlobalRect().GetCenter(), false);
+                await Frames();
+                Check(hud.GetNode<Control>("SystemMenuOverlay").Visible, "系统菜单未展开");
+                Check(!menuItems.Any(button => button.HasFocus()), "打开菜单默认聚焦并高亮了条目");
+                Move(menuItems[0].GetGlobalRect().GetCenter());
+                await Frames();
+                Check(GetViewport().GuiGetHoveredControl() == menuItems[0], "菜单条目无法正常悬停");
+                using (var escape = new InputEventKey { Keycode = Key.Escape, Pressed = true }) GetViewport().PushInput(escape, true);
+            }
             foreach (var title in new[] { "角色", "大地图", "GM", "系统设置" })
             {
                 Open(hud, title);

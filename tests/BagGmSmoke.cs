@@ -510,7 +510,7 @@ public partial class BagGmSmoke : Node
             "非调整模式恢复默认未立即保存");
     }
 
-    /// <summary>验收 client-ui/client-settings：聊天左上缩放、关闭呼出、取消保存和取消自动尺寸。</summary>
+    /// <summary>验收 client-ui/client-settings：聊天右上缩放、关闭呼出、取消保存和取消自动尺寸。</summary>
     private async Task CheckChatResizing(Node main, ChatControl chat)
     {
         var hud = main.GetNode<GameHud>("HudLayer/GameHud");
@@ -525,11 +525,11 @@ public partial class BagGmSmoke : Node
             PressTitle(window, "关闭");
             await Frames();
             var overlay = chat.GetNode<HudEditOverlay>("HudEditOverlay");
-            Check(overlay.Resizable && overlay.IsResizeCorner(new Vector2(4, 4)), "聊天左上角未启用缩放三角");
+            Check(overlay.Resizable && overlay.IsResizeCorner(new Vector2(overlay.Size.X - 4, 4)) && !overlay.IsResizeCorner(new Vector2(4, 4)), "聊天缩放三角未移至右上角");
             Check(!hud.GetNode<HudEditOverlay>("Radar/HudEditOverlay").Resizable, "不可缩放的小地图显示了缩放把手");
             var before = chat.GetRect();
-            var start = overlay.GlobalPosition + new Vector2(4, 4);
-            var end = start + new Vector2(60, -50);
+            var start = overlay.GlobalPosition + new Vector2(overlay.Size.X - 4, 4);
+            var end = start + new Vector2(-60, -50);
             using (var press = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = start })
                 GetViewport().PushInput(press, true);
             using (var motion = new InputEventMouseMotion { Position = end, Relative = end - start })
@@ -537,13 +537,13 @@ public partial class BagGmSmoke : Node
             using (var release = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = end })
                 GetViewport().PushInput(release, true);
             await Frames();
-            Check(chat.GetRect().End.DistanceTo(before.End) < 1, "聊天缩放未固定右下角");
+            Check(Mathf.Abs(chat.Position.X - before.Position.X) < 1 && Mathf.Abs(chat.GetRect().End.Y - before.End.Y) < 1, "聊天缩放未固定左下角");
             Check(chat.Size.DistanceTo(before.Size + new Vector2(-60, 50)) < 1, "聊天三角未按指针修改宽高");
             Check(File.ReadAllText(path) == originalFile, "缩放松开提前保存尺寸");
             if (attempt == 0)
             {
-                var corner = overlay.GlobalPosition + new Vector2(4, 4);
-                var beyond = corner + new Vector2(5000, 5000);
+                var corner = overlay.GlobalPosition + new Vector2(overlay.Size.X - 4, 4);
+                var beyond = corner + new Vector2(-5000, 5000);
                 using (var press = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = corner })
                     GetViewport().PushInput(press, true);
                 using (var motion = new InputEventMouseMotion { Position = beyond, Relative = beyond - corner })
@@ -552,8 +552,8 @@ public partial class BagGmSmoke : Node
                     GetViewport().PushInput(release, true);
                 await Frames();
                 Check(chat.Size.X >= Rpg.Settings.Data.DataHudSize.MinimumWidth - 0.01f &&
-                    chat.Size.Y >= Rpg.Settings.Data.DataHudSize.MinimumHeight - 0.01f && chat.GetRect().End.DistanceTo(before.End) < 1,
-                    "缩放越过右下角破坏最小尺寸或固定角");
+                    chat.Size.Y >= Rpg.Settings.Data.DataHudSize.MinimumHeight - 0.01f && Mathf.Abs(chat.Position.X - before.Position.X) < 1 && Mathf.Abs(chat.GetRect().End.Y - before.End.Y) < 1,
+                    "缩放越过左下角破坏最小尺寸或固定角");
             }
             var draft = chat.GetRect();
             PushKey(Key.Escape);

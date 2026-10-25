@@ -52,13 +52,13 @@ public partial class GameHud : Control
     private Dictionary<string, HudPosition> _draftPositions = new();
     /// <summary>调整期间独立保存的聊天尺寸草稿。</summary>
     private DataHudSize _draftChatSize = new();
-    /// <summary>当前抓取是否用于聊天框左上角缩放。</summary>
+    /// <summary>当前抓取是否用于聊天框右上角缩放。</summary>
     private bool _resizingChat;
-    /// <summary>缩放时固定的聊天框右下角坐标。</summary>
-    private Vector2 _resizeEnd;
+    /// <summary>缩放时固定的聊天框左下角坐标。</summary>
+    private Vector2 _resizeAnchor;
     /// <summary>正在拖动的 HUD 元素键。</summary>
     private string? _dragging;
-    /// <summary>鼠标与被拖动元素左上角的距离。</summary>
+    /// <summary>鼠标与拖动左上角或缩放右上角参考点的距离。</summary>
     private Vector2 _dragOffset;
     /// <summary>上次布局计算使用的视口尺寸。</summary>
     private Vector2 _lastViewport;
@@ -261,7 +261,6 @@ public partial class GameHud : Control
             Mathf.Clamp(desired.X, 0, Mathf.Max(0, viewport.X - _systemMenu.Size.X)),
             Mathf.Clamp(desired.Y, 0, Mathf.Max(0, viewport.Y - _systemMenu.Size.Y)));
         _systemMenuOverlay.Show();
-        _systemMenu.GetChild(0).GetChild<Button>(0).GrabFocus();
     }
 
     /// <summary>收起系统菜单并将键盘焦点还给入口按钮。</summary>
@@ -545,8 +544,13 @@ public partial class GameHud : Control
             _dragging = key;
             _handles[key].Dragging = true;
             _resizingChat = _handles[key].IsResizeCorner(button.Position);
-            if (_resizingChat) _resizeEnd = _chat.GetRect().End;
-            _dragOffset = _handles[key].GetGlobalTransform() * button.Position - _movable[key].GlobalPosition;
+            var pointer = _handles[key].GetGlobalTransform() * button.Position;
+            if (_resizingChat)
+            {
+                _resizeAnchor = new Vector2(_chat.Position.X, _chat.GetRect().End.Y);
+                _dragOffset = pointer - (_chat.GlobalPosition + new Vector2(_chat.Size.X, 0));
+            }
+            else _dragOffset = pointer - _movable[key].GlobalPosition;
             AcceptEvent();
         }
     }
@@ -605,19 +609,18 @@ public partial class GameHud : Control
         }
     }
 
-    /// <summary>固定右下角从左上角缩放聊天，只修改布局草稿。</summary>
+    /// <summary>固定左下角从右上角缩放聊天，只修改布局草稿。</summary>
     private void ResizeChat(Vector2 mousePosition)
     {
         var minimum = _chat.GetCombinedMinimumSize().Max(new Vector2(DataHudSize.MinimumWidth, DataHudSize.MinimumHeight));
         var desired = mousePosition - GlobalPosition - _dragOffset;
-        var position = new Vector2(
-            Mathf.Clamp(desired.X, 0, Mathf.Max(0, _resizeEnd.X - minimum.X)),
-            Mathf.Clamp(desired.Y, 0, Mathf.Max(0, _resizeEnd.Y - minimum.Y)));
-        _chat.Size = _resizeEnd - position;
-        _chat.Position = position;
-        _draftChatSize = new DataHudSize { Width = _chat.Size.X, Height = _chat.Size.Y };
         var viewport = GetViewportRect().Size;
-        _draftPositions["chat"] = new HudPosition(position.X / viewport.X, position.Y / viewport.Y);
+        var right = Mathf.Clamp(desired.X, _resizeAnchor.X + minimum.X, Mathf.Max(_resizeAnchor.X + minimum.X, viewport.X));
+        var top = Mathf.Clamp(desired.Y, 0, Mathf.Max(0, _resizeAnchor.Y - minimum.Y));
+        _chat.Size = new Vector2(right - _resizeAnchor.X, _resizeAnchor.Y - top);
+        _chat.Position = new Vector2(_resizeAnchor.X, top);
+        _draftChatSize = new DataHudSize { Width = _chat.Size.X, Height = _chat.Size.Y };
+        _draftPositions["chat"] = new HudPosition(_chat.Position.X / viewport.X, top / viewport.Y);
     }
 
     /// <summary>打开指定面板并关闭其他面板。</summary>
