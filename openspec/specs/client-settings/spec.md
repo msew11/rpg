@@ -41,3 +41,14 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 #### Scenario: 使用保存分辨率启动
 - **WHEN** 玩家打开独立游戏窗口
 - **THEN** 窗口使用保存的分辨率并在当前显示器中央显示
+
+### Requirement: 聊天尺寸保存与取消
+聊天尺寸 SHALL 按角色保存，调整模式使用独立草稿；完成 SHALL 保存位置和尺寸，退出或离开界面 SHALL 丢弃未确认尺寸。调整内恢复 SHALL 将位置和尺寸重置默认但不保存，调整外恢复默认布局 SHALL 立即保存默认位置与尺寸。缺失尺寸的旧设置 SHALL 使用固定默认值，无效尺寸 SHALL 回退默认值。
+
+#### Scenario: 完成与退出尺寸调整
+- **WHEN** 手动缩放聊天后关闭操作窗、用 Esc 呼出，再选择完成或退出
+- **THEN** 关闭与呼出不改变草稿；完成后重选角色仍保留所选尺寸，退出则恢复进入前尺寸
+
+#### Scenario: 恢复默认尺寸
+- **WHEN** 在调整内或调整外恢复默认布局
+- **THEN** 位置与尺寸一同恢复，保存时机遵循已有 HUD 调整契约

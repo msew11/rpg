@@ -50,6 +50,12 @@ public partial class GameHud : Control
     private bool _editing;
     /// <summary>调整期间独立于设置服务的坐标草稿。</summary>
     private Dictionary<string, HudPosition> _draftPositions = new();
+    /// <summary>调整期间独立保存的聊天尺寸草稿。</summary>
+    private DataHudSize _draftChatSize = new();
+    /// <summary>当前抓取是否用于聊天框左上角缩放。</summary>
+    private bool _resizingChat;
+    /// <summary>缩放时固定的聊天框右下角坐标。</summary>
+    private Vector2 _resizeEnd;
     /// <summary>正在拖动的 HUD 元素键。</summary>
     private string? _dragging;
     /// <summary>鼠标与被拖动元素左上角的距离。</summary>
@@ -126,6 +132,7 @@ public partial class GameHud : Control
         {
             if (_dragging is not null) _handles[_dragging].Dragging = false;
             _dragging = null;
+            _resizingChat = false;
             _hudEditWindow.Show();
             _hudEditWindow.FitToViewport();
             GetViewport().SetInputAsHandled();
@@ -141,6 +148,7 @@ public partial class GameHud : Control
         {
             _handles[_dragging].Dragging = false;
             _dragging = null;
+            _resizingChat = false;
             GetViewport().SetInputAsHandled();
         }
     }
@@ -151,6 +159,7 @@ public partial class GameHud : Control
         if (what != NotificationApplicationFocusOut || _dragging is null) return;
         _handles[_dragging].Dragging = false;
         _dragging = null;
+        _resizingChat = false;
     }
 
     /// <summary>创建头像、小地图、三条九格技能栏和系统菜单。</summary>
@@ -277,7 +286,7 @@ public partial class GameHud : Control
     /// <summary>注册整区可拖动的绿色覆盖框，不占用容器布局。</summary>
     private void RegisterMovable(string key, string title, PanelContainer panel)
     {
-        var handle = new HudEditOverlay { Name = "HudEditOverlay", Title = title, TopLevel = true, Visible = false };
+        var handle = new HudEditOverlay { Name = "HudEditOverlay", Title = title, TopLevel = true, Visible = false, Resizable = key == "chat" };
         handle.GuiInput += input => HandleDrag(key, input);
         panel.AddChild(handle);
         _movable[key] = panel;
@@ -468,7 +477,11 @@ public partial class GameHud : Control
     /// <summary>调整期间仅重置位置草稿，否则立即保存默认布局。</summary>
     private void ResetHudLayout()
     {
-        if (_editing) _draftPositions = RoleSetting.DefaultPositions();
+        if (_editing)
+        {
+            _draftPositions = RoleSetting.DefaultPositions();
+            _draftChatSize = new DataHudSize();
+        }
         else GameServices.Setting.ResetHudPositions();
         ApplyLayout();
     }
@@ -485,6 +498,7 @@ public partial class GameHud : Control
     {
         if (_editing) return;
         _draftPositions.Clear();
+        _draftChatSize = GameServices.Setting.GetChatSize();
         foreach (var key in _movable.Keys) _draftPositions[key] = GameServices.Setting.GetHudPosition(key);
         foreach (var panel in _panels) panel.Hide();
         SetEditing(true);
@@ -496,6 +510,7 @@ public partial class GameHud : Control
         if (!_editing) return;
         foreach (var (key, position) in _draftPositions)
             GameServices.Setting.SetHudPosition(key, position.X, position.Y);
+        GameServices.Setting.SetChatSize(_draftChatSize.Width, _draftChatSize.Height);
         GameServices.Setting.SaveCurrentRole();
         SetEditing(false);
     }
@@ -508,6 +523,7 @@ public partial class GameHud : Control
     {
         _editing = editing;
         _dragging = null;
+        _resizingChat = false;
         _hudEditWindow.Visible = editing;
         _hudEditHint.Visible = editing;
         if (editing) _hudEditWindow.FitToViewport();
@@ -528,6 +544,8 @@ public partial class GameHud : Control
         {
             _dragging = key;
             _handles[key].Dragging = true;
+            _resizingChat = _handles[key].IsResizeCorner(button.Position);
+            if (_resizingChat) _resizeEnd = _chat.GetRect().End;
             _dragOffset = _handles[key].GetGlobalTransform() * button.Position - _movable[key].GlobalPosition;
             AcceptEvent();
         }
@@ -536,6 +554,11 @@ public partial class GameHud : Control
     /// <summary>按鼠标位置更新被拖动元素的相对坐标。</summary>
     private void MoveDraggedElement(string key, Vector2 mousePosition)
     {
+        if (_resizingChat)
+        {
+            ResizeChat(mousePosition);
+            return;
+        }
         var viewport = GetViewportRect().Size;
         var panel = _movable[key];
         var desired = mousePosition - GlobalPosition - _dragOffset;
@@ -556,7 +579,11 @@ public partial class GameHud : Control
             if (panel != _chat) panel.Size = panel.GetCombinedMinimumSize();
         foreach (var (key, panel) in _movable)
         {
-            if (key == "chat") LayoutChatSize(viewport);
+            if (key == "chat")
+            {
+                var chatSize = _editing ? _draftChatSize : GameServices.Setting.GetChatSize();
+                _chat.Size = new Vector2(chatSize.Width, chatSize.Height);
+            }
             var position = _editing ? _draftPositions[key] : GameServices.Setting.GetHudPosition(key);
             var desired = new Vector2(position.X * viewport.X, position.Y * viewport.Y);
             var initial = _defaultPositions[key];
@@ -578,17 +605,19 @@ public partial class GameHud : Control
         }
     }
 
-    /// <summary>保留聊天自适应尺寸，并在默认布局下避让首条技能栏。</summary>
-    private void LayoutChatSize(Vector2 viewport)
+    /// <summary>固定右下角从左上角缩放聊天，只修改布局草稿。</summary>
+    private void ResizeChat(Vector2 mousePosition)
     {
-        var width = Mathf.Min(400, Mathf.Max(160, viewport.X - 32));
-        var height = Mathf.Min(180, Mathf.Max(100, viewport.Y - 150));
-        var position = _editing ? _draftPositions["chat"] : GameServices.Setting.GetHudPosition("chat");
-        var initial = _defaultPositions["chat"];
-        var hotbar = _movable["hotbar1"];
-        if (position.X == initial.X && position.Y == initial.Y && hotbar.GetRect().End.Y > viewport.Y - 16 - height)
-            width = Mathf.Min(width, Mathf.Max(160, hotbar.Position.X - 24));
-        _chat.Size = new Vector2(width, height);
+        var minimum = _chat.GetCombinedMinimumSize().Max(new Vector2(DataHudSize.MinimumWidth, DataHudSize.MinimumHeight));
+        var desired = mousePosition - GlobalPosition - _dragOffset;
+        var position = new Vector2(
+            Mathf.Clamp(desired.X, 0, Mathf.Max(0, _resizeEnd.X - minimum.X)),
+            Mathf.Clamp(desired.Y, 0, Mathf.Max(0, _resizeEnd.Y - minimum.Y)));
+        _chat.Size = _resizeEnd - position;
+        _chat.Position = position;
+        _draftChatSize = new DataHudSize { Width = _chat.Size.X, Height = _chat.Size.Y };
+        var viewport = GetViewportRect().Size;
+        _draftPositions["chat"] = new HudPosition(position.X / viewport.X, position.Y / viewport.Y);
     }
 
     /// <summary>打开指定面板并关闭其他面板。</summary>
@@ -650,6 +679,7 @@ public partial class GameHud : Control
         _hudEditHint?.Hide();
         _editing = false;
         _dragging = null;
+        _resizingChat = false;
         _draftPositions.Clear();
         foreach (var subscription in _subscriptions) subscription.Dispose();
         _subscriptions.Clear();

@@ -25,6 +25,9 @@ public sealed class RoleSetting
     /// <summary>头像、技能栏、系统按钮条、小地图和聊天框的相对位置。</summary>
     public Dictionary<string, HudPosition> HudPositions { get; set; } = DefaultPositions();
 
+    /// <summary>固定默认或手动选择的聊天框尺寸。</summary>
+    public DataHudSize ChatSize { get; set; } = new();
+
     /// <summary>为未保存过设置的角色提供默认 HUD 布局。</summary>
     public static Dictionary<string, HudPosition> DefaultPositions() => new()
     {

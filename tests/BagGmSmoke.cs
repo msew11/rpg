@@ -135,6 +135,7 @@ public partial class BagGmSmoke : Node
             CheckHudLayout(main, chat);
 
             await CheckHudEditing(main, chat);
+            await CheckChatResizing(main, chat);
             GameServices.Env.ConsoleLogEnabled = true;
             main.QueueFree();
             await Frames();
@@ -507,6 +508,100 @@ public partial class BagGmSmoke : Node
         GameServices.Setting.SelectRole(GameServices.Session.RoleId);
         Check(GameServices.Setting.GetHudPosition("chat").X == Rpg.Settings.Data.RoleSetting.DefaultPositions()["chat"].X,
             "非调整模式恢复默认未立即保存");
+    }
+
+    /// <summary>验收 client-ui/client-settings：聊天左上缩放、关闭呼出、取消保存和取消自动尺寸。</summary>
+    private async Task CheckChatResizing(Node main, ChatControl chat)
+    {
+        var hud = main.GetNode<GameHud>("HudLayer/GameHud");
+        var initial = chat.GetRect();
+        var path = GameServices.Setting.RolePath;
+        var originalFile = File.ReadAllText(path);
+        var target = GameServices.World.RoleTarget;
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            PressTitle(main, "进入 HUD 调整");
+            var window = hud.GetNode<ViewportPanelControl>("HudEditWindow");
+            PressTitle(window, "关闭");
+            await Frames();
+            var overlay = chat.GetNode<HudEditOverlay>("HudEditOverlay");
+            Check(overlay.Resizable && overlay.IsResizeCorner(new Vector2(4, 4)), "聊天左上角未启用缩放三角");
+            Check(!hud.GetNode<HudEditOverlay>("Radar/HudEditOverlay").Resizable, "不可缩放的小地图显示了缩放把手");
+            var before = chat.GetRect();
+            var start = overlay.GlobalPosition + new Vector2(4, 4);
+            var end = start + new Vector2(60, -50);
+            using (var press = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = start })
+                GetViewport().PushInput(press, true);
+            using (var motion = new InputEventMouseMotion { Position = end, Relative = end - start })
+                GetViewport().PushInput(motion, true);
+            using (var release = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = end })
+                GetViewport().PushInput(release, true);
+            await Frames();
+            Check(chat.GetRect().End.DistanceTo(before.End) < 1, "聊天缩放未固定右下角");
+            Check(chat.Size.DistanceTo(before.Size + new Vector2(-60, 50)) < 1, "聊天三角未按指针修改宽高");
+            Check(File.ReadAllText(path) == originalFile, "缩放松开提前保存尺寸");
+            if (attempt == 0)
+            {
+                var corner = overlay.GlobalPosition + new Vector2(4, 4);
+                var beyond = corner + new Vector2(5000, 5000);
+                using (var press = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = corner })
+                    GetViewport().PushInput(press, true);
+                using (var motion = new InputEventMouseMotion { Position = beyond, Relative = beyond - corner })
+                    GetViewport().PushInput(motion, true);
+                using (var release = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = beyond })
+                    GetViewport().PushInput(release, true);
+                await Frames();
+                Check(chat.Size.X >= Rpg.Settings.Data.DataHudSize.MinimumWidth - 0.01f &&
+                    chat.Size.Y >= Rpg.Settings.Data.DataHudSize.MinimumHeight - 0.01f && chat.GetRect().End.DistanceTo(before.End) < 1,
+                    "缩放越过右下角破坏最小尺寸或固定角");
+            }
+            var draft = chat.GetRect();
+            PushKey(Key.Escape);
+            await Frames();
+            Check(chat.GetRect() == draft && window.Visible, "呼出窗口丢失尺寸草稿");
+            if (attempt == 1 && OS.GetCmdlineUserArgs().Contains("--capture-hud") && DisplayServer.GetName() != "headless")
+            {
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                GetViewport().GetTexture().GetImage().SavePng("build/hud-adjustment-window.png");
+            }
+            var button = window.Content.GetChildren().OfType<Button>().Single(button => button.Text == (attempt == 0 ? "退出" : "完成"));
+            Click(button.GetGlobalRect().GetCenter());
+            await Frames();
+            if (attempt == 0)
+            {
+                Check(chat.GetRect() == initial && File.ReadAllText(path) == originalFile, "退出未还原位置和尺寸");
+            }
+            else
+            {
+                var selected = chat.Size;
+                GameServices.Setting.SelectRole(GameServices.Session.RoleId);
+                var saved = GameServices.Setting.GetChatSize();
+                Check(selected.IsEqualApprox(new Vector2(saved.Width, saved.Height)) && File.ReadAllText(path) != originalFile,
+                    $"完成未持久化手动尺寸：selected={selected}, saved={saved.Width},{saved.Height}, window={window.Visible}, changed={File.ReadAllText(path) != originalFile}");
+                // 布局、视口和文本变化均不能再触发自动尺寸。
+                GameServices.Setting.SetHudPosition("hotbar1", 0.2f, 0.6f);
+                foreach (var viewport in new[] { new Vector2I(640, 360), new Vector2I(480, 270), new Vector2I(1280, 720) })
+                {
+                    ResizeViewport(viewport);
+                    await Frames();
+                    Check(chat.Size.IsEqualApprox(selected), "视口或技能栏变化自动改变聊天尺寸");
+                }
+            }
+        }
+        Check(GameServices.World.RoleTarget == target, "聊天缩放或操作窗点击穿透世界");
+        PressTitle(main, "进入 HUD 调整");
+        PressTitle(main, "恢复");
+        await Frames();
+        var defaultSize = new Vector2(Rpg.Settings.Data.DataHudSize.DefaultWidth, Rpg.Settings.Data.DataHudSize.DefaultHeight);
+        Check(chat.Size == defaultSize, "调整中恢复未重置默认尺寸");
+        PressTitle(main, "退出");
+        await Frames();
+        Check(chat.Size != defaultSize, "取消恢复丢失已保存的手动尺寸");
+        PressTitle(main, "恢复默认布局");
+        await Frames();
+        Check(chat.Size == defaultSize, "调整外恢复未重置尺寸");
+        GameServices.Setting.SelectRole(GameServices.Session.RoleId);
+        Check(GameServices.Setting.GetChatSize().Width == defaultSize.X, "默认尺寸未立即保存");
     }
 
     /// <summary>验收 client-ui 内容贴合与底部对齐：真实外框底边一致，内容下方没有空带。</summary>

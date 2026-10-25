@@ -251,6 +251,39 @@ public sealed class SettingsAcceptanceTests
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
+    /// <summary>验收 client-settings：聊天尺寸兼容旧设置、延迟提交、角色隔离及默认恢复。</summary>
+    [Fact]
+    public void ChatSizeRemainsIsolatedUntilLayoutIsSaved()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "rpg-chat-size-" + Guid.NewGuid());
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(directory, "roles"));
+            File.WriteAllText(Path.Combine(directory, "roles", "1001.json"), "{}");
+            var repo = new Rpg.Settings.SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
+            repo.SelectRole(1001);
+            Assert.Equal(DataHudSize.DefaultWidth, repo.GetChatSize().Width);
+            repo.SetChatSize(480, 250);
+            Assert.Equal("{}", File.ReadAllText(repo.RolePath));
+            var copy = repo.GetChatSize();
+            copy.Width = 600;
+            Assert.Equal(480, repo.GetChatSize().Width);
+            repo.SaveCurrentRole();
+            repo.SelectRole(1002);
+            Assert.Equal(DataHudSize.DefaultWidth, repo.GetChatSize().Width);
+            repo.SelectRole(1001);
+            Assert.Equal(480, repo.GetChatSize().Width);
+            Assert.Equal(250, repo.GetChatSize().Height);
+            repo.ResetHudPositions();
+            Assert.Equal(DataHudSize.DefaultWidth, SettingsTestFixture.ReadRole(directory, 1001).ChatSize.Width);
+            File.WriteAllText(Path.Combine(directory, "roles", "1003.json"), "{\"ChatSize\":{\"Width\":0,\"Height\":20}}");
+            repo.SelectRole(1003);
+            Assert.Equal(DataHudSize.DefaultHeight, repo.GetChatSize().Height);
+            repo.Dispose();
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
 }
 
 /// <summary>为 openspec/specs/client-config-map 的地图场景加载真实配置仓库。</summary>

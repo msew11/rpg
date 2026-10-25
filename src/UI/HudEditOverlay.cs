@@ -9,6 +9,10 @@ public partial class HudEditOverlay : Control
     public string Title { get; set; } = "";
     /// <summary>是否正在被按住拖动，供全局指针保持握手。</summary>
     public bool Dragging { get; set; }
+    /// <summary>当前框是否提供左上角手动缩放。</summary>
+    public bool Resizable { get; set; }
+    /// <summary>左上角实心三角的逻辑像素边长。</summary>
+    private const float ResizeCornerSize = 18;
     /// <summary>高亮边框与名称使用的绿色。</summary>
     private static readonly Color Highlight = new(0.25f, 1f, 0.4f);
 
@@ -28,14 +32,20 @@ public partial class HudEditOverlay : Control
         Size = panel.Size;
     }
 
+    /// <summary>仅在实心三角范围内开始缩放，其余区域保持整框拖动。</summary>
+    public bool IsResizeCorner(Vector2 localPosition) => Resizable && localPosition.X >= 0 && localPosition.Y >= 0 &&
+        localPosition.X + localPosition.Y <= ResizeCornerSize + 2;
+
     /// <summary>绘制绿色外框、淡色高亮与框内左上角名称标签。</summary>
     public override void _Draw()
     {
         DrawRect(new Rect2(Vector2.Zero, Size), new Color(0.15f, 0.9f, 0.3f, 0.1f));
         DrawRect(new Rect2(Vector2.One, Size - Vector2.One * 2), Highlight, false, 2);
+        if (Resizable) DrawColoredPolygon([new Vector2(2, 2), new Vector2(ResizeCornerSize, 2), new Vector2(2, ResizeCornerSize)], Highlight);
+        var labelLeft = Resizable ? ResizeCornerSize + 4 : 3;
         var font = ThemeDB.FallbackFont;
         var textSize = font.GetStringSize(Title, fontSize: 13);
-        DrawRect(new Rect2(new Vector2(3, 3), textSize + new Vector2(8, 2)), new Color(0.02f, 0.12f, 0.04f, 0.95f));
-        DrawString(font, new Vector2(7, 4 + font.GetAscent(13)), Title, fontSize: 13, modulate: Highlight);
+        DrawRect(new Rect2(new Vector2(labelLeft, 3), textSize + new Vector2(8, 2)), new Color(0.02f, 0.12f, 0.04f, 0.95f));
+        DrawString(font, new Vector2(labelLeft + 4, 4 + font.GetAscent(13)), Title, fontSize: 13, modulate: Highlight);
     }
 }

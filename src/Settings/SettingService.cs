@@ -95,10 +95,25 @@ public sealed class SettingService : Service
         _roleDirty = true;
     }
 
-    /// <summary>恢复并保存当前角色的默认 HUD 布局。</summary>
+    /// <summary>读取当前角色聊天尺寸的副本，避免外部改动设置。</summary>
+    public DataHudSize GetChatSize() => new() { Width = CurrentRole.ChatSize.Width, Height = CurrentRole.ChatSize.Height };
+
+    /// <summary>更新聊天手动尺寸，随布局确认时一起保存。</summary>
+    public void SetChatSize(float width, float height)
+    {
+        if (!float.IsFinite(width) || !float.IsFinite(height)) throw new ArgumentOutOfRangeException(nameof(width), "聊天尺寸必须为有限数值");
+        CurrentRole.ChatSize = new DataHudSize
+        {
+            Width = Math.Max(DataHudSize.MinimumWidth, width), Height = Math.Max(DataHudSize.MinimumHeight, height)
+        };
+        _roleDirty = true;
+    }
+
+    /// <summary>恢复并保存当前角色的默认 HUD 位置与聊天尺寸。</summary>
     public void ResetHudPositions()
     {
         CurrentRole.HudPositions = RoleSetting.DefaultPositions();
+        CurrentRole.ChatSize = new DataHudSize();
         _roleDirty = true;
         SaveCurrentRole();
     }
@@ -183,6 +198,9 @@ public sealed class SettingService : Service
                 position.Y = float.IsFinite(position.Y) ? Math.Clamp(position.Y, 0, 1) : value.Y;
             }
         }
+        if (setting.ChatSize is null || !float.IsFinite(setting.ChatSize.Width) || !float.IsFinite(setting.ChatSize.Height) ||
+            setting.ChatSize.Width < DataHudSize.MinimumWidth || setting.ChatSize.Height < DataHudSize.MinimumHeight)
+            setting.ChatSize = new DataHudSize();
         setting.VisibleHotbars[0] = true;
         return setting;
     }
