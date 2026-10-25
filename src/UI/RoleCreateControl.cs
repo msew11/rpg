@@ -1,7 +1,6 @@
 using System;
 using Godot;
 using Rpg.Const;
-using Rpg.Services;
 
 namespace Rpg.UI;
 
@@ -15,14 +14,14 @@ public partial class RoleCreateControl : RoleScreenControl
     /// <summary>当前正在编辑的身体性别。</summary>
     private RoleGender _gender = RoleGender.Male;
     /// <summary>男女独立的头型编号，切换不相互覆盖。</summary>
-    private readonly int[] _headIds = [1, 1];
+    private readonly int[] _headIds = [AvatarControl.FirstPortraitHeadId, AvatarControl.FirstPortraitHeadId];
     /// <summary>男女独立的屏幕八方向预览索引。</summary>
     private readonly int[] _directions = [2, 2];
     /// <summary>男女独立的名字草稿，取消或请求失败时保留。</summary>
     private readonly string[] _names = ["", ""];
     /// <summary>当前是否正在等待服务器创建响应。</summary>
     private bool _busy;
-    /// <summary>头型平铺网格，当前性别始终包含全部 74 款。</summary>
+    /// <summary>头型平铺网格，只展示有完整头像对应关系的款式。</summary>
     private readonly GridContainer _heads = new() { Name = "HeadGrid", Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill };
     /// <summary>头型列表的滚动窗口。</summary>
     private readonly ScrollContainer _scroll = new() { Name = "HeadList", SizeFlagsVertical = SizeFlags.ExpandFill,
@@ -39,7 +38,7 @@ public partial class RoleCreateControl : RoleScreenControl
     /// <summary>男女选择器的互斥分组。</summary>
     private readonly ButtonGroup _genders = new();
 
-    /// <summary>建立右侧性别按钮、全部头型网格以及中央创建操作。</summary>
+    /// <summary>建立右侧性别按钮、可选头型网格以及中央创建操作。</summary>
     public override void _Ready()
     {
         base._Ready();
@@ -111,7 +110,7 @@ public partial class RoleCreateControl : RoleScreenControl
             child.QueueFree();
         }
         var group = new ButtonGroup();
-        for (var id = 1; id <= 74; id++)
+        for (var id = AvatarControl.FirstPortraitHeadId; id <= AvatarControl.LastPortraitHeadId; id++)
         {
             var headId = id;
             var button = new Button { Name = $"HeadChoice{id}", ToggleMode = true, ButtonGroup = group,
@@ -126,7 +125,7 @@ public partial class RoleCreateControl : RoleScreenControl
             var column = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
             button.AddChild(column);
             column.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 4);
-            column.AddChild(new TextureRect { Texture = GameServices.Animation.GetHead(_gender, id).Frames[4],
+            column.AddChild(new TextureRect { Texture = AvatarControl.LoadPortrait(_gender, id),
                 CustomMinimumSize = new Vector2(48, 48), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
                 StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.Nearest,
                 MouseFilter = MouseFilterEnum.Ignore });
@@ -142,7 +141,8 @@ public partial class RoleCreateControl : RoleScreenControl
     /// <summary>恢复当前性别独立的外观和方向。</summary>
     private void Present()
     {
-        _headTitle.Text = $"头型 · {_headIds[(int)_gender]:00} / 74";
+        var count = AvatarControl.LastPortraitHeadId - AvatarControl.FirstPortraitHeadId + 1;
+        _headTitle.Text = $"头型 · {_headIds[(int)_gender]:00}（{count} 款可选）";
         Preview.ShowRole(_gender, _headIds[(int)_gender], 0, "角色预览", _directions[(int)_gender]);
     }
 

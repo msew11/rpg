@@ -8,6 +8,12 @@ namespace Rpg.UI;
 /// <summary>绘制当前角色头像及左下角等级徽标。</summary>
 public partial class AvatarControl : Control
 {
+    /// <summary>参考资源表中首个有配套 DT 头像的头型编号。</summary>
+    public const int FirstPortraitHeadId = 9;
+
+    /// <summary>参考资源表中最后一个有配套 DT 头像的头型编号。</summary>
+    public const int LastPortraitHeadId = 72;
+
     /// <summary>与角色头型对应的头像图。</summary>
     public Texture2D? Portrait { get; set; }
 
@@ -49,6 +55,7 @@ public partial class AvatarControl : Control
     /// <summary>把等级文字固定在头像左下的圆形徽标内。</summary>
     public override void _Ready()
     {
+        TextureFilter = TextureFilterEnum.Nearest;
         AddChild(_levelLabel);
         Level = _level;
     }
@@ -72,10 +79,10 @@ public partial class AvatarControl : Control
     internal static Texture2D LoadPortrait(RoleGender gender, int headId)
     {
         var id = headId == 0 ? 1 : headId;
-        if (id <= 64)
+        if (id is >= FirstPortraitHeadId and <= LastPortraitHeadId)
         {
-            var group = (id - 1) / 8 + 1;
-            var variant = (id - 1) % 8 + 1;
+            var group = (id - FirstPortraitHeadId) / 8 + 1;
+            var variant = (id - FirstPortraitHeadId) % 8 + 1;
             var suffix = gender == RoleGender.Male ? "01" : "51";
             var path = $"res://assets/portraits/DThed0{group}{variant}_{suffix}.png";
             return GD.Load<Texture2D>(path) ?? throw new InvalidOperationException($"头像资源加载失败：{path}");

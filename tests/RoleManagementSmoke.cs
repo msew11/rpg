@@ -54,7 +54,8 @@ public partial class RoleManagementSmoke : Node
             var head = actor.GetNode<Sprite2D>("Facing/Head");
             var preview = (RolePreviewControl)page.FindChild("RolePreview", true, false);
             var portrait = (AvatarControl)page.FindChild("PreviewPortrait", true, false);
-            Check(head.Texture is not null, "首次预览缺失头部");
+            Check(ReferenceEquals(head.Texture, GameServices.Animation.GetHead(RoleGender.Male, 9).Frames[4]),
+                "首次预览没有使用首个可选头型");
             // role-management：圆形头像与 HUD 使用同一头型素材，且位于人物左上方。
             Check(portrait.Visible && portrait.Portrait?.ResourcePath.EndsWith("DThed011_01.png") == true &&
                 !portrait.GetNode<Label>("LevelLabel").Visible &&
@@ -70,21 +71,30 @@ public partial class RoleManagementSmoke : Node
             Check(original == (body.Animation, actor.GetNode<Node2D>("Facing").Scale), "顺逆旋转未抵消");
             Check(page.FindChildren("*", "OptionButton", true, false).Count == 0, "创建页仍使用下拉菜单");
             var choices = (GridContainer)page.FindChild("HeadGrid", true, false);
-            Check(choices.GetChildCount() == 74, "创建页没有平铺全部头型");
+            Check(choices.GetChildCount() == 64 &&
+                page.FindChild("HeadChoice1", true, false) is null &&
+                page.FindChild("HeadChoice73", true, false) is null,
+                "创建页未收敛到参考页的 64 款头型");
+            Check(((Button)page.FindChild("HeadChoice9", true, false)).ButtonPressed,
+                "默认没有选中首款对应头像的头型");
+            var firstChoiceImage = ((Button)page.FindChild("HeadChoice9", true, false))
+                .FindChildren("*", "TextureRect", true, false).OfType<TextureRect>().Single();
+            Check(firstChoiceImage.Texture?.ResourcePath.EndsWith("DThed011_01.png") == true,
+                "创角缩略图未使用对应的 DT 头像");
             Press(page, "HeadChoice17");
-            Check(portrait.Portrait?.ResourcePath.EndsWith("DThed031_01.png") == true,
+            Check(portrait.Portrait?.ResourcePath.EndsWith("DThed021_01.png") == true,
                 "切换男性头型未更新圆形头像");
             Press(page, "RotateClockwise");
             var maleDirection = preview.Direction;
             Press(page, "GenderFemale");
             await Frame();
             Check(preview.Direction == 2, "女性继承了男性的朝向");
-            Check(ReferenceEquals(head.Texture, GameServices.Animation.GetHead(RoleGender.Female, 1).Frames[4]), "女性继承了男性头型");
+            Check(ReferenceEquals(head.Texture, GameServices.Animation.GetHead(RoleGender.Female, 9).Frames[4]), "女性继承了男性头型");
             Check(portrait.Portrait?.ResourcePath.EndsWith("DThed011_51.png") == true,
                 "切换女性未更新圆形头像");
-            Press(page, "HeadChoice74");
-            Check(ReferenceEquals(portrait.Portrait, GameServices.Animation.GetHead(RoleGender.Female, 74).Frames[4]),
-                "后十种头型未显示对应的头像帧");
+            Press(page, "HeadChoice72");
+            Check(portrait.Portrait?.ResourcePath.EndsWith("DThed088_51.png") == true,
+                "末款头型未显示对应的 DT 头像");
             Press(page, "RotateCounterclockwise");
             var femaleDirection = preview.Direction;
             Press(page, "GenderMale");
@@ -94,7 +104,7 @@ public partial class RoleManagementSmoke : Node
             Press(page, "GenderFemale");
             await Frame();
             Check(preview.Direction == femaleDirection, "女性朝向未恢复");
-            Check(((Button)page.FindChild("HeadChoice74", true, false)).ButtonPressed, "女性头型未恢复");
+            Check(((Button)page.FindChild("HeadChoice72", true, false)).ButtonPressed, "女性头型未恢复");
             // 取消命名后切换性别，两个名字草稿也必须独立。
             Press(page, "SubmitCreate");
             var draftDialog = (ConfirmationDialog)page.FindChild("RoleNameDialog", true, false);
@@ -119,7 +129,7 @@ public partial class RoleManagementSmoke : Node
             await Frames();
             AssertLayout(page, "CancelCreate");
             var scroll = (ScrollContainer)page.FindChild("HeadList", true, false);
-            var last = (Button)page.FindChild("HeadChoice74", true, false);
+            var last = (Button)page.FindChild("HeadChoice72", true, false);
             scroll.EnsureControlVisible(last);
             await Frames();
             Check(scroll.GetGlobalRect().Intersects(last.GetGlobalRect()), "末尾头型无法通过滚动到达");
@@ -144,15 +154,15 @@ public partial class RoleManagementSmoke : Node
             Press(page, "ConfirmCreate");
             await Frames();
             var role = GameServices.Session.Roles.Single(value => value.Name == "分层预览验收");
-            Check(role.HeadId == 74 && role.Gender == RoleGender.Female, "创建没有保存草稿外观");
+            Check(role.HeadId == 72 && role.Gender == RoleGender.Female, "创建没有保存草稿外观");
             selection = (RoleSelectionControl)main.FindChild("RoleSelectionPage", true, false);
             Press(main, $"SelectRole{role.RoleId}");
             var selectedActor = (ActorView)selection.FindChild("PreviewActor", true, false);
             var selectedPortrait = (AvatarControl)selection.FindChild("PreviewPortrait", true, false);
             Check(ReferenceEquals(selectedActor.GetNode<Sprite2D>("Facing/Head").Texture,
-                GameServices.Animation.GetHead(RoleGender.Female, 74).Frames[4]), "选角未展示新创建的角色");
-            Check(selectedPortrait.Visible && ReferenceEquals(selectedPortrait.Portrait,
-                GameServices.Animation.GetHead(RoleGender.Female, 74).Frames[4]), "选角头像与角色头型不一致");
+                GameServices.Animation.GetHead(RoleGender.Female, 72).Frames[4]), "选角未展示新创建的角色");
+            Check(selectedPortrait.Visible && selectedPortrait.Portrait?.ResourcePath.EndsWith("DThed088_51.png") == true,
+                "选角头像与角色头型不一致");
             Press(selection, "RotateClockwise");
             await Capture("role-selection-preview.png");
             Press(main, $"DeleteRole{role.RoleId}");
@@ -168,7 +178,7 @@ public partial class RoleManagementSmoke : Node
             Check(GameServices.World.MapConfig.BgmTrackId == "M015a" &&
                 bgm.CurrentTrackId == "M015a" && music.Stream is AudioStreamOggVorbis { Loop: true } &&
                 music.Stream.ResourcePath.EndsWith("M015a.ogg"), "地图 1 没有按配置循环播放 M015a");
-            Check(GameServices.World.ActorState?.HeadId == 74, "选角没有把头型交给世界");
+            Check(GameServices.World.ActorState?.HeadId == 72, "选角没有把头型交给世界");
             var rolePath = Path.Combine(directory, "server", $"{role.RoleId}.role.json");
             Check(!File.Exists(rolePath), "禁用定时检测时角色已提前落地");
             var hud = (GameHud)main.FindChild("GameHud", true, false);

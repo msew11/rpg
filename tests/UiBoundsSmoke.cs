@@ -34,7 +34,9 @@ public partial class UiBoundsSmoke : Node
             var level = avatar.GetNode<Label>("LevelLabel");
             var statusBackground = portraitPanel.FindChildren("PortraitBackground", "Panel", true, false)
                 .OfType<Panel>().Single();
-            Check(avatar.Level == 5 && avatar.Portrait?.ResourcePath.EndsWith("DThed011_01.png") == true,
+            // role-management：旧角色的 1 号头型没有对应 DT，HUD 使用同一头部正面帧。
+            Check(avatar.Level == 5 && ReferenceEquals(avatar.Portrait,
+                GameServices.Animation.GetHead(RoleGender.Male, 1).Frames[4]),
                 "头像或等级与选中角色不一致");
             Check(name.Text == "晨星" && Math.Abs(health.Value - 86) < 0.01 &&
                 Math.Abs(mana.Value - 70) < 0.01 && healthValue.Text == "86/100" &&
