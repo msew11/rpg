@@ -339,6 +339,17 @@ public partial class GameHud : Control
         };
         consoleLog.Toggled += enabled => SetConsoleLogging(consoleLog, enabled);
         gm.AddChild(consoleLog);
+        var flushRow = new HBoxContainer();
+        flushRow.AddChild(new Label { Text = "Server 落地检测（秒，0 关闭）" });
+        var flushInterval = new SpinBox
+        {
+            Name = "ServerFlushIntervalSeconds", MinValue = 0, MaxValue = 2147483645,
+            Step = 5, Value = GameServices.Env.ServerFlushIntervalSeconds,
+            CustomMinimumSize = new Vector2(100, 0)
+        };
+        flushInterval.ValueChanged += seconds => SetServerFlushInterval(flushInterval, seconds);
+        flushRow.AddChild(flushInterval);
+        gm.AddChild(flushRow);
         var gmActions = new HBoxContainer { Name = "GmActions" };
         gm.AddChild(gmActions);
         var openUserData = new Button
@@ -372,6 +383,22 @@ public partial class GameHud : Control
         BuildDisplayTab(tabs);
         BuildSoundTab(tabs);
         BuildHudTab(tabs);
+    }
+
+    /// <summary>保存检测秒数并立即供服务端读取，失败恢复输入并显示原因。</summary>
+    private void SetServerFlushInterval(SpinBox input, double seconds)
+    {
+        try
+        {
+            if (seconds != Math.Truncate(seconds)) throw new ArgumentException("检测间隔必须为整数秒");
+            GameServices.Env.ServerFlushIntervalSeconds = checked((int)seconds);
+            _networkError.Text = "";
+        }
+        catch (Exception error)
+        {
+            input.SetValueNoSignal(GameServices.Env.ServerFlushIntervalSeconds);
+            _networkError.Text = $"无法保存落地检测设置：{error.Message}";
+        }
     }
 
     /// <summary>保存 .env 日志标记；失败恢复开关并在 HUD 显示原因。</summary>

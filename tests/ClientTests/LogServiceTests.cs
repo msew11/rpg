@@ -63,7 +63,7 @@ public sealed class LogServiceTests
         {
             net.Send(new Login { Username = "demo", Password = "demo" });
             net.Send(new CreateRole { Name = "关闭日志", Gender = RoleGenderPb.Male, HeadId = 1 });
-            net.Tick(0);
+            net.Tick(5);
             Assert.True(Assert.Single(responses).Success);
             Assert.Single(Directory.GetFiles(Path.Combine(root, "server"), "*.role.json"));
             Assert.Single(Directory.GetFiles(Path.Combine(root, "server"), "*.bag.json"));
@@ -75,18 +75,18 @@ public sealed class LogServiceTests
             settings.SetMasterVolume(0.5f);
             Assert.StartsWith("[Client][IO]", Assert.Single(lines));
             net.Send(new CreateRole { Name = "开启日志", Gender = RoleGenderPb.Female, HeadId = 1 });
-            net.Tick(0);
+            net.Tick(5);
             Assert.Equal(5, lines.Count);
             Assert.Equal(2, responses.Count);
             Assert.True(responses[1].Success);
             env.ConsoleLogEnabled = false;
             net.Send(new CreateRole { Name = "再次关闭", Gender = RoleGenderPb.Male, HeadId = 1 });
-            net.Tick(0);
+            net.Tick(5);
             Assert.Equal(5, lines.Count);
             Assert.Equal(3, responses.Count);
             Assert.True(responses[2].Success);
         }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally { net.Dispose(); if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
     /// <summary>只有指定标记着色，动态内容不能覆盖颜色或注入富文本。</summary>
@@ -192,7 +192,7 @@ public sealed class LogServiceTests
             lines.Clear();
             net.Send(new CreateRole { Name = "顺序测试", Gender = RoleGenderPb.Male, HeadId = 1 });
             Assert.Empty(lines);
-            net.Tick(0);
+            net.Tick(5);
             Assert.Equal(4, lines.Count);
             Assert.StartsWith("[Client][color=green][Request][/color]CreateRole{", lines[0]);
             Assert.StartsWith("[Server][IO][", lines[1]);
@@ -202,7 +202,7 @@ public sealed class LogServiceTests
             Assert.StartsWith("[Client][color=#ffa500][Response][/color]CreateRoleRt{", lines[3]);
             Assert.Contains("\"success\":true", lines[3]);
         }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally { net.Dispose(); if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
     /// <summary>系统与角色设置、服务器存档只在提交后记录实际 JSON，失败及读取不记 IO。</summary>

@@ -37,7 +37,8 @@ public sealed class NetService : Service
     public NetService(EnvService env, EventBusService eventBus, ConfigService config, LogService log)
         : this(new MockTransport(new MockServer(env.ServerDirectory,
             new DataServerBagRules(config.Basic.Value.BagColumns, config.Basic.Value.BagRows,
-                config.Item.Items.Values.Select(item => new DataServerItemDefinition(item.Id, item.Name, item.MaxStack))), log.ServerIO)), eventBus, log) { }
+                config.Item.Items.Values.Select(item => new DataServerItemDefinition(item.Id, item.Name, item.MaxStack))),
+            log.ServerIO, () => env.ServerFlushIntervalSeconds)), eventBus, log) { }
 
     /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>
     internal NetService(INetTransport transport, EventBusService eventBus, LogService log)

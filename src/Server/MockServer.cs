@@ -15,11 +15,17 @@ public sealed class MockServer
 {
     /// <summary>角色 JSON 存储边界。</summary>
     private readonly RepoServerRole _roles;
+    /// <summary>由运行环境提供当前检测秒数，隔离测试默认五秒。</summary>
+    private readonly Func<int> _flushInterval;
+    /// <summary>当前使用的检测周期，用于设置变更后重新计时。</summary>
+    private int _lastFlushInterval = -1;
+    /// <summary>距离上次检测累计的模拟秒数。</summary>
+    private double _flushElapsed;
     /// <summary>启动时复制的独立服务端背包规则。</summary>
     private readonly DataServerBagRules _bagRules;
     /// <summary>当前会话待确认的移动。</summary>
     private readonly List<DataPendingMove> _pending = [];
-    /// <summary>已成功落盘的当前角色状态。</summary>
+    /// <summary>已确认的当前角色内存状态。</summary>
     private DataServerRole? _current;
     /// <summary>当前模拟位置，尚未确认为已保存状态。</summary>
     private Vector2 _position;
@@ -35,9 +41,11 @@ public sealed class MockServer
     public event Action<byte[]>? Outgoing;
 
     /// <summary>绑定独立服务端存储目录。</summary>
-    public MockServer(string directory, DataServerBagRules bagRules, Action<string, string>? writeLog = null)
+    public MockServer(string directory, DataServerBagRules bagRules, Action<string, string>? writeLog = null,
+        Func<int>? flushInterval = null)
     {
-        _roles = new RepoServerRole(directory, writeLog);
+        _roles = new RepoServerRole(directory, writeLog, deferWrites: true);
+        _flushInterval = flushInterval ?? (() => 5);
         _bagRules = bagRules;
     }
 
@@ -67,8 +75,29 @@ public sealed class MockServer
         }
     }
 
-    /// <summary>按既有模拟速度推进位置，延迟 0.45 秒后保存并返回移动确认。</summary>
+    /// <summary>先推进业务内存，再按周期检测落地；无当前角色时也执行检测。</summary>
     public void Tick(double delta)
+    {
+        if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
+        AdvanceMovement(delta);
+        var interval = _flushInterval();
+        if (interval != _lastFlushInterval)
+        {
+            _lastFlushInterval = interval;
+            _flushElapsed = 0;
+        }
+        if (interval == 0) return;
+        _flushElapsed += delta;
+        if (_flushElapsed < interval) return;
+        _flushElapsed %= interval;
+        Flush();
+    }
+
+    /// <summary>在关闭或显式保存节点提交所有待写文件，失败保留数据供重试。</summary>
+    public void Flush() => _roles.Flush();
+
+    /// <summary>按既有模拟速度推进位置，延迟 0.45 秒后提交内存并返回移动确认。</summary>
+    private void AdvanceMovement(double delta)
     {
         if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
         if (_current is null) return;
@@ -101,7 +130,7 @@ public sealed class MockServer
         }
     }
 
-    /// <summary>主动提交当前角色的新状态，保存成功后才发推送；失败由调用方观察异常。</summary>
+    /// <summary>主动提交当前角色的新状态，内存提交成功后发推送；失败由调用方观察异常。</summary>
     public void PublishRoleState(DataServerRole update)
     {
         if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色状态");
@@ -113,7 +142,7 @@ public sealed class MockServer
         Send(new RoleStateNotice { State = ToMessage(candidate) });
     }
 
-    /// <summary>验证演示账号并从服务端文件读取独立角色摘要。</summary>
+    /// <summary>验证演示账号并从服务端缓存读取独立角色摘要。</summary>
     private void HandleLogin(Login request)
     {
         _authenticated = false;
@@ -179,7 +208,7 @@ public sealed class MockServer
         Send(response);
     }
 
-    /// <summary>写入墓碑成功后返回已准备的剩余列表，避免提交后再次读取失败。</summary>
+    /// <summary>缓存墓碑后返回已准备的剩余列表。</summary>
     private void HandleDeleteRole(DeleteRole request)
     {
         var response = new DeleteRoleRt();
@@ -217,7 +246,7 @@ public sealed class MockServer
         _pending.Add(new DataPendingMove(request.ActionId, 0.45));
     }
 
-    /// <summary>解析 GM 并在候选副本上发放，持久化成功后才提交内存与反馈。</summary>
+    /// <summary>解析 GM 并在候选副本上发放，缓存提交成功后反馈。</summary>
     private void HandleGm(Gm request)
     {
         var response = new GmRt { RoleId = request.RoleId, Command = request.Command };

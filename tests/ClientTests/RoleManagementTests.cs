@@ -41,27 +41,27 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
         Assert.Equal(2, new RepoServerRole(fixture.DirectoryPath).List().Count);
     }
 
-    /// <summary>创建目标被同名目录占用时报告失败，不留下摘要或部分文件，释放后可重试。</summary>
+    /// <summary>server-write-back：创建先进入缓存，落地失败回滚文件组，修复后补写完整角色。</summary>
     [Fact]
-    public void FailedCreateCanRetryWithoutPartialRole()
+    public void FailedCreateFlushCanRetryWithoutPartialFiles()
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         var blocked = Path.Combine(fixture.DirectoryPath, "1003.role.json");
         Directory.CreateDirectory(blocked);
-        var before = fixture.Session!.Roles;
-        CreateRoleRt? result = null;
-        using var listener = EventBus.Subscribe<CreateRoleRt>(response => result = response);
-        fixture.Session.CreateRole("重试创建", RoleGender.Male, 2);
-        fixture.Net.Tick(0);
-        Assert.False(result!.Success);
-        Assert.Same(before, fixture.Session.Roles);
-        Assert.Empty(Directory.GetFiles(fixture.DirectoryPath, "*.tmp"));
-        Directory.Delete(blocked);
-        fixture.Session.CreateRole("重试创建", RoleGender.Male, 2);
-        fixture.Net.Tick(0);
-        Assert.True(result.Success, result.Error);
-        Assert.Equal(3, fixture.Session.Roles.Count);
+        try
+        {
+            fixture.Session!.CreateRole("重试创建", RoleGender.Male, 2);
+            fixture.Net.Tick(5);
+            Assert.Equal(3, fixture.Session.Roles.Count);
+            Assert.Single(fixture.Errors);
+            Assert.False(File.Exists(Path.Combine(fixture.DirectoryPath, "1003.bag.json")));
+            Assert.Empty(Directory.GetFiles(fixture.DirectoryPath, "*.tmp"));
+        }
+        finally { Directory.Delete(blocked); }
+        fixture.Net.Tick(5);
+        Assert.Equal(3, new RepoServerRole(fixture.DirectoryPath).List().Count);
+        Assert.Equal(3, fixture.Session!.Roles.Count);
     }
 
     /// <summary>管理响应包含非法摘要时保留完整旧列表，并阻止普通监听消费部分更新。</summary>
@@ -117,6 +117,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
         session.SubmitMove(1, session.Role.Position + Vector2.One);
         fixture.Net.Tick(0.5);
         Assert.Equal(headId, session.Role.HeadId);
+        fixture.Server.Flush(); // 显式落地后验证重启恢复。
         using var restarted = new NetworkTestFixture(EventBus, fixture.DirectoryPath);
         Assert.Equal(headId, restarted.Login().Roles.Single(role => role.RoleId == summary.RoleId).HeadId);
         Assert.Equal(headId, restarted.SelectRole(summary.RoleId).Role.HeadId);
@@ -134,6 +135,7 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
             fixture.Net.Tick(0);
         }
         Assert.Empty(fixture.Session.Roles);
+        fixture.Server.Flush(); // 显式落地后验证重启恢复。
         using var restarted = new NetworkTestFixture(EventBus, fixture.DirectoryPath);
         Assert.Empty(restarted.Login().Roles);
         SelectRoleRt? selection = null;
@@ -172,29 +174,26 @@ public sealed class RoleManagementTests : RegisteredServiceTestScope
         Assert.True(result.Success, result.Error);
     }
 
-    /// <summary>文件锁导致删除失败时，旧文件与缓存列表保持原值。</summary>
+    /// <summary>server-write-back：删除立即更新列表，文件占用只阻止落地；恢复后补写墓碑。</summary>
     [Fact]
-    public void FailedDeletePreservesFileAndCache()
+    public void FailedDeleteFlushPreservesCachedTombstone()
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
-        var path = new RepoServerRole(fixture.DirectoryPath).GetRolePath(1001);
+        var repo = new RepoServerRole(fixture.DirectoryPath);
+        var path = repo.GetRolePath(1001);
         var original = File.ReadAllText(path);
-        var before = fixture.Session!.Roles;
-        DeleteRoleRt? result = null;
-        using var listener = EventBus.Subscribe<DeleteRoleRt>(response => result = response);
         using (var locked = new FileStream(path, FileMode.Open, System.IO.FileAccess.Read, FileShare.Read))
         {
-            fixture.Session.DeleteRole(1001);
-            fixture.Net.Tick(0);
-            Assert.False(result!.Success);
-            Assert.Same(before, fixture.Session.Roles);
+            fixture.Session!.DeleteRole(1001);
+            fixture.Net.Tick(5);
+            Assert.Single(fixture.Session.Roles);
             Assert.Equal(original, File.ReadAllText(path));
+            Assert.Single(fixture.Errors);
         }
-        fixture.Session.DeleteRole(1001);
-        fixture.Net.Tick(0);
-        Assert.True(result!.Success, result.Error);
-        Assert.Single(fixture.Session.Roles);
+        fixture.Net.Tick(5);
+        Assert.Throws<InvalidDataException>(() => repo.Load(1001));
+        Assert.Single(fixture.Session!.Roles);
     }
 
     /// <summary>旧 JSON 缺失头型字段时默认 1，旧协议编号 0 可往返且非法编号被拒绝。</summary>

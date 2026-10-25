@@ -11,6 +11,22 @@ public sealed class EnvService : Service
 {
     /// <summary>.env 中跨启动保存控制台日志开关的配置键。</summary>
     public const string ConsoleLogVariable = "RPG_CONSOLE_LOG_ENABLED";
+    /// <summary>.env 中持有服务端检测间隔的秒数键，0 关闭检测。</summary>
+    public const string ServerFlushIntervalVariable = "RPG_SERVER_FLUSH_INTERVAL_SECONDS";
+    /// <summary>缺失或非法配置时的默认检测秒数。</summary>
+    private int _serverFlushIntervalSeconds = 5;
+    /// <summary>服务端检测秒数，只接受零或正的五秒倍数，写入成功才更新内存。</summary>
+    public int ServerFlushIntervalSeconds
+    {
+        get => _serverFlushIntervalSeconds;
+        set
+        {
+            ThrowIfDisposed();
+            if (value < 0 || value % 5 != 0) throw new ArgumentOutOfRangeException(nameof(value), "检测间隔必须为 0 或 5 秒的正整数倍");
+            SaveVariable(ServerFlushIntervalVariable, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            _serverFlushIntervalSeconds = value;
+        }
+    }
     /// <summary>用户数据目录中的 .env 路径，未指定路径的隔离测试仅使用内存。</summary>
     public string? EnvFilePath { get; }
     /// <summary>启动时读取、切换成功后更新的日志状态。</summary>
@@ -23,7 +39,7 @@ public sealed class EnvService : Service
         set
         {
             ThrowIfDisposed();
-            SaveConsoleLogging(value);
+            SaveVariable(ConsoleLogVariable, value ? "true" : "false");
             _consoleLogEnabled = value;
         }
     }
@@ -52,6 +68,8 @@ public sealed class EnvService : Service
         {
             foreach (var line in File.ReadAllLines(envFilePath))
             {
+                if (TryReadVariable(line, ServerFlushIntervalVariable, out var interval))
+                    _serverFlushIntervalSeconds = int.TryParse(interval, out var seconds) && seconds >= 0 && seconds % 5 == 0 ? seconds : 5;
                 if (!TryReadConsoleLogging(line, out var text)) continue;
                 _consoleLogEnabled = text == "1" || bool.TryParse(text, out var enabled) && enabled;
             }
@@ -64,27 +82,31 @@ public sealed class EnvService : Service
 
     /// <summary>识别日志配置行，忽略首尾空白并支持成对引号，其他行原样保留。</summary>
     private static bool TryReadConsoleLogging(string line, out string value)
+        => TryReadVariable(line, ConsoleLogVariable, out value);
+
+    /// <summary>读取指定键及成对引号内的值，保留其他配置行。</summary>
+    private static bool TryReadVariable(string line, string key, out string value)
     {
         var separator = line.IndexOf('=');
         value = "";
-        if (separator < 0 || line[..separator].Trim() != ConsoleLogVariable) return false;
+        if (separator < 0 || line[..separator].Trim() != key) return false;
         value = line[(separator + 1)..].Trim();
         if (value.Length >= 2 && (value[0] == '"' && value[^1] == '"' || value[0] == '\'' && value[^1] == '\''))
             value = value[1..^1].Trim();
         return true;
     }
 
-    /// <summary>原子替换 .env，仅更新日志键并合并重复项，整个过程不输出日志。</summary>
-    private void SaveConsoleLogging(bool enabled)
+    /// <summary>原子替换 .env，仅更新指定键并合并重复项，整个过程不输出日志。</summary>
+    private void SaveVariable(string key, string value)
     {
         if (EnvFilePath is null) return;
         var lines = File.Exists(EnvFilePath) ? File.ReadAllLines(EnvFilePath) : [];
         var updated = new List<string>();
-        var replacement = ConsoleLogVariable + "=" + (enabled ? "true" : "false");
+        var replacement = key + "=" + value;
         var found = false;
         foreach (var line in lines)
         {
-            if (!TryReadConsoleLogging(line, out _)) { updated.Add(line); continue; }
+            if (!TryReadVariable(line, key, out _)) { updated.Add(line); continue; }
             if (!found) updated.Add(replacement);
             found = true;
         }

@@ -48,6 +48,7 @@ public sealed class MockTransport : INetTransport
     public void Dispose()
     {
         if (_disposed) return;
+        _server.Flush();
         _disposed = true;
         _server.Outgoing -= OnOutgoing;
         _server.ResetSession(_generation + 1);

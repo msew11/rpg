@@ -96,6 +96,8 @@ public partial class ItemMovementSmoke : Node
             GetWindow().ContentScaleSize = new Vector2I(1280, 720);
             await Frames();
 
+            // server-write-back：先推进到落地节点，再核对失败请求与重启文件。
+            GameServices.Net.Tick(5);
             var saved = repo.Load(1001).Bag;
             GameServices.Session.MoveItem(99999, 4, saved.Revision);
             await Frames();

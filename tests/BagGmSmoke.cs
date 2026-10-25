@@ -197,6 +197,14 @@ public partial class BagGmSmoke : Node
             "GM 日志开关没有立即开启");
         Check(target == GameServices.World.RoleTarget, "日志开关点击穿透世界");
         var envPath = GameServices.Env.EnvFilePath!;
+        // server-write-back：真实 GM 输入以五秒步长保存，禁用与日志键互不覆盖。
+        var interval = (SpinBox)main.FindChild("ServerFlushIntervalSeconds", true, false);
+        Check(interval.Step == 5 && interval.MinValue == 0, "落地检测步长错误");
+        interval.Value = 10;
+        Check(GameServices.Env.ServerFlushIntervalSeconds == 10, "检测间隔未即时生效");
+        interval.Value = 0;
+        Check(GameServices.Env.ServerFlushIntervalSeconds == 0, "未关闭检测");
+        Check(File.ReadAllText(envPath).Contains("RPG_SERVER_FLUSH_INTERVAL_SECONDS=0"), "未保存检测间隔");
         Check(File.ReadAllText(envPath).Contains("RPG_CONSOLE_LOG_ENABLED=true"), "GM 未保存 .env");
         var rebuilt = new GameHud { Visible = false };
         AddChild(rebuilt);

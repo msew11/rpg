@@ -100,6 +100,44 @@ public sealed class EnvServiceTests : IDisposable
         Assert.False(File.Exists(EnvPath + ".tmp"));
     }
 
+    /// <summary>server-write-back：秒数跨启动保留，0 禁用；更改日志不覆盖间隔或其他键。</summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(5)]
+    [InlineData(30)]
+    public void FlushIntervalPersistsAndPreservesOtherKeys(int seconds)
+    {
+        using var env = Open();
+        Assert.Equal(5, env.ServerFlushIntervalSeconds);
+        env.ConsoleLogEnabled = true;
+        env.ServerFlushIntervalSeconds = seconds;
+        env.ConsoleLogEnabled = false;
+        using var restarted = Open();
+        Assert.Equal(seconds, restarted.ServerFlushIntervalSeconds);
+        Assert.False(restarted.ConsoleLogEnabled);
+        Assert.Contains($"{EnvService.ServerFlushIntervalVariable}={seconds}", File.ReadAllLines(EnvPath));
+    }
+
+    /// <summary>server-write-back：非法文件值回退默认，非法赋值与写入失败保留原值。</summary>
+    [Theory]
+    [InlineData("-5")]
+    [InlineData("7")]
+    [InlineData("2.5")]
+    [InlineData("invalid")]
+    public void InvalidIntervalAndFailedSavePreserveState(string invalid)
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(EnvPath, EnvService.ServerFlushIntervalVariable + "=" + invalid);
+        using var env = Open();
+        Assert.Equal(5, env.ServerFlushIntervalSeconds);
+        Assert.Throws<ArgumentOutOfRangeException>(() => env.ServerFlushIntervalSeconds = -5);
+        Assert.Throws<ArgumentOutOfRangeException>(() => env.ServerFlushIntervalSeconds = 7);
+        using (var locked = new FileStream(EnvPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            Assert.True(Record.Exception(() => env.ServerFlushIntervalSeconds = 10) is IOException or UnauthorizedAccessException);
+        Assert.Equal(5, env.ServerFlushIntervalSeconds);
+        Assert.EndsWith(invalid, File.ReadAllText(EnvPath));
+    }
+
     /// <summary>清理本用例文件，不触碰用户实际的 .env。</summary>
     public void Dispose()
     {

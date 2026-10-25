@@ -18,6 +18,9 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     public void LoginReturnsSummariesAndSelectionLoadsLatestWorldState()
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
+        var repo = new RepoServerRole(fixture.DirectoryPath);
+        var updated = repo.Load(1001) with { Health = 42, X = 123, Y = 456, Revision = 7 };
+        repo.Save(updated);
         LoginRt? loginResponse = null;
         using var loginListener = EventBus.Subscribe<LoginRt>(response => loginResponse = response);
         var login = fixture.Login();
@@ -31,9 +34,6 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         loginResponse!.Roles[0].Name = "篡改登录消息";
         Assert.Equal("晨星", summary.Name);
 
-        var repo = new RepoServerRole(fixture.DirectoryPath);
-        var updated = repo.Load(summary.RoleId) with { Health = 42, X = 123, Y = 456, Revision = 7 };
-        repo.Save(updated);
         SelectRoleRt? selectionResponse = null;
         using var selectionListener = EventBus.Subscribe<SelectRoleRt>(response => selectionResponse = response);
         using var session = fixture.SelectRole(summary.RoleId);
@@ -103,9 +103,9 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         Assert.Empty(fixture.Errors);
     }
 
-    /// <summary>成功确认发生前不改变存档；响应回调时已落盘，服务端重建恢复且不污染其他角色。</summary>
+    /// <summary>server-write-back：响应时内存已确认而文件未变，正常关闭补写后重启恢复且隔离角色。</summary>
     [Fact]
-    public void ConfirmedMovementPersistsBeforeResponseAndSurvivesRestart()
+    public void ConfirmedMovementFlushesOnCloseAndSurvivesRestart()
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
@@ -119,9 +119,8 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
             Assert.True(message.Success, message.Error);
             replies++;
             var persisted = repo.Load(1001);
-            Assert.Equal(message.State.Revision, persisted.Revision);
-            Assert.Equal(message.State.X, persisted.X);
-            Assert.Equal(message.State.AcknowledgedAction, persisted.AcknowledgedAction);
+            Assert.True(message.State.Revision > persisted.Revision);
+            Assert.Equal(initial.Position.X, persisted.X);
             Assert.Equal(message.State.X, session.RoleCache.State.Position.X);
         });
         session.SubmitMove(1, session.Role.Position + new Godot.Vector2(100, 0));
@@ -131,6 +130,8 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         fixture.Net.Tick(0.3);
         Assert.Equal(1, replies);
         var confirmed = session.RoleCache.State;
+        Assert.Empty(fixture.Errors);
+        response.Dispose();
         session.Dispose();
         fixture.Net.Dispose();
         using var restarted = new NetworkTestFixture(EventBus, fixture.DirectoryPath);
@@ -146,7 +147,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         Assert.Equal(1, restored.RoleCache.State.AcknowledgedAction);
     }
 
-    /// <summary>先注册的 UI 读到推送更新后的缓存和存档；修改协议对象不会污染客户端快照。</summary>
+    /// <summary>server-write-back：UI 读到更新缓存而磁盘仍为旧值；修改协议对象不污染快照。</summary>
     [Fact]
     public void NoticeCommitsBeforeEarlierUiAndDoesNotShareMutableData()
     {
@@ -159,7 +160,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         {
             notices++;
             Assert.Equal(50, session!.RoleCache.State.Health);
-            Assert.Equal(50, repo.Load(1001).Health);
+            Assert.Equal(86, repo.Load(1001).Health);
             Assert.Equal(RoleGender.Female, session.Role.Gender);
             notice.State.Name = "篡改消息对象";
         });
@@ -276,19 +277,8 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     public void CorruptFilesFailWithoutOverwriting(string corrupted)
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
-        fixture.Login();
         var path = new RepoServerRole(fixture.DirectoryPath).GetRolePath(1001);
         File.WriteAllText(path, corrupted);
-        using (var pending = fixture.Session!)
-        {
-            SelectRoleRt? selection = null;
-            using var listener = EventBus.Subscribe<SelectRoleRt>(response => selection = response);
-            pending.SelectRole(1001);
-            fixture.Net.Tick(0);
-            Assert.False(selection!.Success);
-            Assert.Contains(path, selection.Error);
-            Assert.False(pending.RoleCache.IsInitialized);
-        }
         var login = fixture.Login();
         Assert.False(login.Success);
         Assert.Contains(path, login.Error);
@@ -303,7 +293,6 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     public void InvalidStoredFieldsAreDiagnosed(string field)
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
-        fixture.Login();
         var repo = new RepoServerRole(fixture.DirectoryPath);
         var original = repo.Load(1001);
         var invalid = field switch
@@ -318,9 +307,9 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         Assert.Equal(json, File.ReadAllText(repo.GetRolePath(1001)));
     }
 
-    /// <summary>Windows 文件占用导致替换失败时不提交缓存或成功响应，解除占用后可继续保存。</summary>
+    /// <summary>server-write-back：定时落地失败通过网络错误上报，不回退已经确认的移动。</summary>
     [Fact]
-    public void FailedMovementSavePreservesConfirmedStateAndOriginalFile()
+    public void FailedMovementFlushPreservesConfirmedMemoryAndRetries()
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
@@ -328,29 +317,24 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         var repo = new RepoServerRole(fixture.DirectoryPath);
         var path = repo.GetRolePath(1001);
         var original = File.ReadAllText(path);
-        var initial = session.RoleCache.State;
         MoveRt? response = null;
         using var listener = EventBus.Subscribe<MoveRt>(message => response = message);
         using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
             session.SubmitMove(1, session.Role.Position + new Godot.Vector2(100, 0));
-            fixture.Net.Tick(0.5);
-            Assert.False(response!.Success);
-            Assert.Contains("保存失败", response.Error);
-            Assert.Same(initial, session.RoleCache.State);
+            fixture.Net.Tick(5);
+            Assert.True(response!.Success);
+            Assert.Equal(1, session.RoleCache.State.Revision);
+            Assert.Single(fixture.Errors);
             Assert.Equal(original, File.ReadAllText(path));
-            Assert.Empty(Directory.GetFiles(fixture.DirectoryPath, "*.tmp"));
         }
-        session.SubmitMove(2, session.Role.Position + new Godot.Vector2(100, 0));
-        fixture.Net.Tick(0.5);
-        Assert.True(response!.Success, response.Error);
-        Assert.Equal(1, session.RoleCache.State.Revision);
-        Assert.Equal(2, session.RoleCache.State.AcknowledgedAction);
+        fixture.Net.Tick(5);
+        Assert.Equal(session.RoleCache.State.Revision, repo.Load(1001).Revision);
     }
 
-    /// <summary>主动更新保存失败时不发送 Notice，后续更新仍从最后确认的 revision 递增。</summary>
+    /// <summary>server-write-back：主动推送只依赖内存提交，落地失败可重试而不重复增加版本。</summary>
     [Fact]
-    public void FailedNoticeSaveDoesNotPublishOrCommit()
+    public void FailedNoticeFlushKeepsPublishedMemory()
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
@@ -360,14 +344,17 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         var notices = 0;
         using var listener = EventBus.Subscribe<RoleStateNotice>(_ => notices++);
         using (var locked = new FileStream(repo.GetRolePath(1001), FileMode.Open, FileAccess.Read, FileShare.Read))
-            Assert.ThrowsAny<IOException>(() => fixture.Server.PublishRoleState(original with { Health = 20 }));
-        fixture.Net.Tick(0);
-        Assert.Equal(0, notices);
-        Assert.Equal(original.Health, session.Role.Health);
-        Assert.Equal(original, repo.Load(1001));
-        fixture.Server.PublishRoleState(original with { Health = 30 });
-        fixture.Net.Tick(0);
-        Assert.Equal(1, notices);
+        {
+            fixture.Server.PublishRoleState(original with { Health = 20 });
+            fixture.Net.Tick(5);
+            Assert.Equal(1, notices);
+            Assert.Equal(20, session.Role.Health);
+            Assert.Equal(original, repo.Load(1001));
+            Assert.Single(fixture.Errors);
+        }
+        fixture.Net.Tick(5);
+        Assert.Equal(20, repo.Load(1001).Health);
         Assert.Equal(1, session.RoleCache.State.Revision);
+        Assert.Equal(1, notices);
     }
 }

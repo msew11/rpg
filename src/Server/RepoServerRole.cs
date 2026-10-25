@@ -8,24 +8,31 @@ using Rpg.Server.Data;
 
 namespace Rpg.Server;
 
-/// <summary>按角色和领域隔离 JSON 存档，通过原子替换与回滚记录提交状态。</summary>
+/// <summary>按角色和领域隔离 JSON 存档，支持内存延迟落地及原子替换回滚。</summary>
 public sealed class RepoServerRole
 {
     /// <summary>成功提交后的诊断回调，不参与服务端业务决策。</summary>
     private readonly Action<string, string>? _writeLog;
     /// <summary>服务端存档的绝对目录，由运行入口或测试注入。</summary>
     private readonly string _directory;
+    /// <summary>延迟模式持有包含墓碑的完整角色快照，磁盘模式为空。</summary>
+    private readonly Dictionary<long, DataServerRole>? _cache;
+    /// <summary>按角色合并待写领域：1 为角色，2 为背包。</summary>
+    private readonly Dictionary<long, int> _dirty = new();
+    /// <summary>首次访问后不再从磁盘重新加载业务状态。</summary>
+    private bool _loaded;
     /// <summary>便于调试查看的 JSON 写入设置。</summary>
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     /// <summary>角色序列化元数据直接排除背包，避免移动时遍历整份物品。</summary>
     private static readonly JsonSerializerOptions RoleJsonOptions = CreateRoleJsonOptions();
 
-    /// <summary>绑定存储目录，延迟到具体请求时创建文件。</summary>
-    public RepoServerRole(string directory, Action<string, string>? writeLog = null)
+    /// <summary>绑定存储目录，可选择内存优先并在 Flush 节点落地。</summary>
+    public RepoServerRole(string directory, Action<string, string>? writeLog = null, bool deferWrites = false)
     {
         _directory = Path.GetFullPath(directory);
         _writeLog = writeLog;
+        if (deferWrites) _cache = new();
     }
 
     /// <summary>角色属性、位置与墓碑的领域文件。</summary>
@@ -40,6 +47,13 @@ public sealed class RepoServerRole
     /// <summary>读取完整角色，恢复中断提交后组合领域，缺失不补建。</summary>
     public DataServerRole Load(long roleId)
     {
+        if (_cache is not null)
+        {
+            EnsureCache();
+            if (!_cache.TryGetValue(roleId, out var cached) || cached.IsDeleted)
+                throw new InvalidDataException("角色不存在或已删除");
+            return cached;
+        }
         Recover(roleId);
         var role = Read(roleId);
         if (role.IsDeleted) throw new InvalidDataException("角色已删除");
@@ -50,6 +64,7 @@ public sealed class RepoServerRole
     public void Save(DataServerRole role)
     {
         Validate(role);
+        if (_cache is not null) { Stage(role, 3); return; }
         Recover(role.RoleId);
         var rolePath = GetRolePath(role.RoleId);
         var bagPath = GetBagPath(role.RoleId);
@@ -75,28 +90,38 @@ public sealed class RepoServerRole
     public void SaveRole(DataServerRole role)
     {
         Validate(role);
+        if (_cache is not null) { Stage(role, 1); return; }
         Recover(role.RoleId);
         if (!File.Exists(GetRolePath(role.RoleId))) { Save(role); return; }
         if (!File.Exists(GetBagPath(role.RoleId))) throw new InvalidDataException($"缺少背包存档：{GetBagPath(role.RoleId)}");
-        Commit(role.RoleId, new Dictionary<string, string> { ["role"] = SerializeRole(role) });
+        var content = SerializeRole(role);
+        if (!JsonEquals(File.ReadAllText(GetRolePath(role.RoleId)), content))
+            Commit(role.RoleId, new Dictionary<string, string> { ["role"] = content });
     }
 
     /// <summary>正常物品操作只写背包领域，不读取或替换角色属性文件。</summary>
     public void SaveBag(DataServerRole role)
     {
         Validate(role);
+        if (_cache is not null) { Stage(role, 2); return; }
         Recover(role.RoleId);
         if (!File.Exists(GetRolePath(role.RoleId))) { Save(role); return; }
         if (!File.Exists(GetBagPath(role.RoleId))) throw new InvalidDataException($"缺少背包存档：{GetBagPath(role.RoleId)}");
-        Commit(role.RoleId, new Dictionary<string, string>
+        var content = JsonSerializer.Serialize(DataServerBagFile.FromRole(role), JsonOptions);
+        if (!JsonEquals(File.ReadAllText(GetBagPath(role.RoleId)), content)) Commit(role.RoleId, new Dictionary<string, string>
         {
-            ["bag"] = JsonSerializer.Serialize(DataServerBagFile.FromRole(role), JsonOptions)
+            ["bag"] = content
         });
     }
 
     /// <summary>恢复中断创建后枚举角色，领域文件和旧文件按编号去重，隐藏墓碑。</summary>
     public IReadOnlyList<DataServerRole> List()
     {
+        if (_cache is not null)
+        {
+            EnsureCache();
+            return _cache.Values.Where(role => !role.IsDeleted).OrderBy(role => role.RoleId).ToList().AsReadOnly();
+        }
         Directory.CreateDirectory(_directory);
         foreach (var path in Directory.EnumerateFiles(_directory, "*.pending.json").ToArray())
         {
@@ -104,6 +129,52 @@ public sealed class RepoServerRole
             if (long.TryParse(prefix, out var id) && id > 0) Recover(id);
         }
         return StoredIds().Select(Read).Where(role => !role.IsDeleted).ToList().AsReadOnly();
+    }
+
+    /// <summary>完整加载成功后才接管快照，避免损坏文件留下部分缓存。</summary>
+    private void EnsureCache()
+    {
+        if (_loaded || _cache is null) return;
+        var disk = new RepoServerRole(_directory, _writeLog);
+        _ = disk.List();
+        var roles = disk.StoredIds().Select(disk.Read).ToArray();
+        foreach (var role in roles) _cache.Add(role.RoleId, role);
+        _loaded = true;
+    }
+
+    /// <summary>合并领域到最新缓存，不在数据修改时执行存档 IO。</summary>
+    private void Stage(DataServerRole role, int domains)
+    {
+        EnsureCache();
+        if (_cache!.TryGetValue(role.RoleId, out var previous))
+        {
+            if (domains == 1) role = role with { Bag = previous.Bag, BagExtraRows = previous.BagExtraRows };
+            if (domains == 2) role = previous with { Bag = role.Bag, BagExtraRows = role.BagExtraRows };
+            if (role == previous) return;
+        }
+        else domains = 3;
+        _cache[role.RoleId] = role;
+        _dirty[role.RoleId] = _dirty.GetValueOrDefault(role.RoleId) | domains;
+    }
+
+    /// <summary>只检查待写角色，成功清标记；失败保留并继续其他角色，最后汇总错误。</summary>
+    public void Flush()
+    {
+        if (_cache is null || _dirty.Count == 0) return;
+        var disk = new RepoServerRole(_directory, _writeLog);
+        var errors = new List<Exception>();
+        foreach (var (id, domains) in _dirty.ToArray())
+        {
+            try
+            {
+                if (domains == 1) disk.SaveRole(_cache[id]);
+                else if (domains == 2) disk.SaveBag(_cache[id]);
+                else disk.Save(_cache[id]);
+                _dirty.Remove(id);
+            }
+            catch (Exception error) { errors.Add(error); }
+        }
+        if (errors.Count > 0) throw new AggregateException("服务端缓存落地失败，保留待写数据供重试", errors);
     }
 
     /// <summary>统一生成固定领域路径，拒绝无效角色编号。</summary>
@@ -248,7 +319,7 @@ public sealed class RepoServerRole
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
-    /// <summary>校验名称及外观，保存完成后才允许列表展示新角色。</summary>
+    /// <summary>校验名称及外观，提交仓库状态后允许列表展示新角色。</summary>
     public DataServerRole Create(string name, ServerRoleGender gender, int headId)
     {
         var roles = List();
@@ -258,7 +329,7 @@ public sealed class RepoServerRole
         if (roles.Any(role => string.Equals(role.Name, name, StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException("角色名字已存在");
         if (!Enum.IsDefined(gender) || headId is < 1 or > 74) throw new ArgumentException("性别或头型无效");
-        var id = checked(StoredIds().DefaultIfEmpty(1002).Max() + 1);
+        var id = checked((_cache is null ? StoredIds() : _cache.Keys).DefaultIfEmpty(1002).Max() + 1);
         var role = new DataServerRole
         {
             RoleId = id, Name = name, Gender = gender, HeadId = headId, Level = 1,
@@ -270,7 +341,7 @@ public sealed class RepoServerRole
         return role;
     }
 
-    /// <summary>原子写入墓碑，失败保留原角色；删除编号不再复用。</summary>
+    /// <summary>提交墓碑，延迟模式在落地节点写文件；删除编号不再复用。</summary>
     public void Delete(long roleId)
     {
         var role = Load(roleId);

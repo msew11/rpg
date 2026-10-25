@@ -60,9 +60,9 @@ if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
 
 `dotnet build rpg.csproj` 使用仅构建依赖 `Grpc.Tools 2.84.0` 自动生成 `src/Net/Message/Message.cs`、`Role.cs`、`Login.cs`、`World.cs`、`Bag.cs` 和 `Gm.cs`，运行依赖为 `Google.Protobuf 3.36.2`，未启用 gRPC。生成 C# 与 proto 一起提交，中文协议注释写在 proto，不直接修改生成文件。SDK 排除生成目录的默认编译项，再由 protobuf 构建目标添加，避免重复编译。
 
-`src/Server` 的 `MockServer` 使用 `src/Server/Data` 下的独立 `DataServerRole` 和服务端性别枚举，不引用客户端模型或 Godot。`RepoServerRole` 按角色 ID 与领域保存到 `user://server/<roleId>.role.json` 和 `<roleId>.bag.json`；服务端目录统一来自环境服务，测试通过内部环境构造使用临时目录。全新存档登录返回空角色列表，不生成演示角色；读取缺失角色直接报错，删除通过原子写入 IsDeleted 墓碑实现，角色编号保留且不会重启复活。创建使用递增新编号，名字去首尾空白并限制 1—16 个字符、拒绝控制字符及重名；头型限定性别内 1—74。旧 JSON 缺失 HeadId 默认 1；旧协议 head_id=0 以默认 1 展示。不再创建或依赖 initialized 标记，已有标记不影响读取且保留原样；已有角色不会自动删除或补齐。墓碑及角色文件仅由 MockServer 所属仓库管理；损坏数据、身份不符或写入失败明确报错，不静默覆盖。保存先写同目录临时文件并刷盘，再替换目标文件，成功后才提交内存状态并返回响应或 Notice。
+`src/Server` 的 `MockServer` 使用 `src/Server/Data` 下的独立 `DataServerRole` 和服务端性别枚举，不引用客户端模型或 Godot。`RepoServerRole` 按角色 ID 与领域保存到 `user://server/<roleId>.role.json` 和 `<roleId>.bag.json`；服务端目录统一来自环境服务，测试通过内部环境构造使用临时目录。全新存档登录返回空角色列表，不生成演示角色；读取缺失角色直接报错，删除先在内存记录 IsDeleted 墓碑，落地时原子替换文件，角色编号保留且不会重启复活。创建使用递增新编号，名字去首尾空白并限制 1—16 个字符、拒绝控制字符及重名；头型限定性别内 1—74。旧 JSON 缺失 HeadId 默认 1；旧协议 head_id=0 以默认 1 展示。不再创建或依赖 initialized 标记，已有标记不影响读取且保留原样；已有角色不会自动删除或补齐。墓碑及角色文件仅由 MockServer 所属仓库管理；损坏数据、身份不符或写入失败明确报错，不静默覆盖。请求校验后先提交内存状态并返回响应或 Notice；仓库在首次访问完整加载角色与墓碑，此后读取内存，并按角色合并 role/bag 待写领域。检测节点仅序列化待写数据并比较最终 JSON，只有内容变化的领域才写同目录临时文件并刷盘、替换目标文件；恢复原值及空检测不写文件。创建和迁移保留既有多文件回滚。
 
-模拟移动保留每秒 180 逻辑单位、0.45 秒确认及横向 3 单位校正偏差。仅保存已确认/推送状态，不保存会话结束时仍待确认的移动；选角恢复位置和 revision，移动确认序号重置为 0，供新世界使用。`PublishRoleState` 提供服务端主动更新入口，保存成功后发送 Notice，不添加产品操作面板。JSON 存储仅面向单实例进程内 Mock，不提供多进程写入协调。
+模拟移动保留每秒 180 逻辑单位、0.45 秒确认及横向 3 单位校正偏差。仅保存已确认/推送状态，不保存会话结束时仍待确认的移动；选角恢复位置和 revision，移动确认序号重置为 0，供新世界使用。`PublishRoleState` 提供服务端主动更新入口，内存提交成功后发送 Notice，不添加产品操作面板。JSON 存储仅面向单实例进程内 Mock，不提供多进程写入协调。
 
 Godot UI 通过 `GameServices.EventBus.Subscribe<T>()` 获取并托管普通阶段句柄，读取服务快照并调用业务操作；缓存实现类通过 `CacheBase.Subscribe<T>()` 注册缓存阶段监听。`SessionService` 和 `WorldService` 不持有协议监听，不使用辅助监听器或回调包装绕过该边界。
 
@@ -105,7 +105,7 @@ internal sealed class DataPositionComponent
 
 ```text
 map.json -> GameServices.Config -> World / 地图表现 / UI
-UI -> GameServices.Session -> GameServices.Net -> protobuf 字节 -> MockServer -> JSON
+UI -> GameServices.Session -> GameServices.Net -> protobuf 字节 -> MockServer -> 内存缓存 -> 检测/关闭节点 -> JSON
 MockServer -> protobuf 字节 -> GameServices.EventBus(Cache) -> Session 内部账号缓存
                            -> GameServices.EventBus(Normal) -> MainController -> World 同步 Action -> ECS -> 只读表现快照
                                                   -> UI 刷新
@@ -146,13 +146,13 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 
 服务端 `DataServerBag`（独立 Revision、NextInstanceId）和 `DataServerItem`（InstanceId、ItemId、SlotIndex、Count）保存在独立的 `.bag.json`，同一背包领域原子提交；旧存档默认为空背包和 0 增加行数。实例 ID 在角色内递增、不复用，格子从 0 开始按行排列。选角返回独立 BagPb，移动响应仅携带角色状态及增加行数；背包变更以带角色 ID 的完整 `BagChangedNotice` 推送。RoleCache 在 Cache 阶段校验整份容量、配置、数量与唯一性，构造不可变 BagPbData/ItemPbData，按独立版本替换；普通 UI 阶段读取 Session.Bag，旧角色与旧代次消息隔离。
 
-`ChatControl` 常驻 HUD 左下角，与互斥弹窗独立。回车或发送按钮提交去首尾空白的输入，斜杠开头转为去掉斜杠的 Gm 请求，普通文字仅提示“聊天暂未开放”。服务端仅支持 `/item <ItemId> [Count]`，默认数量 1，仅发给当前认证角色；按格子补满已有堆叠再占空格，遵守 MaxStack。全部数量放不下、参数错误或保存失败均不改变内存、存档、实例编号与版本。成功落盘后推送背包，再返回聊天普通文本反馈。移动确认基于最新角色数据保存，不覆盖物品。
+`ChatControl` 常驻 HUD 左下角，与互斥弹窗独立。回车或发送按钮提交去首尾空白的输入，斜杠开头转为去掉斜杠的 Gm 请求，普通文字仅提示“聊天暂未开放”。服务端仅支持 `/item <ItemId> [Count]`，默认数量 1，仅发给当前认证角色；按格子补满已有堆叠再占空格，遵守 MaxStack。全部数量放不下或参数错误均不改变内存、存档、实例编号与版本。成功提交内存后标记背包待写并推送背包，再返回聊天普通文本反馈。移动确认基于最新角色数据保存，不覆盖物品。
 
 聊天不显示初始说明或固定占位文字。聚焦输入 `/` 时显示命令候选；`/item ` 直接读取 `Config.Item.Items`，按 ID 排序展示 ID 与名称并按前缀筛选。输入上方的候选浮层限制在视口内且可滚动，点击或上下键加 Tab 只补全文本，Escape 和失焦隐藏。有配置的道具 ID 后加空格，在实际文本末尾覆盖不消费输入的灰色“数量”提示；显式提供正 Int32 数量且参数完整时整行文字变绿，删除或改成非法参数立即恢复。绿色只表示格式与道具 ID 有效，数量省略仍默认为 1。`tests/bag_gm_smoke.tscn` 同时覆盖提示、补全、颜色恢复、输入隔离及小窗口，图形运行附加 `-- --capture-chat` 可保存四个输入阶段截图到 `build/chat-*.png`。
 
 `BagControl` 点击打开时读取最新缓存，显示全部网格、图标和数量（含 1），悬停显示配置 Name；打开期间随 Notice 刷新。七件测试装备显式绑定现有图集素材键，缺失或未知图标显示占位；滚动区支持小窗口。`tests/bag_gm_smoke.tscn` 验证真实视口发送、回车、名称提示、输入隔离、关闭重开、缺图、小窗口和重启持久化；Windows 图形运行附加 `-- --capture-bag` 可保存 `build/bag-gm.png`。暂不实现普通聊天、主动拆分、使用、丢弃、整理或装备属性。
 
-`BagSlotControl` 在左键按下时立即拿起物品，松开保持，目标格再次按下时提交；`BagControl` 用独立 CanvasLayer 复制图标和数量为预览，图标中心对齐鼠标热点，不受滚动裁剪。名称由格子悬停即时显示普通文本浮层，移出或拿起隐藏；不使用默认延迟 Tooltip。空白点击取消并消费世界输入；空格整份移动，同类未满目标优先合并，剩余留原格，其他目标交换。完全合并只移除耗尽源实例，不回收编号。`MoveItem` 携带角色、实例、目标格和拖动开始的背包版本，服务端校验后原子保存，再发送完整背包推送和 `MoveItemRt`；同格不保存或递增版本。UI 不乐观修改缓存，失败在背包显示原因，关闭、离树、刷新、切角和旧版本都会使原拖放失效。`tests/item_movement_smoke.tscn` 通过真实鼠标事件验证两次点击、松开保持、中心吸附、即时名称与按下指针、空格移动、交换、部分/完全合并、取消、过期、480×270 下滚动到末格、失败反馈、世界输入隔离、切角及重启。
+`BagSlotControl` 在左键按下时立即拿起物品，松开保持，目标格再次按下时提交；`BagControl` 用独立 CanvasLayer 复制图标和数量为预览，图标中心对齐鼠标热点，不受滚动裁剪。名称由格子悬停即时显示普通文本浮层，移出或拿起隐藏；不使用默认延迟 Tooltip。空白点击取消并消费世界输入；空格整份移动，同类未满目标优先合并，剩余留原格，其他目标交换。完全合并只移除耗尽源实例，不回收编号。`MoveItem` 携带角色、实例、目标格和拖动开始的背包版本，服务端校验后提交内存并标记背包待写，再发送完整背包推送和 `MoveItemRt`；同格不保存或递增版本。UI 不乐观修改缓存，失败在背包显示原因，关闭、离树、刷新、切角和旧版本都会使原拖放失效。`tests/item_movement_smoke.tscn` 通过真实鼠标事件验证两次点击、松开保持、中心吸附、即时名称与按下指针、空格移动、交换、部分/完全合并、取消、过期、480×270 下滚动到末格、失败反馈、世界输入隔离、切角及重启。
 
 ## 当前限制
 
@@ -189,3 +189,9 @@ HUD 布局刷新只更新已展开系统菜单的位置，不收起菜单或重�
 系统菜单收起时释放系统按钮焦点，不主动将焦点交回入口，避免打开设置后仍残留高亮；真实悬停与显式键盘导航继续使用原生状态。
 
 三条技能栏的九格统一为 32×32 逻辑像素，单格只绘制边框且不显示编号，外层沿用原主题黑色绘制外框与底边，禁止中心填充遮挡格内透明；默认布局仍按内容自然尺寸收紧并保持底部对齐。
+
+## 服务端缓存落地调度
+
+`MockServer` 启用 `RepoServerRole` 的延迟模式，直接磁盘仓库用于迁移与独立验证。`NetService` 通过构造绑定的 Env 提供当前检测秒数，服务端每次 Tick 在业务推进后累计时间，即使未选角也检测。默认 5 秒，GM 的“Server 落地检测”使用 5 秒步长，0 关闭定时检测；`Env.ServerFlushIntervalSeconds` 严格校验非负五秒倍数，保存在 `user://.env` 的 `RPG_SERVER_FLUSH_INTERVAL_SECONDS`，非法文件值回退 5，设置失败恢复输入并反馈。修改后下一 Tick 重新计时，不读写系统环境变量。
+
+切换角色、返回登录与会话重置不清理服务端缓存；正常传输关闭调用 Flush 补写全部待写文件。某角色落地失败保留内存及待写标记，继续其他角色，汇总异常沿用 Net.Error 报告，下个检测节点重试。业务成功不再保证已刷盘，异常退出可能丢失待写数据；0 仅禁用周期检测，正常关闭仍补写。落地仍在主线程同步执行，不新增后台线程或并发文件写入。IO 日志只记录实际成功替换的文件。

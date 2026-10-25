@@ -59,6 +59,7 @@ public sealed class BagServerTests : IDisposable
     {
         _messages.Clear();
         Send(new Gm { RoleId = roleId ?? _roleId, Command = command });
+        _server.Flush(); // 显式落地节点后核对业务结果与文件。
         return Assert.Single(_messages.OfType<GmRt>());
     }
 
@@ -68,6 +69,7 @@ public sealed class BagServerTests : IDisposable
         _messages.Clear();
         Send(new MoveItem { RoleId = roleId ?? _roleId, InstanceId = instanceId,
             TargetSlotIndex = targetSlot, ExpectedRevision = revision ?? _repo.Load(_roleId).Bag.Revision });
+        _server.Flush(); // 在明确的验收节点核对磁盘。
         return Assert.Single(_messages.OfType<MoveItemRt>());
     }
 
@@ -84,6 +86,7 @@ public sealed class BagServerTests : IDisposable
         _writes.Clear();
         Send(new Move { RoleId = _roleId, ActionId = 1, X = 100, Y = 120 });
         _server.Tick(0.5);
+        _server.Flush();
         Assert.True(Assert.Single(_messages.OfType<MoveRt>()).Success);
         Assert.Equal(new[] { $"{_roleId}.role.json" }, _writes);
         Assert.Equal(bagBytes, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
@@ -118,6 +121,7 @@ public sealed class BagServerTests : IDisposable
             saved.Items.OrderBy(item => item.InstanceId).Select(item => (item.InstanceId, item.ItemId, item.Count)));
         Send(new Move { RoleId = _roleId, ActionId = 1, X = 200, Y = 100 });
         _server.Tick(0.5);
+        _server.Flush();
         Assert.Equal(saved, _repo.Load(_roleId).Bag);
         _server = CreateServer();
         Enter();
@@ -195,26 +199,20 @@ public sealed class BagServerTests : IDisposable
         Assert.Equal(moved, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
     }
 
-    /// <summary>role-bag：移动落盘失败不提交内存或编号，恢复写盘后旧版本请求仍可成功。</summary>
+    /// <summary>server-write-back：移动先提交内存，落地失败不回退版本，恢复后补写。</summary>
     [Fact]
-    public void FailedMoveSaveRetainsOriginalSlotAndVersion()
+    public void FailedMoveFlushRetainsLatestSlotAndVersion()
     {
         Enter();
         Grant("item 1012");
-        var backup = _directory + "-backup";
-        Directory.Move(_directory, backup);
-        File.WriteAllText(_directory, "阻止写盘");
-        try
-        {
-            Assert.False(MoveInstance(1, 3, 1).Success);
-            Assert.Empty(_messages.OfType<BagChangedNotice>());
-        }
-        finally { File.Delete(_directory); Directory.Move(backup, _directory); }
+        Send(new MoveItem { RoleId = _roleId, InstanceId = 1, TargetSlotIndex = 3, ExpectedRevision = 1 });
+        Assert.True(Assert.Single(_messages.OfType<MoveItemRt>()).Success);
+        using (var locked = new FileStream(_repo.GetBagPath(_roleId), FileMode.Open, FileAccess.Read, FileShare.Read))
+            Assert.Throws<AggregateException>(() => _server.Flush());
         Assert.Equal(0, Assert.Single(_repo.Load(_roleId).Bag.Items).SlotIndex);
-        Assert.True(MoveInstance(1, 3, 1).Success);
-        var bag = _repo.Load(_roleId).Bag;
-        Assert.Equal(2, bag.Revision);
-        Assert.Equal(2, bag.NextInstanceId);
+        _server.Flush();
+        Assert.Equal(3, Assert.Single(_repo.Load(_roleId).Bag.Items).SlotIndex);
+        Assert.Equal(2, _repo.Load(_roleId).Bag.Revision);
     }
 
     /// <summary>装备逐件分配、默认数量与跨格堆叠优先补满，并经重启保持实例。</summary>
@@ -233,6 +231,7 @@ public sealed class BagServerTests : IDisposable
         Assert.Equal(previous.Items[2].InstanceId, saved.Items[2].InstanceId);
         Send(new Move { RoleId = _roleId, ActionId = 1, X = 100, Y = 120 });
         _server.Tick(0.5);
+        _server.Flush();
         Assert.Equal(saved.Items, _repo.Load(_roleId).Bag.Items);
         Assert.Null(MoveRt.Descriptor.FindFieldByName("bag"));
         _server = CreateServer();
@@ -258,25 +257,18 @@ public sealed class BagServerTests : IDisposable
         Assert.Equal(2, bag.Revision);
     }
 
-    /// <summary>落盘失败不能提交内存，修复目录后编号仍从首个实例开始。</summary>
+    /// <summary>server-write-back：发放成功先推送，失败落地重试不重复发放或消耗编号。</summary>
     [Fact]
-    public void SaveFailureDoesNotCommitMemoryOrPublishNotice()
+    public void FlushFailureKeepsGrantedMemoryAndRetries()
     {
         Enter();
-        var backup = _directory + "-backup";
-        Directory.Move(_directory, backup);
-        File.WriteAllText(_directory, "阻止创建存档目录");
-        try
-        {
-            Assert.False(Grant("item 1012").Success);
-            Assert.Empty(_messages.OfType<BagChangedNotice>());
-        }
-        finally
-        {
-            File.Delete(_directory);
-            Directory.Move(backup, _directory);
-        }
-        Assert.True(Grant("item 1012").Success);
+        Send(new Gm { RoleId = _roleId, Command = "item 1012" });
+        Assert.True(Assert.Single(_messages.OfType<GmRt>()).Success);
+        Assert.Single(_messages.OfType<BagChangedNotice>());
+        using (var locked = new FileStream(_repo.GetBagPath(_roleId), FileMode.Open, FileAccess.Read, FileShare.Read))
+            Assert.Throws<AggregateException>(() => _server.Flush());
+        Assert.Empty(_repo.Load(_roleId).Bag.Items);
+        _server.Flush();
         var bag = _repo.Load(_roleId).Bag;
         Assert.Equal(1, bag.Revision);
         Assert.Equal(1, Assert.Single(bag.Items).InstanceId);
