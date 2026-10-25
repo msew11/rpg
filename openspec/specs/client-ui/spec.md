@@ -2,9 +2,7 @@
 
 ## Purpose
 TBD - created by archiving change data-driven-rpg-client. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: 世界外 HUD 与面板
 HUD 和系统面板 SHALL 独立于 ECS 世界，根据游戏配置与会话缓存显示游戏数据。GM 面板内容 SHALL 仅提供两个同级平铺按钮，依次为“打开用户数据目录”和“查看道具图鉴”，不再显示单独设置文件路径与定位入口。用户数据目录 SHALL 是 Godot `user://` 对应的当前应用可写数据目录，包含本地设置与模拟服务端存档，SHALL 动态解析且不得硬编码用户名或平台路径。角色、背包、大地图、GM 和系统设置面板 SHALL 将标题放在标题栏左侧、关闭按钮放在标题栏最右侧。
 
@@ -83,7 +81,7 @@ HUD 和系统面板 SHALL 独立于 ECS 世界，根据游戏配置与会话缓�
 - **THEN** 按下立即使用 Click 动画，释放恢复 Normal，不受 GUI 消费影响
 
 ### Requirement: 地面点击光圈
-客户端 SHALL 在世界接收左键按下并提交移动后，在点击的世界坐标中心显示完整 circle.gsa 图像，以原尺寸的 25% 开始，在 0.5 秒内等比放大到 125% 并同时淡出，形成一次涟漪后释放；光圈随世界摄像机变换。circle 为单帧素材，扩散与淡出由客户端实现。
+客户端 SHALL 在世界接收左键按下并提交移动后，在点击的世界坐标中心显示完整 circle.gsa 图像，以原尺寸的 25% 开始，在 0.7 秒内等比放大到 100% 并同时淡出，形成一次涟漪后释放；光圈随世界摄像机变换。circle 为单帧素材，扩散与淡出由客户端实现。
 
 #### Scenario: 点击与连续点击
 - **WHEN** 玩家左键点击地面或连续点击不同地面位置

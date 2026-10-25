@@ -67,13 +67,17 @@ public partial class PointerFeedbackSmoke : Node
             Check(first.Modulate.A is > 0 and < 1 && first.GlobalPosition.IsEqualApprox(expected), "光圈未淡出或随摄像机漂移");
             var expandingScale = first.Scale.X;
             var fadingAlpha = first.Modulate.A;
-            Check(expandingScale is > 0.25f and < 1.25f && Mathf.IsEqualApprox(first.Scale.Y, expandingScale),
+            Check(expandingScale is > 0.25f and < 1.0f && Mathf.IsEqualApprox(first.Scale.Y, expandingScale),
                 "光圈未放大或椭圆比例改变");
             await ToSignal(GetTree().CreateTimer(0.15), SceneTreeTimer.SignalName.Timeout);
-            Check(first.Scale.X > expandingScale && first.Scale.X < 1.25f
+            Check(first.Scale.X > expandingScale && first.Scale.X < 1.0f
                 && Mathf.IsEqualApprox(first.Scale.Y, first.Scale.X) && first.Modulate.A < fadingAlpha
                 && first.GlobalPosition.IsEqualApprox(expected), "涟漪没有继续扩散淡出或中心漂移");
-            await ToSignal(GetTree().CreateTimer(0.35), SceneTreeTimer.SignalName.Timeout);
+            // 超过旧版 0.5 秒后仍有涟漪，验证 client-ui 的延长播放时长场景。
+            await ToSignal(GetTree().CreateTimer(0.25), SceneTreeTimer.SignalName.Timeout);
+            Check(GodotObject.IsInstanceValid(first) && first.Modulate.A > 0 && first.Scale.X is > 0.9f and <= 1.0f
+                && Mathf.IsEqualApprox(first.Scale.Y, first.Scale.X), "涟漪未延长播放或最大尺寸不符合要求");
+            await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
             Check(Circles(main).Length == 0 && !GodotObject.IsInstanceValid(first), "光圈播放后未释放");
 
             var target = GameServices.World.RoleTarget;
