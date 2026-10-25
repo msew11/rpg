@@ -2,9 +2,7 @@
 
 ## Purpose
 TBD - created by archiving change data-driven-rpg-client. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: 系统设置本地持久化
 系统设置 SHALL 独立文件保存，按显示与声音页签分类，至少允许调整分辨率与音量。
 
@@ -85,3 +83,14 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 #### Scenario: 输入隔离
 - **WHEN** 聊天输入、模态窗口、HUD 调整期间或按键重复时输入绑定
 - **THEN** 不触发窗口快捷键，捕获期间的按键也不会触发窗口或文本输入
+
+### Requirement: 窗口拖动 Fetch 指针
+角色、道具与地图窗口的可拖动标题区域 SHALL 在悬停时显示 Fetch 开手，按住拖动时显示握手，使用既有 1.25 倍缩放与源热点 (6,6)。拖出标题区域 SHALL 保持握手；释放后 SHALL 按实际悬停恢复，关闭、失焦和离开界面 SHALL 清理抓取反馈。关闭按钮和内容 SHALL 不被当作可拖动标题，标题区域 SHALL 不显示系统移动十字鼠标。
+
+#### Scenario: 悬停与跨区域抓取
+- **WHEN** 悬停三个窗口标题、按下并拖离标题区域、随后释放
+- **THEN** 依次显示 Fetch 开手与握手，拖离时保持握手，释放后按实际悬停复原，位置保存与世界输入隔离保持有效
+
+#### Scenario: 关闭与失焦清理
+- **WHEN** 拖动时关闭窗口或应用失焦，随后恢复
+- **THEN** 不残留抓取与握手，指针移到关闭按钮或内容不显示拖动开手

@@ -4,7 +4,7 @@ using Rpg.World.Views;
 
 namespace Rpg.UI;
 
-/// <summary>全页面硬件指针：普通点击动画与 HUD 开手、握手反馈。</summary>
+/// <summary>全页面硬件指针：普通点击动画与 HUD、窗口和物品的 Fetch 反馈。</summary>
 public partial class PointerCursor : Node
 {
     /// <summary>普通与按下帧统一放大比例，热点同步缩放。</summary>
@@ -15,12 +15,16 @@ public partial class PointerCursor : Node
     private Texture2D _normal = null!;
     /// <summary>按下反馈的两帧完整画布。</summary>
     private Texture2D[] _pressed = [];
-    /// <summary>HUD 悬停与握住使用的 Fetch 两帧。</summary>
+    /// <summary>可抓取目标悬停与握住使用的 Fetch 两帧。</summary>
     private Texture2D[] _fetch = [];
     /// <summary>当前是否以开手提示可拖动 HUD。</summary>
     public bool IsHudHovering { get; private set; }
     /// <summary>当前是否保持 HUD 握手拖动。</summary>
     public bool IsHudDragging { get; private set; }
+    /// <summary>当前是否提示可拖动窗口标题。</summary>
+    public bool IsWindowHovering { get; private set; }
+    /// <summary>当前是否保持窗口握手拖动。</summary>
+    public bool IsWindowDragging { get; private set; }
     /// <summary>当前是否提示可拾取地面物品。</summary>
     public bool IsItemHovering { get; private set; }
     /// <summary>当前硬件指针的缩放后热点。</summary>
@@ -70,12 +74,14 @@ public partial class PointerCursor : Node
         _focused = false;
         IsHudHovering = false;
         IsHudDragging = false;
+        IsWindowHovering = false;
+        IsWindowDragging = false;
         IsItemHovering = false;
         IsPressed = false;
         Present(_normal);
     }
 
-    /// <summary>优先呈现覆盖框悬停和拖动状态，拖出范围仍保持握手。</summary>
+    /// <summary>依次呈现 HUD、窗口及物品 Fetch，拖出抓取区域仍保持握手。</summary>
     private bool RefreshHudCursor()
     {
         var dragging = _focused && GetTree().GetNodesInGroup("HudEditOverlays")
@@ -83,13 +89,23 @@ public partial class PointerCursor : Node
         var hovering = _focused && GetViewport().GuiGetHoveredControl() is HudEditOverlay overlay && overlay.IsVisibleInTree();
         var itemHover = _focused && GetTree().GetNodesInGroup("GroundItemViews")
             .OfType<GroundItemsView>().Any(view => view.HoveredObjectId is not null);
-        var previous = IsHudDragging || IsHudHovering || IsItemHovering;
+        var windows = GetTree().GetNodesInGroup("WindowDragControls").OfType<WindowDragControl>();
+        var windowDragging = _focused && windows.Any(window => window.Dragging);
+        var windowHovering = _focused && windows.Any(window => window.Hovering);
+        var previous = IsHudDragging || IsHudHovering || IsWindowDragging || IsWindowHovering || IsItemHovering;
+        IsWindowDragging = windowDragging;
+        IsWindowHovering = windowHovering;
         IsItemHovering = itemHover;
         IsHudDragging = dragging;
         IsHudHovering = hovering;
         if (dragging || hovering)
         {
             Present(_fetch[dragging ? 1 : 0], new Vector2(6, 6) * DisplayScale);
+            return true;
+        }
+        if (windowDragging || windowHovering)
+        {
+            Present(_fetch[windowDragging ? 1 : 0], new Vector2(6, 6) * DisplayScale);
             return true;
         }
         if (itemHover)

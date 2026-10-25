@@ -15,6 +15,10 @@ public partial class WindowDragControl : Node
     public Control Header { get; init; } = null!;
     /// <summary>是否正由鼠标控制窗口位置。</summary>
     private bool _dragging;
+    /// <summary>可见窗口是否正被抓取，供全局指针保持握手。</summary>
+    public bool Dragging => _dragging && Panel.IsVisibleInTree();
+    /// <summary>实际命中标题空白区时提示开手，关闭按钮保持自身交互。</summary>
+    public bool Hovering => Panel.IsVisibleInTree() && GetViewport().GuiGetHoveredControl() == Header;
     /// <summary>按下位置与窗口原点的距离。</summary>
     private Vector2 _offset;
     /// <summary>当前界面载入或拖动后的相对坐标，排版期间不反复读取会话设置。</summary>
@@ -26,7 +30,8 @@ public partial class WindowDragControl : Node
         var saved = GameServices.Setting.GetWindowPosition(SettingKey);
         if (saved is not null) _savedPosition = new Vector2(saved.X, saved.Y);
         Header.MouseFilter = Control.MouseFilterEnum.Stop;
-        Header.MouseDefaultCursorShape = Control.CursorShape.Move;
+        AddToGroup("WindowDragControls");
+        Header.MouseDefaultCursorShape = Control.CursorShape.Arrow;
         Header.GuiInput += OnHeaderInput;
         Panel.VisibilityChanged += () => { if (!Panel.IsVisibleInTree()) FinishDrag(); };
     }

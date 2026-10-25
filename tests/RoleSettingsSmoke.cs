@@ -23,6 +23,11 @@ public partial class RoleSettingsSmoke : Node
             RoleTestData.Seed(Path.Combine(directory, "server"));
             main = await Start(directory);
             var hud = main.FindChildren("*", "Control", true, false).OfType<GameHud>().Single();
+            // client-ui：普通小地图不显示标题，调整框仍保留名称。
+            var radar = hud.GetNode<Control>("Radar");
+            Check(!radar.FindChildren("*", "Label", true, false).OfType<Label>().Any(label => label.Text == "小地图") &&
+                radar.GetNode<HudEditOverlay>("HudEditOverlay").Title == "小地图", "小地图标题或调整名称错误");
+            var cursor = main.GetNode<PointerCursor>("PointerCursor");
             var target = GameServices.World.RoleTarget;
             foreach (var (title, key, action) in new[] { ("角色", Key.C, "character"), ("背包", Key.B, "bag"), ("大地图", Key.M, "map") })
             {
@@ -33,10 +38,25 @@ public partial class RoleSettingsSmoke : Node
                 var header = panel.FindChildren("PanelHeader", "Control", true, false).OfType<Control>().Single();
                 var before = panel.Position;
                 var start = header.GetGlobalRect().Position + new Vector2(18, header.Size.Y / 2);
+                // client-settings：真实命中标题才显示 Fetch，拖离标题仍保持握手。
+                Motion(start); await Frames();
+                Check(cursor.IsWindowHovering && header.MouseDefaultCursorShape == Control.CursorShape.Arrow &&
+                    cursor.CurrentHotspot.IsEqualApprox(new Vector2(7.5f, 7.5f)), "标题未使用 Fetch 开手 " + title);
+                var openHand = cursor.CurrentTexture;
                 Mouse(start, true);
+                await Frames();
+                Check(cursor.IsWindowDragging && cursor.CurrentTexture != openHand, "按下未显示窗口握手 " + title);
+                Motion(start + new Vector2(-70, 45));
+                await Frames();
+                // 移动标题随鼠标同步移动；视口边缘裁剪使鼠标实际离开标题。
+                Motion(new Vector2(-30, -30)); await Frames();
+                Check(cursor.IsWindowDragging && !cursor.IsWindowHovering && cursor.CurrentTexture != openHand,
+                    "拖离标题丢失握手 " + title);
                 Motion(start + new Vector2(-70, 45));
                 Mouse(start + new Vector2(-70, 45), false);
                 await Frames();
+                Check(!cursor.IsWindowDragging && cursor.IsWindowHovering && cursor.CurrentTexture == openHand,
+                    "释放后未恢复标题开手 " + title);
                 Check(panel.Position.DistanceTo(before + new Vector2(-70, 45)) < 1, "拖动位置未保持 " + title);
                 var saved = GameServices.Setting.GetWindowPosition(action);
                 Check(saved is not null, "拖动未保存 " + title);
@@ -46,6 +66,22 @@ public partial class RoleSettingsSmoke : Node
                 SendKey(key);
                 await Frames();
                 Check(panel.Position.DistanceTo(before + new Vector2(-70, 45)) < 1, "重开位置丢失 " + title);
+                var close = header.FindChildren("*", "Button", true, false).OfType<Button>().Single();
+                Motion(close.GetGlobalRect().GetCenter()); await Frames();
+                Check(!cursor.IsWindowHovering, "关闭按钮误显示拖动开手 " + title);
+                start = header.GetGlobalRect().Position + new Vector2(18, header.Size.Y / 2);
+                Motion(start); Mouse(start, true); await Frames();
+                cursor.Notification((int)NotificationApplicationFocusOut);
+                panel.GetChildren().OfType<WindowDragControl>().Single().Notification((int)NotificationApplicationFocusOut);
+                await Frames();
+                Check(!cursor.IsWindowDragging && !cursor.IsWindowHovering, "失焦残留窗口 Fetch " + title);
+                Mouse(start, false);
+                cursor.Notification((int)NotificationApplicationFocusIn);
+                Motion(start); Mouse(start, true); await Frames();
+                panel.Hide(); await Frames();
+                Check(!cursor.IsWindowDragging && !cursor.IsWindowHovering, "关闭残留窗口 Fetch " + title);
+                Mouse(start, false);
+                SendKey(key); await Frames();
                 SendKey(key);
             }
             Check(GameServices.World.RoleTarget == target, "窗口拖动穿透地面");

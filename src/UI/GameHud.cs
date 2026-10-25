@@ -233,7 +233,6 @@ public partial class GameHud : Control
         var radarBox = Movable("radar", "小地图");
         _movable["radar"].Name = "Radar";
         _movable["radar"].CustomMinimumSize = new Vector2(170, 170);
-        radarBox.AddChild(Text("小地图", 15));
         _miniMap = new MiniMapControl { CustomMinimumSize = new Vector2(150, 145) };
         radarBox.AddChild(_miniMap);
 
