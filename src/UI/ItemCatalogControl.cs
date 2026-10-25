@@ -1,4 +1,4 @@
-using Rpg.Items;
+using Rpg.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -177,9 +177,9 @@ public partial class ItemCatalogControl : PanelContainer
     {
         if (_entries.Length == 0)
         {
-            _entries = JsonSerializer.Deserialize<DataItemAsset[]>(FileAccess.GetFileAsString("res://assets/items/catalog.json"))
-                ?? throw new InvalidOperationException("道具素材目录为空");
-            _assetById = _entries.ToDictionary(entry => entry.Id);
+            _entries = ItemAtlasUtil.LoadCatalog();
+            if (_entries.Length == 0) throw new InvalidOperationException("道具素材目录为空");
+            _assetById = ItemAtlasUtil.Index(_entries);
             _definitions = JsonSerializer.Deserialize<DataItemDefinition[]>(FileAccess.GetFileAsString("res://assets/items/definitions.json"))
                 ?? throw new InvalidOperationException("具名道具清单为空");
             RebuildCategories();
@@ -331,10 +331,7 @@ public partial class ItemCatalogControl : PanelContainer
     }
 
     /// <summary>按需加载图集并引用条目的原始像素区域。</summary>
-    private static AtlasTexture Texture(DataItemAsset entry) => new()
-    {
-        Atlas = GD.Load<Texture2D>(entry.Atlas), Region = new Rect2(entry.X, entry.Y, entry.W, entry.H), FilterClip = true
-    };
+    private static AtlasTexture? Texture(DataItemAsset entry) => ItemAtlasUtil.Texture(entry);
 
     /// <summary>保持图鉴在视口内，按可用宽度调整网格列数。</summary>
     private void UpdateLayout()

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Godot;
-using Rpg.Items;
+using Rpg.Utils;
 using Rpg.Server;
 using Rpg.Server.Data;
 using Rpg.Services;
@@ -48,8 +48,9 @@ public partial class GroundItemPickupSmoke : Node
             var icon = groundView.FindChildren("GroundItemIcon", "TextureRect", true, false).OfType<TextureRect>().Single();
             var groundAsset = GameServices.Config.Item.Items[1012].GroundAssetId;
             Check(groundAsset == "item/item/item1001", "地面素材未按来源小图编号绑定");
-            var expectedGround = new DataItemOutline(new ItemIconResolver().Resolve(groundAsset));
-            var inventoryIcon = new DataItemOutline(new ItemIconResolver().Resolve(GameServices.Config.Item.Items[1012].IconAssetId));
+            var assets = ItemAtlasUtil.Index(ItemAtlasUtil.LoadCatalog());
+            var expectedGround = new DataItemOutline(ItemAtlasUtil.Resolve(assets, groundAsset));
+            var inventoryIcon = new DataItemOutline(ItemAtlasUtil.Resolve(assets, GameServices.Config.Item.Items[1012].IconAssetId));
             Check(icon.Texture.GetImage().GetData().SequenceEqual(expectedGround.Icon.GetImage().GetData()), "地面表现未使用独立地面纹理");
             Check(!icon.Texture.GetImage().GetData().SequenceEqual(inventoryIcon.Icon.GetImage().GetData()), "地面仍然复用了背包大图");
             // 扩展框内无图像素也必须能通过实际点击拾取。
@@ -57,7 +58,8 @@ public partial class GroundItemPickupSmoke : Node
             Motion(point); await Frames();
             Check(groundView.HoveredObjectId is not null && cursor.IsItemHovering, "悬停未命中地面物品或未切 Fetch");
             var outline = (TextureRect)groundView.FindChild("GroundItemOutline", true, false);
-            var namePopup = (ItemNamePopup)groundView.FindChild("ItemNamePopup", true, false);
+            var overlay = main.FindChildren("*", "Node", true, false).OfType<GroundItemOverlayControl>().Single();
+            var namePopup = (ItemNamePopup)overlay.FindChild("ItemNamePopup", true, false);
             Check(namePopup.Visible && namePopup.Text == GameServices.Config.Item.Items[1012].Name, "地面未复用即时 name 浮层");
             Check(bag.FindChild("ItemNamePopup", true, false) is ItemNamePopup, "背包未使用共用名称控件");
             Check(outline.Visible && cursor.CurrentHotspot.IsEqualApprox(new Vector2(7.5f, 7.5f)), "轮廓或 Fetch 热点错误");
@@ -100,11 +102,11 @@ public partial class GroundItemPickupSmoke : Node
             Motion(point); await Frames();
             Check(!namePopup.Visible && !cursor.IsItemHovering, "模态窗口未阻断 Fetch");
             modal.Hide(); modal.QueueFree(); await Frames(); Motion(point); await Frames();
-            groundView.Notification((int)Node.NotificationApplicationFocusOut);
+            overlay.Notification((int)Node.NotificationApplicationFocusOut);
             cursor.Notification((int)Node.NotificationApplicationFocusOut);
             await Frames();
             Check(!namePopup.Visible && !cursor.IsItemHovering && groundView.HoveredObjectId is null, "失焦残留悬停");
-            groundView.Notification((int)Node.NotificationApplicationFocusIn);
+            overlay.Notification((int)Node.NotificationApplicationFocusIn);
             cursor.Notification((int)Node.NotificationApplicationFocusIn);
             Motion(point); await Frames();
 

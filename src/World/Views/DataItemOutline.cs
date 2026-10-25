@@ -1,6 +1,6 @@
 using Godot;
 
-namespace Rpg.Items;
+namespace Rpg.World.Views;
 
 /// <summary>物品表现资源：显示尺寸的 alpha 遮罩、图标与外轮廓，不包含业务对象状态。</summary>
 internal sealed class DataItemOutline

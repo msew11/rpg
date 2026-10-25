@@ -1,4 +1,4 @@
-using Rpg.Items;
+using Rpg.Utils;
 using System;
 using System.IO;
 using System.Linq;
@@ -22,7 +22,7 @@ public partial class ItemCatalogSmoke : Node
         DoubleMainController? main = null;
         try
         {
-            var entries = JsonSerializer.Deserialize<DataItemAsset[]>(FileAccess.GetFileAsString("res://assets/items/catalog.json"))!;
+            var entries = ItemAtlasUtil.LoadCatalog();
             Check(entries.Length == 22872 && entries.Select(entry => entry.Id).Distinct().Count() == entries.Length,
                 "素材缺失或编号重复");
             var counts = new[] { 6612, 6097, 1451, 8712 };

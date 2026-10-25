@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace Rpg.World.Views;
+namespace Rpg.UI;
 
 /// <summary>在 UI 画布上显示地面物品信息并接受拾取点击。</summary>
 public partial class GroundItemInfoControl : PanelContainer

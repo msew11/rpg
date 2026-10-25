@@ -199,7 +199,7 @@ HUD 布局刷新只更新已展开系统菜单的位置，不收起菜单或重�
 
 ## 多地图状态与九块 AOI
 
-地图以数值 ID 寻址，当前地图为 1，chunkSizeTiles=32；静态绘制仍使用 8 格分块。WorldService 构造只绑定 Config/Setting/Session，进入角色时按 Role.MapId 建立当前 DataMapComponent，离开清空。MapConfig 是当前选图入口，MapObjects 只读借用 Session.Map；不把动态对象另存到 ECS。表现节点在世界未就绪或离开后等待释放期间跳过地图查询。
+地图以数值 ID 寻址，当前地图为 1，chunkSizeTiles=32；静态绘制仍使用 8 格分块。WorldService 构造只绑定 Config/Setting/Session，进入角色时按 Role.MapId 建立当前 DataMapComponent，离开清空。MapConfig 是当前选图入口；Session.Map 保留已校验的权威 AOI 快照，固定帧通过 SyncMapObjectsAction 同步为动态 ECS entity，MapObjects 返回由组件生成的只读状态。表现节点在世界未就绪或离开后等待释放期间跳过地图查询。
 
 角色 MapId 缺失兼容地图 1，读取不改文件，下次正常角色保存写入；新角色使用 basic.initialMapId。RoleWorldStatePb 追加 map_id=17，PbData 保持独立转换。MockServer 复制地图规则和道具规则，验证移动目标的地图边界，不依赖客户端配置服务。
 
@@ -225,18 +225,18 @@ MockServer 完整校验候选背包后创建 GUID 地面对象、提交背包内
 
 失败时恢复整个旧组，保留最新内存、待写标记和关系供重试，其他独立领域继续；恢复失败保留记录。服务器构造在任何角色或地图读取前恢复未完成组；记录路径由正整数身份及固定后缀生成，不接受任意路径。角色仓库既有迁移回滚文件也在外层保护内，避免嵌套恢复破坏共同状态。旧块一直保留至组提交，所以无需备份整张地图。组提交后的清理错误不撤销业务结果，下次重试清理。仍限定单进程、同步 IO 及系统文件原子替换边界，异常退出可能丢失未落地变化，但不会单边恢复。
 
-GroundItemsView 位于世界表现层，只读借用 Session 的唯一 AOI 快照，不创建物品 ECS；按 GUID 复用表现节点，显示图标、名称和数量，缺图用占位，离开 AOI 或世界立即移除。同一权威落点的多个对象仅在表现上按稳定 GUID 错开，逻辑坐标不变。图集目录模型与解析器位于 Items，供 UI 和世界表现共同使用，世界不反向依赖 UI。九个全局服务及其构造、逆序释放和协议监听约束保持。
+WorldManager 以服务器 GUID 映射当前世界的整数 entity ID；AOI 中的地面物品和怪物均创建实体，更新保持本地 ID，离开 AOI 或世界时移除。GroundItemsView 只读取 ECS 对象状态并按 GUID 复用图标、轮廓和锚点节点，不拥有 UI 控件；同点物品仅错开图标，逻辑坐标不变。地面名称与信息框由 UI 的 GroundItemOverlayControl 持有。图集目录数据与静态读取、裁剪方法位于 Utils，UI 与 WorldView 分别持有使用缓存；地面轮廓资源只属于 WorldView。九个全局服务及其构造、逆序释放和协议监听约束保持。
 
 
 ## 地面拾取与轮廓反馈
 
-GroundItemsView 提供只读 ItemAt 视口坐标查询和 HoveredObjectId，不处理协议或背包。MainController 在未消费的左键点击中先查询物品；命中时调用 World.PickupItem 并消费，不同时产生普通点地涟漪。BagControl 的拿起/丢弃先于父节点处理，保留原优先级。World 仅查询 Session 的唯一地图快照，走原有 MoveAction/Move 路径，再由 Session 发送绑定同一移动序号的 PickupItem。服务构造、九服务数量、逆序释放和协议监听约束不变，没有物品 ECS 或新的内部事件总线。
+GroundItemsView 提供图标命中与视口锚点查询，UI 负责遮挡过滤、悬停名称和信息框点击。MainController 在未消费的左键点击中先查询物品；命中时调用 World.PickupItem 并消费，不同时产生普通点地涟漪。BagControl 的拿起/丢弃先于父节点处理，保留原优先级。World 从 ECS 取得物品位置和版本，走原有 MoveAction/Move 路径，再由 Session 发送绑定同一移动序号的 PickupItem。服务构造、九服务数量、逆序释放和协议监听约束不变。
 
 PickupItem 携带角色 ID、对象 GUID、对象版本、背包版本和 move_action_id，不允许指定地图或位置。MockServer 只接纳当前地图权威九块内的地面对象，验证目标坐标与最新移动匹配；远处暂存一个拾取意图，每 Tick 先推进移动，再在实际距离不大于 TileSize 时整份转移。新的有效 Move 取消旧拾取，切角、重新登录和重置清理；对象消失/版本变化、背包版本变化报失败。到达最后一个瓦片即可拾取，移动继续到点击时物品位置，不新增移动系统规则。
 
 DataServerBagRules.Add 统一 GM 和拾取的入包算法：优先补同类堆叠，再按空格分配新实例，容量不足整份拒绝，失败不消耗版本或实例编号。拾取成功保存候选背包、移除地图对象并登记已有共同落地关系，继续通过 BagChangedNotice、MapAoiNotice 和最终 PickupItemRt 交付结果；缓存不乐观更新。文件格式与 RepoServerItemTransfer 不变，反向拾取、同周期丢捡和不同角色之间的转移都属于同地图提交组。
 
-Items.DataItemOutline 将显示图标统一到透明 32×32 画布，按非透明像素生成两像素膨胀外轮廓，资源按素材键缓存；缺图问号也使用同一图形/轮廓遮罩。地面使用 GroundAssetId 显式绑定 item/item，背包继续使用 IconAssetId 的 item/itempic；七件装备的地面键来自导出表 icon_small_code，不隐式换算编号。命中使用 32×32 显示矩形向外扩展 8 像素的 48×48 区域，含透明角落；名称仅悬停时显示，与背包共用 ItemNamePopup 的即时文本、鼠标偏移和视口裁剪，不参与命中；坐标包含摄像机变换并在静止鼠标下逐帧重新计算。UI 悬停和模态窗口阻断命中，失焦、移出、AOI 移除和离开世界清除轮廓。PointerCursor 读取表现组的悬停状态，以 HUD 调整、窗口拖动和聊天缩放、物品 Fetch、普通指针为优先序；复用 Fetch 开手/握手两帧、1.25 缩放及源热点 (6,6)，没有世界对 UI 的反向依赖。
+World.Views.DataItemOutline 将显示图标统一到透明 32×32 画布，按非透明像素生成两像素膨胀外轮廓，资源按素材键缓存；缺图问号也使用同一图形/轮廓遮罩。地面使用 GroundAssetId 显式绑定 item/item，背包继续使用 IconAssetId 的 item/itempic；七件装备的地面键来自导出表 icon_small_code，不隐式换算编号。命中使用 32×32 显示矩形向外扩展 8 像素的 48×48 区域，含透明角落；名称由 UI 在悬停时显示，与背包共用 ItemNamePopup 的即时文本、鼠标偏移和视口裁剪，不参与命中；坐标包含摄像机变换并在静止鼠标下逐帧重新计算。UI 悬停和模态窗口阻断命中，失焦、移出、AOI 移除和离开世界清除轮廓。PointerCursor 读取表现组的悬停状态，以 HUD 调整、窗口拖动和聊天缩放、物品 Fetch、普通指针为优先序；复用 Fetch 开手/握手两帧、1.25 缩放及源热点 (6,6)，世界不反向依赖 UI。
 
 角色与地面物品处在相同 Z 层，世界表现根和物品组启用 Y 排序，以实体等轴投影后的坐标确定前后。多件同点物品只错开图标和轮廓，物品节点仍在权威坐标，命中框随图标移动。地面不常驻显示数量；角色快捷键默认 Z 切换当前 AOI 物品的 UI 层信息框，单件只显示名称，多件显示名称及数量。信息框使用 16 号字和紧凑内边距，按屏幕位置优先沿物品中心线小间距堆叠，空间不足时再横向避让，不能无重叠放入视口时隐藏；高于世界绘制，不被角色和物品遮挡，悬停高亮并联动物品轮廓且不改变框的尺寸，点击复用现有拾取入口，不触发地图点击。GM 面板的物体锚点显示开关由 EnvService 保存到 `user://.env` 的 `RPG_SHOW_ENTITY_ANCHORS`，未设置或无效时默认关闭；重新进入世界和重启均恢复显示状态，保存失败恢复控件并提示。颜色仍只控制当前世界表现，默认黄色。角色与当前 AOI 物品在实体原点绘制标记，不参与输入，也不写入设置。
 

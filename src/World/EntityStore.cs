@@ -26,4 +26,7 @@ internal sealed class EntityStore
 
     /// <summary>读取已存在实体的指定组件。</summary>
     public T Get<T>(int entityId) where T : class => (T)_entities[entityId][typeof(T)];
+
+    /// <summary>移除已离开世界的动态实体。</summary>
+    public void Remove(int entityId) => _entities.Remove(entityId);
 }

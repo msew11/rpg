@@ -31,6 +31,8 @@ public partial class MainController : Control
     private Node2D? _worldVisual;
     /// <summary>只读地面表现与命中查询，不复制地图对象。</summary>
     private GroundItemsView? _groundItems;
+    /// <summary>拥有地面名称和信息框的 UI 层。</summary>
+    private GroundItemOverlayControl? _groundOverlay;
     /// <summary>角色绘制节点。</summary>
     private ActorView? _actor;
     /// <summary>跟随角色的世界摄像机。</summary>
@@ -84,7 +86,7 @@ public partial class MainController : Control
     public override void _UnhandledInput(InputEvent input)
     {
         if (_servicesLifetime is null || _worldVisual is null || input is not InputEventMouseButton click) return;
-        if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && _groundItems?.ItemAt(click.Position) is { } objectId)
+        if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && _groundOverlay?.ItemAt(click.Position) is { } objectId)
         {
             RequestPickup(objectId);
             GetViewport().SetInputAsHandled();
@@ -304,7 +306,9 @@ public partial class MainController : Control
         _worldVisual.AddChild(new MapView { Name = "MapView" });
         _groundItems = new GroundItemsView { Name = "GroundItemsView", ZIndex = 1, YSortEnabled = true };
         _worldVisual.AddChild(_groundItems);
-        _groundItems.PickupRequested += RequestPickup;
+        _groundOverlay = new GroundItemOverlayControl(_groundItems) { Name = "GroundItemOverlay" };
+        AddChild(_groundOverlay);
+        _groundOverlay.PickupRequested += RequestPickup;
         _actor = new ActorView { Name = "ActorView", ZIndex = 1, Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
         _worldVisual.AddChild(_actor);
         _actor.Present(GameServices.World.ActorState!);
@@ -315,7 +319,7 @@ public partial class MainController : Control
         AddChild(_hudLayer);
         _hud = new GameHud { Name = "GameHud" };
         _hudLayer.AddChild(_hud);
-        _hud.GroundItemInfoChanged += visible => _groundItems?.SetInfoVisible(visible);
+        _hud.GroundItemInfoChanged += visible => _groundOverlay?.SetInfoVisible(visible);
         _hud.AnchorMarkersChanged += (visible, color) =>
         {
             _actor?.SetAnchorMarker(visible, color);
@@ -374,6 +378,8 @@ public partial class MainController : Control
         _hudLayer?.QueueFree();
         _hudLayer = null;
         _hud = null;
+        _groundOverlay?.QueueFree();
+        _groundOverlay = null;
         _worldVisual?.QueueFree();
         _worldVisual = null;
         _groundItems = null;

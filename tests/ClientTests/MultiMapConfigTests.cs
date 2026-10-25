@@ -44,7 +44,7 @@ public sealed class MultiMapConfigTests : IDisposable
         Assert.Equal(2, session.Role.MapId); Assert.Equal(2, session.Map!.MapId);
         GameServices.World.InitializeRole();
         Assert.Equal(200, GameServices.World.MapConfig.Width);
-        Assert.Same(session.Map, GameServices.World.MapObjects);
+        Assert.Equal(session.Map.Sequence, GameServices.World.MapObjects!.Sequence);
         GameServices.World.LeaveRole(); session.LeaveRole();
         Assert.Null(GameServices.World.MapObjects); Assert.Null(session.Map);
         Assert.Throws<InvalidOperationException>(() => GameServices.World.MapConfig);

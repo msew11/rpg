@@ -58,8 +58,9 @@ public partial class GroundItemDropSmoke : Node
             var ground = GameServices.Session.Map!.Objects.Values.Single();
             Check(ground.Count == 2 && ground.ItemId == 2000, "AOI 未接纳地面道具");
             var view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
+            var overlay = main.FindChildren("*", "Node", true, false).OfType<GroundItemOverlayControl>().Single();
             // ground-item-drop：图标下不再常驻显示数量，信息框默认隐藏。
-            var firstInfo = view.FindChildren("*", "PanelContainer", true, false).OfType<GroundItemInfoControl>().Single();
+            var firstInfo = overlay.FindChildren("*", "PanelContainer", true, false).OfType<GroundItemInfoControl>().Single();
             Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 1 &&
                 view.FindChild("GroundItemCount", true, false) is null && !firstInfo.Visible,
                 "地面仍常驻数量或信息框未默认隐藏");
@@ -94,7 +95,7 @@ public partial class GroundItemDropSmoke : Node
             await Frames();
             Check(GameServices.Session.Bag.Items.All(item => item.InstanceId != 2), "全部丢弃未移除源");
             Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "配置图标未显示");
-            var infoViews = view.FindChildren("*", "PanelContainer", true, false).OfType<GroundItemInfoControl>().ToArray();
+            var infoViews = overlay.FindChildren("*", "PanelContainer", true, false).OfType<GroundItemInfoControl>().ToArray();
             Check(infoViews.Length == 2 && infoViews.All(info => info.Visible) &&
                 infoViews.Any(info => info.GetNode<Label>("InfoText").Text == "测试长剑") &&
                 infoViews.All(info => !info.GetNode<Label>("InfoText").Text.Contains("×1")) &&
@@ -112,7 +113,7 @@ public partial class GroundItemDropSmoke : Node
             var layoutSize = new Vector2(80, 25);
             for (var index = 0; index < 3; index++)
             {
-                var rect = GroundItemsView.FindInfoPlacement(layoutAnchor, layoutSize, new Vector2(300, 250), placed);
+                var rect = GroundItemOverlayControl.FindInfoPlacement(layoutAnchor, layoutSize, new Vector2(300, 250), placed);
                 placed.Add(rect ?? throw new InvalidOperationException("邻近信息框没有可用位置"));
             }
             Check(placed.All(rect => Mathf.IsEqualApprox(rect.Position.X, placed[0].Position.X)) &&
@@ -184,6 +185,7 @@ public partial class GroundItemDropSmoke : Node
             Check(GameServices.Session.Bag.Revision == saved.Revision && GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.Count)).SequenceEqual(saved.Items.Select(item => (item.InstanceId, item.Count))), "重启后背包未恢复");
             Check(GameServices.Session.Map!.Objects.Count == 2, "重启后地图未恢复");
             view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
+            overlay = main.FindChildren("*", "Node", true, false).OfType<GroundItemOverlayControl>().Single();
             Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "重启后地面表现未恢复");
             var restoredToggle = (CheckButton)main.FindChild("ShowEntityAnchors", true, false);
             var restoredActor = main.FindChildren("ActorView", "Node", true, false).OfType<ActorView>().Single();
@@ -227,10 +229,11 @@ public partial class GroundItemDropSmoke : Node
             Check(GameServices.Session.Bag.Items.Count == 0 && GameServices.Session.Map!.Objects.Count == 2, "关闭重启复活销毁物品或改变地面");
             // ground-item-drop：信息框悬停联动轮廓，点击走现有拾取且不穿透到地图。
             view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
+            overlay = main.FindChildren("*", "Node", true, false).OfType<GroundItemOverlayControl>().Single();
             bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
             bag.Hide();
             SendKey(Key.Z); await Frames();
-            var pickupInfo = view.FindChildren("*", "PanelContainer", true, false).OfType<GroundItemInfoControl>()
+            var pickupInfo = overlay.FindChildren("*", "PanelContainer", true, false).OfType<GroundItemInfoControl>()
                 .First(info => info.Visible);
             var infoPoint = pickupInfo.GetGlobalRect().GetCenter();
             MouseMotionAt(infoPoint); await Frames();

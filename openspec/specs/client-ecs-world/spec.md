@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change data-driven-rpg-client. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: 世界仅通过 Action 改变
 `WorldManager` SHALL 是 ECS 的唯一写入入口；输入事件和外部状态更新 SHALL 转为 Action，由 Godot 固定帧处理。世界实体 SHALL 先于角色实体创建。
 
@@ -66,3 +68,15 @@ ECS Component SHALL 仅承载数据，不持有服务、管理器或业务方法
 
 - **WHEN** 移动 Action 或被接纳的权威修正位置超出地图边界
 - **THEN** WorldManager 使用 MapUtils 和世界地图组件将其裁剪至有效逻辑范围，输入发送前采用同一规则
+
+### Requirement: 动态地图对象具有 ECS 身份
+
+当前 AOI 中每个独立动态地图对象 SHALL 对应一个 ECS entity。相同服务器对象 ID 的更新 SHALL 保持本地 entity 身份；离开 AOI、切角或退出世界 SHALL 移除该 entity。服务器快照仍为权威来源，世界表现和拾取 SHALL 读取已同步的 ECS 状态。
+
+#### Scenario: 新增更新与离开
+- **WHEN** AOI 依次新增、更新、移除一个地面物品
+- **THEN** 对应 entity 依次创建、保留身份并更新组件、销毁
+
+#### Scenario: 重同步与怪物对象
+- **WHEN** AOI 重同步包含地面物品和怪物对象
+- **THEN** 当前动态 entity 集合与快照一致，每个对象只有一个 entity

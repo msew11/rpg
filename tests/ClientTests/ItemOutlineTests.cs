@@ -1,5 +1,5 @@
 using Godot;
-using Rpg.Items;
+using Rpg.World.Views;
 
 namespace ClientTests;
 

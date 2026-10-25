@@ -27,8 +27,10 @@ public sealed class WorldService : Service
     /// <summary>当前世界使用的地图配置，无角色时不可读取。</summary>
     public MapCfg MapConfig => !IsDisposed && HasWorld && _session.HasRole && _config.Map.Items.TryGetValue(_session.Role.MapId, out var value)
         ? value : throw new InvalidOperationException("当前地图尚未初始化");
-    /// <summary>只读借用会话地图快照，不复制到 ECS。</summary>
-    public DataMapAoiSnapshotPbData? MapObjects => HasRole ? _session.Map : null;
+    /// <summary>从当前 ECS 实体读取动态地图对象。</summary>
+    public DataWorldObjectsState? MapObjects => _world?.MapObjects;
+    /// <summary>已提交 ECS 的最后一份 AOI 快照引用。</summary>
+    private DataMapAoiSnapshotPbData? _lastMapSnapshot;
     /// <summary>活动角色的 ECS 实例。</summary>
     private WorldManager? _world;
     /// <summary>当前启动内递增的移动意图序号。</summary>
@@ -77,7 +79,18 @@ public sealed class WorldService : Service
     }
 
     /// <summary>在网络推进之后按固定帧处理 ECS。</summary>
-    public void Tick(double delta) { ThrowIfDisposed(); _world?.Tick(delta); }
+    public void Tick(double delta)
+    {
+        ThrowIfDisposed();
+        if (_world is null) return;
+        var snapshot = _session.Map;
+        if (!ReferenceEquals(snapshot, _lastMapSnapshot))
+        {
+            _lastMapSnapshot = snapshot;
+            _world.Enqueue(new SyncMapObjectsAction(snapshot));
+        }
+        _world.Tick(delta);
+    }
 
     /// <summary>计算视口覆盖的地图格范围。</summary>
     public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area) => MapUtils.VisibleTiles(RequireMap(), area);
@@ -97,6 +110,7 @@ public sealed class WorldService : Service
     {
         ThrowIfDisposed();
         _world = null;
+        _lastMapSnapshot = null;
         _map = null;
         _setting.LeaveRole();
     }
@@ -114,6 +128,8 @@ public sealed class WorldService : Service
         var world = new WorldManager();
         world.Enqueue(new InitializeWorldAction(_map!));
         world.Enqueue(new InitializeRoleAction(_session.Role));
+        _lastMapSnapshot = _session.Map;
+        if (_lastMapSnapshot is not null) world.Enqueue(new SyncMapObjectsAction(_lastMapSnapshot));
         world.Tick(0);
         _world = world;
     }
@@ -131,6 +147,7 @@ public sealed class WorldService : Service
         if (IsDisposed) return;
         IsDisposed = true;
         _world = null;
+        _lastMapSnapshot = null;
         _map = null;
     }
 

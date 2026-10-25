@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Frozen;
+using System.Linq;
 using Godot;
 using Rpg.Const;
 using Rpg.World.Actions;
 using Rpg.World.Components;
 using Rpg.World.Systems;
 using Rpg.World.Utils;
+using Rpg.Session.Data;
 
 namespace Rpg.World;
 
@@ -16,6 +19,10 @@ internal sealed class WorldManager
     private readonly Queue<WorldAction> _actions = new();
     /// <summary>该世界的实体组件仓库。</summary>
     private readonly EntityStore _entities = new();
+    /// <summary>服务器对象 GUID 对应当前世界的整数实体 ID。</summary>
+    private readonly Dictionary<Guid, int> _mapEntities = new();
+    /// <summary>由当前 ECS 组件生成的只读对象集合。</summary>
+    public DataWorldObjectsState? MapObjects { get; private set; }
     /// <summary>固定运行顺序的逻辑系统。</summary>
     private readonly IWorldSystem[] _systems = [new MovementSystem()];
     /// <summary>地图世界实体 ID。</summary>
@@ -69,10 +76,15 @@ internal sealed class WorldManager
         {
             case InitializeWorldAction world:
                 _entities.Clear();
+                _mapEntities.Clear();
+                MapObjects = null;
                 _roleEntity = 0;
                 _lastConfirmedAction = 0;
                 _lastRoleRevision = 0;
                 _worldEntity = _entities.Create(world.Map);
+                break;
+            case SyncMapObjectsAction syncMap:
+                SyncMapObjects(syncMap.Snapshot);
                 break;
             case InitializeRoleAction role:
                 if (!HasWorld) throw new InvalidOperationException("必须先初始化世界实体");
@@ -107,5 +119,45 @@ internal sealed class WorldManager
                     MapUtils.Clamp(_entities.Get<DataMapComponent>(_worldEntity), sync.State.Position);
                 break;
         }
+    }
+
+    /// <summary>按权威 AOI 差集维护实体，并在完成后发布组件读模型。</summary>
+    private void SyncMapObjects(DataMapAoiSnapshotPbData? snapshot)
+    {
+        if (!HasWorld) return;
+        foreach (var (id, entity) in _mapEntities.ToArray())
+            if (snapshot is null || !snapshot.Objects.ContainsKey(id))
+            {
+                _entities.Remove(entity);
+                _mapEntities.Remove(id);
+            }
+        if (snapshot is null) { MapObjects = null; return; }
+        foreach (var value in snapshot.Objects.Values)
+        {
+            if (!_mapEntities.TryGetValue(value.ObjectId, out var entity))
+            {
+                entity = _entities.Create(new DataPositionComponent(new Vector2(value.X, value.Y)),
+                    new DataMapObjectComponent(value));
+                _mapEntities.Add(value.ObjectId, entity);
+            }
+            else
+            {
+                _entities.Get<DataPositionComponent>(entity).Value = new Vector2(value.X, value.Y);
+                var component = _entities.Get<DataMapObjectComponent>(entity);
+                component.Revision = value.Revision;
+                component.MonsterTypeId = value.MonsterTypeId;
+                component.ItemId = value.ItemId;
+                component.Count = value.Count;
+            }
+        }
+        var states = new Dictionary<Guid, DataWorldObjectState>();
+        foreach (var (id, entity) in _mapEntities)
+        {
+            var position = _entities.Get<DataPositionComponent>(entity).Value;
+            var item = _entities.Get<DataMapObjectComponent>(entity);
+            states.Add(id, new(entity, id, item.Revision, position.X, position.Y,
+                item.MonsterTypeId, item.ItemId, item.Count));
+        }
+        MapObjects = new(snapshot.Sequence, states.ToFrozenDictionary());
     }
 }
