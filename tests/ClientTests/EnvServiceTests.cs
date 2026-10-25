@@ -3,7 +3,7 @@ using Rpg.Services;
 
 namespace ClientTests;
 
-/// <summary>验证 console-logging 的 .env 读取、跨启动记忆、静默保存和失败恢复。</summary>
+/// <summary>验证 console-logging、client-ui 的 .env 读取、跨启动记忆、静默保存和失败恢复。</summary>
 public sealed class EnvServiceTests : IDisposable
 {
     /// <summary>每个用例独立的环境文件目录。</summary>
@@ -79,6 +79,57 @@ public sealed class EnvServiceTests : IDisposable
         using var env = Open();
         env.ConsoleLogEnabled = true;
         Assert.Equal(new[] { "OTHER=keep", "RPG_CONSOLE_LOG_ENABLED=true" }, File.ReadAllLines(EnvPath));
+    }
+
+    /// <summary>client-ui：锚点开关默认关闭，开关均跨实例保留，且不覆盖日志等其他配置。</summary>
+    [Fact]
+    public void AnchorMarkersPersistWithoutChangingOtherKeys()
+    {
+        using var first = Open();
+        Assert.False(first.ShowEntityAnchors);
+        first.ConsoleLogEnabled = true;
+        first.ShowEntityAnchors = true;
+        using var second = Open();
+        Assert.True(second.ShowEntityAnchors);
+        Assert.True(second.ConsoleLogEnabled);
+        second.ShowEntityAnchors = false;
+        using var third = Open();
+        Assert.False(third.ShowEntityAnchors);
+        Assert.True(third.ConsoleLogEnabled);
+        Assert.Contains("RPG_SHOW_ENTITY_ANCHORS=false", File.ReadAllLines(EnvPath));
+    }
+
+    /// <summary>client-ui：锚点键接受日志键相同的布尔格式，非法配置回退关闭。</summary>
+    [Theory]
+    [InlineData("RPG_SHOW_ENTITY_ANCHORS=1", true)]
+    [InlineData(" RPG_SHOW_ENTITY_ANCHORS = 'TRUE' ", true)]
+    [InlineData("RPG_SHOW_ENTITY_ANCHORS=0", false)]
+    [InlineData("RPG_SHOW_ENTITY_ANCHORS=invalid", false)]
+    public void ReadsAnchorMarkerSetting(string content, bool expected)
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(EnvPath, content);
+        using var env = Open();
+        Assert.Equal(expected, env.ShowEntityAnchors);
+    }
+
+    /// <summary>client-ui：保存合并重复锚点键，文件不可替换时保留文件和内存状态。</summary>
+    [Fact]
+    public void AnchorMarkerSaveConsolidatesAndPreservesStateOnFailure()
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllLines(EnvPath, ["# 调试设置", "OTHER=keep", "RPG_SHOW_ENTITY_ANCHORS=false",
+            "RPG_SHOW_ENTITY_ANCHORS=true"]);
+        using var env = Open();
+        Assert.True(env.ShowEntityAnchors);
+        env.ShowEntityAnchors = false;
+        var expected = new[] { "# 调试设置", "OTHER=keep", "RPG_SHOW_ENTITY_ANCHORS=false" };
+        Assert.Equal(expected, File.ReadAllLines(EnvPath));
+        using (var locked = new FileStream(EnvPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            Assert.True(Record.Exception(() => env.ShowEntityAnchors = true) is IOException or UnauthorizedAccessException);
+        Assert.False(env.ShowEntityAnchors);
+        Assert.Equal(expected, File.ReadAllLines(EnvPath));
+        Assert.False(File.Exists(EnvPath + ".tmp"));
     }
 
     /// <summary>写入失败不改变原文件与内存标记，并清理临时文件，异常交由 GM 显示。</summary>

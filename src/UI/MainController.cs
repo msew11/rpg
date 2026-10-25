@@ -321,6 +321,8 @@ public partial class MainController : Control
             _actor?.SetAnchorMarker(visible, color);
             _groundItems?.SetAnchorMarkers(visible, color);
         };
+        _actor.SetAnchorMarker(GameServices.Env.ShowEntityAnchors, Colors.Yellow);
+        _groundItems.SetAnchorMarkers(GameServices.Env.ShowEntityAnchors, Colors.Yellow);
         _hud.ChangeRoleRequested += ReturnToRoles;
         _hud.LoginRequested += ShowLogin;
         _hud.QuitRequested += QuitGame;

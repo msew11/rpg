@@ -11,6 +11,8 @@ public sealed class EnvService : Service
 {
     /// <summary>.env 中跨启动保存控制台日志开关的配置键。</summary>
     public const string ConsoleLogVariable = "RPG_CONSOLE_LOG_ENABLED";
+    /// <summary>.env 中跨启动保存实体锚点显示开关的配置键。</summary>
+    public const string ShowEntityAnchorsVariable = "RPG_SHOW_ENTITY_ANCHORS";
     /// <summary>.env 中持有服务端检测间隔的秒数键，0 关闭检测。</summary>
     public const string ServerFlushIntervalVariable = "RPG_SERVER_FLUSH_INTERVAL_SECONDS";
     /// <summary>缺失或非法配置时的默认检测秒数。</summary>
@@ -31,6 +33,8 @@ public sealed class EnvService : Service
     public string? EnvFilePath { get; }
     /// <summary>启动时读取、切换成功后更新的日志状态。</summary>
     private bool _consoleLogEnabled;
+    /// <summary>启动时读取、保存成功后更新的实体锚点显示状态。</summary>
+    private bool _showEntityAnchors;
 
     /// <summary>是否输出通信与 IO 日志；修改时直接保存 .env，不依赖日志服务。</summary>
     public bool ConsoleLogEnabled
@@ -41,6 +45,18 @@ public sealed class EnvService : Service
             ThrowIfDisposed();
             SaveVariable(ConsoleLogVariable, value ? "true" : "false");
             _consoleLogEnabled = value;
+        }
+    }
+
+    /// <summary>是否显示实体锚点；修改时直接保存 .env。</summary>
+    public bool ShowEntityAnchors
+    {
+        get => _showEntityAnchors;
+        set
+        {
+            ThrowIfDisposed();
+            SaveVariable(ShowEntityAnchorsVariable, value ? "true" : "false");
+            _showEntityAnchors = value;
         }
     }
 
@@ -70,8 +86,10 @@ public sealed class EnvService : Service
             {
                 if (TryReadVariable(line, ServerFlushIntervalVariable, out var interval))
                     _serverFlushIntervalSeconds = int.TryParse(interval, out var seconds) && seconds >= 0 && seconds % 5 == 0 ? seconds : 5;
-                if (!TryReadConsoleLogging(line, out var text)) continue;
-                _consoleLogEnabled = text == "1" || bool.TryParse(text, out var enabled) && enabled;
+                if (TryReadVariable(line, ConsoleLogVariable, out var logText))
+                    _consoleLogEnabled = ReadBoolean(logText);
+                if (TryReadVariable(line, ShowEntityAnchorsVariable, out var anchorText))
+                    _showEntityAnchors = ReadBoolean(anchorText);
             }
         }
         SettingsDirectory = settingsDirectory;
@@ -80,9 +98,9 @@ public sealed class EnvService : Service
         SchemaDirectory = schemaDirectory;
     }
 
-    /// <summary>识别日志配置行，忽略首尾空白并支持成对引号，其他行原样保留。</summary>
-    private static bool TryReadConsoleLogging(string line, out string value)
-        => TryReadVariable(line, ConsoleLogVariable, out value);
+    /// <summary>读取布尔配置，支持 true/false 与 1/0，非法值视为关闭。</summary>
+    private static bool ReadBoolean(string value)
+        => value == "1" || bool.TryParse(value, out var enabled) && enabled;
 
     /// <summary>读取指定键及成对引号内的值，保留其他配置行。</summary>
     private static bool TryReadVariable(string line, string key, out string value)

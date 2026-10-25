@@ -401,13 +401,17 @@ public partial class GameHud : Control
         consoleLog.Toggled += enabled => SetConsoleLogging(consoleLog, enabled);
         gm.AddChild(consoleLog);
         var anchorRow = new HBoxContainer { Name = "EntityAnchorControls" };
-        var showAnchors = new CheckButton { Name = "ShowEntityAnchors", Text = "显示物体锚点" };
+        var showAnchors = new CheckButton
+        {
+            Name = "ShowEntityAnchors", Text = "显示物体锚点",
+            ButtonPressed = GameServices.Env.ShowEntityAnchors
+        };
         var anchorColor = new ColorPickerButton
         {
             Name = "EntityAnchorColor", Color = Colors.Yellow,
             CustomMinimumSize = new Vector2(42, 32), TooltipText = "物体锚点颜色"
         };
-        showAnchors.Toggled += visible => AnchorMarkersChanged?.Invoke(visible, anchorColor.Color);
+        showAnchors.Toggled += visible => SetAnchorMarkersVisible(showAnchors, visible, anchorColor.Color);
         anchorColor.ColorChanged += color => AnchorMarkersChanged?.Invoke(showAnchors.ButtonPressed, color);
         anchorRow.AddChild(showAnchors);
         anchorRow.AddChild(anchorColor);
@@ -494,6 +498,22 @@ public partial class GameHud : Control
         {
             toggle.SetPressedNoSignal(GameServices.Env.ConsoleLogEnabled);
             _networkError.Text = $"无法保存 .env 日志设置：{error.Message}";
+        }
+    }
+
+    /// <summary>保存锚点显示状态，成功后更新世界；失败时恢复控件并提示。</summary>
+    private void SetAnchorMarkersVisible(CheckButton toggle, bool visible, Color color)
+    {
+        try
+        {
+            GameServices.Env.ShowEntityAnchors = visible;
+            AnchorMarkersChanged?.Invoke(visible, color);
+            _networkError.Text = "";
+        }
+        catch (Exception error)
+        {
+            toggle.SetPressedNoSignal(GameServices.Env.ShowEntityAnchors);
+            _networkError.Text = $"无法保存 .env 锚点设置：{error.Message}";
         }
     }
 

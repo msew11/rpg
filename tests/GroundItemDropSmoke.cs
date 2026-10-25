@@ -157,6 +157,15 @@ public partial class GroundItemDropSmoke : Node
             anchorToggle.ButtonPressed = false; await Frames();
             Check(!actorAnchor.Visible && itemNodes.All(node => !node.GetNode<EntityAnchorView>("EntityAnchor").Visible),
                 "关闭 GM 锚点后仍显示标记");
+            Check(File.ReadAllText(Path.Combine(directory, ".env")).Contains("RPG_SHOW_ENTITY_ANCHORS=false"),
+                "关闭锚点未保存 .env");
+            using (var locked = new FileStream(Path.Combine(directory, ".env"), FileMode.Open, System.IO.FileAccess.Read, FileShare.Read))
+            {
+                anchorToggle.ButtonPressed = true; await Frames();
+                Check(!anchorToggle.ButtonPressed && !GameServices.Env.ShowEntityAnchors && !actorAnchor.Visible &&
+                    ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("无法保存 .env 锚点设置"),
+                    "锚点保存失败未恢复控件或显示原因");
+            }
             PressTitle(main, "GM"); await Frames();
 
             // 数量窗打开时关闭背包，不允许继续确认。
@@ -167,12 +176,21 @@ public partial class GroundItemDropSmoke : Node
             Check(GameServices.Session.Bag.Items.Single().Count == 4, "关闭数量窗修改背包");
             GameServices.Net.Tick(5);
             var saved = repo.Load(1001).Bag;
+            anchorToggle.ButtonPressed = true; await Frames();
+            Check(File.ReadAllText(Path.Combine(directory, ".env")).Contains("RPG_SHOW_ENTITY_ANCHORS=true"),
+                "开启锚点未保存 .env");
             main.QueueFree(); await Frames(); main = null;
             main = await StartMain(directory, config);
             Check(GameServices.Session.Bag.Revision == saved.Revision && GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.Count)).SequenceEqual(saved.Items.Select(item => (item.InstanceId, item.Count))), "重启后背包未恢复");
             Check(GameServices.Session.Map!.Objects.Count == 2, "重启后地图未恢复");
             view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
             Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "重启后地面表现未恢复");
+            var restoredToggle = (CheckButton)main.FindChild("ShowEntityAnchors", true, false);
+            var restoredActor = main.FindChildren("ActorView", "Node", true, false).OfType<ActorView>().Single();
+            Check(GameServices.Env.ShowEntityAnchors && restoredToggle.ButtonPressed &&
+                restoredActor.GetNode<EntityAnchorView>("EntityAnchor").Visible &&
+                view.GetChildren().OfType<Node2D>().All(node => node.GetNode<EntityAnchorView>("EntityAnchor").Visible),
+                "重启未恢复锚点开关或实体标记");
             using var moveOut = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true };
             GameServices.World.HandleInput(moveOut, new Vector2(23000, 23000));
             GameServices.Net.Tick(100);
@@ -256,7 +274,8 @@ public partial class GroundItemDropSmoke : Node
     /// <summary>进入真实角色和背包，正式物品配置仍由隔离文件提供。</summary>
     private async Task<DoubleMainController> StartMain(string directory, string config)
     {
-        var main = new DoubleMainController { SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server"), ConfigDirectory = config };
+        var main = new DoubleMainController { SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server"), ConfigDirectory = config,
+            EnvFilePath = Path.Combine(directory, ".env") };
         AddChild(main);
         await Frames();
         PressTitle(main, "登录");
