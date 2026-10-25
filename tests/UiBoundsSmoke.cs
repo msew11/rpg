@@ -60,6 +60,10 @@ public partial class UiBoundsSmoke : Node
                 var panel = hud.GetNode<ViewportPanelControl>(title);
                 await Frames();
                 AssertPopupPadding(panel, title);
+                // client-ui：角色窗口仅展示资料，返回角色选择仍由系统菜单负责。
+                if (title == "角色")
+                    Check(!panel.FindChildren("*", "Button", true, false).OfType<Button>()
+                        .Any(button => button.Text == "切换角色"), "角色窗口仍提供切换角色按钮");
                 foreach (var size in new[] { new Vector2I(1920, 1080), new Vector2I(640, 360), new Vector2I(480, 270), new Vector2I(1280, 720) })
                 {
                     Resize(size);

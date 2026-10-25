@@ -382,9 +382,6 @@ public partial class GameHud : Control
         var character = CreatePanel("角色", new Vector2(300, 255));
         _characterText = Text("", 16);
         character.AddChild(_characterText);
-        var changeRole = new Button { Text = "切换角色" };
-        changeRole.Pressed += () => ChangeRoleRequested?.Invoke();
-        character.AddChild(changeRole);
 
         _bag = new BagControl { Name = "背包", Visible = false };
         AddChild(_bag);
