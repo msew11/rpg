@@ -262,19 +262,20 @@ public partial class GameHud : Control
         var portrait = Movable("portrait", "角色头像");
         var backgroundStyle = (StyleBox) _movable["portrait"].GetThemeStylebox("panel").Duplicate();
         _movable["portrait"].AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
-        var portraitStage = new Control { Name = "PortraitStage", CustomMinimumSize = new Vector2(244, 72) };
+        var portraitStage = new Control { Name = "PortraitStage", CustomMinimumSize = new Vector2(216, 66) };
         portrait.AddChild(portraitStage);
-        var statusBackground = new Panel { Name = "PortraitBackground", Position = new Vector2(45, 0),
-            Size = new Vector2(199, 64), MouseFilter = MouseFilterEnum.Ignore };
+        var statusBackground = new Panel { Name = "PortraitBackground", Position = new Vector2(40, 0),
+            Size = new Vector2(176, 57), MouseFilter = MouseFilterEnum.Ignore };
         statusBackground.AddThemeStyleboxOverride("panel", backgroundStyle);
         portraitStage.AddChild(statusBackground);
-        _avatar = new AvatarControl { Name = "Avatar", CustomMinimumSize = new Vector2(72, 72), MouseFilter = MouseFilterEnum.Ignore };
+        _avatar = new AvatarControl { Name = "Avatar", CustomMinimumSize = new Vector2(72, 72),
+            Scale = new Vector2(0.9f, 0.9f), MouseFilter = MouseFilterEnum.Ignore };
         portraitStage.AddChild(_avatar);
-        var status = new VBoxContainer { Name = "PortraitStatus", Position = new Vector2(80, 4),
-            Size = new Vector2(155, 56), MouseFilter = MouseFilterEnum.Ignore };
-        status.AddThemeConstantOverride("separation", 3);
+        var status = new VBoxContainer { Name = "PortraitStatus", Position = new Vector2(72, 3),
+            Size = new Vector2(140, 50), MouseFilter = MouseFilterEnum.Ignore };
+        status.AddThemeConstantOverride("separation", 2);
         portraitStage.AddChild(status);
-        _portraitName = Text("", 14);
+        _portraitName = Text("", 13);
         _portraitName.Name = "PortraitName";
         _portraitName.HorizontalAlignment = HorizontalAlignment.Center;
         status.AddChild(_portraitName);
@@ -1009,7 +1010,7 @@ public partial class GameHud : Control
     /// <summary>创建与 HUD 配色一致的紧凑状态条。</summary>
     private static ProgressBar CreateStatusBar(string name, Color color)
     {
-        var bar = new ProgressBar { Name = name, CustomMinimumSize = new Vector2(155, 16),
+        var bar = new ProgressBar { Name = name, CustomMinimumSize = new Vector2(140, 15),
             ShowPercentage = false, MinValue = 0, MaxValue = 100, MouseFilter = MouseFilterEnum.Ignore };
         var background = new StyleBoxFlat { BgColor = new Color("182630"), BorderColor = new Color("7899a6") };
         background.SetBorderWidthAll(1);
@@ -1022,7 +1023,7 @@ public partial class GameHud : Control
     /// <summary>在状态条中央显示实际生命或魔力数值。</summary>
     private static Label CreateBarValue(string name, ProgressBar bar)
     {
-        var label = Text("", 11);
+        var label = Text("", 10);
         label.Name = name;
         label.HorizontalAlignment = HorizontalAlignment.Center;
         label.VerticalAlignment = VerticalAlignment.Center;

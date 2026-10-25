@@ -40,12 +40,13 @@ public partial class UiBoundsSmoke : Node
                 Math.Abs(mana.Value - 70) < 0.01 && healthValue.Text == "86/100" &&
                 manaValue.Text == "42/60", "头像右侧未按角色快照显示名字和数值");
             Check(level.Text == "5" && level.GetGlobalRect().GetCenter().DistanceTo(
-                avatar.GlobalPosition + new Vector2(13, 60)) < 1, "等级没有居中于左下角徽标");
+                avatar.GetGlobalTransform() * new Vector2(13, 60)) < 1, "等级没有居中于左下角徽标");
             Check(name.HorizontalAlignment == HorizontalAlignment.Center &&
                 statusBackground.GlobalPosition.X > portraitPanel.GlobalPosition.X + 30 &&
                 statusBackground.GetGlobalRect().End.Y < avatar.GetGlobalRect().End.Y &&
-                statusBackground.GetGlobalRect().End.X - health.GetGlobalRect().End.X >= 6 &&
-                statusBackground.GetGlobalRect().End.X - mana.GetGlobalRect().End.X >= 6,
+                statusBackground.GetGlobalRect().End.X - health.GetGlobalRect().End.X is >= 3 and <= 5 &&
+                statusBackground.GetGlobalRect().End.X - mana.GetGlobalRect().End.X is >= 3 and <= 5 &&
+                portraitPanel.GetCombinedMinimumSize().X <= 220 && portraitPanel.GetCombinedMinimumSize().Y <= 68,
                 "头像底框或状态条留白不正确");
             Check(!portraitPanel.FindChildren("*", "Label", true, false).OfType<Label>()
                 .Any(label => label.Text.Contains("经验") || label.Text.Contains("Lv.")), "头像区域出现多余信息");
