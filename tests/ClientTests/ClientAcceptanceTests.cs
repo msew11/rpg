@@ -197,7 +197,7 @@ public sealed class SettingsAcceptanceTests
             using var setting = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
             Assert.Equal(Path.GetFullPath(Path.Combine(directory, "system.json")), setting.SystemPath);
             setting.SetResolution(1600, 900);
-            setting.SetMasterVolume(0.4f);
+            setting.SetVolumes(0.4f, 0.6f);
             setting.SelectRole(1001);
             Assert.Equal(Path.GetFullPath(Path.Combine(directory, "roles", "1001.json")), setting.RolePath);
             setting.SetHotbarVisible(2, true);
@@ -207,6 +207,7 @@ public sealed class SettingsAcceptanceTests
             using var reopened = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
             Assert.Equal(1600, reopened.Width);
             Assert.Equal(0.4f, reopened.MasterVolume);
+            Assert.Equal(0.6f, reopened.EffectsVolume);
             reopened.SelectRole(1001);
             Assert.True(reopened.IsHotbarVisible(2));
             Assert.Equal(0.4f, reopened.GetHudPosition("portrait").X);
@@ -229,6 +230,7 @@ public sealed class SettingsAcceptanceTests
             using var legacy = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
             Assert.Equal(WindowDisplayMode.Windowed, legacy.WindowMode);
             Assert.Equal(1920, legacy.Width);
+            Assert.Equal(0.8f, legacy.EffectsVolume);
             legacy.SetDisplay(1920, 1080, WindowDisplayMode.Fullscreen);
             using var fullscreen = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
             Assert.Equal(WindowDisplayMode.Fullscreen, fullscreen.WindowMode);

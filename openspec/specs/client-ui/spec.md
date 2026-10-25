@@ -1,5 +1,8 @@
 # client-ui Specification
 
+## 音效反馈
+登录和进入游戏 SHALL 播放 1005；背包拿起或地面拾取 SHALL 播放 1001；背包放下或道具落地 SHALL 播放 1010；页签、切换角色和系统菜单 SHALL 播放 1003；取消或关闭 SHALL 播放 1007；确认操作 SHALL 播放 1006。
+
 ## Purpose
 TBD - created by archiving change data-driven-rpg-client. Update Purpose after archive.
 ## Requirements

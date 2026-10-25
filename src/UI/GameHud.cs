@@ -82,6 +82,8 @@ public partial class GameHud : Control
     private Control _roleSettings = null!;
     /// <summary>关闭显示设置或离开世界时撤销未保存的窗口预览。</summary>
     private Action? _restoreDisplayPreview;
+    /// <summary>关闭声音设置或离开世界时撤销未保存的试听音量。</summary>
+    private Action? _restoreSoundPreview;
     /// <summary>三个快捷键按钮及其等待状态。</summary>
     private readonly Dictionary<string, Button> _shortcutButtons = new();
     /// <summary>最近成功保存的按钮文字，离开角色后取消监听也无需访问设置服务。</summary>
@@ -182,6 +184,7 @@ public partial class GameHud : Control
         }
         if (_systemMenuOverlay.Visible && input is InputEventKey { Keycode: Key.Escape, Pressed: true })
         {
+            UiSoundPlayer.Play(this, 1007);
             CloseSystemMenu();
             GetViewport().SetInputAsHandled();
             return;
@@ -321,6 +324,7 @@ public partial class GameHud : Control
         {
             if (input is not InputEventMouseButton { Pressed: true }) return;
             _systemMenuOverlay.AcceptEvent();
+            UiSoundPlayer.Play(this, 1007);
             CloseSystemMenu();
         };
         _systemMenu = new PanelContainer { Name = "SystemMenu", CustomMinimumSize = new Vector2(180, 0), MouseFilter = MouseFilterEnum.Stop };
@@ -674,20 +678,45 @@ public partial class GameHud : Control
         page.AddChild(save);
     }
 
-    /// <summary>加入主音量滑块与保存操作。</summary>
+    /// <summary>分别试听 BGM 与音效，并在保存时一次提交两路音量。</summary>
     private void BuildSoundTab(TabContainer tabs)
     {
         var page = new VBoxContainer { Name = "声音" };
         tabs.AddChild(page);
-        page.AddChild(Text("主音量", 16));
-        var slider = new HSlider { MinValue = 0, MaxValue = 100, Step = 1, Value = GameServices.Setting.MasterVolume * 100,
+        page.AddChild(Text("BGM 音量", 16));
+        var bgm = new HSlider { Name = "BgmVolume", MinValue = 0, MaxValue = 100, Step = 1,
+            Value = GameServices.Setting.MasterVolume * 100,
             CustomMinimumSize = new Vector2(280, 28) };
-        page.AddChild(slider);
-        var save = new Button { Text = "应用并保存" };
+        page.AddChild(bgm);
+        page.AddChild(Text("音效音量", 16));
+        var effects = new HSlider { Name = "EffectsVolume", MinValue = 0, MaxValue = 100, Step = 1,
+            Value = GameServices.Setting.EffectsVolume * 100, CustomMinimumSize = new Vector2(280, 28) };
+        page.AddChild(effects);
+        var savedBgm = GameServices.Setting.MasterVolume;
+        var savedEffects = GameServices.Setting.EffectsVolume;
+        void Preview() => UiSoundPlayer.SetVolumes((float)bgm.Value / 100, (float)effects.Value / 100);
+        void Restore()
+        {
+            bgm.SetValueNoSignal(savedBgm * 100);
+            effects.SetValueNoSignal(savedEffects * 100);
+            UiSoundPlayer.SetVolumes(savedBgm, savedEffects);
+        }
+        bgm.ValueChanged += _ => Preview();
+        effects.ValueChanged += _ => Preview();
+        var systemPanel = GetNode<Control>("系统设置");
+        systemPanel.VisibilityChanged += () => { if (!systemPanel.Visible) Restore(); };
+        _restoreSoundPreview = Restore;
+        var save = new Button { Text = "保存" };
         save.Pressed += () =>
         {
-            GameServices.Setting.SetMasterVolume((float)slider.Value / 100);
-            ApplyVolume();
+            try
+            {
+                GameServices.Setting.SetVolumes((float)bgm.Value / 100, (float)effects.Value / 100);
+                savedBgm = GameServices.Setting.MasterVolume;
+                savedEffects = GameServices.Setting.EffectsVolume;
+                _networkError.Text = "";
+            }
+            catch (Exception error) { _networkError.Text = $"无法保存声音设置：{error.Message}"; }
         };
         page.AddChild(save);
     }
@@ -1051,6 +1080,9 @@ public partial class GameHud : Control
         var restoreDisplayPreview = _restoreDisplayPreview;
         _restoreDisplayPreview = null;
         restoreDisplayPreview?.Invoke();
+        var restoreSoundPreview = _restoreSoundPreview;
+        _restoreSoundPreview = null;
+        restoreSoundPreview?.Invoke();
         _chatResize?.FinishResize();
         _chat?.ReleaseSubscription();
         _bag?.ReleaseSubscription();
@@ -1066,13 +1098,6 @@ public partial class GameHud : Control
         _draftPositions.Clear();
         foreach (var subscription in _subscriptions) subscription.Dispose();
         _subscriptions.Clear();
-    }
-
-    /// <summary>把保存的主音量应用到 Godot 音频总线。</summary>
-    private void ApplyVolume()
-    {
-        var bus = AudioServer.GetBusIndex("Master");
-        if (bus >= 0) AudioServer.SetBusVolumeLinear(bus, GameServices.Setting.MasterVolume);
     }
 
     /// <summary>创建统一尺寸的普通文本。</summary>

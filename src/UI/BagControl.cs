@@ -184,11 +184,13 @@ public partial class BagControl : PanelContainer
         {
             var data = _pickedItem;
             CancelItemDrag();
+            UiSoundPlayer.Play(this, 1010);
             DropItem(data, slotIndex);
             return;
         }
         var payload = CreateItemDrag(slotIndex);
         if (payload.VariantType == Variant.Type.Nil) return;
+        UiSoundPlayer.Play(this, 1001);
         _pickedItem = payload;
         HideItemName();
         _itemPreview = (Control)_slots[slotIndex].GetChild<Control>(0).Duplicate();
@@ -317,7 +319,9 @@ public partial class BagControl : PanelContainer
     /// <summary>响应只显示反馈，两侧状态由 CacheBase 的已有通知处理。</summary>
     private void OnItemDropped(DropItemRt response)
     {
-        if (response.RoleId == GameServices.Session.RoleId) ShowMoveStatus(response.Success ? "" : response.Error);
+        if (response.RoleId != GameServices.Session.RoleId) return;
+        if (response.Success && response.ObjectId.Length > 0) UiSoundPlayer.Play(this, 1010);
+        ShowMoveStatus(response.Success ? "" : response.Error);
     }
 
     /// <summary>刷新、取消和离开时使确认上下文失效。</summary>

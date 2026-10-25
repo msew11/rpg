@@ -44,6 +44,8 @@ public sealed class SettingService : Service
     public WindowDisplayMode WindowMode { get { ThrowIfDisposed(); return _systemSetting.WindowMode; } }
     /// <summary>当前主音量。</summary>
     public float MasterVolume { get { ThrowIfDisposed(); return _systemSetting.MasterVolume; } }
+    /// <summary>当前音效音量。</summary>
+    public float EffectsVolume { get { ThrowIfDisposed(); return _systemSetting.EffectsVolume; } }
     /// <summary>切换当前角色并载入其独立设置。</summary>
     public void SelectRole(long roleId)
     {
@@ -72,18 +74,31 @@ public sealed class SettingService : Service
             Width = width,
             Height = height,
             WindowMode = mode,
-            MasterVolume = _systemSetting.MasterVolume
+            MasterVolume = _systemSetting.MasterVolume,
+            EffectsVolume = _systemSetting.EffectsVolume
         };
         Write(SystemPath, updated);
         _systemSetting = updated;
     }
 
-    /// <summary>修改并保存当前主音量。</summary>
-    public void SetMasterVolume(float volume)
+    /// <summary>一次提交 BGM 与音效音量，失败时保留原值。</summary>
+    public void SetVolumes(float bgm, float effects)
     {
         ThrowIfDisposed();
-        _systemSetting.MasterVolume = Math.Clamp(volume, 0, 1);
-        Write(SystemPath, _systemSetting);
+        if (!float.IsFinite(bgm) || !float.IsFinite(effects)) throw new ArgumentOutOfRangeException(nameof(bgm));
+        var updated = new SystemSetting
+        {
+            Width = _systemSetting.Width, Height = _systemSetting.Height, WindowMode = _systemSetting.WindowMode,
+            MasterVolume = Math.Clamp(bgm, 0, 1), EffectsVolume = Math.Clamp(effects, 0, 1)
+        };
+        Write(SystemPath, updated);
+        _systemSetting = updated;
+    }
+
+    /// <summary>兼容旧调用，保留当前音效音量。</summary>
+    public void SetMasterVolume(float volume)
+    {
+        SetVolumes(volume, EffectsVolume);
     }
 
     /// <summary>读取当前角色的技能栏显隐状态。</summary>
@@ -230,6 +245,8 @@ public sealed class SettingService : Service
         if (!Enum.IsDefined(setting.WindowMode)) setting.WindowMode = WindowDisplayMode.Windowed;
         if (!float.IsFinite(setting.MasterVolume)) setting.MasterVolume = 0.8f;
         setting.MasterVolume = Math.Clamp(setting.MasterVolume, 0, 1);
+        if (!float.IsFinite(setting.EffectsVolume)) setting.EffectsVolume = 0.8f;
+        setting.EffectsVolume = Math.Clamp(setting.EffectsVolume, 0, 1);
         return setting;
     }
 
