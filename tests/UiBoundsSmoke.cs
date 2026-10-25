@@ -129,6 +129,33 @@ public partial class UiBoundsSmoke : Node
             Check(editWindow.Visible && !hud.GetNode<Control>("系统设置").Visible, "调整中 Esc 未呼出专用窗口");
             using (var escape = new InputEventKey { Keycode = Key.Escape, Pressed = true }) GetViewport().PushInput(escape, true);
             Check(editWindow.Visible, "重复 Esc 不应隐藏调整窗");
+            // client-ui：完成真实 HUD 拖动后，布局刷新不能把系统菜单立即关闭。
+            Press(hud, "完成");
+            await Frames();
+            Click(systemButton.GetGlobalRect().GetCenter());
+            await Frames();
+            Check(hud.GetNode<Control>("SystemMenuOverlay").Visible, "保存自定义布局后系统菜单立即消失");
+            Resize(new Vector2I(640, 360));
+            await Frames();
+            Check(hud.GetNode<Control>("SystemMenuOverlay").Visible, "窗口变化错误收起已展开菜单");
+            AssertInside(hud.GetNode<Control>("SystemMenuOverlay/SystemMenu"), "布局变化后的系统菜单");
+            Click(menuItems[0].GetGlobalRect().GetCenter());
+            await Frames();
+            Check(hud.GetNode<Control>("系统设置").Visible, "自定义布局后菜单条目无法点击");
+            Press(hud.GetNode<Control>("系统设置"), "关闭");
+            GameServices.Setting.SetChatSize(160, 900);
+            GameServices.Setting.SaveCurrentRole();
+            Resize(new Vector2I(1280, 720));
+            await Frames();
+            Click(systemButton.GetGlobalRect().GetCenter());
+            await Frames();
+            Check(hud.GetNode<Control>("SystemMenuOverlay").Visible, "超高聊天导致系统菜单无法保持展开");
+            Check(hud.GetNode<Control>("Chat").Size.Y == 900, "菜单修复意外改变手动聊天尺寸");
+            using (var escape = new InputEventKey { Keycode = Key.Escape, Pressed = true }) GetViewport().PushInput(escape, true);
+            GameServices.Setting.SetChatSize(320, 180);
+            GameServices.Setting.SaveCurrentRole();
+            Press(hud, "进入 HUD 调整");
+            await Frames();
             foreach (var key in new[] { "portrait", "hotbar1", "menu" }) GameServices.Setting.SetHudPosition(key, 1, 1);
             GameServices.Setting.SaveCurrentRole();
             foreach (var size in new[] { new Vector2I(480, 270), new Vector2I(1920, 1080) })

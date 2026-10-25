@@ -112,8 +112,14 @@ public partial class GameHud : Control
         {
             var unchanged = true;
             foreach (var panel in _movable.Values)
-                if ((panel != _chat && panel.Size != panel.GetCombinedMinimumSize()) || !new Rect2(Vector2.Zero, size).Encloses(panel.GetRect()))
+            {
+                var bounded = new Vector2(
+                    Mathf.Clamp(panel.Position.X, 0, Mathf.Max(0, size.X - panel.Size.X)),
+                    Mathf.Clamp(panel.Position.Y, 0, Mathf.Max(0, size.Y - panel.Size.Y)));
+                if ((panel != _chat && !panel.Size.IsEqualApprox(panel.GetCombinedMinimumSize())) ||
+                    !panel.Position.IsEqualApprox(bounded))
                 { unchanged = false; break; }
+            }
             if (unchanged) return;
         }
         ApplyLayout();
@@ -253,6 +259,13 @@ public partial class GameHud : Control
             CloseSystemMenu();
             return;
         }
+        PositionSystemMenu();
+        _systemMenuOverlay.Show();
+    }
+
+    /// <summary>布局刷新时只更新菜单位置，保持展开状态及当前焦点。</summary>
+    private void PositionSystemMenu()
+    {
         _systemMenu.Size = _systemMenu.GetCombinedMinimumSize();
         var button = _systemButton.GetGlobalRect();
         var desired = new Vector2(button.End.X - _systemMenu.Size.X, button.Position.Y - _systemMenu.Size.Y - 4) - GlobalPosition;
@@ -260,7 +273,6 @@ public partial class GameHud : Control
         _systemMenu.Position = new Vector2(
             Mathf.Clamp(desired.X, 0, Mathf.Max(0, viewport.X - _systemMenu.Size.X)),
             Mathf.Clamp(desired.Y, 0, Mathf.Max(0, viewport.Y - _systemMenu.Size.Y)));
-        _systemMenuOverlay.Show();
     }
 
     /// <summary>收起系统菜单并将键盘焦点还给入口按钮。</summary>
@@ -496,6 +508,7 @@ public partial class GameHud : Control
     private void BeginEdit()
     {
         if (_editing) return;
+        CloseSystemMenu();
         _draftPositions.Clear();
         _draftChatSize = GameServices.Setting.GetChatSize();
         foreach (var key in _movable.Keys) _draftPositions[key] = GameServices.Setting.GetHudPosition(key);
@@ -576,7 +589,6 @@ public partial class GameHud : Control
     /// <summary>按内容收紧 HUD，默认底栏齐平并保留自定义相对坐标。</summary>
     private void ApplyLayout()
     {
-        CloseSystemMenu();
         var viewport = GetViewportRect().Size;
         _lastViewport = viewport;
         foreach (var panel in _movable.Values)
@@ -607,6 +619,7 @@ public partial class GameHud : Control
                 Mathf.Clamp(desired.X, 0, Mathf.Max(0, viewport.X - panel.Size.X)),
                 Mathf.Clamp(desired.Y, 0, Mathf.Max(0, viewport.Y - panel.Size.Y)));
         }
+        if (_systemMenuOverlay.Visible) PositionSystemMenu();
     }
 
     /// <summary>固定左下角从右上角缩放聊天，只修改布局草稿。</summary>
