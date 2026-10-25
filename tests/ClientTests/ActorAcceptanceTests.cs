@@ -56,7 +56,7 @@ public sealed class ActorAcceptanceTests : RegisteredServiceTestScope
         world.Enqueue(new MoveAction(2, turnStart + new Vector2(0, 100)));
         world.Tick(0.1);
         Assert.Equal(Vector2.Down, world.ActorState.Facing);
-        world.Enqueue(new SyncRoleAction(role with { Position = turnStart + new Vector2(0, 50), Revision = 1, AcknowledgedAction = 1 }));
+        world.Enqueue(new SyncRoleAction(role with { Position = turnStart + new Vector2(0, 50), Revision = 1, PositionRevision = 1, AcknowledgedAction = 1 }));
         world.Tick(0);
         Assert.Equal(RoleMotion.Run, world.ActorState.Motion);
         Assert.Equal(Vector2.Down, world.ActorState.Facing);
@@ -77,14 +77,14 @@ public sealed class ActorAcceptanceTests : RegisteredServiceTestScope
         using var session = source.SelectRole(source.Login().Roles[0].RoleId);
         var role = session.Role;
         var world = CreateWorld(role);
-        world.Enqueue(new SyncRoleAction(role with { Gender = RoleGender.Female, Revision = 2, AcknowledgedAction = 0 }));
+        world.Enqueue(new SyncRoleAction(role with { Gender = RoleGender.Female, Revision = 2, ProfileRevision = 2, AcknowledgedAction = 0 }));
         world.Tick(0);
         Assert.Equal(RoleGender.Female, world.ActorState!.Gender);
-        world.Enqueue(new SyncRoleAction(role with { Position = role.Position + Vector2.One, Revision = 1, AcknowledgedAction = 1 }));
+        world.Enqueue(new SyncRoleAction(role with { Position = role.Position + Vector2.One, Revision = 1, PositionRevision = 1, AcknowledgedAction = 1 }));
         world.Enqueue(new SyncRoleAction(role with { RoleId = 123, Revision = 3, AcknowledgedAction = 2 }));
         world.Tick(0);
         Assert.Equal(RoleGender.Female, world.ActorState.Gender);
-        Assert.Equal(role.Position, world.RolePosition);
+        Assert.Equal(role.Position + Vector2.One, world.RolePosition);
     }
 
     /// <summary>所有非移动动作通过 Action 进入实体，重复动作可重播，后续移动接管动作。</summary>

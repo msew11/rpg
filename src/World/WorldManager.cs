@@ -32,7 +32,9 @@ internal sealed class WorldManager
     /// <summary>最后应用的权威确认序号。</summary>
     private long _lastConfirmedAction;
     /// <summary>已接纳的角色属性权威版本。</summary>
-    private long _lastRoleRevision;
+    private long _lastProfileRevision;
+    /// <summary>已接纳的位置权威版本。</summary>
+    private long _lastPositionRevision;
 
     /// <summary>当前世界是否已创建地图实体。</summary>
     public bool HasWorld => _worldEntity != 0;
@@ -80,7 +82,8 @@ internal sealed class WorldManager
                 MapObjects = null;
                 _roleEntity = 0;
                 _lastConfirmedAction = 0;
-                _lastRoleRevision = 0;
+                _lastProfileRevision = 0;
+                _lastPositionRevision = 0;
                 _worldEntity = _entities.Create(world.Map);
                 break;
             case SyncMapObjectsAction syncMap:
@@ -88,7 +91,8 @@ internal sealed class WorldManager
                 break;
             case InitializeRoleAction role:
                 if (!HasWorld) throw new InvalidOperationException("必须先初始化世界实体");
-                _lastRoleRevision = 0;
+                _lastProfileRevision = 0;
+                _lastPositionRevision = 0;
                 _lastConfirmedAction = 0;
                 _roleEntity = _entities.Create(new DataRoleComponent(role.Role.RoleId, role.Role.Gender, role.Role.HeadId),
                     new DataPositionComponent(role.Role.Position), new DataMovementComponent(), new DataActorComponent());
@@ -109,11 +113,15 @@ internal sealed class WorldManager
                 break;
             case SyncRoleAction sync:
                 if (!HasRole || sync.State.RoleId != _entities.Get<DataRoleComponent>(_roleEntity).RoleId) return;
-                if (sync.State.Revision <= _lastRoleRevision) return;
-                _lastRoleRevision = sync.State.Revision;
-                _entities.Get<DataRoleComponent>(_roleEntity).Gender = sync.State.Gender;
-                _entities.Get<DataRoleComponent>(_roleEntity).HeadId = sync.State.HeadId;
-                if (sync.State.AcknowledgedAction <= _lastConfirmedAction) return;
+                if (sync.State.ProfileRevision > _lastProfileRevision)
+                {
+                    _lastProfileRevision = sync.State.ProfileRevision;
+                    _entities.Get<DataRoleComponent>(_roleEntity).Gender = sync.State.Gender;
+                    _entities.Get<DataRoleComponent>(_roleEntity).HeadId = sync.State.HeadId;
+                }
+                if (sync.State.PositionRevision <= _lastPositionRevision ||
+                    sync.State.AcknowledgedAction < _lastConfirmedAction) return;
+                _lastPositionRevision = sync.State.PositionRevision;
                 _lastConfirmedAction = sync.State.AcknowledgedAction;
                 _entities.Get<DataPositionComponent>(_roleEntity).Value =
                     MapUtils.Clamp(_entities.Get<DataMapComponent>(_worldEntity), sync.State.Position);

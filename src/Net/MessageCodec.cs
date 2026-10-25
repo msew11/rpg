@@ -16,6 +16,7 @@ public static class MessageCodec
     /// <summary>允许服务端发送的响应及推送解析器。</summary>
     private static readonly IReadOnlyDictionary<string, MessageParser> Responses = CreateRegistry(
         LoginRt.Descriptor, SelectRoleRt.Descriptor, CreateRoleRt.Descriptor, DeleteRoleRt.Descriptor, MoveRt.Descriptor, RoleStateNotice.Descriptor,
+        RoleProfileNotice.Descriptor, RolePositionNotice.Descriptor,
         GmRt.Descriptor, BagChangedNotice.Descriptor, MoveItemRt.Descriptor, DropItemRt.Descriptor, PickupItemRt.Descriptor, MapAoiNotice.Descriptor, ResyncMapAoiRt.Descriptor);
 
     /// <summary>冻结业务消息为带会话代次的独立字节数组。</summary>

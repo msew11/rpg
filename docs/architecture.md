@@ -28,7 +28,7 @@
 
 选角复用账号会话，发送请求前清空角色缓存并隔离旧代次。`RoleCache` 成功初始化后，`MainController` 的选角回调显式调用 `WorldService.InitializeRole()`，先建立地图实体，再建立角色实体，并选择对应角色设置；随后 UI 创建表现。`MainController` 监听移动响应与主动推送，调用 `WorldService.SyncRole()`，由服务将当前缓存快照转为同步 Action，不允许节点直接写 ECS；同步不依赖 HUD 是否存在。选角失败保留账号摘要并恢复角色列表。返回选角清理世界、角色数据和当前角色设置，保留同一个账号；返回登录由 Session 服务释放账号缓存并清空账号状态，各服务仍常驻到场景结束。背包由 `RoleCache` 独立持有 `BagPbData`，不设置 `DataCache` 或独立 `BagCache`；选角原子初始化角色与背包，切角同时清空。
 
-所有功能缓存位于 `src/Session/Cache/`，继承 `CacheBase`，通过受保护的 `Subscribe<T>()` 注册缓存阶段监听，由基类私有集合托管句柄。释放幂等取消自身订阅并执行一次 `OnDispose()`，释放后禁止新增订阅。所有 `PbData` 类位于 `src/Session/Data/`，通过自身 `FromPb` 与 `ToPb` 校验、复制数据，不共享可变协议对象。`RoleWorldStatePbData` 直接持有角色属性、性别、逻辑位置、revision 和移动确认序号，不嵌套额外角色模型；World 与 UI 使用相同的不可变权威快照。
+所有功能缓存位于 `src/Session/Cache/`，继承 `CacheBase`，通过受保护的 `Subscribe<T>()` 注册缓存阶段监听，由基类私有集合托管句柄。释放幂等取消自身订阅并执行一次 `OnDispose()`，释放后禁止新增订阅。所有 `PbData` 类位于 `src/Session/Data/`，通过自身 `FromPb` 与 `ToPb` 校验、复制数据，不共享可变协议对象。`RoleCache` 分别持有不可变的 `RoleWorldProfilePbData` 与 `RoleWorldPositionPbData`，各按最后接纳的版本过滤；组合成 `RoleWorldStatePbData` 供 World 与 UI 读取。世界也分别过滤资料和位置版本，位置推送在确认序号不变时仍可纠偏。
 
 事件总线位于 `src/Services/EventBusService.cs`，参数与局部变量使用 `eventBus`、字段使用 `_eventBus`。`GameServices.EventBus` 是独立的 `EventBusService : Service`，直接包含分发实现，没有额外转发包装。构造方法不对外公开，GameServices 是唯一创建位置；事件实例与其他服务统一保存在 Registration，不保留独立静态字段或提前注册。Net 通过构造绑定 EventBus；缓存每次订阅通过 GameServices.EventBus 取用服务，不持有事件服务引用、不提供事件传参构造，仅托管订阅句柄。缓存随 Session 创建与释放，必须在完整注册后才订阅，释放已有句柄不依赖全局入口。UI 从 GameServices.EventBus 访问，消费者不创建私有事件域。Current 与全部访问器仅检查完整注册是否存在，IsInitialized 仅表示注册状态；单个服务提前释放后仍可取得该注册实例，服务业务方法自行检查释放状态，直到整体句柄撤销注册。独立网络保留各自发送队列，但共享该事件服务；单独释放网络不清除事件监听，整体退出在全部消费者之后、环境服务之前释放事件服务并清除全部监听和队列。分发规则：先 Cache 后 Normal，同阶段按注册顺序，每条消息使用监听快照。新增监听处理后续消息，已取消监听立即跳过，嵌套发布排队。缓存失败跳过该消息的普通阶段，普通监听失败不阻止其他监听。业务协议订阅仅允许出现在 `CacheBase` 实现类与 Godot UI 类；基类负责缓存阶段注册和句柄托管。`LoginCache` 在 Cache 阶段更新认证状态，`MainController` 在 Normal 阶段协调世界操作，服务不注册业务监听或持有订阅句柄。网络的传输层字节接收属于 `INetTransport` 契约，不承担业务协议订阅。网络编解码与传输错误通过 `NetService.Error`、监听错误通过 `GameServices.EventBus.Error` 报告至页面或 HUD。会话重置递增信封代次、清理队列和服务端未确认移动，旧消息不能进入后续角色。
 
@@ -56,7 +56,7 @@ if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
 
 ## 协议与模拟服务端
 
-`proto/` 按业务声明消息：`message.proto` 定义公共信封，`role.proto` 定义角色共享枚举、摘要、完整状态和选角/创建/删除请求响应，`login.proto` 只定义登录请求响应，`world.proto` 定义移动请求响应及角色状态推送，`bag.proto` 定义 `ItemPb`、`BagPb`、`BagChangedNotice` 和 `MoveItem/MoveItemRt`，`gm.proto` 定义 `Gm/GmRt`。请求无后缀、响应以 `Rt` 结尾、推送以 `Notice` 结尾，纯数据结构与枚举以 `Pb` 结尾。`LoginRt` 返回 `RoleSummaryPb` 列表，仅包含角色 ID、名称、等级、性别与头型，客户端转换为独立的 `RoleSummaryPbData`。`SelectRoleRt` 才返回完整角色世界状态 `RoleWorldStatePb`，移动响应与状态推送也使用该结构。信封与性别枚举分别为 `EnvelopePb`、`RoleGenderPb`。现有消息为 `Login/LoginRt`、`SelectRole/SelectRoleRt`、`CreateRole/CreateRoleRt`、`DeleteRole/DeleteRoleRt`、`Move/MoveRt`、`RoleStateNotice`。信封包含协议完整名称、会话代次与 payload；`MessageCodec` 显式注册并校验传输方向，未知或损坏消息报告错误而不分发。增加业务消息时同时更新 proto 和协议表，并在对应功能缓存注册处理方法。
+`proto/` 按业务声明消息：`message.proto` 定义公共信封，`role.proto` 定义角色共享枚举、摘要、完整状态和选角/创建/删除请求响应，`login.proto` 只定义登录请求响应，`world.proto` 定义移动请求响应及角色状态推送，`bag.proto` 定义 `ItemPb`、`BagPb`、`BagChangedNotice` 和 `MoveItem/MoveItemRt`，`gm.proto` 定义 `Gm/GmRt`。请求无后缀、响应以 `Rt` 结尾、推送以 `Notice` 结尾，纯数据结构与枚举以 `Pb` 结尾。`LoginRt` 返回 `RoleSummaryPb` 列表，仅包含角色 ID、名称、等级、性别与头型，客户端转换为独立的 `RoleSummaryPbData`。`RoleWorldStatePb` 由 `RoleWorldProfilePb` 与 `RoleWorldPositionPb` 组成，选角和 `RoleStateNotice` 返回完整快照；`MoveRt` 仅返回位置，`RoleProfileNotice` 与 `RolePositionNotice` 分别推送局部更新。信封与性别枚举分别为 `EnvelopePb`、`RoleGenderPb`。现有消息为 `Login/LoginRt`、`SelectRole/SelectRoleRt`、`CreateRole/CreateRoleRt`、`DeleteRole/DeleteRoleRt`、`Move/MoveRt`、`RoleStateNotice`、`RoleProfileNotice`、`RolePositionNotice`。信封包含协议完整名称、会话代次与 payload；`MessageCodec` 显式注册并校验传输方向，未知或损坏消息报告错误而不分发。增加业务消息时同时更新 proto 和协议表，并在对应功能缓存注册处理方法。
 
 `dotnet build rpg.csproj` 使用仅构建依赖 `Grpc.Tools 2.84.0` 自动生成 `src/Net/Message/Message.cs`、`Role.cs`、`Login.cs`、`World.cs`、`Bag.cs` 和 `Gm.cs`，运行依赖为 `Google.Protobuf 3.36.2`，未启用 gRPC。生成 C# 与 proto 一起提交，中文协议注释写在 proto，不直接修改生成文件。SDK 排除生成目录的默认编译项，再由 protobuf 构建目标添加，避免重复编译。
 
@@ -201,7 +201,7 @@ HUD 布局刷新只更新已展开系统菜单的位置，不收起菜单或重�
 
 地图以数值 ID 寻址，当前地图为 1，chunkSizeTiles=32；静态绘制仍使用 8 格分块。WorldService 构造只绑定 Config/Setting/Session，进入角色时按 Role.MapId 建立当前 DataMapComponent，离开清空。MapConfig 是当前选图入口；Session.Map 保留已校验的权威 AOI 快照，固定帧通过 SyncMapObjectsAction 同步为动态 ECS entity，MapObjects 返回由组件生成的只读状态。表现节点在世界未就绪或离开后等待释放期间跳过地图查询。
 
-角色 MapId 缺失兼容地图 1，读取不改文件，下次正常角色保存写入；新角色使用 basic.initialMapId。RoleWorldStatePb 追加 map_id=17，PbData 保持独立转换。MockServer 复制地图规则和道具规则，验证移动目标的地图边界，不依赖客户端配置服务。
+角色 MapId 缺失兼容地图 1，读取不改文件，下次正常角色保存写入；新角色使用 basic.initialMapId。当前地图身份位于 RoleWorldPositionPb，PbData 保持独立转换。MockServer 复制地图规则和道具规则，验证移动目标的地图边界，不依赖客户端配置服务。
 
 MockServer 拥有按地图 ID 保存的 ServerMap 及当前观察者 MapAoiTracker。ServerMap 独占对象表、chunk 身份索引和 dirty 集合，向下调用 RepoServerMap；仓库只读写文件，不拥有业务状态。MapAoiTracker 只维护观察者范围和序号，不存对象、不写文件。权威对象创建/更新/删除通过 MockServer 的 CreateMapObject、UpdateMapObject、RemoveMapObject 返回变化并发送可见增量；不增加内部事件总线或反向业务回调。对象以 GUID 稳定寻址，载荷仅定义怪物类型标识或合法道具编号/数量。
 

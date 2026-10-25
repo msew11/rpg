@@ -27,9 +27,14 @@ public sealed class NetworkFoundationTests : EventBusServiceTestScope
     [Fact]
     public void ProtocolsRoundTripAsIndependentObjects()
     {
-        var state = new RoleWorldStatePb { RoleId = 1001, Name = "晨星", Gender = RoleGenderPb.Male,
-            X = 123.5f, Y = 456, Revision = 9, AcknowledgedAction = 3, HeadId = 74 };
+        var state = new RoleWorldStatePb {
+            Profile = new RoleWorldProfilePb { RoleId = 1001, Name = "晨星", Gender = RoleGenderPb.Male,
+                Revision = 9, HeadId = 74 },
+            Position = new RoleWorldPositionPb { RoleId = 1001, MapId = 1, X = 123.5f, Y = 456,
+                Revision = 9, AcknowledgedAction = 3 } };
         var summary = new RoleSummaryPb { RoleId = 1001, Name = "晨星", Level = 1, Gender = RoleGenderPb.Male };
+        Assert.Equal(RoleWorldPositionPb.Descriptor, MoveRt.Descriptor.FindFieldByName("position").MessageType);
+        Assert.Null(MoveRt.Descriptor.FindFieldByName("state"));
         IMessage[] messages = [new Login { Username = "demo", Password = "demo" },
             new SelectRole { RoleId = 1001 }, new Move { RoleId = 1001, ActionId = 3, X = 9, Y = 8 },
             new CreateRole { Name = "创建角色", Gender = RoleGenderPb.Female, HeadId = 74 },
@@ -38,8 +43,10 @@ public sealed class NetworkFoundationTests : EventBusServiceTestScope
             new DeleteRoleRt { Success = true },
             new LoginRt { Success = true, Roles = { summary } },
             new SelectRoleRt { Success = true, RoleId = 1001, State = state },
-            new MoveRt { Success = true, RoleId = 1001, ActionId = 3, State = state },
-            new RoleStateNotice { State = state }];
+            new MoveRt { Success = true, RoleId = 1001, ActionId = 3, Position = state.Position },
+            new RoleStateNotice { State = state },
+            new RoleProfileNotice { Profile = state.Profile },
+            new RolePositionNotice { Position = state.Position }];
         for (var index = 0; index < messages.Length; index++)
         {
             var request = messages[index] is Login or SelectRole or CreateRole or DeleteRole or Move;

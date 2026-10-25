@@ -43,8 +43,8 @@ public sealed class MapCache : CacheBase
     private void OnSelected(SelectRoleRt message)
     {
         if (!message.Success || _roleId == 0 || message.RoleId != _roleId) return;
-        if (message.State is null || message.State.RoleId != _roleId) throw new InvalidDataException("选角缺少地图身份");
-        var mapId = message.State.MapId == 0 ? 1 : message.State.MapId;
+        if (message.State?.Position is null || message.State.Position.RoleId != _roleId) throw new InvalidDataException("选角缺少地图身份");
+        var mapId = message.State.Position.MapId == 0 ? 1 : message.State.Position.MapId;
         if (!GameServices.Config.Map.Items.TryGetValue(mapId, out var config)) throw new InvalidDataException("选角地图无效");
         _expectedLayout = new(config.Width, config.Height, config.TileSize, config.ChunkSizeTiles);
         _mapId = mapId;

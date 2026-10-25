@@ -298,21 +298,22 @@ public partial class ClientSmoke : Node
             finalHud.GetParent().RemoveChild(finalHud);
             finalHud.QueueFree();
             var authority = GameServices.Session.Role.ToPb();
-            authority.Revision++;
-            authority.X += 13;
-            authority.AcknowledgedAction++;
+            authority.Profile.Revision++;
+            authority.Position.Revision++;
+            authority.Position.X += 13;
+            authority.Position.AcknowledgedAction++;
             GameServices.EventBus.Publish(new Rpg.Net.Message.RoleStateNotice { State = authority });
             GameServices.World.Tick(0);
             if (GameServices.World.RolePosition != GameServices.Session.Role.Position)
                 throw new InvalidOperationException("HUD 离树后主动推送未同步到世界");
             authority = authority.Clone();
-            authority.Revision++;
-            authority.X += 17;
-            authority.AcknowledgedAction++;
+            authority.Position.Revision++;
+            authority.Position.X += 17;
+            authority.Position.AcknowledgedAction++;
             GameServices.EventBus.Publish(new Rpg.Net.Message.MoveRt
             {
-                Success = true, RoleId = authority.RoleId,
-                ActionId = authority.AcknowledgedAction, State = authority
+                Success = true, RoleId = authority.Position.RoleId,
+                ActionId = authority.Position.AcknowledgedAction, Position = authority.Position
             });
             GameServices.World.Tick(0);
             if (GameServices.World.RolePosition != GameServices.Session.Role.Position)

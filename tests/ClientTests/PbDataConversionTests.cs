@@ -34,24 +34,26 @@ public sealed class PbDataConversionTests
     {
         var original = new RoleWorldStatePb
         {
-            RoleId = 1002, Name = "世界角色", Level = 12, Health = 43, MaxHealth = 120,
-            Mana = 27, MaxMana = 80, Experience = 16, NextExperience = 250,
-            MapId = 2, X = 123.5f, Y = 456.25f, Gender = gender, Revision = 9, AcknowledgedAction = 3
+            Profile = new RoleWorldProfilePb { RoleId = 1002, Name = "世界角色", Level = 12, Health = 43,
+                MaxHealth = 120, Mana = 27, MaxMana = 80, Experience = 16, NextExperience = 250,
+                Gender = gender, Revision = 9 },
+            Position = new RoleWorldPositionPb { RoleId = 1002, MapId = 2, X = 123.5f, Y = 456.25f,
+                Revision = 9, AcknowledgedAction = 3 }
         };
         var data = RoleWorldStatePbData.FromPb(original);
         var result = data.ToPb();
         Assert.Equal(original, result);
         Assert.NotSame(original, result);
-        result.Health = 0;
-        result.X = 0;
+        result.Profile.Health = 0;
+        result.Position.X = 0;
         Assert.Equal(original, data.ToPb());
-        original.Name = "修改输入协议";
+        original.Profile.Name = "修改输入协议";
         Assert.Equal("世界角色", data.Name);
 
         var moved = data with { Position = new Vector2(789, 987) };
         var movedMessage = moved.ToPb();
-        Assert.Equal(789f, movedMessage.X);
-        Assert.Equal(987f, movedMessage.Y);
+        Assert.Equal(789f, movedMessage.Position.X);
+        Assert.Equal(987f, movedMessage.Position.Y);
         Assert.Equal(new Vector2(123.5f, 456.25f), data.Position);
     }
 
@@ -62,7 +64,7 @@ public sealed class PbDataConversionTests
         Assert.Throws<InvalidDataException>(() => new RoleSummaryPbData(0, "角色", 1, RoleGender.Male).ToPb());
         Assert.Throws<InvalidDataException>(() => new RoleSummaryPbData(1, "角色", 1, (RoleGender)99).ToPb());
         var state = new RoleWorldStatePbData(1, "角色", 1, 10, 10, 5, 10, 0, 20, Vector2.Zero, RoleGender.Male, 1, 0);
-        Assert.Throws<InvalidDataException>(() => (state with { Revision = -1 }).ToPb());
+        Assert.Throws<InvalidDataException>(() => (state with { ProfileRevision = -1 }).ToPb());
         Assert.Throws<InvalidDataException>(() => (state with { Position = new Vector2(float.NaN, 0) }).ToPb());
         Assert.Throws<InvalidDataException>(() => (state with { Health = 11 }).ToPb());
         Assert.Throws<InvalidDataException>(() => (state with { Gender = (RoleGender)99 }).ToPb());

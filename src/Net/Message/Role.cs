@@ -27,32 +27,37 @@ namespace Rpg.Net.Message {
             "Cgpyb2xlLnByb3RvEgNycGcaCWJhZy5wcm90byJxCg1Sb2xlU3VtbWFyeVBi",
             "Eg8KB3JvbGVfaWQYASABKAMSDAoEbmFtZRgCIAEoCRINCgVsZXZlbBgDIAEo",
             "BRIhCgZnZW5kZXIYBCABKA4yES5ycGcuUm9sZUdlbmRlclBiEg8KB2hlYWRf",
-            "aWQYBSABKAUi0gIKEFJvbGVXb3JsZFN0YXRlUGISDwoHcm9sZV9pZBgBIAEo",
-            "AxIMCgRuYW1lGAIgASgJEg0KBWxldmVsGAMgASgFEg4KBmhlYWx0aBgEIAEo",
-            "BRISCgptYXhfaGVhbHRoGAUgASgFEgwKBG1hbmEYBiABKAUSEAoIbWF4X21h",
-            "bmEYByABKAUSEgoKZXhwZXJpZW5jZRgIIAEoBRIXCg9uZXh0X2V4cGVyaWVu",
-            "Y2UYCSABKAUSCQoBeBgKIAEoAhIJCgF5GAsgASgCEiEKBmdlbmRlchgMIAEo",
-            "DjIRLnJwZy5Sb2xlR2VuZGVyUGISEAoIcmV2aXNpb24YDSABKAMSGwoTYWNr",
-            "bm93bGVkZ2VkX2FjdGlvbhgOIAEoAxIPCgdoZWFkX2lkGA8gASgFEhYKDmJh",
-            "Z19leHRyYV9yb3dzGBAgASgFEg4KBm1hcF9pZBgRIAEoBSIdCgpTZWxlY3RS",
-            "b2xlEg8KB3JvbGVfaWQYASABKAMifgoMU2VsZWN0Um9sZVJ0Eg8KB3N1Y2Nl",
-            "c3MYASABKAgSDQoFZXJyb3IYAiABKAkSDwoHcm9sZV9pZBgDIAEoAxIkCgVz",
-            "dGF0ZRgEIAEoCzIVLnJwZy5Sb2xlV29ybGRTdGF0ZVBiEhcKA2JhZxgFIAEo",
-            "CzIKLnJwZy5CYWdQYiJOCgpDcmVhdGVSb2xlEgwKBG5hbWUYASABKAkSIQoG",
-            "Z2VuZGVyGAIgASgOMhEucnBnLlJvbGVHZW5kZXJQYhIPCgdoZWFkX2lkGAMg",
-            "ASgFIlEKDENyZWF0ZVJvbGVSdBIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9y",
-            "GAIgASgJEiEKBXJvbGVzGAMgAygLMhIucnBnLlJvbGVTdW1tYXJ5UGIiHQoK",
-            "RGVsZXRlUm9sZRIPCgdyb2xlX2lkGAEgASgDIlEKDERlbGV0ZVJvbGVSdBIP",
-            "CgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJEiEKBXJvbGVzGAMgAygL",
-            "MhIucnBnLlJvbGVTdW1tYXJ5UGIqYgoMUm9sZUdlbmRlclBiEh4KGlJPTEVf",
-            "R0VOREVSX1BCX1VOU1BFQ0lGSUVEEAASFwoTUk9MRV9HRU5ERVJfUEJfTUFM",
-            "RRABEhkKFVJPTEVfR0VOREVSX1BCX0ZFTUFMRRACQhKqAg9ScGcuTmV0Lk1l",
-            "c3NhZ2ViBnByb3RvMw=="));
+            "aWQYBSABKAUikQIKElJvbGVXb3JsZFByb2ZpbGVQYhIPCgdyb2xlX2lkGAEg",
+            "ASgDEgwKBG5hbWUYAiABKAkSDQoFbGV2ZWwYAyABKAUSDgoGaGVhbHRoGAQg",
+            "ASgFEhIKCm1heF9oZWFsdGgYBSABKAUSDAoEbWFuYRgGIAEoBRIQCghtYXhf",
+            "bWFuYRgHIAEoBRISCgpleHBlcmllbmNlGAggASgFEhcKD25leHRfZXhwZXJp",
+            "ZW5jZRgJIAEoBRIhCgZnZW5kZXIYCiABKA4yES5ycGcuUm9sZUdlbmRlclBi",
+            "Eg8KB2hlYWRfaWQYCyABKAUSFgoOYmFnX2V4dHJhX3Jvd3MYDCABKAUSEAoI",
+            "cmV2aXNpb24YDSABKAMiewoTUm9sZVdvcmxkUG9zaXRpb25QYhIPCgdyb2xl",
+            "X2lkGAEgASgDEg4KBm1hcF9pZBgCIAEoBRIJCgF4GAMgASgCEgkKAXkYBCAB",
+            "KAISEAoIcmV2aXNpb24YBSABKAMSGwoTYWNrbm93bGVkZ2VkX2FjdGlvbhgG",
+            "IAEoAyJoChBSb2xlV29ybGRTdGF0ZVBiEigKB3Byb2ZpbGUYASABKAsyFy5y",
+            "cGcuUm9sZVdvcmxkUHJvZmlsZVBiEioKCHBvc2l0aW9uGAIgASgLMhgucnBn",
+            "LlJvbGVXb3JsZFBvc2l0aW9uUGIiHQoKU2VsZWN0Um9sZRIPCgdyb2xlX2lk",
+            "GAEgASgDIn4KDFNlbGVjdFJvbGVSdBIPCgdzdWNjZXNzGAEgASgIEg0KBWVy",
+            "cm9yGAIgASgJEg8KB3JvbGVfaWQYAyABKAMSJAoFc3RhdGUYBCABKAsyFS5y",
+            "cGcuUm9sZVdvcmxkU3RhdGVQYhIXCgNiYWcYBSABKAsyCi5ycGcuQmFnUGIi",
+            "TgoKQ3JlYXRlUm9sZRIMCgRuYW1lGAEgASgJEiEKBmdlbmRlchgCIAEoDjIR",
+            "LnJwZy5Sb2xlR2VuZGVyUGISDwoHaGVhZF9pZBgDIAEoBSJRCgxDcmVhdGVS",
+            "b2xlUnQSDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJvchgCIAEoCRIhCgVyb2xl",
+            "cxgDIAMoCzISLnJwZy5Sb2xlU3VtbWFyeVBiIh0KCkRlbGV0ZVJvbGUSDwoH",
+            "cm9sZV9pZBgBIAEoAyJRCgxEZWxldGVSb2xlUnQSDwoHc3VjY2VzcxgBIAEo",
+            "CBINCgVlcnJvchgCIAEoCRIhCgVyb2xlcxgDIAMoCzISLnJwZy5Sb2xlU3Vt",
+            "bWFyeVBiKmIKDFJvbGVHZW5kZXJQYhIeChpST0xFX0dFTkRFUl9QQl9VTlNQ",
+            "RUNJRklFRBAAEhcKE1JPTEVfR0VOREVSX1BCX01BTEUQARIZChVST0xFX0dF",
+            "TkRFUl9QQl9GRU1BTEUQAkISqgIPUnBnLk5ldC5NZXNzYWdlYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Rpg.Net.Message.BagReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rpg.Net.Message.RoleGenderPb), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleSummaryPb), global::Rpg.Net.Message.RoleSummaryPb.Parser, new[]{ "RoleId", "Name", "Level", "Gender", "HeadId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldStatePb), global::Rpg.Net.Message.RoleWorldStatePb.Parser, new[]{ "RoleId", "Name", "Level", "Health", "MaxHealth", "Mana", "MaxMana", "Experience", "NextExperience", "X", "Y", "Gender", "Revision", "AcknowledgedAction", "HeadId", "BagExtraRows", "MapId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldProfilePb), global::Rpg.Net.Message.RoleWorldProfilePb.Parser, new[]{ "RoleId", "Name", "Level", "Health", "MaxHealth", "Mana", "MaxMana", "Experience", "NextExperience", "Gender", "HeadId", "BagExtraRows", "Revision" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldPositionPb), global::Rpg.Net.Message.RoleWorldPositionPb.Parser, new[]{ "RoleId", "MapId", "X", "Y", "Revision", "AcknowledgedAction" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldStatePb), global::Rpg.Net.Message.RoleWorldStatePb.Parser, new[]{ "Profile", "Position" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.SelectRole), global::Rpg.Net.Message.SelectRole.Parser, new[]{ "RoleId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.SelectRoleRt), global::Rpg.Net.Message.SelectRoleRt.Parser, new[]{ "Success", "Error", "RoleId", "State", "Bag" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.CreateRole), global::Rpg.Net.Message.CreateRole.Parser, new[]{ "Name", "Gender", "HeadId" }, null, null, null, null),
@@ -451,19 +456,19 @@ namespace Rpg.Net.Message {
   }
 
   /// <summary>
-  /// 角色世界状态，双方转换为各自独立的数据类。
+  /// 角色资料；生命、魔力等字段暂归此结构。
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class RoleWorldStatePb : pb::IMessage<RoleWorldStatePb>
+  public sealed partial class RoleWorldProfilePb : pb::IMessage<RoleWorldProfilePb>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<RoleWorldStatePb> _parser = new pb::MessageParser<RoleWorldStatePb>(() => new RoleWorldStatePb());
+    private static readonly pb::MessageParser<RoleWorldProfilePb> _parser = new pb::MessageParser<RoleWorldProfilePb>(() => new RoleWorldProfilePb());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<RoleWorldStatePb> Parser { get { return _parser; } }
+    public static pb::MessageParser<RoleWorldProfilePb> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -479,7 +484,7 @@ namespace Rpg.Net.Message {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public RoleWorldStatePb() {
+    public RoleWorldProfilePb() {
       OnConstruction();
     }
 
@@ -487,7 +492,7 @@ namespace Rpg.Net.Message {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public RoleWorldStatePb(RoleWorldStatePb other) : this() {
+    public RoleWorldProfilePb(RoleWorldProfilePb other) : this() {
       roleId_ = other.roleId_;
       name_ = other.name_;
       level_ = other.level_;
@@ -497,21 +502,17 @@ namespace Rpg.Net.Message {
       maxMana_ = other.maxMana_;
       experience_ = other.experience_;
       nextExperience_ = other.nextExperience_;
-      x_ = other.x_;
-      y_ = other.y_;
       gender_ = other.gender_;
-      revision_ = other.revision_;
-      acknowledgedAction_ = other.acknowledgedAction_;
       headId_ = other.headId_;
       bagExtraRows_ = other.bagExtraRows_;
-      mapId_ = other.mapId_;
+      revision_ = other.revision_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public RoleWorldStatePb Clone() {
-      return new RoleWorldStatePb(this);
+    public RoleWorldProfilePb Clone() {
+      return new RoleWorldProfilePb(this);
     }
 
     /// <summary>Field number for the "role_id" field.</summary>
@@ -649,38 +650,8 @@ namespace Rpg.Net.Message {
       }
     }
 
-    /// <summary>Field number for the "x" field.</summary>
-    public const int XFieldNumber = 10;
-    private float x_;
-    /// <summary>
-    /// 逻辑横坐标。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public float X {
-      get { return x_; }
-      set {
-        x_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "y" field.</summary>
-    public const int YFieldNumber = 11;
-    private float y_;
-    /// <summary>
-    /// 逻辑纵坐标。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public float Y {
-      get { return y_; }
-      set {
-        y_ = value;
-      }
-    }
-
     /// <summary>Field number for the "gender" field.</summary>
-    public const int GenderFieldNumber = 12;
+    public const int GenderFieldNumber = 10;
     private global::Rpg.Net.Message.RoleGenderPb gender_ = global::Rpg.Net.Message.RoleGenderPb.Unspecified;
     /// <summary>
     /// 基础身体性别。
@@ -691,6 +662,36 @@ namespace Rpg.Net.Message {
       get { return gender_; }
       set {
         gender_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "head_id" field.</summary>
+    public const int HeadIdFieldNumber = 11;
+    private int headId_;
+    /// <summary>
+    /// 性别内头型编号。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int HeadId {
+      get { return headId_; }
+      set {
+        headId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "bag_extra_rows" field.</summary>
+    public const int BagExtraRowsFieldNumber = 12;
+    private int bagExtraRows_;
+    /// <summary>
+    /// 角色增加的背包行数。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int BagExtraRows {
+      get { return bagExtraRows_; }
+      set {
+        bagExtraRows_ = value;
       }
     }
 
@@ -709,75 +710,15 @@ namespace Rpg.Net.Message {
       }
     }
 
-    /// <summary>Field number for the "acknowledged_action" field.</summary>
-    public const int AcknowledgedActionFieldNumber = 14;
-    private long acknowledgedAction_;
-    /// <summary>
-    /// 当前会话最后确认的移动序号。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long AcknowledgedAction {
-      get { return acknowledgedAction_; }
-      set {
-        acknowledgedAction_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "head_id" field.</summary>
-    public const int HeadIdFieldNumber = 15;
-    private int headId_;
-    /// <summary>
-    /// 性别内头型编号，0 兼容旧版默认头型。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int HeadId {
-      get { return headId_; }
-      set {
-        headId_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "bag_extra_rows" field.</summary>
-    public const int BagExtraRowsFieldNumber = 16;
-    private int bagExtraRows_;
-    /// <summary>
-    /// 角色增加的背包行数，旧数据默认为零。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int BagExtraRows {
-      get { return bagExtraRows_; }
-      set {
-        bagExtraRows_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "map_id" field.</summary>
-    public const int MapIdFieldNumber = 17;
-    private int mapId_;
-    /// <summary>
-    /// 当前所属的数值地图 ID。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int MapId {
-      get { return mapId_; }
-      set {
-        mapId_ = value;
-      }
-    }
-
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as RoleWorldStatePb);
+      return Equals(other as RoleWorldProfilePb);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(RoleWorldStatePb other) {
+    public bool Equals(RoleWorldProfilePb other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -793,14 +734,10 @@ namespace Rpg.Net.Message {
       if (MaxMana != other.MaxMana) return false;
       if (Experience != other.Experience) return false;
       if (NextExperience != other.NextExperience) return false;
-      if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(X, other.X)) return false;
-      if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(Y, other.Y)) return false;
       if (Gender != other.Gender) return false;
-      if (Revision != other.Revision) return false;
-      if (AcknowledgedAction != other.AcknowledgedAction) return false;
       if (HeadId != other.HeadId) return false;
       if (BagExtraRows != other.BagExtraRows) return false;
-      if (MapId != other.MapId) return false;
+      if (Revision != other.Revision) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -817,14 +754,10 @@ namespace Rpg.Net.Message {
       if (MaxMana != 0) hash ^= MaxMana.GetHashCode();
       if (Experience != 0) hash ^= Experience.GetHashCode();
       if (NextExperience != 0) hash ^= NextExperience.GetHashCode();
-      if (X != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(X);
-      if (Y != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(Y);
       if (Gender != global::Rpg.Net.Message.RoleGenderPb.Unspecified) hash ^= Gender.GetHashCode();
-      if (Revision != 0L) hash ^= Revision.GetHashCode();
-      if (AcknowledgedAction != 0L) hash ^= AcknowledgedAction.GetHashCode();
       if (HeadId != 0) hash ^= HeadId.GetHashCode();
       if (BagExtraRows != 0) hash ^= BagExtraRows.GetHashCode();
-      if (MapId != 0) hash ^= MapId.GetHashCode();
+      if (Revision != 0L) hash ^= Revision.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -879,37 +812,21 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(72);
         output.WriteInt32(NextExperience);
       }
-      if (X != 0F) {
-        output.WriteRawTag(85);
-        output.WriteFloat(X);
-      }
-      if (Y != 0F) {
-        output.WriteRawTag(93);
-        output.WriteFloat(Y);
-      }
       if (Gender != global::Rpg.Net.Message.RoleGenderPb.Unspecified) {
-        output.WriteRawTag(96);
+        output.WriteRawTag(80);
         output.WriteEnum((int) Gender);
+      }
+      if (HeadId != 0) {
+        output.WriteRawTag(88);
+        output.WriteInt32(HeadId);
+      }
+      if (BagExtraRows != 0) {
+        output.WriteRawTag(96);
+        output.WriteInt32(BagExtraRows);
       }
       if (Revision != 0L) {
         output.WriteRawTag(104);
         output.WriteInt64(Revision);
-      }
-      if (AcknowledgedAction != 0L) {
-        output.WriteRawTag(112);
-        output.WriteInt64(AcknowledgedAction);
-      }
-      if (HeadId != 0) {
-        output.WriteRawTag(120);
-        output.WriteInt32(HeadId);
-      }
-      if (BagExtraRows != 0) {
-        output.WriteRawTag(128, 1);
-        output.WriteInt32(BagExtraRows);
-      }
-      if (MapId != 0) {
-        output.WriteRawTag(136, 1);
-        output.WriteInt32(MapId);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -957,37 +874,21 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(72);
         output.WriteInt32(NextExperience);
       }
-      if (X != 0F) {
-        output.WriteRawTag(85);
-        output.WriteFloat(X);
-      }
-      if (Y != 0F) {
-        output.WriteRawTag(93);
-        output.WriteFloat(Y);
-      }
       if (Gender != global::Rpg.Net.Message.RoleGenderPb.Unspecified) {
-        output.WriteRawTag(96);
+        output.WriteRawTag(80);
         output.WriteEnum((int) Gender);
+      }
+      if (HeadId != 0) {
+        output.WriteRawTag(88);
+        output.WriteInt32(HeadId);
+      }
+      if (BagExtraRows != 0) {
+        output.WriteRawTag(96);
+        output.WriteInt32(BagExtraRows);
       }
       if (Revision != 0L) {
         output.WriteRawTag(104);
         output.WriteInt64(Revision);
-      }
-      if (AcknowledgedAction != 0L) {
-        output.WriteRawTag(112);
-        output.WriteInt64(AcknowledgedAction);
-      }
-      if (HeadId != 0) {
-        output.WriteRawTag(120);
-        output.WriteInt32(HeadId);
-      }
-      if (BagExtraRows != 0) {
-        output.WriteRawTag(128, 1);
-        output.WriteInt32(BagExtraRows);
-      }
-      if (MapId != 0) {
-        output.WriteRawTag(136, 1);
-        output.WriteInt32(MapId);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -1026,29 +927,17 @@ namespace Rpg.Net.Message {
       if (NextExperience != 0) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(NextExperience);
       }
-      if (X != 0F) {
-        size += 1 + 4;
-      }
-      if (Y != 0F) {
-        size += 1 + 4;
-      }
       if (Gender != global::Rpg.Net.Message.RoleGenderPb.Unspecified) {
         size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Gender);
-      }
-      if (Revision != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Revision);
-      }
-      if (AcknowledgedAction != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(AcknowledgedAction);
       }
       if (HeadId != 0) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(HeadId);
       }
       if (BagExtraRows != 0) {
-        size += 2 + pb::CodedOutputStream.ComputeInt32Size(BagExtraRows);
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(BagExtraRows);
       }
-      if (MapId != 0) {
-        size += 2 + pb::CodedOutputStream.ComputeInt32Size(MapId);
+      if (Revision != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Revision);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1058,7 +947,7 @@ namespace Rpg.Net.Message {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(RoleWorldStatePb other) {
+    public void MergeFrom(RoleWorldProfilePb other) {
       if (other == null) {
         return;
       }
@@ -1089,20 +978,8 @@ namespace Rpg.Net.Message {
       if (other.NextExperience != 0) {
         NextExperience = other.NextExperience;
       }
-      if (other.X != 0F) {
-        X = other.X;
-      }
-      if (other.Y != 0F) {
-        Y = other.Y;
-      }
       if (other.Gender != global::Rpg.Net.Message.RoleGenderPb.Unspecified) {
         Gender = other.Gender;
-      }
-      if (other.Revision != 0L) {
-        Revision = other.Revision;
-      }
-      if (other.AcknowledgedAction != 0L) {
-        AcknowledgedAction = other.AcknowledgedAction;
       }
       if (other.HeadId != 0) {
         HeadId = other.HeadId;
@@ -1110,8 +987,8 @@ namespace Rpg.Net.Message {
       if (other.BagExtraRows != 0) {
         BagExtraRows = other.BagExtraRows;
       }
-      if (other.MapId != 0) {
-        MapId = other.MapId;
+      if (other.Revision != 0L) {
+        Revision = other.Revision;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1168,36 +1045,20 @@ namespace Rpg.Net.Message {
             NextExperience = input.ReadInt32();
             break;
           }
-          case 85: {
-            X = input.ReadFloat();
+          case 80: {
+            Gender = (global::Rpg.Net.Message.RoleGenderPb) input.ReadEnum();
             break;
           }
-          case 93: {
-            Y = input.ReadFloat();
+          case 88: {
+            HeadId = input.ReadInt32();
             break;
           }
           case 96: {
-            Gender = (global::Rpg.Net.Message.RoleGenderPb) input.ReadEnum();
+            BagExtraRows = input.ReadInt32();
             break;
           }
           case 104: {
             Revision = input.ReadInt64();
-            break;
-          }
-          case 112: {
-            AcknowledgedAction = input.ReadInt64();
-            break;
-          }
-          case 120: {
-            HeadId = input.ReadInt32();
-            break;
-          }
-          case 128: {
-            BagExtraRows = input.ReadInt32();
-            break;
-          }
-          case 136: {
-            MapId = input.ReadInt32();
             break;
           }
         }
@@ -1255,36 +1116,686 @@ namespace Rpg.Net.Message {
             NextExperience = input.ReadInt32();
             break;
           }
-          case 85: {
-            X = input.ReadFloat();
+          case 80: {
+            Gender = (global::Rpg.Net.Message.RoleGenderPb) input.ReadEnum();
             break;
           }
-          case 93: {
-            Y = input.ReadFloat();
+          case 88: {
+            HeadId = input.ReadInt32();
             break;
           }
           case 96: {
-            Gender = (global::Rpg.Net.Message.RoleGenderPb) input.ReadEnum();
+            BagExtraRows = input.ReadInt32();
             break;
           }
           case 104: {
             Revision = input.ReadInt64();
             break;
           }
-          case 112: {
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 当前地图及逻辑位置，包含移动确认信息。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class RoleWorldPositionPb : pb::IMessage<RoleWorldPositionPb>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<RoleWorldPositionPb> _parser = new pb::MessageParser<RoleWorldPositionPb>(() => new RoleWorldPositionPb());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<RoleWorldPositionPb> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[2]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleWorldPositionPb() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleWorldPositionPb(RoleWorldPositionPb other) : this() {
+      roleId_ = other.roleId_;
+      mapId_ = other.mapId_;
+      x_ = other.x_;
+      y_ = other.y_;
+      revision_ = other.revision_;
+      acknowledgedAction_ = other.acknowledgedAction_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleWorldPositionPb Clone() {
+      return new RoleWorldPositionPb(this);
+    }
+
+    /// <summary>Field number for the "role_id" field.</summary>
+    public const int RoleIdFieldNumber = 1;
+    private long roleId_;
+    /// <summary>
+    /// 唯一角色 ID。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long RoleId {
+      get { return roleId_; }
+      set {
+        roleId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "map_id" field.</summary>
+    public const int MapIdFieldNumber = 2;
+    private int mapId_;
+    /// <summary>
+    /// 当前所属地图 ID。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int MapId {
+      get { return mapId_; }
+      set {
+        mapId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "x" field.</summary>
+    public const int XFieldNumber = 3;
+    private float x_;
+    /// <summary>
+    /// 逻辑横坐标。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public float X {
+      get { return x_; }
+      set {
+        x_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "y" field.</summary>
+    public const int YFieldNumber = 4;
+    private float y_;
+    /// <summary>
+    /// 逻辑纵坐标。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public float Y {
+      get { return y_; }
+      set {
+        y_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "revision" field.</summary>
+    public const int RevisionFieldNumber = 5;
+    private long revision_;
+    /// <summary>
+    /// 递增权威状态版本。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long Revision {
+      get { return revision_; }
+      set {
+        revision_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "acknowledged_action" field.</summary>
+    public const int AcknowledgedActionFieldNumber = 6;
+    private long acknowledgedAction_;
+    /// <summary>
+    /// 当前会话最后确认的移动序号。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long AcknowledgedAction {
+      get { return acknowledgedAction_; }
+      set {
+        acknowledgedAction_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as RoleWorldPositionPb);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(RoleWorldPositionPb other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RoleId != other.RoleId) return false;
+      if (MapId != other.MapId) return false;
+      if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(X, other.X)) return false;
+      if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(Y, other.Y)) return false;
+      if (Revision != other.Revision) return false;
+      if (AcknowledgedAction != other.AcknowledgedAction) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RoleId != 0L) hash ^= RoleId.GetHashCode();
+      if (MapId != 0) hash ^= MapId.GetHashCode();
+      if (X != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(X);
+      if (Y != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(Y);
+      if (Revision != 0L) hash ^= Revision.GetHashCode();
+      if (AcknowledgedAction != 0L) hash ^= AcknowledgedAction.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (MapId != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(MapId);
+      }
+      if (X != 0F) {
+        output.WriteRawTag(29);
+        output.WriteFloat(X);
+      }
+      if (Y != 0F) {
+        output.WriteRawTag(37);
+        output.WriteFloat(Y);
+      }
+      if (Revision != 0L) {
+        output.WriteRawTag(40);
+        output.WriteInt64(Revision);
+      }
+      if (AcknowledgedAction != 0L) {
+        output.WriteRawTag(48);
+        output.WriteInt64(AcknowledgedAction);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (MapId != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(MapId);
+      }
+      if (X != 0F) {
+        output.WriteRawTag(29);
+        output.WriteFloat(X);
+      }
+      if (Y != 0F) {
+        output.WriteRawTag(37);
+        output.WriteFloat(Y);
+      }
+      if (Revision != 0L) {
+        output.WriteRawTag(40);
+        output.WriteInt64(Revision);
+      }
+      if (AcknowledgedAction != 0L) {
+        output.WriteRawTag(48);
+        output.WriteInt64(AcknowledgedAction);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RoleId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(RoleId);
+      }
+      if (MapId != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(MapId);
+      }
+      if (X != 0F) {
+        size += 1 + 4;
+      }
+      if (Y != 0F) {
+        size += 1 + 4;
+      }
+      if (Revision != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Revision);
+      }
+      if (AcknowledgedAction != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(AcknowledgedAction);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(RoleWorldPositionPb other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RoleId != 0L) {
+        RoleId = other.RoleId;
+      }
+      if (other.MapId != 0) {
+        MapId = other.MapId;
+      }
+      if (other.X != 0F) {
+        X = other.X;
+      }
+      if (other.Y != 0F) {
+        Y = other.Y;
+      }
+      if (other.Revision != 0L) {
+        Revision = other.Revision;
+      }
+      if (other.AcknowledgedAction != 0L) {
+        AcknowledgedAction = other.AcknowledgedAction;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 16: {
+            MapId = input.ReadInt32();
+            break;
+          }
+          case 29: {
+            X = input.ReadFloat();
+            break;
+          }
+          case 37: {
+            Y = input.ReadFloat();
+            break;
+          }
+          case 40: {
+            Revision = input.ReadInt64();
+            break;
+          }
+          case 48: {
             AcknowledgedAction = input.ReadInt64();
             break;
           }
-          case 120: {
-            HeadId = input.ReadInt32();
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
             break;
           }
-          case 128: {
-            BagExtraRows = input.ReadInt32();
-            break;
-          }
-          case 136: {
+          case 16: {
             MapId = input.ReadInt32();
+            break;
+          }
+          case 29: {
+            X = input.ReadFloat();
+            break;
+          }
+          case 37: {
+            Y = input.ReadFloat();
+            break;
+          }
+          case 40: {
+            Revision = input.ReadInt64();
+            break;
+          }
+          case 48: {
+            AcknowledgedAction = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 角色世界状态，由资料和位置构成。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class RoleWorldStatePb : pb::IMessage<RoleWorldStatePb>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<RoleWorldStatePb> _parser = new pb::MessageParser<RoleWorldStatePb>(() => new RoleWorldStatePb());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<RoleWorldStatePb> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[3]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleWorldStatePb() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleWorldStatePb(RoleWorldStatePb other) : this() {
+      profile_ = other.profile_ != null ? other.profile_.Clone() : null;
+      position_ = other.position_ != null ? other.position_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleWorldStatePb Clone() {
+      return new RoleWorldStatePb(this);
+    }
+
+    /// <summary>Field number for the "profile" field.</summary>
+    public const int ProfileFieldNumber = 1;
+    private global::Rpg.Net.Message.RoleWorldProfilePb profile_;
+    /// <summary>
+    /// 角色资料。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.Net.Message.RoleWorldProfilePb Profile {
+      get { return profile_; }
+      set {
+        profile_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "position" field.</summary>
+    public const int PositionFieldNumber = 2;
+    private global::Rpg.Net.Message.RoleWorldPositionPb position_;
+    /// <summary>
+    /// 角色位置。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.Net.Message.RoleWorldPositionPb Position {
+      get { return position_; }
+      set {
+        position_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as RoleWorldStatePb);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(RoleWorldStatePb other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (!object.Equals(Profile, other.Profile)) return false;
+      if (!object.Equals(Position, other.Position)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (profile_ != null) hash ^= Profile.GetHashCode();
+      if (position_ != null) hash ^= Position.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (profile_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Profile);
+      }
+      if (position_ != null) {
+        output.WriteRawTag(18);
+        output.WriteMessage(Position);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (profile_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Profile);
+      }
+      if (position_ != null) {
+        output.WriteRawTag(18);
+        output.WriteMessage(Position);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (profile_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Profile);
+      }
+      if (position_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Position);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(RoleWorldStatePb other) {
+      if (other == null) {
+        return;
+      }
+      if (other.profile_ != null) {
+        if (profile_ == null) {
+          Profile = new global::Rpg.Net.Message.RoleWorldProfilePb();
+        }
+        Profile.MergeFrom(other.Profile);
+      }
+      if (other.position_ != null) {
+        if (position_ == null) {
+          Position = new global::Rpg.Net.Message.RoleWorldPositionPb();
+        }
+        Position.MergeFrom(other.Position);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            if (profile_ == null) {
+              Profile = new global::Rpg.Net.Message.RoleWorldProfilePb();
+            }
+            input.ReadMessage(Profile);
+            break;
+          }
+          case 18: {
+            if (position_ == null) {
+              Position = new global::Rpg.Net.Message.RoleWorldPositionPb();
+            }
+            input.ReadMessage(Position);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            if (profile_ == null) {
+              Profile = new global::Rpg.Net.Message.RoleWorldProfilePb();
+            }
+            input.ReadMessage(Profile);
+            break;
+          }
+          case 18: {
+            if (position_ == null) {
+              Position = new global::Rpg.Net.Message.RoleWorldPositionPb();
+            }
+            input.ReadMessage(Position);
             break;
           }
         }
@@ -1312,7 +1823,7 @@ namespace Rpg.Net.Message {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[2]; }
+      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[4]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1516,7 +2027,7 @@ namespace Rpg.Net.Message {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[3]; }
+      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[5]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1898,7 +2409,7 @@ namespace Rpg.Net.Message {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[4]; }
+      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[6]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2182,7 +2693,7 @@ namespace Rpg.Net.Message {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[5]; }
+      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[7]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2455,7 +2966,7 @@ namespace Rpg.Net.Message {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[6]; }
+      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[8]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2659,7 +3170,7 @@ namespace Rpg.Net.Message {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[7]; }
+      get { return global::Rpg.Net.Message.RoleReflection.Descriptor.MessageTypes[9]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

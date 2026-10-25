@@ -115,6 +115,8 @@ public partial class GameHud : Control
         AddChild(_networkError);
         _subscriptions.Add(GameServices.EventBus.Subscribe<MoveRt>(OnMoved));
         _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStateNotice>(OnRoleNotice));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<RoleProfileNotice>(OnProfileNotice));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<RolePositionNotice>(OnPositionNotice));
         _subscriptions.Add(GameServices.EventBus.Subscribe<BagChangedNotice>(OnBagNotice));
     }
 
@@ -835,7 +837,19 @@ public partial class GameHud : Control
     /// <summary>读取角色推送在缓存阶段更新后的快照。</summary>
     private void OnRoleNotice(RoleStateNotice notice)
     {
-        if (notice.State?.RoleId == GameServices.Session.RoleId) RefreshData();
+        if (notice.State?.Profile?.RoleId == GameServices.Session.RoleId) RefreshData();
+    }
+
+    /// <summary>资料更新后刷新角色 HUD。</summary>
+    private void OnProfileNotice(RoleProfileNotice notice)
+    {
+        if (notice.Profile?.RoleId == GameServices.Session.RoleId) RefreshData();
+    }
+
+    /// <summary>位置更新后刷新地图 HUD。</summary>
+    private void OnPositionNotice(RolePositionNotice notice)
+    {
+        if (notice.Position?.RoleId == GameServices.Session.RoleId) RefreshData();
     }
 
     /// <summary>在缓存阶段接纳背包后刷新已打开的格子。</summary>

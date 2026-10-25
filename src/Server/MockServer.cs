@@ -255,7 +255,7 @@ public sealed class MockServer
             }
             _current = candidate;
             _pending.RemoveAt(index);
-            Send(new MoveRt { Success = true, RoleId = candidate.RoleId, ActionId = pending.ActionId, State = ToMessage(candidate) });
+            Send(new MoveRt { Success = true, RoleId = candidate.RoleId, ActionId = pending.ActionId, Position = ToPositionMessage(candidate) });
         }
     }
 
@@ -272,6 +272,33 @@ public sealed class MockServer
         _position = _target = new Vector2(candidate.X, candidate.Y);
         Send(new RoleStateNotice { State = ToMessage(candidate) });
         var notice = _aoi?.Move(GetMap(candidate.MapId), _position.X, _position.Y);
+        if (notice is not null) Send(notice);
+    }
+
+    /// <summary>单独提交当前角色资料并推送，保留原有位置。</summary>
+    public void PublishRoleProfile(DataServerRole update)
+    {
+        if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色资料");
+        var candidate = update with { X = _current.X, Y = _current.Y, MapId = _current.MapId,
+            Bag = _current.Bag, BagExtraRows = _current.BagExtraRows,
+            AcknowledgedAction = _current.AcknowledgedAction, Revision = checked(_current.Revision + 1) };
+        _bagRules.Validate(candidate);
+        _roles.SaveRole(candidate);
+        _current = candidate;
+        Send(new RoleProfileNotice { Profile = ToProfileMessage(candidate) });
+    }
+
+    /// <summary>单独提交当前角色位置并推送，保留原有资料。</summary>
+    public void PublishRolePosition(float x, float y)
+    {
+        if (_current is null) throw new InvalidOperationException("请先进入当前角色");
+        if (!GetMap(_current.MapId).Rules.Contains(x, y)) throw new InvalidOperationException("角色位置无效");
+        var candidate = _current with { X = x, Y = y, Revision = checked(_current.Revision + 1) };
+        _roles.SaveRole(candidate);
+        _current = candidate;
+        _position = _target = new Vector2(x, y);
+        Send(new RolePositionNotice { Position = ToPositionMessage(candidate) });
+        var notice = _aoi?.Move(GetMap(candidate.MapId), x, y);
         if (notice is not null) Send(notice);
     }
 
@@ -685,10 +712,23 @@ public sealed class MockServer
     /// <summary>将完整角色世界状态复制为协议对象，不向客户端共享服务端模型。</summary>
     private static RoleWorldStatePb ToMessage(DataServerRole role) => new()
     {
-        RoleId = role.RoleId, MapId = role.MapId, Name = role.Name, Level = role.Level, HeadId = role.HeadId, Health = role.Health, MaxHealth = role.MaxHealth,
+        Profile = ToProfileMessage(role), Position = ToPositionMessage(role)
+    };
+
+    /// <summary>复制角色资料到独立协议对象。</summary>
+    private static RoleWorldProfilePb ToProfileMessage(DataServerRole role) => new()
+    {
+        RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId, Health = role.Health, MaxHealth = role.MaxHealth,
         Mana = role.Mana, MaxMana = role.MaxMana, Experience = role.Experience, NextExperience = role.NextExperience,
-        X = role.X, Y = role.Y, Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female,
-            Revision = role.Revision, AcknowledgedAction = role.AcknowledgedAction, BagExtraRows = role.BagExtraRows
+        Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female,
+        Revision = role.Revision, BagExtraRows = role.BagExtraRows
+    };
+
+    /// <summary>复制角色位置和移动确认到独立协议对象。</summary>
+    private static RoleWorldPositionPb ToPositionMessage(DataServerRole role) => new()
+    {
+        RoleId = role.RoleId, MapId = role.MapId, X = role.X, Y = role.Y,
+        Revision = role.Revision, AcknowledgedAction = role.AcknowledgedAction
     };
 
     /// <summary>冻结响应为当前代次的字节交给传输层。</summary>

@@ -53,7 +53,7 @@ public sealed class MapUtilsTests
         Assert.Equal(new Vector2(0, 95), world.RoleTarget);
         world.Enqueue(new SyncRoleAction(role with
         {
-            Position = new Vector2(200, -10), Revision = 1, AcknowledgedAction = 1
+            Position = new Vector2(200, -10), Revision = 1, PositionRevision = 1, AcknowledgedAction = 1
         }));
         world.Tick(0);
         Assert.Equal(new Vector2(127, 0), world.RolePosition);

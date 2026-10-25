@@ -51,7 +51,6 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     /// <summary>验证 client-session：选角、移动和推送均复制为缓存数据，修改协议不会污染新旧快照。</summary>
     [Theory]
     [InlineData("select")]
-    [InlineData("move")]
     [InlineData("notice")]
     public void CachedWorldDataDoesNotRetainProtocolObjects(string source)
     {
@@ -63,17 +62,17 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         selected.Dispose();
         var previous = session.RoleCache.State;
         var message = initialMessage!.Clone();
-        message.Name = "更新角色";
-        message.Health = 42;
-        message.Gender = RoleGenderPb.Female;
-        message.X = 123;
-        message.Y = 456;
-        message.Revision++;
-        message.AcknowledgedAction = 1;
+        message.Profile.Name = "更新角色";
+        message.Profile.Health = 42;
+        message.Profile.Gender = RoleGenderPb.Female;
+        message.Position.X = 123;
+        message.Position.Y = 456;
+        message.Profile.Revision++;
+        message.Position.Revision++;
+        message.Position.AcknowledgedAction = 1;
         object response = source switch
         {
             "select" => new SelectRoleRt { Success = true, RoleId = 1001, State = message },
-            "move" => new MoveRt { Success = true, RoleId = 1001, ActionId = 1, State = message },
             _ => new RoleStateNotice { State = message }
         };
         EventBus.Publish(response);
@@ -86,11 +85,11 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         Assert.Equal(previous.Revision + 1, cached.Revision);
         Assert.Equal(1, cached.AcknowledgedAction);
 
-        message.Name = "篡改协议";
-        message.Health = 0;
-        message.Gender = RoleGenderPb.Male;
-        message.X = message.Y = 0;
-        message.Revision = message.AcknowledgedAction = 999;
+        message.Profile.Name = "篡改协议";
+        message.Profile.Health = 0;
+        message.Profile.Gender = RoleGenderPb.Male;
+        message.Position.X = message.Position.Y = 0;
+        message.Profile.Revision = message.Position.Revision = message.Position.AcknowledgedAction = 999;
         Assert.Same(cached, session.RoleCache.State);
         Assert.Equal("更新角色", cached.Name);
         Assert.Equal(42, cached.Health);
@@ -99,7 +98,81 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         Assert.Equal(previous.Revision + 1, cached.Revision);
         Assert.Equal(1, cached.AcknowledgedAction);
         Assert.Equal("晨星", previous.Name);
-        Assert.Equal(initialMessage.Health, previous.Health);
+        Assert.Equal(initialMessage.Profile.Health, previous.Health);
+        Assert.Empty(fixture.Errors);
+    }
+
+    /// <summary>验证 client-session：资料和位置交错到达时各自过滤版本，移动响应不覆盖资料。</summary>
+    [Fact]
+    public void PartialRoleUpdatesMergeByComponentRevision()
+    {
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
+        fixture.Login();
+        using var session = fixture.SelectRole(1001);
+        var initial = session.Role.ToPb();
+        var profile = initial.Profile.Clone();
+        profile.Revision = 2;
+        profile.Name = "更新资料";
+        EventBus.Publish(new RoleProfileNotice { Profile = profile });
+        var position = initial.Position.Clone();
+        position.Revision = 3;
+        position.X += 40;
+        EventBus.Publish(new RolePositionNotice { Position = position });
+        Assert.Equal("更新资料", session.Role.Name);
+        Assert.Equal(position.X, session.Role.Position.X);
+        Assert.Equal(2, session.Role.ProfileRevision);
+        Assert.Equal(3, session.Role.PositionRevision);
+
+        var oldFull = initial.Clone();
+        oldFull.Profile.Revision = 1;
+        oldFull.Position.Revision = 1;
+        EventBus.Publish(new RoleStateNotice { State = oldFull });
+        Assert.Equal("更新资料", session.Role.Name);
+        Assert.Equal(position.X, session.Role.Position.X);
+
+        var moved = position.Clone();
+        moved.Revision = 4;
+        moved.AcknowledgedAction = 1;
+        moved.Y += 20;
+        EventBus.Publish(new MoveRt { Success = true, RoleId = 1001, ActionId = 1, Position = moved });
+        Assert.Equal("更新资料", session.Role.Name);
+        Assert.Equal(moved.Y, session.Role.Position.Y);
+        profile.Name = "篡改旧协议";
+        position.X = 0;
+        Assert.Equal("更新资料", session.Role.Name);
+        Assert.NotEqual(0, session.Role.Position.X);
+        Assert.Empty(fixture.Errors);
+    }
+
+    /// <summary>验证 mock-server：主动资料、位置及普通移动使用各自消息且不重复推送。</summary>
+    [Fact]
+    public void ServerSendsSeparateProfileAndPositionNotices()
+    {
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
+        fixture.Login();
+        using var session = fixture.SelectRole(1001);
+        var profiles = 0;
+        var positions = 0;
+        var full = 0;
+        using var profileListener = EventBus.Subscribe<RoleProfileNotice>(_ => profiles++);
+        using var positionListener = EventBus.Subscribe<RolePositionNotice>(_ => positions++);
+        using var fullListener = EventBus.Subscribe<RoleStateNotice>(_ => full++);
+        var old = session.Role;
+        fixture.Server.PublishRoleProfile(new RepoServerRole(fixture.DirectoryPath).Load(1001) with { Name = "新名字" });
+        fixture.Net.Tick(0);
+        Assert.Equal("新名字", session.Role.Name);
+        Assert.Equal(old.Position, session.Role.Position);
+        fixture.Server.PublishRolePosition(old.Position.X + 25, old.Position.Y);
+        fixture.Net.Tick(0);
+        Assert.Equal(old.Position.X + 25, session.Role.Position.X);
+        Assert.Equal(1, profiles);
+        Assert.Equal(1, positions);
+        Assert.Equal(0, full);
+        session.SubmitMove(1, session.Role.Position + new Godot.Vector2(50, 0));
+        fixture.Net.Tick(0.5);
+        Assert.Equal(1, positions);
+        Assert.Equal(0, full);
+        Assert.Equal(1, session.Role.AcknowledgedAction);
         Assert.Empty(fixture.Errors);
     }
 
@@ -119,9 +192,9 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
             Assert.True(message.Success, message.Error);
             replies++;
             var persisted = repo.Load(1001);
-            Assert.True(message.State.Revision > persisted.Revision);
+            Assert.True(message.Position.Revision > persisted.Revision);
             Assert.Equal(initial.Position.X, persisted.X);
-            Assert.Equal(message.State.X, session.RoleCache.State.Position.X);
+            Assert.Equal(message.Position.X, session.RoleCache.State.Position.X);
         });
         session.SubmitMove(1, session.Role.Position + new Godot.Vector2(100, 0));
         fixture.Net.Tick(0.2);
@@ -162,7 +235,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
             Assert.Equal(50, session!.RoleCache.State.Health);
             Assert.Equal(86, repo.Load(1001).Health);
             Assert.Equal(RoleGender.Female, session.Role.Gender);
-            notice.State.Name = "篡改消息对象";
+            notice.State.Profile.Name = "篡改消息对象";
         });
         using var selected = session = fixture.SelectRole(1001);
         var update = repo.Load(1001) with { Health = 50, Gender = ServerRoleGender.Female };
@@ -186,12 +259,15 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         using var selectedResponse = EventBus.Subscribe<SelectRoleRt>(message => selectedState = message.State.Clone());
         using var session = fixture.SelectRole(1001);
         var update = selectedState!.Clone();
-        update.Revision = 2;
-        update.Health = 50;
+        update.Profile.Revision = 2;
+        update.Position.Revision = 2;
+        update.Profile.Health = 50;
         EventBus.Publish(new RoleStateNotice { State = update });
         var current = session.RoleCache.State;
         EventBus.Publish(new RoleStateNotice { State = selectedState });
-        EventBus.Publish(new RoleStateNotice { State = new RoleWorldStatePb { RoleId = 1002, Revision = 3 } });
+        EventBus.Publish(new RoleStateNotice { State = new RoleWorldStatePb {
+            Profile = new RoleWorldProfilePb { RoleId = 1002, Revision = 3 },
+            Position = new RoleWorldPositionPb { RoleId = 1002, Revision = 3 } } });
         EventBus.Publish(new MoveRt { RoleId = 1001, Error = "保存失败" });
         Assert.Same(current, session.RoleCache.State);
         var ordinaryCalls = 0;

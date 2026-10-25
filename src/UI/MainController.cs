@@ -59,6 +59,8 @@ public partial class MainController : Control
             _subscriptions.Add(GameServices.EventBus.Subscribe<DeleteRoleRt>(OnDeletedRole));
             _subscriptions.Add(GameServices.EventBus.Subscribe<MoveRt>(OnMoved));
             _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStateNotice>(OnRoleNotice));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<RoleProfileNotice>(OnProfileNotice));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<RolePositionNotice>(OnPositionNotice));
             _subscriptions.Add(GameServices.EventBus.Subscribe<MapAoiNotice>(OnMapNotice));
             _subscriptions.Add(GameServices.EventBus.Subscribe<PickupItemRt>(OnPickedUp));
             ShowLogin();
@@ -278,8 +280,20 @@ public partial class MainController : Control
     /// <summary>缓存处理当前角色推送后，同步世界，不依赖 HUD 生命周期。</summary>
     private void OnRoleNotice(RoleStateNotice notice)
     {
-        if (notice.State?.RoleId == GameServices.Session.RoleId)
+        if (notice.State?.Profile?.RoleId == GameServices.Session.RoleId)
             GameServices.World.SyncRole();
+    }
+
+    /// <summary>资料推送写入缓存后同步世界角色外观。</summary>
+    private void OnProfileNotice(RoleProfileNotice notice)
+    {
+        if (notice.Profile?.RoleId == GameServices.Session.RoleId) GameServices.World.SyncRole();
+    }
+
+    /// <summary>位置推送写入缓存后同步世界坐标。</summary>
+    private void OnPositionNotice(RolePositionNotice notice)
+    {
+        if (notice.Position?.RoleId == GameServices.Session.RoleId) GameServices.World.SyncRole();
     }
 
     /// <summary>拾取最终结果只显示反馈，两侧状态已由原缓存通知维护。</summary>

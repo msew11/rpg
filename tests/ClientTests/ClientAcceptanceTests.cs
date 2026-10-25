@@ -125,7 +125,7 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
         Assert.Equal(1, notifications);
         Assert.Equal(1, session.RoleCache.State.AcknowledgedAction);
         var current = session.RoleCache.State;
-        EventBus.Publish(new RoleStateNotice { State = new RoleWorldStatePb { RoleId = session.RoleId, Revision = 0 } });
+        EventBus.Publish(new RoleStateNotice { State = current.ToPb() });
         Assert.Same(current, session.RoleCache.State);
         Assert.Equal(1, notifications);
     }
@@ -173,14 +173,14 @@ public sealed class WorldAcceptanceTests
         Assert.Equal(new Vector2(100, 300), world.RoleTarget);
 
         var corrected = new Vector2(120, 110);
-        world.Enqueue(new SyncRoleAction(role with { Position = corrected, Revision = 1, AcknowledgedAction = 1 }));
+        world.Enqueue(new SyncRoleAction(role with { Position = corrected, Revision = 1, PositionRevision = 1, AcknowledgedAction = 1 }));
         Assert.NotEqual(corrected, world.RolePosition);
         world.Tick(0);
         Assert.Equal(corrected, world.RolePosition);
         Assert.Equal(new Vector2(100, 300), world.RoleTarget);
-        world.Enqueue(new SyncRoleAction(role with { Position = new Vector2(999, 999), Revision = 2, AcknowledgedAction = 1 }));
+        world.Enqueue(new SyncRoleAction(role with { Position = new Vector2(999, 999), Revision = 2, PositionRevision = 2, AcknowledgedAction = 1 }));
         world.Tick(0);
-        Assert.Equal(corrected, world.RolePosition);
+        Assert.Equal(new Vector2(999, 999), world.RolePosition);
     }
 }
 
