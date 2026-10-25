@@ -21,6 +21,12 @@ public sealed class MockServer
     private readonly Dictionary<int, ServerMap> _maps = new();
     /// <summary>独立地图文件仓库。</summary>
     private readonly RepoServerMap _mapRepo;
+    /// <summary>物品转移的独立文件事务，不拥有业务对象。</summary>
+    private readonly RepoServerItemTransfer _transfers;
+    /// <summary>尚未共同落地的地图到参与角色关系，角色本版不支持跨图。</summary>
+    private readonly Dictionary<int, HashSet<long>> _transferGroups = new();
+    /// <summary>仅验收用于模拟提交点前中断。</summary>
+    internal RepoServerItemTransfer Transfers => _transfers;
     /// <summary>新角色的初始地图身份。</summary>
     private readonly int _initialMapId;
     /// <summary>当前角色的范围观察者，重置会话时移除。</summary>
@@ -54,6 +60,8 @@ public sealed class MockServer
     public MockServer(string directory, DataServerBagRules bagRules, Action<string, string>? writeLog = null,
         Func<int>? flushInterval = null, IEnumerable<DataServerMapRules>? maps = null, int initialMapId = 1)
     {
+        _transfers = new RepoServerItemTransfer(directory, writeLog);
+        _transfers.Recover();
         _roles = new RepoServerRole(directory, writeLog, deferWrites: true);
         _flushInterval = flushInterval ?? (() => 5);
         _bagRules = bagRules;
@@ -88,6 +96,7 @@ public sealed class MockServer
             case Move move: HandleMove(move); break;
             case Gm gm: HandleGm(gm); break;
             case MoveItem moveItem: HandleMoveItem(moveItem); break;
+            case DropItem dropItem: HandleDropItem(dropItem); break;
             case ResyncMapAoi resync: HandleResyncMapAoi(resync); break;
         }
     }
@@ -119,9 +128,36 @@ public sealed class MockServer
     public void Flush()
     {
         var errors = new List<Exception>();
-        try { _roles.Flush(); } catch (Exception error) { errors.Add(error); }
-        foreach (var map in _maps.Values)
-            try { map.Flush(); } catch (Exception error) { errors.Add(error); }
+        _transfers.Recover();
+        var involved = _transferGroups.Values.SelectMany(ids => ids).ToHashSet();
+        var groupedMaps = _transferGroups.Keys.ToHashSet();
+        foreach (var (mapId, ids) in _transferGroups.ToArray())
+        {
+            var map = _maps[mapId];
+            var logs = new List<(string Path, string Text)>();
+            try
+            {
+                _transfers.Begin(mapId, ids);
+                _roles.WritePending(ids, (path, text) => logs.Add((path, text)));
+                logs.AddRange(map.WritePending());
+                _transfers.Complete();
+            }
+            catch (Exception error)
+            {
+                errors.Add(error);
+                try { _transfers.Recover(); } catch (Exception recovery) { errors.Add(recovery); }
+                continue;
+            }
+            _roles.AcceptPending(ids);
+            map.AcceptPending();
+            _transferGroups.Remove(mapId);
+            _transfers.LogCommitted(logs);
+            try { map.Flush(); } catch (Exception cleanup) { errors.Add(cleanup); }
+        }
+        try { _roles.Flush(involved); } catch (Exception error) { errors.Add(error); }
+        foreach (var (mapId, map) in _maps)
+            if (!groupedMaps.Contains(mapId))
+                try { map.Flush(); } catch (Exception error) { errors.Add(error); }
         if (errors.Count != 0) throw new AggregateException("服务端落地失败", errors);
     }
 
@@ -473,6 +509,53 @@ public sealed class MockServer
         _current = candidate;
         Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
         response.Success = true;
+        Send(response);
+    }
+
+    /// <summary>完整校验后同步转移两侧内存，先建立共同落地关系，再发布权威通知。</summary>
+    private void HandleDropItem(DropItem request)
+    {
+        var response = new DropItemRt { RoleId = request.RoleId, InstanceId = request.InstanceId };
+        DataServerRole candidate;
+        ServerMap map;
+        DataServerMapChange change;
+        try
+        {
+            if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
+                throw new InvalidOperationException("请先进入当前角色");
+            if (request.ExpectedRevision != _current.Bag.Revision)
+                throw new InvalidOperationException("背包已更新，请重新选择丢弃物品");
+            _bagRules.Validate(_current);
+            var source = _current.Bag.Items.SingleOrDefault(item => item.InstanceId == request.InstanceId)
+                ?? throw new ArgumentException("源物品不存在");
+            if (request.Count <= 0 || request.Count > source.Count) throw new ArgumentException("丢弃数量无效");
+            candidate = _current with { Bag = _current.Bag with
+            {
+                Revision = checked(_current.Bag.Revision + 1),
+                Items = _current.Bag.Items.Where(item => item.InstanceId != source.InstanceId)
+                    .Concat(request.Count == source.Count ? [] : new[] { source with { Count = source.Count - request.Count } })
+                    .OrderBy(item => item.SlotIndex).ToArray()
+            } };
+            _bagRules.Validate(candidate);
+            map = GetMap(_current.MapId);
+            var ground = new DataServerMapObject { X = _position.X, Y = _position.Y, ItemId = source.ItemId, Count = request.Count };
+            // Create 完整校验后修改，后续 SaveBag 在已加载的延迟仓库仅写内存且候选已验证。
+            change = map.Create(ground);
+            _roles.SaveBag(candidate);
+            if (!_transferGroups.TryGetValue(candidate.MapId, out var ids)) _transferGroups[candidate.MapId] = ids = new();
+            ids.Add(candidate.RoleId);
+            response.ObjectId = ground.ObjectId.ToString("N");
+        }
+        catch (Exception error)
+        {
+            response.Error = error.Message;
+            Send(response);
+            return;
+        }
+        _current = candidate;
+        response.Success = true;
+        Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+        PublishMapChange(map, change);
         Send(response);
     }
 

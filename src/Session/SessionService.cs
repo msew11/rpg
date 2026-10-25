@@ -168,6 +168,14 @@ public sealed class SessionService : Service
             TargetSlotIndex = targetSlotIndex, ExpectedRevision = expectedRevision });
     }
 
+    /// <summary>请求丢弃指定数量，不预先修改背包和地图缓存。</summary>
+    public void DropItem(long instanceId, int count, long expectedRevision)
+    {
+        EnsureActive();
+        if (!HasRole) throw new InvalidOperationException("请先进入角色");
+        _net.Send(new DropItem { RoleId = RoleId, InstanceId = instanceId, Count = count, ExpectedRevision = expectedRevision });
+    }
+
     /// <summary>只为已发现缺口且没有在途请求的当前地图申请一次快照。</summary>
     public bool ResyncMapIfNeeded()
     {

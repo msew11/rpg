@@ -68,6 +68,8 @@ if ($Tests) {
     Invoke-GodotCheck 'bag and GM' @('--headless', '--path', $projectPath, 'res://tests/bag_gm_smoke.tscn')
     # 物品移动必须经过真实鼠标点击，而非直接调用控件回调。
     Invoke-GodotCheck 'item movement' @('--headless', '--path', $projectPath, 'res://tests/item_movement_smoke.tscn')
+    # 数量丢弃通过真实点击验证背包、AOI、地面表现及共同恢复。
+    Invoke-GodotCheck 'ground item drop' @('--headless', '--path', $projectPath, 'res://tests/ground_item_drop_smoke.tscn')
     # 普通弹窗与 HUD 在缩放、加载和拖动后都不得越出窗口。
     Invoke-GodotCheck 'UI bounds' @('--headless', '--path', $projectPath, 'res://tests/ui_bounds_smoke.tscn')
 }

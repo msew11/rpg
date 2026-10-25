@@ -280,6 +280,7 @@ public partial class MainController : Control
         _worldVisual = new Node2D { Name = "WorldVisual" };
         AddChild(_worldVisual);
         _worldVisual.AddChild(new MapView { Name = "MapView" });
+        _worldVisual.AddChild(new GroundItemsView { Name = "GroundItemsView", ZIndex = 1 });
         _actor = new ActorView { Name = "ActorView", ZIndex = 2, Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
         _worldVisual.AddChild(_actor);
         _actor.Present(GameServices.World.ActorState!);

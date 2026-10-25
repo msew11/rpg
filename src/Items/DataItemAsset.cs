@@ -1,4 +1,4 @@
-namespace Rpg.UI;
+namespace Rpg.Items;
 
 /// <summary>记录一张道具或武器首帧的来源与无损图集位置。</summary>
 public sealed class DataItemAsset

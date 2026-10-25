@@ -55,3 +55,29 @@ message MoveItemRt {
   // 失败原因。
   string error = 5;
 }
+
+// 从背包转移指定数量至服务端当前角色脚下，不接受客户端位置。
+message DropItem {
+  // 当前角色身份。
+  int64 role_id = 1;
+  // 背包中稳定实例编号。
+  int64 instance_id = 2;
+  // 本次丢弃的正整数数量。
+  int32 count = 3;
+  // 拿起时的背包版本，用于拒绝过期与重放请求。
+  int64 expected_revision = 4;
+}
+
+// 丢弃响应，两侧状态仍经已有背包及 AOI 通知交付。
+message DropItemRt {
+  // 请求所属角色。
+  int64 role_id = 1;
+  // 被丢弃的源实例。
+  int64 instance_id = 2;
+  // 是否成功提交两侧内存。
+  bool success = 3;
+  // 失败原因。
+  string error = 4;
+  // 成功创建的地面对象 GUID。
+  string object_id = 5;
+}

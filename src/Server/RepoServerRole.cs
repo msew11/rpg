@@ -158,13 +158,14 @@ public sealed class RepoServerRole
     }
 
     /// <summary>只检查待写角色，成功清标记；失败保留并继续其他角色，最后汇总错误。</summary>
-    public void Flush()
+    public void Flush(IReadOnlySet<long>? excluded = null)
     {
         if (_cache is null || _dirty.Count == 0) return;
         var disk = new RepoServerRole(_directory, _writeLog);
         var errors = new List<Exception>();
         foreach (var (id, domains) in _dirty.ToArray())
         {
+            if (excluded?.Contains(id) == true) continue;
             try
             {
                 if (domains == 1) disk.SaveRole(_cache[id]);
@@ -175,6 +176,25 @@ public sealed class RepoServerRole
             catch (Exception error) { errors.Add(error); }
         }
         if (errors.Count > 0) throw new AggregateException("服务端缓存落地失败，保留待写数据供重试", errors);
+    }
+
+    /// <summary>共同提交时写指定角色但不清待写标记，日志暂存在外层。</summary>
+    internal void WritePending(IEnumerable<long> ids, Action<string, string> log)
+    {
+        var disk = new RepoServerRole(_directory, log);
+        foreach (var id in ids.OrderBy(id => id))
+        {
+            if (!_dirty.TryGetValue(id, out var domains)) continue;
+            if (domains == 1) disk.SaveRole(_cache![id]);
+            else if (domains == 2) disk.SaveBag(_cache![id]);
+            else disk.Save(_cache![id]);
+        }
+    }
+
+    /// <summary>外层提交成功后才确认参与角色的待写领域。</summary>
+    internal void AcceptPending(IEnumerable<long> ids)
+    {
+        foreach (var id in ids) _dirty.Remove(id);
     }
 
     /// <summary>统一生成固定领域路径，拒绝无效角色编号。</summary>

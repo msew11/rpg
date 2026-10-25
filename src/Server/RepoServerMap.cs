@@ -60,10 +60,11 @@ public sealed class RepoServerMap
     }
 
     /// <summary>仅写变化块，以一次清单替换提交全部变化；失败不覆盖旧提交。</summary>
-    public void Commit(DataServerMapRules rules, IReadOnlyDictionary<(int X, int Y), IReadOnlyList<DataServerMapObject>> changes)
+    public IReadOnlyList<(string Path, string Text)> Commit(DataServerMapRules rules, IReadOnlyDictionary<(int X, int Y), IReadOnlyList<DataServerMapObject>> changes,
+        bool cleanup = true, bool log = true)
     {
         var manifest = ReadManifest(rules);
-        if (changes.Count == 0) { Cleanup(rules, manifest); return; }
+        if (changes.Count == 0) { if (cleanup) Cleanup(rules, manifest); return []; }
         var entries = manifest.Chunks.ToDictionary(entry => (entry.X, entry.Y));
         var commitId = Guid.NewGuid().ToString("N");
         var committedFiles = new List<(string Path, string Text)>();
@@ -79,14 +80,15 @@ public sealed class RepoServerMap
             entries[key] = new(key.X, key.Y, name);
         }
         var updated = entries.Values.OrderBy(entry => entry.Y).ThenBy(entry => entry.X).ToArray();
-        if (manifest.Chunks.SequenceEqual(updated)) { Cleanup(rules, manifest); return; }
+        if (manifest.Chunks.SequenceEqual(updated)) { if (cleanup) Cleanup(rules, manifest); return []; }
         var candidate = new DataManifest(1, rules.MapId, rules, commitId, updated);
         var content = JsonSerializer.Serialize(candidate, Json);
         BeforeManifestCommit?.Invoke();
         WriteAtomic(ManifestPath(rules.MapId), content, replace: true);
-        foreach (var file in committedFiles) Log(file.Path, file.Text);
-        Log(ManifestPath(rules.MapId), content);
-        Cleanup(rules, candidate);
+        committedFiles.Add((ManifestPath(rules.MapId), content));
+        if (log) foreach (var file in committedFiles) Log(file.Path, file.Text);
+        if (cleanup) Cleanup(rules, candidate);
+        return committedFiles;
     }
 
     /// <summary>缺失清单是空地图，已有清单必须完整匹配版本和布局。</summary>

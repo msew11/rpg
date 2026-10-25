@@ -89,6 +89,13 @@ public sealed class ServerMap
         _dirty.Clear();
     }
 
+    /// <summary>共同提交期间写候选文件但不确认待写标记，不删除旧块和输出成功日志。</summary>
+    internal IReadOnlyList<(string Path, string Text)> WritePending() =>
+        _repo.Commit(Rules, _dirty.ToDictionary(chunk => chunk, chunk => InChunk(chunk)), cleanup: false, log: false);
+
+    /// <summary>外层提交点成功后才确认本地图的待写状态。</summary>
+    internal void AcceptPending() => _dirty.Clear();
+
     /// <summary>组合对象与地图、道具配置契约。</summary>
     private void Validate(DataServerMapObject value)
     {

@@ -1,7 +1,7 @@
+using Rpg.Items;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using Godot;
 using Rpg.Services;
 using Rpg.Net.Message;
@@ -20,13 +20,21 @@ public partial class BagControl : PanelContainer
     /// <summary>在视口不足时承载完整网格的滚动区。</summary>
     private ScrollContainer _scroll = null!;
     /// <summary>首次显示时加载的素材索引，不依赖 GM 图鉴窗口。</summary>
-    private Dictionary<string, DataItemAsset>? _assets;
+    private readonly ItemIconResolver _icons = new();
     /// <summary>已创建的固定格子，刷新只替换内容。</summary>
     private readonly List<PanelContainer> _slots = [];
     /// <summary>展示移动响应错误，不覆盖角色或背包缓存。</summary>
     private Label _moveStatus = null!;
     /// <summary>面板拥有的物品移动结果订阅。</summary>
     private IDisposable? _moveSubscription;
+    /// <summary>数量确认结果订阅，与原移动响应一起释放。</summary>
+    private IDisposable? _dropSubscription;
+    /// <summary>地图点击弹出的数量确认，模态隔离世界输入。</summary>
+    private ConfirmationDialog _dropDialog = null!;
+    /// <summary>一至源数量的整数选择。</summary>
+    private SpinBox _dropCount = null!;
+    /// <summary>确认时再次验证的冻结上下文。</summary>
+    private Variant _dropContext;
     /// <summary>刷新或关闭面板后使旧拖放上下文失效。</summary>
     private long _dragEpoch;
     /// <summary>独立于网格裁剪的物品与名称浮层。</summary>
@@ -68,6 +76,19 @@ public partial class BagControl : PanelContainer
         _itemLayer.AddChild(_itemName);
         VisibilityChanged += () => { _dragEpoch++; if (IsVisibleInTree()) Refresh(); else CancelItemDrag(); };
         _moveSubscription = GameServices.EventBus.Subscribe<MoveItemRt>(OnItemMoved);
+        _dropSubscription = GameServices.EventBus.Subscribe<DropItemRt>(OnItemDropped);
+        _dropDialog = new ConfirmationDialog { Name = "DropItemDialog", Title = "丢弃道具", Exclusive = true };
+        _dropDialog.GetOkButton().Text = "丢弃";
+        _dropDialog.GetCancelButton().Text = "取消";
+        var form = new VBoxContainer();
+        form.AddChild(new Label { Name = "DropItemPrompt", Text = "选择丢弃数量（丢在角色脚下）" });
+        _dropCount = new SpinBox { Name = "DropItemCount", MinValue = 1, MaxValue = 1, Step = 1, Rounded = true };
+        form.AddChild(_dropCount);
+        _dropDialog.AddChild(form);
+        AddChild(_dropDialog);
+        _dropDialog.Confirmed += ConfirmGroundDrop;
+        _dropDialog.Canceled += CloseDropDialog;
+        _dropDialog.CloseRequested += CloseDropDialog;
         _Process(0);
     }
 
@@ -102,6 +123,7 @@ public partial class BagControl : PanelContainer
     {
         if (_grid is null || !Visible) return;
         HideItemName();
+        CloseDropDialog();
         _dragEpoch++;
         var config = GameServices.Config;
         var capacity = config.Basic.Value.GetBagCapacity(GameServices.Session.Role.BagExtraRows);
@@ -178,11 +200,21 @@ public partial class BagControl : PanelContainer
         if (input is InputEventMouse mouse) _pointerPosition = mouse.Position;
     }
 
-    /// <summary>拿起后点击背包外的空白只取消，不触发世界移动。</summary>
+    /// <summary>拿起后点击未被 UI 消费的地图，打开数量确认并阻止走路。</summary>
     public override void _UnhandledInput(InputEvent input)
     {
         if (_itemPreview is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
+        var data = _pickedItem;
         CancelItemDrag();
+        if (GameServices.World.HasRole && CanDropItem(data, 0))
+        {
+            var payload = data.AsGodotDictionary();
+            var item = GameServices.Session.Bag.Items.Single(item => item.InstanceId == payload["instance"].AsInt64());
+            _dropContext = data;
+            _dropCount.MaxValue = item.Count;
+            _dropCount.Value = item.Count;
+            _dropDialog.PopupCentered(new Vector2I(300, 160));
+        }
         GetViewport().SetInputAsHandled();
     }
 
@@ -252,6 +284,32 @@ public partial class BagControl : PanelContainer
         if (response.RoleId == GameServices.Session.RoleId) ShowMoveStatus(response.Success ? "" : response.Error);
     }
 
+    /// <summary>确认时重新校验版本和整数输入，不使用刷新后的其他实例替代源物品。</summary>
+    private void ConfirmGroundDrop()
+    {
+        var data = _dropContext;
+        _dropContext = default;
+        if (!CanDropItem(data, 0)) { ShowMoveStatus("背包已更新，请重新选择丢弃物品"); return; }
+        if (!int.TryParse(_dropCount.GetLineEdit().Text.Trim(), out var count) || count < 1 || count > _dropCount.MaxValue)
+        { ShowMoveStatus("丢弃数量无效"); return; }
+        var payload = data.AsGodotDictionary();
+        try { GameServices.Session.DropItem(payload["instance"].AsInt64(), count, payload["revision"].AsInt64()); }
+        catch (Exception error) { ShowMoveStatus(error.Message); }
+    }
+
+    /// <summary>响应只显示反馈，两侧状态由 CacheBase 的已有通知处理。</summary>
+    private void OnItemDropped(DropItemRt response)
+    {
+        if (response.RoleId == GameServices.Session.RoleId) ShowMoveStatus(response.Success ? "" : response.Error);
+    }
+
+    /// <summary>刷新、取消和离开时使确认上下文失效。</summary>
+    private void CloseDropDialog()
+    {
+        _dropContext = default;
+        _dropDialog?.Hide();
+    }
+
     /// <summary>以普通文本显示移动反馈，空文本不占用布局高度。</summary>
     private void ShowMoveStatus(string message)
     {
@@ -266,11 +324,14 @@ public partial class BagControl : PanelContainer
         _dragEpoch++;
         _moveSubscription?.Dispose();
         _moveSubscription = null;
+        _dropSubscription?.Dispose();
+        _dropSubscription = null;
     }
 
     /// <summary>释放点选预览和名称，关闭及切角时幂等执行。</summary>
     private void CancelItemDrag()
     {
+        CloseDropDialog();
         HideItemName();
         _itemPreview?.QueueFree();
         _itemPreview = null;
@@ -280,13 +341,6 @@ public partial class BagControl : PanelContainer
     /// <summary>离树时幂等回收订阅与拖动上下文。</summary>
     public override void _ExitTree() => ReleaseSubscription();
 
-    /// <summary>按显式素材键取图集区域，缺失时由格子显示占位。</summary>
-    private AtlasTexture? ResolveTexture(string id)
-    {
-        if (string.IsNullOrEmpty(id)) return null;
-        _assets ??= (JsonSerializer.Deserialize<DataItemAsset[]>(FileAccess.GetFileAsString("res://assets/items/catalog.json")) ?? [])
-            .ToDictionary(asset => asset.Id, StringComparer.Ordinal);
-        if (!_assets.TryGetValue(id, out var asset) || !ResourceLoader.Exists(asset.Atlas)) return null;
-        return new AtlasTexture { Atlas = GD.Load<Texture2D>(asset.Atlas), Region = new Rect2(asset.X, asset.Y, asset.W, asset.H), FilterClip = true };
-    }
+    /// <summary>背包与地面表现通过同一解析逻辑获得图集区域。</summary>
+    private AtlasTexture? ResolveTexture(string id) => _icons.Resolve(id);
 }

@@ -58,6 +58,10 @@ public partial class ItemMovementSmoke : Node
             await Drag(grid.GetChild<Control>(2), grid.GetChild<Control>(2));
             await BeginDrag(grid.GetChild<Control>(2));
             await EndDrag(new Vector2(20, 220));
+            var dropDialog = (ConfirmationDialog)bag.FindChild("DropItemDialog", true, false);
+            Check(dropDialog.Visible, "点击地图没有打开丢弃数量确认");
+            dropDialog.GetCancelButton().EmitSignal(Button.SignalName.Pressed);
+            await Frames();
             Check(GameServices.Session.Bag.Revision == revision, "原格或背包外放下修改了背包");
             await BeginDrag(grid.GetChild<Control>(0), false);
             await EndDrag(new Vector2(20, 220));
