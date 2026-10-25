@@ -7,7 +7,7 @@ namespace ClientTests;
 [Trait("Runtime", "Godot")]
 public sealed class UiSoundTests
 {
-    /// <summary>界面入口与角色预览操作使用 1003，不落入默认确认音效。</summary>
+    /// <summary>界面入口与角色预览操作使用 openspec/specs/client-ui 规定的 1003。</summary>
     [Theory]
     [InlineData("SoundCase", "系统")]
     [InlineData("SoundCase", "角色")]
@@ -16,6 +16,7 @@ public sealed class UiSoundTests
     [InlineData("SoundCase", "GM")]
     [InlineData("SoundCase", "系统设置")]
     [InlineData("SoundCase", "角色设置")]
+    [InlineData("SoundCase", "返回角色选择")]
     [InlineData("OpenItemCatalog", "查看道具图鉴")]
     [InlineData("SoundCase", "进入 HUD 调整")]
     [InlineData("OpenCreateRole", "创建角色")]
@@ -33,13 +34,15 @@ public sealed class UiSoundTests
         button.Free();
     }
 
-    /// <summary>确认、取消和登录入口仍遵循 openspec/specs/client-ui 的原有分类。</summary>
+    /// <summary>确认用 1003，取消用 1007；登录和进入游戏等待成功响应。</summary>
     [Theory]
-    [InlineData("ConfirmCreate", "确认创建", 1006)]
-    [InlineData("SoundCase", "保存", 1006)]
+    [InlineData("ConfirmCreate", "确认创建", 1003)]
+    [InlineData("SoundCase", "保存", 1003)]
+    [InlineData("SoundCase", "发送", 1003)]
     [InlineData("ClosePanel", "关闭", 1007)]
     [InlineData("CancelName", "取消", 1007)]
     [InlineData("SoundCase", "登录", 0)]
+    [InlineData("SoundCase", "进入游戏", 0)]
     public void ConfirmationAndCancellationKeepTheirSound(string name, string label, int expected)
     {
         var button = new Button { Name = name, Text = label };

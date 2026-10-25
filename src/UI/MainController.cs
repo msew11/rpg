@@ -255,7 +255,7 @@ public partial class MainController : Control
         if (_loginButton is null) return;
         _loginButton.Disabled = false;
         if (!response.Success) { _feedback!.Text = response.Error; return; }
-        UiSoundPlayer.Play(this, 1005);
+        UiSoundPlayer.Play(this, 1003);
         ShowRoles();
     }
 
@@ -270,7 +270,7 @@ public partial class MainController : Control
             return;
         }
         if (!GameServices.Session.HasRole) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
-        UiSoundPlayer.Play(this, 1005);
+        UiSoundPlayer.Play(this, 1003);
         GameServices.World.InitializeRole();
         BuildRoleWorld();
     }

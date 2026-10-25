@@ -8,7 +8,7 @@ public partial class UiSoundPlayer : Node
 {
     /// <summary>音效资源所在目录。</summary>
     private const string SoundDirectory = "res://assets/audio/effects/";
-    /// <summary>场景生命周期内复用的六个短音效播放器。</summary>
+    /// <summary>场景生命周期内复用的四个短音效播放器。</summary>
     private readonly Dictionary<int, AudioStreamPlayer> _players = new();
 
     /// <summary>建立独立音量总线并监听后续创建的控件。</summary>
@@ -16,7 +16,7 @@ public partial class UiSoundPlayer : Node
     {
         EnsureBus("BGM");
         EnsureBus("SFX");
-        foreach (var id in new[] { 1001, 1003, 1005, 1006, 1007, 1010 })
+        foreach (var id in new[] { 1001, 1003, 1007, 1010 })
         {
             var stream = ResourceLoader.Load<AudioStream>($"{SoundDirectory}{id}.wav");
             if (stream is null) continue;
@@ -58,7 +58,7 @@ public partial class UiSoundPlayer : Node
         player.Play();
     }
 
-    /// <summary>按控件用途选择菜单、取消或确认反馈。</summary>
+    /// <summary>按控件用途选择通用或取消反馈。</summary>
     private void OnNodeAdded(Node node)
     {
         if (node is TabContainer tabs)
@@ -71,21 +71,14 @@ public partial class UiSoundPlayer : Node
         };
     }
 
-    /// <summary>按固定入口与操作语义区分界面切换、取消和确认音效。</summary>
+    /// <summary>登录和进入游戏等待成功反馈，取消与其他按钮分别使用对应音效。</summary>
     internal static int SoundIdForButton(Button button)
     {
         var name = button.Name.ToString();
-        if (name.StartsWith("SelectRole") || name.StartsWith("HeadChoice") ||
-            name is "OpenCreateRole" or "SubmitCreate" or "GenderMale" or "GenderFemale" or
-                "RotateCounterclockwise" or "RotateClockwise" or "OpenItemCatalog" or
-                "OpenUserDataDirectory" ||
-            button.Text is "系统" or "角色" or "背包" or "大地图" or "GM" or
-                "返回角色选择" or "角色设置" or "系统设置" or "进入 HUD 调整")
-            return 1003;
         if (button.Text.Contains("取消") || button.Text.Contains("关闭") || button.Text.Contains("退出") ||
-            button.Text.StartsWith("返回") || name.StartsWith("Cancel"))
+            button.Text.StartsWith("返回") && button.Text != "返回角色选择" || name.StartsWith("Cancel"))
             return 1007;
-        return button.Text is "登录" or "进入游戏" ? 0 : 1006;
+        return button.Text is "登录" or "进入游戏" ? 0 : 1003;
     }
 
     /// <summary>在没有项目音频总线配置时创建业务总线。</summary>
