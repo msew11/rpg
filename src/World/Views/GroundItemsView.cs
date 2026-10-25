@@ -170,25 +170,32 @@ public partial class GroundItemsView : Node2D
             if (anchor.X < 0 || anchor.Y < 0 || anchor.X > viewport.X || anchor.Y > viewport.Y ||
                 size.X > viewport.X || size.Y > viewport.Y)
             { info.Hide(); continue; }
-            var placed = false;
-            for (var row = 0; row < 18 && !placed; row++)
-            for (var column = 0; column < 9 && !placed; column++)
-            {
-                var side = column == 0 ? 0 : (column % 2 == 1 ? 1 : -1) * ((column + 1) / 2);
-                var x = Mathf.Clamp(anchor.X - size.X / 2 + side * (size.X + 4), 0, viewport.X - size.X);
-                var y = anchor.Y - size.Y - 6 - row * (size.Y + 4);
-                if (y < 0) y = anchor.Y + 12 + row * (size.Y + 4);
-                if (y < 0 || y + size.Y > viewport.Y) continue;
-                var rect = new Rect2(new Vector2(x, y), size);
-                if (occupied.Any(other => other.Grow(2).Intersects(rect))) continue;
-                info.Position = rect.Position;
-                info.Size = size;
-                info.Show();
-                occupied.Add(rect);
-                placed = true;
-            }
-            if (!placed) info.Hide();
+            var placement = FindInfoPlacement(anchor, size, viewport, occupied);
+            if (placement is not { } rect) { info.Hide(); continue; }
+            info.Position = rect.Position;
+            info.Size = size;
+            info.Show();
+            occupied.Add(rect);
         }
+    }
+
+    /// <summary>优先在物品中心线上紧凑叠放，再向两侧寻找视口内空位。</summary>
+    internal static Rect2? FindInfoPlacement(Vector2 anchor, Vector2 size, Vector2 viewport, IReadOnlyList<Rect2> occupied)
+    {
+        if (size.X > viewport.X || size.Y > viewport.Y) return null;
+        for (var column = 0; column < 9; column++)
+        for (var row = 0; row < 6; row++)
+        {
+            var side = column == 0 ? 0 : (column % 2 == 1 ? 1 : -1) * ((column + 1) / 2);
+            var x = Mathf.Clamp(anchor.X - size.X / 2 + side * (size.X + 2), 0, viewport.X - size.X);
+            var y = anchor.Y - size.Y - 4 - row * (size.Y + 2);
+            if (y < 0) y = anchor.Y + 4 + row * (size.Y + 2);
+            if (y < 0 || y + size.Y > viewport.Y) continue;
+            var rect = new Rect2(new Vector2(x, y), size);
+            if (occupied.Any(other => other.Grow(1).Intersects(rect))) continue;
+            return rect;
+        }
+        return null;
     }
 
     /// <summary>信息框占用鼠标时仍能找出对应的地面物品。</summary>

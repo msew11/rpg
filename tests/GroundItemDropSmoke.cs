@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
@@ -99,6 +100,25 @@ public partial class GroundItemDropSmoke : Node
                 infoViews.All(info => !info.GetNode<Label>("InfoText").Text.Contains("×1")) &&
                 !infoViews[0].GetGlobalRect().Intersects(infoViews[1].GetGlobalRect()),
                 "单件信息仍显示 ×1 或信息框重叠");
+            // ground-item-drop：邻近物品先沿中心列以小间距堆叠，悬停不改变紧凑尺寸。
+            Check(infoViews.All(info => info.GetNode<Label>("InfoText").GetThemeFontSize("font_size") == 16 &&
+                info.GetCombinedMinimumSize().Y <= 30), "地面物品信息框仍然过大");
+            var normalSize = infoViews[0].GetCombinedMinimumSize();
+            infoViews[0].SetHighlighted(true);
+            Check(infoViews[0].GetCombinedMinimumSize() == normalSize, "信息框高亮改变了排布尺寸");
+            infoViews[0].SetHighlighted(false);
+            var placed = new List<Rect2>();
+            var layoutAnchor = new Vector2(150, 150);
+            var layoutSize = new Vector2(80, 25);
+            for (var index = 0; index < 3; index++)
+            {
+                var rect = GroundItemsView.FindInfoPlacement(layoutAnchor, layoutSize, new Vector2(300, 250), placed);
+                placed.Add(rect ?? throw new InvalidOperationException("邻近信息框没有可用位置"));
+            }
+            Check(placed.All(rect => Mathf.IsEqualApprox(rect.Position.X, placed[0].Position.X)) &&
+                Mathf.IsEqualApprox(placed[0].Position.Y - placed[1].Position.Y, layoutSize.Y + 2) &&
+                Mathf.IsEqualApprox(placed[1].Position.Y - placed[2].Position.Y, layoutSize.Y + 2),
+                "邻近信息框未优先紧凑纵向堆叠");
             SendKey(Key.Z); await Frames();
             Check(infoViews.All(info => !info.Visible), "再次按 Z 未隐藏地面信息");
 

@@ -19,7 +19,9 @@ public partial class GroundItemInfoControl : PanelContainer
     private readonly StyleBoxFlat _normal = new()
     {
         BgColor = new Color(0.08f, 0.10f, 0.14f, 0.94f),
-        ContentMarginLeft = 8, ContentMarginRight = 8, ContentMarginTop = 4, ContentMarginBottom = 4
+        BorderColor = Colors.Transparent,
+        BorderWidthLeft = 1, BorderWidthRight = 1, BorderWidthTop = 1, BorderWidthBottom = 1,
+        ContentMarginLeft = 5, ContentMarginRight = 5, ContentMarginTop = 2, ContentMarginBottom = 2
     };
     /// <summary>鼠标悬停时的高亮信息框样式。</summary>
     private readonly StyleBoxFlat _highlight = new()
@@ -27,7 +29,7 @@ public partial class GroundItemInfoControl : PanelContainer
         BgColor = new Color(0.18f, 0.25f, 0.29f, 0.98f),
         BorderColor = new Color(0.91f, 0.78f, 0.32f),
         BorderWidthLeft = 1, BorderWidthRight = 1, BorderWidthTop = 1, BorderWidthBottom = 1,
-        ContentMarginLeft = 8, ContentMarginRight = 8, ContentMarginTop = 4, ContentMarginBottom = 4
+        ContentMarginLeft = 5, ContentMarginRight = 5, ContentMarginTop = 2, ContentMarginBottom = 2
     };
 
     /// <summary>创建可接收鼠标但不改变世界对象的 UI 控件。</summary>
@@ -36,6 +38,7 @@ public partial class GroundItemInfoControl : PanelContainer
         ObjectId = objectId;
         Name = "GroundItemInfo_" + objectId.ToString("N");
         MouseFilter = MouseFilterEnum.Stop;
+        _label.AddThemeFontSizeOverride("font_size", 16);
         AddChild(_label);
         AddThemeStyleboxOverride("panel", _normal);
     }
