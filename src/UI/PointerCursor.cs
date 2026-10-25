@@ -21,9 +21,9 @@ public partial class PointerCursor : Node
     public bool IsHudHovering { get; private set; }
     /// <summary>当前是否保持 HUD 握手拖动。</summary>
     public bool IsHudDragging { get; private set; }
-    /// <summary>当前是否提示可拖动窗口标题。</summary>
+    /// <summary>当前是否提示可拖动窗口标题或聊天缩放角。</summary>
     public bool IsWindowHovering { get; private set; }
-    /// <summary>当前是否保持窗口握手拖动。</summary>
+    /// <summary>当前是否保持窗口拖动或聊天缩放的握手。</summary>
     public bool IsWindowDragging { get; private set; }
     /// <summary>当前是否提示可拾取地面物品。</summary>
     public bool IsItemHovering { get; private set; }
@@ -90,8 +90,9 @@ public partial class PointerCursor : Node
         var itemHover = _focused && GetTree().GetNodesInGroup("GroundItemViews")
             .OfType<GroundItemsView>().Any(view => view.HoveredObjectId is not null);
         var windows = GetTree().GetNodesInGroup("WindowDragControls").OfType<WindowDragControl>();
-        var windowDragging = _focused && windows.Any(window => window.Dragging);
-        var windowHovering = _focused && windows.Any(window => window.Hovering);
+        var resizeHandles = GetTree().GetNodesInGroup("ChatResizeHandles").OfType<ChatResizeHandle>();
+        var windowDragging = _focused && (windows.Any(window => window.Dragging) || resizeHandles.Any(handle => handle.Resizing));
+        var windowHovering = _focused && (windows.Any(window => window.Hovering) || resizeHandles.Any(handle => handle.Hovering));
         var previous = IsHudDragging || IsHudHovering || IsWindowDragging || IsWindowHovering || IsItemHovering;
         IsWindowDragging = windowDragging;
         IsWindowHovering = windowHovering;

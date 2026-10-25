@@ -132,7 +132,7 @@ public sealed class SettingService : Service
     /// <summary>读取当前角色聊天尺寸的副本，避免外部改动设置。</summary>
     public DataHudSize GetChatSize() => new() { Width = CurrentRole.ChatSize.Width, Height = CurrentRole.ChatSize.Height };
 
-    /// <summary>更新聊天手动尺寸，随布局确认时一起保存。</summary>
+    /// <summary>更新聊天手动尺寸，由常态缩放结束或布局恢复确认时保存。</summary>
     public void SetChatSize(float width, float height)
     {
         if (!float.IsFinite(width) || !float.IsFinite(height)) throw new ArgumentOutOfRangeException(nameof(width), "聊天尺寸必须为有限数值");
