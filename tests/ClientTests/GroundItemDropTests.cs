@@ -59,10 +59,10 @@ public sealed class GroundItemDropTests : IDisposable
     }
 
     /// <summary>构造可指定旧版本、非法数量和身份的请求。</summary>
-    private DropItemRt Drop(int count, long revision = 1, long? role = null, long instance = 1)
+    private DropItemRt Drop(int count, long revision = 1, long? role = null, long instance = 1, bool destroy = false)
     {
         _messages.Clear();
-        Send(new DropItem { RoleId = role ?? _id, InstanceId = instance, Count = count, ExpectedRevision = revision });
+        Send(new DropItem { RoleId = role ?? _id, InstanceId = instance, Count = count, ExpectedRevision = revision, Destroy = destroy });
         return Assert.Single(_messages.OfType<DropItemRt>());
     }
 
@@ -106,6 +106,61 @@ public sealed class GroundItemDropTests : IDisposable
         Assert.True(Drop(1).Success);
         Assert.False(Drop(1).Success);
         Assert.Single(_server.GetMap(1).Objects);
+    }
+
+    /// <summary>对应 Ctrl 销毁的部分/全部场景：不产生 AOI 或对象，拒绝重放，关闭落地后不复活。</summary>
+    [Fact]
+    public void DestroyPartialAndFullPersistsWithoutGroundObjects()
+    {
+        var response = Drop(2, destroy: true);
+        Assert.True(response.Success);
+        Assert.Empty(response.ObjectId);
+        var bag = Assert.Single(_messages.OfType<BagChangedNotice>()).Bag;
+        Assert.Equal((1L, 3), (Assert.Single(bag.Items).InstanceId, bag.Items[0].Count));
+        Assert.Empty(_messages.OfType<MapAoiNotice>());
+        Assert.Empty(_server.GetMap(1).Objects);
+        Assert.False(Drop(2, destroy: true).Success);
+        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.True(Drop(3, 2, destroy: true).Success);
+        Assert.Empty(Assert.Single(_messages.OfType<BagChangedNotice>()).Bag.Items);
+        Assert.Empty(_messages.OfType<MapAoiNotice>());
+        Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
+        _server.Flush();
+        _server = Start(); Enter(_id);
+        Assert.Empty(_messages.OfType<SelectRoleRt>().Last().Bag.Items);
+        Assert.Empty(_server.GetMap(1).Objects);
+        Assert.Equal(2, _repo.Load(_id).Bag.NextInstanceId);
+    }
+
+    /// <summary>对应非法销毁场景：数量、身份、实例及版本均必须校验。</summary>
+    [Theory]
+    [InlineData(0, 1, false, 1)]
+    [InlineData(-1, 1, false, 1)]
+    [InlineData(6, 1, false, 1)]
+    [InlineData(1, 0, false, 1)]
+    [InlineData(1, 1, true, 1)]
+    [InlineData(1, 1, false, 99)]
+    public void InvalidDestroyDoesNotMutate(int count, long revision, bool wrongRole, long instance)
+    {
+        Assert.False(Drop(count, revision, wrongRole ? _id + 1 : _id, instance, true).Success);
+        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.Empty(_messages.OfType<MapAoiNotice>());
+        Assert.Empty(_server.GetMap(1).Objects);
+        Assert.True(Drop(1, destroy: true).Success);
+        Assert.Equal(4, Assert.Single(_messages.OfType<BagChangedNotice>()).Bag.Items[0].Count);
+    }
+
+    /// <summary>对应同周期转移与销毁场景：关闭后共同恢复实际地面数量和销毁后的背包。</summary>
+    [Fact]
+    public void DropThenDestroyUsesExistingTransferGroup()
+    {
+        Assert.True(Drop(2).Success);
+        Assert.True(Drop(3, 2, destroy: true).Success);
+        Assert.Empty(_messages.OfType<MapAoiNotice>());
+        _server.Flush();
+        _server = Start(); Enter(_id);
+        Assert.Empty(_messages.OfType<SelectRoleRt>().Last().Bag.Items);
+        Assert.Equal(2, Assert.Single(_server.GetMap(1).Objects).Value.Count);
     }
 
     /// <summary>周期禁用且未关闭就重启时，两侧都回到上次完整状态。</summary>

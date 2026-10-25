@@ -56,7 +56,7 @@ message MoveItemRt {
   string error = 5;
 }
 
-// 从背包转移指定数量至服务端当前角色脚下，不接受客户端位置。
+// 从背包丢弃指定数量，支持直接销毁，不接受客户端位置。
 message DropItem {
   // 当前角色身份。
   int64 role_id = 1;
@@ -66,6 +66,8 @@ message DropItem {
   int32 count = 3;
   // 拿起时的背包版本，用于拒绝过期与重放请求。
   int64 expected_revision = 4;
+  // 为真时直接销毁指定数量，不生成地面对象；默认仍为普通丢弃。
+  bool destroy = 5;
 }
 
 // 丢弃响应，两侧状态仍经已有背包及 AOI 通知交付。
@@ -78,7 +80,7 @@ message DropItemRt {
   bool success = 3;
   // 失败原因。
   string error = 4;
-  // 成功创建的地面对象 GUID。
+  // 成功创建的地面对象 GUID，直接销毁时为空。
   string object_id = 5;
 }
 

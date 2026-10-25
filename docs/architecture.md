@@ -237,3 +237,9 @@ PickupItem 携带角色 ID、对象 GUID、对象版本、背包版本和 move_a
 DataServerBagRules.Add 统一 GM 和拾取的入包算法：优先补同类堆叠，再按空格分配新实例，容量不足整份拒绝，失败不消耗版本或实例编号。拾取成功保存候选背包、移除地图对象并登记已有共同落地关系，继续通过 BagChangedNotice、MapAoiNotice 和最终 PickupItemRt 交付结果；缓存不乐观更新。文件格式与 RepoServerItemTransfer 不变，反向拾取、同周期丢捡和不同角色之间的转移都属于同地图提交组。
 
 Items.DataItemOutline 将显示图标统一到透明 32×32 画布，按非透明像素生成两像素膨胀外轮廓，资源按素材键缓存；缺图问号也使用同一图形/轮廓遮罩。地面使用 GroundAssetId 显式绑定 item/item，背包继续使用 IconAssetId 的 item/itempic；七件装备的地面键来自导出表 icon_small_code，不隐式换算编号。命中使用 32×32 显示矩形向外扩展 8 像素的 48×48 区域，含透明角落，名称区域也可命中；坐标包含摄像机变换并在静止鼠标下逐帧重新计算。UI 悬停和模态窗口阻断命中，失焦、移出、AOI 移除和离开世界清除轮廓。PointerCursor 读取表现组的悬停状态，以 HUD 调整、物品 Fetch、普通指针为优先序；复用 Fetch 开手/握手两帧、1.25 缩放及源热点 (6,6)，没有世界对 UI 的反向依赖。
+
+## Ctrl 销毁确认
+
+BagControl 在拿起物品后 Ctrl 点击地图时冻结销毁意图，复用数量窗，标题、按钮及说明明确永久销毁、不掉落地面；单件仍须确认。松开 Ctrl 不改变窗口语义，取消、关闭、刷新及离开界面清理上下文。普通单件丢弃和多件数量确认保持原行为。
+
+DropItem 的 destroy 字段默认 false；Session 仅发送意图。MockServer 复用身份、实例、数量及背包版本校验，销毁只保存候选背包并发送 BagChangedNotice 与空 ObjectId 的成功响应，不创建对象、AOI 通知或新的转移关系。背包沿用周期/关闭落地与失败重试；已有丢弃或拾取共同提交组自动包含最新背包，因此同周期转移后销毁也能一致恢复。

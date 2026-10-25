@@ -495,13 +495,13 @@ public sealed class MockServer
         Send(response);
     }
 
-    /// <summary>完整校验后同步转移两侧内存，先建立共同落地关系，再发布权威通知。</summary>
+    /// <summary>完整校验后丢弃或销毁物品；仅普通丢弃创建地图对象和共同落地关系。</summary>
     private void HandleDropItem(DropItem request)
     {
         var response = new DropItemRt { RoleId = request.RoleId, InstanceId = request.InstanceId };
         DataServerRole candidate;
-        ServerMap map;
-        DataServerMapChange change;
+        ServerMap? map = null;
+        DataServerMapChange? change = null;
         try
         {
             if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
@@ -520,14 +520,17 @@ public sealed class MockServer
                     .OrderBy(item => item.SlotIndex).ToArray()
             } };
             _bagRules.Validate(candidate);
-            map = GetMap(_current.MapId);
-            var ground = new DataServerMapObject { X = _position.X, Y = _position.Y, ItemId = source.ItemId, Count = request.Count };
-            // Create 完整校验后修改，后续 SaveBag 在已加载的延迟仓库仅写内存且候选已验证。
-            change = map.Create(ground);
+            if (!request.Destroy)
+            {
+                map = GetMap(_current.MapId);
+                var ground = new DataServerMapObject { X = _position.X, Y = _position.Y, ItemId = source.ItemId, Count = request.Count };
+                // 创建地面物品后绑定共同落地；销毁不产生新的地图变更关系。
+                change = map.Create(ground);
+                if (!_transferGroups.TryGetValue(candidate.MapId, out var ids)) _transferGroups[candidate.MapId] = ids = new();
+                ids.Add(candidate.RoleId);
+                response.ObjectId = ground.ObjectId.ToString("N");
+            }
             _roles.SaveBag(candidate);
-            if (!_transferGroups.TryGetValue(candidate.MapId, out var ids)) _transferGroups[candidate.MapId] = ids = new();
-            ids.Add(candidate.RoleId);
-            response.ObjectId = ground.ObjectId.ToString("N");
         }
         catch (Exception error)
         {
@@ -538,7 +541,7 @@ public sealed class MockServer
         _current = candidate;
         response.Success = true;
         Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
-        PublishMapChange(map, change);
+        if (map is not null && change is not null) PublishMapChange(map, change);
         Send(response);
     }
 

@@ -168,12 +168,12 @@ public sealed class SessionService : Service
             TargetSlotIndex = targetSlotIndex, ExpectedRevision = expectedRevision });
     }
 
-    /// <summary>请求丢弃指定数量，不预先修改背包和地图缓存。</summary>
-    public void DropItem(long instanceId, int count, long expectedRevision)
+    /// <summary>请求丢弃或销毁指定数量，不预先修改背包和地图缓存。</summary>
+    public void DropItem(long instanceId, int count, long expectedRevision, bool destroy = false)
     {
         EnsureActive();
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
-        _net.Send(new DropItem { RoleId = RoleId, InstanceId = instanceId, Count = count, ExpectedRevision = expectedRevision });
+        _net.Send(new DropItem { RoleId = RoleId, InstanceId = instanceId, Count = count, ExpectedRevision = expectedRevision, Destroy = destroy });
     }
 
     /// <summary>绑定已经提交的走近移动，服务端决定何时可以整份拾取。</summary>

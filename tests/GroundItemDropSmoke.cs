@@ -70,6 +70,16 @@ public partial class GroundItemDropSmoke : Node
             await Frames();
             Check(GameServices.Session.Bag.Revision == revision && GameServices.Session.Map.Objects.Count == 1, "旧确认扣除了新背包");
 
+            // 对应 Ctrl 单件销毁确认与取消：松开修饰键后仍保留销毁语义。
+            var beforeDestroy = GameServices.Session.Bag;
+            await ChooseGroundDrop(grid.GetChild<Control>(1), true);
+            Check(dialog.Visible && dialog.Title == "销毁道具" && dialog.GetOkButton().Text == "销毁", "单件 Ctrl 未要求销毁确认");
+            Check(((Label)dialog.FindChild("DropItemPrompt", true, false)).Text.Contains("永久删除"), "缺少永久销毁说明");
+            Check(ReferenceEquals(beforeDestroy, GameServices.Session.Bag), "确认前已扣除物品");
+            dialog.GetCancelButton().EmitSignal(Button.SignalName.Pressed);
+            await Frames();
+            Check(ReferenceEquals(beforeDestroy, GameServices.Session.Bag) && view.GetChildCount() == 1, "取消销毁改变了状态");
+
             await ChooseGroundDrop(grid.GetChild<Control>(1));
             Check(!dialog.Visible, "单件丢弃仍弹出数量窗");
             await Frames();
@@ -100,9 +110,33 @@ public partial class GroundItemDropSmoke : Node
             GameServices.Net.Tick(100);
             await Frames();
             Check(view.GetChildCount() == 2, "再次进入 AOI 未恢复表现");
+            // 对应部分/全部销毁与模式冻结，真实点击确认后地面数量始终不变。
+            bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
+            bag.Show(); await Frames();
+            grid = (GridContainer)bag.FindChild("BagGrid", true, false);
+            dialog = (ConfirmationDialog)bag.FindChild("DropItemDialog", true, false);
+            count = (SpinBox)dialog.FindChild("DropItemCount", true, false);
+            var targetBeforeDestroy = GameServices.World.RoleTarget;
+            await ChooseGroundDrop(grid.GetChild<Control>(0), true);
+            Check(dialog.Visible && count.Value == 4, "整叠销毁未默认当前数量");
+            count.GetLineEdit().Text = "2";
+            dialog.GetOkButton().EmitSignal(Button.SignalName.Pressed); await Frames();
+            Check(GameServices.Session.Bag.Items.Single().Count == 2 && view.GetChildCount() == 2, "部分销毁数量或地面状态错误");
+            await ChooseGroundDrop(grid.GetChild<Control>(0), true);
+            dialog.GetOkButton().EmitSignal(Button.SignalName.Pressed); await Frames();
+            Check(GameServices.Session.Bag.Items.Count == 0 && view.GetChildCount() == 2, "全部销毁未移除源或生成了地面对象");
+            GameServices.Session.SendGm("item 1012 1"); await Frames();
+            await ChooseGroundDrop(grid.GetChild<Control>(0), true);
+            Check(dialog.Visible && count.Value == 1, "单件销毁跳过了确认");
+            dialog.GetOkButton().EmitSignal(Button.SignalName.Pressed); await Frames();
+            Check(GameServices.Session.Bag.Items.Count == 0 && view.GetChildCount() == 2, "单件销毁错误");
+            Check(GameServices.World.RoleTarget == targetBeforeDestroy, "销毁点击触发了走路");
+            main.QueueFree(); await Frames(); main = null;
+            main = await StartMain(directory, config);
+            Check(GameServices.Session.Bag.Items.Count == 0 && GameServices.Session.Map!.Objects.Count == 2, "关闭重启复活销毁物品或改变地面");
             PressTitle(main, "系统"); PressTitle(main, "返回角色选择"); await Frames();
             Check(!main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Any(), "离开世界未释放表现");
-            GD.Print("Ground item drop smoke passed: quantity, cancel, partial/full, stale confirmation, UI input isolation, icons, AOI, restart.");
+            GD.Print("Ground item drop smoke passed: quantity, Ctrl destroy confirmation/cancel/partial/full/single/restart, partial/full, stale confirmation, UI input isolation, icons, AOI, restart.");
             main.QueueFree(); await Frames(); main = null;
             GetTree().Quit();
         }
@@ -116,12 +150,12 @@ public partial class GroundItemDropSmoke : Node
     }
 
     /// <summary>真实左键拿起后点击地图，不直接调用业务处理方法。</summary>
-    private async Task ChooseGroundDrop(Control slot)
+    private async Task ChooseGroundDrop(Control slot, bool ctrl = false)
     {
         var point = slot.GetGlobalRect().GetCenter();
         MouseButtonAt(point, true); MouseButtonAt(point, false); await Frames();
         point = new Vector2(20, 220);
-        MouseButtonAt(point, true); MouseButtonAt(point, false); await Frames();
+        MouseButtonAt(point, true, ctrl); MouseButtonAt(point, false); await Frames();
     }
 
     /// <summary>进入真实角色和背包，正式物品配置仍由隔离文件提供。</summary>
@@ -141,10 +175,10 @@ public partial class GroundItemDropSmoke : Node
     }
 
     /// <summary>注入视口鼠标按下或释放，验证 GUI 消费与世界输入隔离。</summary>
-    private void MouseButtonAt(Vector2 point, bool pressed)
+    private void MouseButtonAt(Vector2 point, bool pressed, bool ctrl = false)
     {
         using var button = new InputEventMouseButton { Position = point, GlobalPosition = point,
-            ButtonIndex = MouseButton.Left, Pressed = pressed, ButtonMask = pressed ? MouseButtonMask.Left : 0 };
+            ButtonIndex = MouseButton.Left, Pressed = pressed, CtrlPressed = ctrl, ButtonMask = pressed ? MouseButtonMask.Left : 0 };
         GetViewport().PushInput(button, true);
     }
 

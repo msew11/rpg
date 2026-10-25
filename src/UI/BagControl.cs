@@ -35,6 +35,8 @@ public partial class BagControl : PanelContainer
     private SpinBox _dropCount = null!;
     /// <summary>确认时再次验证的冻结上下文。</summary>
     private Variant _dropContext;
+    /// <summary>冻结地图点击时的销毁意图，确认时不再读取键盘状态。</summary>
+    private bool _destroyOnConfirm;
     /// <summary>刷新或关闭面板后使旧拖放上下文失效。</summary>
     private long _dragEpoch;
     /// <summary>独立于网格裁剪的物品与名称浮层。</summary>
@@ -200,17 +202,17 @@ public partial class BagControl : PanelContainer
         if (input is InputEventMouse mouse) _pointerPosition = mouse.Position;
     }
 
-    /// <summary>拿起后点击未被 UI 消费的地图，打开数量确认并阻止走路。</summary>
+    /// <summary>拿起后点击未被 UI 消费的地图，按 Ctrl 打开销毁确认，否则沿用丢弃确认，并阻止走路。</summary>
     public override void _UnhandledInput(InputEvent input)
     {
-        if (_itemPreview is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
+        if (_itemPreview is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } click) return;
         var data = _pickedItem;
         CancelItemDrag();
         if (GameServices.World.HasRole && CanDropItem(data, 0))
         {
             var payload = data.AsGodotDictionary();
             var item = GameServices.Session.Bag.Items.Single(item => item.InstanceId == payload["instance"].AsInt64());
-            if (item.Count == 1)
+            if (item.Count == 1 && !click.CtrlPressed)
             {
                 try { GameServices.Session.DropItem(item.InstanceId, 1, payload["revision"].AsInt64()); }
                 catch (Exception error) { ShowMoveStatus(error.Message); }
@@ -218,6 +220,11 @@ public partial class BagControl : PanelContainer
                 return;
             }
             _dropContext = data;
+            _destroyOnConfirm = click.CtrlPressed;
+            _dropDialog.Title = _destroyOnConfirm ? "销毁道具" : "丢弃道具";
+            _dropDialog.GetOkButton().Text = _destroyOnConfirm ? "销毁" : "丢弃";
+            ((Label)_dropDialog.FindChild("DropItemPrompt", true, false)).Text = _destroyOnConfirm
+                ? "确认销毁所选数量？永久删除，不会掉落地面。" : "选择丢弃数量（丢在角色脚下）";
             _dropCount.MaxValue = item.Count;
             _dropCount.Value = item.Count;
             _dropDialog.PopupCentered(new Vector2I(300, 160));
@@ -295,12 +302,13 @@ public partial class BagControl : PanelContainer
     private void ConfirmGroundDrop()
     {
         var data = _dropContext;
-        _dropContext = default;
+        var destroy = _destroyOnConfirm;
+        CloseDropDialog();
         if (!CanDropItem(data, 0)) { ShowMoveStatus("背包已更新，请重新选择丢弃物品"); return; }
         if (!int.TryParse(_dropCount.GetLineEdit().Text.Trim(), out var count) || count < 1 || count > _dropCount.MaxValue)
         { ShowMoveStatus("丢弃数量无效"); return; }
         var payload = data.AsGodotDictionary();
-        try { GameServices.Session.DropItem(payload["instance"].AsInt64(), count, payload["revision"].AsInt64()); }
+        try { GameServices.Session.DropItem(payload["instance"].AsInt64(), count, payload["revision"].AsInt64(), destroy); }
         catch (Exception error) { ShowMoveStatus(error.Message); }
     }
 
@@ -314,6 +322,7 @@ public partial class BagControl : PanelContainer
     private void CloseDropDialog()
     {
         _dropContext = default;
+        _destroyOnConfirm = false;
         _dropDialog?.Hide();
     }
 

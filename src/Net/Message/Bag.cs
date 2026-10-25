@@ -33,18 +33,18 @@ namespace Rpg.Net.Message {
             "dGFyZ2V0X3Nsb3RfaW5kZXgYAyABKAUSGQoRZXhwZWN0ZWRfcmV2aXNpb24Y",
             "BCABKAMibQoKTW92ZUl0ZW1SdBIPCgdyb2xlX2lkGAEgASgDEhMKC2luc3Rh",
             "bmNlX2lkGAIgASgDEhkKEXRhcmdldF9zbG90X2luZGV4GAMgASgFEg8KB3N1",
-            "Y2Nlc3MYBCABKAgSDQoFZXJyb3IYBSABKAkiWgoIRHJvcEl0ZW0SDwoHcm9s",
+            "Y2Nlc3MYBCABKAgSDQoFZXJyb3IYBSABKAkiawoIRHJvcEl0ZW0SDwoHcm9s",
             "ZV9pZBgBIAEoAxITCgtpbnN0YW5jZV9pZBgCIAEoAxINCgVjb3VudBgDIAEo",
-            "BRIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoAyJlCgpEcm9wSXRlbVJ0Eg8K",
-            "B3JvbGVfaWQYASABKAMSEwoLaW5zdGFuY2VfaWQYAiABKAMSDwoHc3VjY2Vz",
-            "cxgDIAEoCBINCgVlcnJvchgEIAEoCRIRCglvYmplY3RfaWQYBSABKAkiiQEK",
-            "ClBpY2t1cEl0ZW0SDwoHcm9sZV9pZBgBIAEoAxIRCglvYmplY3RfaWQYAiAB",
-            "KAkSIAoYZXhwZWN0ZWRfb2JqZWN0X3JldmlzaW9uGAMgASgDEh0KFWV4cGVj",
-            "dGVkX2JhZ19yZXZpc2lvbhgEIAEoAxIWCg5tb3ZlX2FjdGlvbl9pZBgFIAEo",
-            "AyJqCgxQaWNrdXBJdGVtUnQSDwoHcm9sZV9pZBgBIAEoAxIRCglvYmplY3Rf",
-            "aWQYAiABKAkSFgoObW92ZV9hY3Rpb25faWQYAyABKAMSDwoHc3VjY2VzcxgE",
-            "IAEoCBINCgVlcnJvchgFIAEoCUISqgIPUnBnLk5ldC5NZXNzYWdlYgZwcm90",
-            "bzM="));
+            "BRIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoAxIPCgdkZXN0cm95GAUgASgI",
+            "ImUKCkRyb3BJdGVtUnQSDwoHcm9sZV9pZBgBIAEoAxITCgtpbnN0YW5jZV9p",
+            "ZBgCIAEoAxIPCgdzdWNjZXNzGAMgASgIEg0KBWVycm9yGAQgASgJEhEKCW9i",
+            "amVjdF9pZBgFIAEoCSKJAQoKUGlja3VwSXRlbRIPCgdyb2xlX2lkGAEgASgD",
+            "EhEKCW9iamVjdF9pZBgCIAEoCRIgChhleHBlY3RlZF9vYmplY3RfcmV2aXNp",
+            "b24YAyABKAMSHQoVZXhwZWN0ZWRfYmFnX3JldmlzaW9uGAQgASgDEhYKDm1v",
+            "dmVfYWN0aW9uX2lkGAUgASgDImoKDFBpY2t1cEl0ZW1SdBIPCgdyb2xlX2lk",
+            "GAEgASgDEhEKCW9iamVjdF9pZBgCIAEoCRIWCg5tb3ZlX2FjdGlvbl9pZBgD",
+            "IAEoAxIPCgdzdWNjZXNzGAQgASgIEg0KBWVycm9yGAUgASgJQhKqAg9ScGcu",
+            "TmV0Lk1lc3NhZ2ViBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -53,7 +53,7 @@ namespace Rpg.Net.Message {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.BagChangedNotice), global::Rpg.Net.Message.BagChangedNotice.Parser, new[]{ "RoleId", "Bag" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.MoveItem), global::Rpg.Net.Message.MoveItem.Parser, new[]{ "RoleId", "InstanceId", "TargetSlotIndex", "ExpectedRevision" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.MoveItemRt), global::Rpg.Net.Message.MoveItemRt.Parser, new[]{ "RoleId", "InstanceId", "TargetSlotIndex", "Success", "Error" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItem), global::Rpg.Net.Message.DropItem.Parser, new[]{ "RoleId", "InstanceId", "Count", "ExpectedRevision" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItem), global::Rpg.Net.Message.DropItem.Parser, new[]{ "RoleId", "InstanceId", "Count", "ExpectedRevision", "Destroy" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItemRt), global::Rpg.Net.Message.DropItemRt.Parser, new[]{ "RoleId", "InstanceId", "Success", "Error", "ObjectId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.PickupItem), global::Rpg.Net.Message.PickupItem.Parser, new[]{ "RoleId", "ObjectId", "ExpectedObjectRevision", "ExpectedBagRevision", "MoveActionId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.PickupItemRt), global::Rpg.Net.Message.PickupItemRt.Parser, new[]{ "RoleId", "ObjectId", "MoveActionId", "Success", "Error" }, null, null, null, null)
@@ -1562,7 +1562,7 @@ namespace Rpg.Net.Message {
   }
 
   /// <summary>
-  /// 从背包转移指定数量至服务端当前角色脚下，不接受客户端位置。
+  /// 从背包丢弃指定数量，支持直接销毁，不接受客户端位置。
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class DropItem : pb::IMessage<DropItem>
@@ -1603,6 +1603,7 @@ namespace Rpg.Net.Message {
       instanceId_ = other.instanceId_;
       count_ = other.count_;
       expectedRevision_ = other.expectedRevision_;
+      destroy_ = other.destroy_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -1672,6 +1673,21 @@ namespace Rpg.Net.Message {
       }
     }
 
+    /// <summary>Field number for the "destroy" field.</summary>
+    public const int DestroyFieldNumber = 5;
+    private bool destroy_;
+    /// <summary>
+    /// 为真时直接销毁指定数量，不生成地面对象；默认仍为普通丢弃。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Destroy {
+      get { return destroy_; }
+      set {
+        destroy_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -1691,6 +1707,7 @@ namespace Rpg.Net.Message {
       if (InstanceId != other.InstanceId) return false;
       if (Count != other.Count) return false;
       if (ExpectedRevision != other.ExpectedRevision) return false;
+      if (Destroy != other.Destroy) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1702,6 +1719,7 @@ namespace Rpg.Net.Message {
       if (InstanceId != 0L) hash ^= InstanceId.GetHashCode();
       if (Count != 0) hash ^= Count.GetHashCode();
       if (ExpectedRevision != 0L) hash ^= ExpectedRevision.GetHashCode();
+      if (Destroy != false) hash ^= Destroy.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1736,6 +1754,10 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(32);
         output.WriteInt64(ExpectedRevision);
       }
+      if (Destroy != false) {
+        output.WriteRawTag(40);
+        output.WriteBool(Destroy);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1762,6 +1784,10 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(32);
         output.WriteInt64(ExpectedRevision);
       }
+      if (Destroy != false) {
+        output.WriteRawTag(40);
+        output.WriteBool(Destroy);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1783,6 +1809,9 @@ namespace Rpg.Net.Message {
       }
       if (ExpectedRevision != 0L) {
         size += 1 + pb::CodedOutputStream.ComputeInt64Size(ExpectedRevision);
+      }
+      if (Destroy != false) {
+        size += 1 + 1;
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1807,6 +1836,9 @@ namespace Rpg.Net.Message {
       }
       if (other.ExpectedRevision != 0L) {
         ExpectedRevision = other.ExpectedRevision;
+      }
+      if (other.Destroy != false) {
+        Destroy = other.Destroy;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1843,6 +1875,10 @@ namespace Rpg.Net.Message {
             ExpectedRevision = input.ReadInt64();
             break;
           }
+          case 40: {
+            Destroy = input.ReadBool();
+            break;
+          }
         }
       }
     #endif
@@ -1876,6 +1912,10 @@ namespace Rpg.Net.Message {
           }
           case 32: {
             ExpectedRevision = input.ReadInt64();
+            break;
+          }
+          case 40: {
+            Destroy = input.ReadBool();
             break;
           }
         }
@@ -2001,7 +2041,7 @@ namespace Rpg.Net.Message {
     public const int ObjectIdFieldNumber = 5;
     private string objectId_ = "";
     /// <summary>
-    /// 成功创建的地面对象 GUID。
+    /// 成功创建的地面对象 GUID，直接销毁时为空。
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
