@@ -190,17 +190,19 @@ public partial class GameHud : Control
         for (var bar = 1; bar <= 3; bar++)
         {
             var panel = Movable($"hotbar{bar}", $"技能栏 {bar}");
-            _movable[$"hotbar{bar}"].AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
+            // 复用原底色绘制黑色外框，中心不填充以保留格内透明。
+            var barStyle = (StyleBoxFlat)_movable[$"hotbar{bar}"].GetThemeStylebox("panel").Duplicate();
+            barStyle.BorderColor = barStyle.BgColor;
+            barStyle.DrawCenter = false;
+            barStyle.SetBorderWidthAll(4);
+            barStyle.SetContentMarginAll(4);
+            _movable[$"hotbar{bar}"].AddThemeStyleboxOverride("panel", barStyle);
             var row = new HBoxContainer();
             panel.AddChild(row);
             for (var slot = 1; slot <= 9; slot++)
             {
-                var cell = new PanelContainer { CustomMinimumSize = new Vector2(44, 44) };
+                var cell = new PanelContainer { CustomMinimumSize = new Vector2(32, 32) };
                 cell.AddThemeStyleboxOverride("panel", slotStyle);
-                var label = Text(slot.ToString(), 13);
-                label.HorizontalAlignment = HorizontalAlignment.Center;
-                label.VerticalAlignment = VerticalAlignment.Center;
-                cell.AddChild(label);
                 row.AddChild(cell);
             }
             _movable[$"hotbar{bar}"].Visible = GameServices.Setting.IsHotbarVisible(bar);
