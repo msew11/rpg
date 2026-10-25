@@ -69,6 +69,8 @@ public partial class GameHud : Control
     private ChatControl _chat = null!;
     /// <summary>角色设置窗口，用于关闭时取消快捷键监听。</summary>
     private Control _roleSettings = null!;
+    /// <summary>关闭显示设置或离开世界时撤销未保存的窗口预览。</summary>
+    private Action? _restoreDisplayPreview;
     /// <summary>三个快捷键按钮及其等待状态。</summary>
     private readonly Dictionary<string, Button> _shortcutButtons = new();
     /// <summary>最近成功保存的按钮文字，离开角色后取消监听也无需访问设置服务。</summary>
@@ -459,7 +461,7 @@ public partial class GameHud : Control
         var system = CreatePanel("系统设置", new Vector2(380, 390));
         var tabs = new TabContainer { CustomMinimumSize = new Vector2(345, 295) };
         system.AddChild(tabs);
-        BuildDisplayTab(tabs);
+        BuildDisplayTab(tabs, GetNode<Control>("系统设置"));
         BuildSoundTab(tabs);
         var role = CreatePanel("角色设置", new Vector2(440, 0));
         _roleSettings = GetNode<Control>("角色设置");
@@ -540,7 +542,7 @@ public partial class GameHud : Control
     }
 
     /// <summary>先选择显示模式，再按模式提供普通窗口分辨率或当前屏幕分辨率。</summary>
-    private void BuildDisplayTab(TabContainer tabs)
+    private void BuildDisplayTab(TabContainer tabs, Control systemPanel)
     {
         var page = new VBoxContainer { Name = "显示" };
         tabs.AddChild(page);
@@ -554,6 +556,7 @@ public partial class GameHud : Control
         page.AddChild(Text("分辨率", 16));
         var options = new OptionButton();
         page.AddChild(options);
+        var gameWindow = GetWindow();
         var sizes = new List<Vector2I>
         {
             new Vector2I(800, 600), new Vector2I(1024, 768), new Vector2I(1280, 720),
@@ -561,10 +564,12 @@ public partial class GameHud : Control
             new Vector2I(1600, 900), new Vector2I(1920, 1080), new Vector2I(2560, 1440),
             new Vector2I(3840, 2160)
         };
-        var windowSize = new Vector2I(GameServices.Setting.Width, GameServices.Setting.Height);
+        var savedSize = new Vector2I(GameServices.Setting.Width, GameServices.Setting.Height);
+        var savedMode = GameServices.Setting.WindowMode;
+        var windowSize = savedSize;
         if (!sizes.Contains(windowSize)) sizes.Add(windowSize);
 
-        // 待应用模式改变时保留窗口尺寸，全屏只展示当前显示器尺寸。
+        // 模式改变时保留窗口尺寸，全屏只展示当前显示器尺寸。
         void UpdateResolutionOptions(long modeIndex)
         {
             options.Clear();
@@ -576,27 +581,61 @@ public partial class GameHud : Control
                 return;
             }
 
-            var screenSize = DisplayServer.ScreenGetSize(GetWindow().CurrentScreen);
-            if (screenSize.X <= 0 || screenSize.Y <= 0) screenSize = GetWindow().Size;
+            var screenSize = DisplayServer.ScreenGetSize(gameWindow.CurrentScreen);
+            if (screenSize.X <= 0 || screenSize.Y <= 0) screenSize = gameWindow.Size;
             options.AddItem($"{screenSize.X} × {screenSize.Y}");
             options.Select(0);
             options.Disabled = true;
         }
+        // 预览只修改 Godot 窗口，不写入系统设置。
+        void PreviewDisplay()
+        {
+            DisplaySettings.Apply(gameWindow, windowSize, (WindowDisplayMode)modes.Selected);
+            ApplyLayout();
+        }
+
+        // 关闭面板或离开世界时以最近一次保存的设置恢复窗口与控件。
+        void RestoreDisplayPreview()
+        {
+            if (windowSize != savedSize || modes.Selected != (int)savedMode)
+                DisplaySettings.Apply(gameWindow, savedSize, savedMode);
+            windowSize = savedSize;
+            modes.Select((int)savedMode);
+            UpdateResolutionOptions(modes.Selected);
+            if (IsInsideTree()) ApplyLayout();
+        }
+
         options.ItemSelected += index =>
         {
-            if (modes.Selected == (int)WindowDisplayMode.Windowed) windowSize = sizes[(int)index];
+            if (modes.Selected != (int)WindowDisplayMode.Windowed) return;
+            windowSize = sizes[(int)index];
+            PreviewDisplay();
         };
-        modes.ItemSelected += UpdateResolutionOptions;
-        UpdateResolutionOptions(modes.Selected);
-        var apply = new Button { Text = "应用并保存" };
-        apply.Pressed += () =>
+        modes.ItemSelected += index =>
         {
-            var mode = (WindowDisplayMode)modes.Selected;
-            GameServices.Setting.SetDisplay(windowSize.X, windowSize.Y, mode);
-            DisplaySettings.Apply(GetWindow(), windowSize, mode);
-            ApplyLayout();
+            PreviewDisplay();
+            UpdateResolutionOptions(index);
         };
-        page.AddChild(apply);
+        UpdateResolutionOptions(modes.Selected);
+        systemPanel.VisibilityChanged += () =>
+        {
+            if (!systemPanel.Visible) RestoreDisplayPreview();
+        };
+        _restoreDisplayPreview = RestoreDisplayPreview;
+        var save = new Button { Text = "保存" };
+        save.Pressed += () =>
+        {
+            try
+            {
+                var mode = (WindowDisplayMode)modes.Selected;
+                GameServices.Setting.SetDisplay(windowSize.X, windowSize.Y, mode);
+                savedSize = windowSize;
+                savedMode = mode;
+                _networkError.Text = "";
+            }
+            catch (Exception error) { _networkError.Text = $"无法保存显示设置：{error.Message}"; }
+        };
+        page.AddChild(save);
     }
 
     /// <summary>加入主音量滑块与保存操作。</summary>
@@ -915,6 +954,9 @@ public partial class GameHud : Control
     /// <summary>在返回页面时立即解除监听，不等待 QueueFree 执行。</summary>
     public void ReleaseSubscriptions()
     {
+        var restoreDisplayPreview = _restoreDisplayPreview;
+        _restoreDisplayPreview = null;
+        restoreDisplayPreview?.Invoke();
         _chatResize?.FinishResize();
         _chat?.ReleaseSubscription();
         _bag?.ReleaseSubscription();

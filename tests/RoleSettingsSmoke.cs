@@ -40,6 +40,7 @@ public partial class RoleSettingsSmoke : Node
             Check(radar.GetGlobalRect().IsEqualApprox(map.GetGlobalRect()) &&
                 radar.GetThemeStylebox("panel") is StyleBoxEmpty, "小地图外层仍有边距、黑框或空带");
             await VerifyWindowCoexistence(hud);
+            await VerifyDisplayPreview(hud);
             var cursor = main.GetNode<PointerCursor>("PointerCursor");
             var target = GameServices.World.RoleTarget;
             foreach (var (title, key, action) in new[] { ("角色", Key.C, "character"), ("背包", Key.B, "bag"), ("大地图", Key.M, "map") })
@@ -103,34 +104,6 @@ public partial class RoleSettingsSmoke : Node
             var rolePanel = hud.GetNode<Control>("角色设置");
             var tabs = (TabContainer)rolePanel.FindChild("RoleSettingTabs", true, false);
             Check(tabs.GetTabTitle(0) == "界面" && tabs.GetTabTitle(1) == "快捷键", "角色设置分类错误");
-            var systemTabs = hud.GetNode("系统设置").FindChildren("*", "TabContainer", true, false).OfType<TabContainer>().Single();
-            Check(systemTabs.GetTabCount() == 2, "系统设置仍包含 HUD 页签");
-            // client-settings：显示页提供常用尺寸与三种桌面窗口模式。
-            var displayPage = systemTabs.GetTabControl(0);
-            var displayOptions = displayPage.FindChildren("*", "OptionButton", true, false).OfType<OptionButton>().ToArray();
-            Check(displayOptions.Length == 2 && displayOptions[0].ItemCount == 3 && displayOptions[1].ItemCount >= 10,
-                "显示页分辨率或模式选项不完整");
-            var modes = displayOptions[0];
-            var resolutions = displayOptions[1];
-            Check(modes.GetItemText(0) == "窗口" && modes.GetItemText(1) == "全屏" &&
-                modes.GetItemText(2) == "无边框窗口全屏", "窗口模式顺序或名称错误");
-            resolutions.Select(7);
-            resolutions.EmitSignal(OptionButton.SignalName.ItemSelected, 7);
-            var selectedResolution = resolutions.GetItemText(7);
-            foreach (var mode in new[] { 1, 2 })
-            {
-                modes.Select(mode);
-                modes.EmitSignal(OptionButton.SignalName.ItemSelected, mode);
-                var screenSize = DisplayServer.ScreenGetSize(GetWindow().CurrentScreen);
-                if (screenSize.X <= 0 || screenSize.Y <= 0) screenSize = GetWindow().Size;
-                Check(resolutions.Disabled && resolutions.ItemCount == 1 &&
-                    resolutions.GetItemText(0) == $"{screenSize.X} × {screenSize.Y}",
-                    "全屏模式未显示当前分辨率或未灰化选择");
-            }
-            modes.Select(0);
-            modes.EmitSignal(OptionButton.SignalName.ItemSelected, 0);
-            Check(!resolutions.Disabled && resolutions.GetItemText(resolutions.Selected) == selectedResolution,
-                "切回窗口模式丢失待应用的分辨率");
             tabs.CurrentTab = 1;
             await Frames();
             var groundBind = (Button)rolePanel.FindChild("Shortcut_groundItems", true, false);
@@ -208,7 +181,14 @@ public partial class RoleSettingsSmoke : Node
             Check(GameServices.Setting.GetShortcut("character").Ctrl, "重选角色丢失快捷键");
             Check(GameServices.Setting.GetShortcut("groundItems").Key == Key.N, "重选角色丢失地面信息快捷键");
             var position = GameServices.Setting.GetWindowPosition("character")!;
+            Press(hud, "系统"); Press(hud, "系统设置");
+            await Frames();
+            var exitResolutions = hud.GetNode("系统设置").FindChildren("*", "OptionButton", true, false).OfType<OptionButton>().Last();
+            exitResolutions.Select(0);
+            exitResolutions.EmitSignal(OptionButton.SignalName.ItemSelected, 0);
+            Check(GetWindow().Size == new Vector2I(800, 600), "离开世界前未显示预览尺寸");
             main.QueueFree(); await Frames(); main = null;
+            Check(GetWindow().Size == new Vector2I(1280, 720), "离开世界未撤销显示预览");
             main = await Start(directory);
             hud = main.FindChildren("*", "Control", true, false).OfType<GameHud>().Single();
             Check(GameServices.Setting.GetShortcut("groundItems").Key == Key.N, "重启未恢复地面信息快捷键");
@@ -231,6 +211,108 @@ public partial class RoleSettingsSmoke : Node
             GetTree().Quit(1);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    /// <summary>验收 client-settings：显示选择即时预览，关闭撤销，保存后成为新的回退基线。</summary>
+    private async Task VerifyDisplayPreview(GameHud hud)
+    {
+        var originalSize = GetWindow().Size;
+        var originalMode = GetWindow().Mode;
+        var headless = DisplayServer.GetName() == "headless";
+        var systemPath = GameServices.Setting.SystemPath;
+        var originalFile = File.Exists(systemPath) ? File.ReadAllText(systemPath) : null;
+        Press(hud, "系统"); Press(hud, "系统设置");
+        await Frames();
+        var panel = hud.GetNode<Control>("系统设置");
+        var tabs = panel.FindChildren("*", "TabContainer", true, false).OfType<TabContainer>().Single();
+        Check(tabs.GetTabCount() == 2, "系统设置仍包含 HUD 页签");
+        var displayPage = tabs.GetTabControl(0);
+        var displayOptions = displayPage.FindChildren("*", "OptionButton", true, false).OfType<OptionButton>().ToArray();
+        Check(displayOptions.Length == 2 && displayOptions[0].ItemCount == 3 && displayOptions[1].ItemCount >= 10,
+            "显示页分辨率或模式选项不完整");
+        var modes = displayOptions[0];
+        var resolutions = displayOptions[1];
+        Check(modes.GetItemText(0) == "窗口" && modes.GetItemText(1) == "全屏" &&
+            modes.GetItemText(2) == "无边框窗口全屏", "窗口模式顺序或名称错误");
+        resolutions.Select(1);
+        resolutions.EmitSignal(OptionButton.SignalName.ItemSelected, 1);
+        await Frames();
+        Check(GetWindow().Size == new Vector2I(1024, 768) && GameServices.Setting.Width == originalSize.X,
+            "窗口分辨率没有即时预览或提前写入设置");
+        foreach (var mode in new[] { 1, 2 })
+        {
+            modes.Select(mode);
+            modes.EmitSignal(OptionButton.SignalName.ItemSelected, mode);
+            await Frames();
+            var expectedMode = mode == 1 ? Window.ModeEnum.ExclusiveFullscreen : Window.ModeEnum.Fullscreen;
+            var screenSize = DisplayServer.ScreenGetSize(GetWindow().CurrentScreen);
+            if (screenSize.X <= 0 || screenSize.Y <= 0) screenSize = GetWindow().Size;
+            Check((headless || GetWindow().Mode == expectedMode) &&
+                resolutions.Disabled && resolutions.ItemCount == 1 &&
+                resolutions.GetItemText(0) == $"{screenSize.X} × {screenSize.Y}",
+                "全屏模式未即时预览或未显示当前分辨率");
+        }
+        modes.Select(0);
+        modes.EmitSignal(OptionButton.SignalName.ItemSelected, 0);
+        await Frames();
+        Check((headless || GetWindow().Mode == Window.ModeEnum.Windowed) &&
+            GetWindow().Size == new Vector2I(1024, 768) &&
+            !resolutions.Disabled && resolutions.GetItemText(resolutions.Selected) == "1024 × 768",
+            $"切回窗口模式未恢复预览尺寸：{GetWindow().Mode} {GetWindow().Size} {resolutions.GetItemText(resolutions.Selected)}");
+        modes.Select(1);
+        modes.EmitSignal(OptionButton.SignalName.ItemSelected, 1);
+        await Frames();
+        Press(panel, "关闭");
+        await Frames();
+        Check((headless || GetWindow().Mode == originalMode) && GetWindow().Size == originalSize &&
+            (File.Exists(systemPath) ? File.ReadAllText(systemPath) : null) == originalFile,
+            "未保存预览在关闭后未还原或提前写盘");
+
+        Press(hud, "系统"); Press(hud, "系统设置");
+        await Frames();
+        Check(modes.Selected == 0 && resolutions.GetItemText(resolutions.Selected) == $"{originalSize.X} × {originalSize.Y}",
+            "重新打开显示设置未恢复已保存选项");
+        resolutions.Select(1);
+        resolutions.EmitSignal(OptionButton.SignalName.ItemSelected, 1);
+        var blockedWrite = systemPath + ".tmp";
+        Directory.CreateDirectory(blockedWrite);
+        Press(displayPage, "保存");
+        Check(GameServices.Setting.Width == originalSize.X &&
+            hud.GetNode<Label>("NetworkError").Text.Contains("无法保存显示设置"),
+            "显示设置写盘失败仍更新了已保存值");
+        Press(panel, "关闭");
+        await Frames();
+        Check(GetWindow().Size == originalSize, "保存失败后关闭未恢复原始尺寸");
+        Directory.Delete(blockedWrite);
+
+        Press(hud, "系统"); Press(hud, "系统设置");
+        await Frames();
+        resolutions.Select(1);
+        resolutions.EmitSignal(OptionButton.SignalName.ItemSelected, 1);
+        Press(displayPage, "保存");
+        Check(GameServices.Setting.Width == 1024 && GameServices.Setting.Height == 768 && File.Exists(systemPath),
+            "显示预览未在保存时提交");
+        Press(panel, "关闭");
+        await Frames();
+        Check(GetWindow().Size == new Vector2I(1024, 768), "保存后的显示值在关闭时被撤销");
+        Press(hud, "系统"); Press(hud, "系统设置");
+        await Frames();
+        resolutions.Select(0);
+        resolutions.EmitSignal(OptionButton.SignalName.ItemSelected, 0);
+        Press(hud, "GM");
+        await Frames();
+        Check(GetWindow().Size == new Vector2I(1024, 768), "第二次未保存预览未恢复最近保存值");
+        hud.GetNode<Control>("GM").Hide();
+
+        Press(hud, "系统"); Press(hud, "系统设置");
+        await Frames();
+        resolutions.Select(2);
+        resolutions.EmitSignal(OptionButton.SignalName.ItemSelected, 2);
+        Press(displayPage, "保存");
+        Press(panel, "关闭");
+        await Frames();
+        Check((headless || GetWindow().Mode == originalMode) && GetWindow().Size == originalSize,
+            "测试结束后未恢复原始显示尺寸");
     }
 
     /// <summary>验收 client-ui：多个独立窗口与普通面板共存，单独开关及置前不影响其他窗口。</summary>

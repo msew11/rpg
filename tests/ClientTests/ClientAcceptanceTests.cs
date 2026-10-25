@@ -242,6 +242,10 @@ public sealed class SettingsAcceptanceTests
             using var invalid = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
             Assert.Equal(WindowDisplayMode.Windowed, invalid.WindowMode);
             Assert.Equal(1920, invalid.Width);
+            Directory.CreateDirectory(invalid.SystemPath + ".tmp");
+            Assert.NotNull(Record.Exception(() => invalid.SetDisplay(1600, 900, WindowDisplayMode.Fullscreen)));
+            Assert.Equal(1920, invalid.Width);
+            Assert.Equal(WindowDisplayMode.Windowed, invalid.WindowMode);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }

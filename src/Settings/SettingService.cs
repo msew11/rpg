@@ -18,7 +18,7 @@ public sealed class SettingService : Service
     /// <summary>持久化 JSON 的格式设置。</summary>
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     /// <summary>当前系统显示和声音设置。</summary>
-    private readonly SystemSetting _systemSetting;
+    private SystemSetting _systemSetting;
     /// <summary>当前选中角色的设置。</summary>
     private RoleSetting? _roleSetting;
     /// <summary>当前选中角色的标识。</summary>
@@ -67,10 +67,15 @@ public sealed class SettingService : Service
         if (width < 800 || width > 3840) throw new ArgumentOutOfRangeException(nameof(width));
         if (height < 600 || height > 2160) throw new ArgumentOutOfRangeException(nameof(height));
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
-        _systemSetting.Width = width;
-        _systemSetting.Height = height;
-        _systemSetting.WindowMode = mode;
-        Write(SystemPath, _systemSetting);
+        var updated = new SystemSetting
+        {
+            Width = width,
+            Height = height,
+            WindowMode = mode,
+            MasterVolume = _systemSetting.MasterVolume
+        };
+        Write(SystemPath, updated);
+        _systemSetting = updated;
     }
 
     /// <summary>修改并保存当前主音量。</summary>
