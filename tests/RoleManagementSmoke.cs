@@ -33,6 +33,8 @@ public partial class RoleManagementSmoke : Node
             var selection = (RoleSelectionControl)main.FindChild("RoleSelectionPage", true, false);
             AssertLayout(selection, "ReturnLogin");
             Check(GameServices.Session.Roles.Count == 0, "全新存档登录生成了角色");
+            Check(selection.FindChild("PreviewPortrait", true, false) is AvatarControl { Visible: false },
+                "空角色列表显示了虚构头像");
             Check(main.FindChild("OpenCreateRole", true, false) is Button { Disabled: false }, "首次空列表无法创建");
             Press(main, "OpenCreateRole");
             await Frames();
@@ -43,7 +45,14 @@ public partial class RoleManagementSmoke : Node
             var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
             var head = actor.GetNode<Sprite2D>("Facing/Head");
             var preview = (RolePreviewControl)page.FindChild("RolePreview", true, false);
+            var portrait = (AvatarControl)page.FindChild("PreviewPortrait", true, false);
             Check(head.Texture is not null, "首次预览缺失头部");
+            // role-management：圆形头像与 HUD 使用同一头型素材，且位于人物左上方。
+            Check(portrait.Visible && portrait.Portrait?.ResourcePath.EndsWith("DThed011_01.png") == true &&
+                !portrait.GetNode<Label>("LevelLabel").Visible &&
+                portrait.GetGlobalRect().End.X < actor.GlobalPosition.X &&
+                portrait.GetGlobalRect().End.Y < actor.GlobalPosition.Y,
+                "初始头像缺失、含等级或位置偏离人物左上方");
             Check(!GameServices.World.HasWorld, "预览创建了 ECS 世界");
             var original = (body.Animation, actor.GetNode<Node2D>("Facing").Scale);
             for (var i = 0; i < 8; i++) Press(page, "RotateClockwise");
@@ -55,13 +64,19 @@ public partial class RoleManagementSmoke : Node
             var choices = (GridContainer)page.FindChild("HeadGrid", true, false);
             Check(choices.GetChildCount() == 74, "创建页没有平铺全部头型");
             Press(page, "HeadChoice17");
+            Check(portrait.Portrait?.ResourcePath.EndsWith("DThed031_01.png") == true,
+                "切换男性头型未更新圆形头像");
             Press(page, "RotateClockwise");
             var maleDirection = preview.Direction;
             Press(page, "GenderFemale");
             await Frame();
             Check(preview.Direction == 2, "女性继承了男性的朝向");
             Check(ReferenceEquals(head.Texture, GameServices.Animation.GetHead(RoleGender.Female, 1).Frames[4]), "女性继承了男性头型");
+            Check(portrait.Portrait?.ResourcePath.EndsWith("DThed011_51.png") == true,
+                "切换女性未更新圆形头像");
             Press(page, "HeadChoice74");
+            Check(ReferenceEquals(portrait.Portrait, GameServices.Animation.GetHead(RoleGender.Female, 74).Frames[4]),
+                "后十种头型未显示对应的头像帧");
             Press(page, "RotateCounterclockwise");
             var femaleDirection = preview.Direction;
             Press(page, "GenderMale");
@@ -125,8 +140,11 @@ public partial class RoleManagementSmoke : Node
             selection = (RoleSelectionControl)main.FindChild("RoleSelectionPage", true, false);
             Press(main, $"SelectRole{role.RoleId}");
             var selectedActor = (ActorView)selection.FindChild("PreviewActor", true, false);
+            var selectedPortrait = (AvatarControl)selection.FindChild("PreviewPortrait", true, false);
             Check(ReferenceEquals(selectedActor.GetNode<Sprite2D>("Facing/Head").Texture,
                 GameServices.Animation.GetHead(RoleGender.Female, 74).Frames[4]), "选角未展示新创建的角色");
+            Check(selectedPortrait.Visible && ReferenceEquals(selectedPortrait.Portrait,
+                GameServices.Animation.GetHead(RoleGender.Female, 74).Frames[4]), "选角头像与角色头型不一致");
             Press(selection, "RotateClockwise");
             await Capture("role-selection-preview.png");
             Press(main, $"DeleteRole{role.RoleId}");

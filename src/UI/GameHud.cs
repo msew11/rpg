@@ -985,7 +985,7 @@ public partial class GameHud : Control
         var state = GameServices.Session.Role;
         _portraitName.Text = state.Name;
         _avatar.Level = state.Level;
-        _avatar.Portrait = LoadPortrait(state.Gender, state.HeadId);
+        _avatar.Portrait = AvatarControl.LoadPortrait(state.Gender, state.HeadId);
         _avatar.QueueRedraw();
         _currentHealth = state.Health;
         _maxHealth = state.MaxHealth;
@@ -1019,21 +1019,6 @@ public partial class GameHud : Control
         var visibleHealth = _healthPreviewPercent is null ? _currentHealth :
             (int)Math.Round(percent / 100 * _maxHealth, MidpointRounding.AwayFromZero);
         _healthValue.Text = $"{visibleHealth}/{_maxHealth}";
-    }
-
-    /// <summary>读取原游戏专用头像，超出该图集范围时使用所选头型的正面帧。</summary>
-    internal static Texture2D LoadPortrait(RoleGender gender, int headId)
-    {
-        var id = headId == 0 ? 1 : headId;
-        if (id <= 64)
-        {
-            var group = (id - 1) / 8 + 1;
-            var variant = (id - 1) % 8 + 1;
-            var suffix = gender == RoleGender.Male ? "01" : "51";
-            var path = $"res://assets/portraits/DThed0{group}{variant}_{suffix}.png";
-            return GD.Load<Texture2D>(path) ?? throw new InvalidOperationException($"头像资源加载失败：{path}");
-        }
-        return GameServices.Animation.GetHead(gender, id).Frames[2];
     }
 
     /// <summary>创建与 HUD 配色一致的紧凑状态条。</summary>

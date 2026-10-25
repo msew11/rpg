@@ -70,7 +70,7 @@ public partial class UiBoundsSmoke : Node
             // client-ui：全部创角头型均有当前性别的专用头像或正面头部帧。
             foreach (var gender in new[] { RoleGender.Male, RoleGender.Female })
             foreach (var headId in Enumerable.Range(1, 74))
-                Check(GameHud.LoadPortrait(gender, headId) is not null,
+                Check(AvatarControl.LoadPortrait(gender, headId) is not null,
                     $"{gender} 头型 {headId} 没有 HUD 头像");
             // client-ui：普通窗口样式不改变聊天、雷达和角色信息的原有边距。
             foreach (var key in new[] { "portrait", "Radar", "Chat" })

@@ -22,6 +22,10 @@ public partial class RolePreviewControl : VBoxContainer
     private readonly Control _stage = new() { Name = "Stage", SizeFlagsVertical = SizeFlags.ExpandFill, ClipContents = true };
     /// <summary>复用分层角色表现，不持有 ECS 世界。</summary>
     private readonly ActorView _actor = new() { Name = "PreviewActor", Scale = new Vector2(2.4f, 2.4f) };
+    /// <summary>与游戏 HUD 同素材的无等级圆形头像。</summary>
+    private readonly AvatarControl _portrait = new() { Name = "PreviewPortrait", ShowLevel = false,
+        CustomMinimumSize = new Vector2(72, 72), Scale = new Vector2(0.9f, 0.9f),
+        MouseFilter = MouseFilterEnum.Ignore, Visible = false };
     /// <summary>上次展示的不可变外观草稿。</summary>
     private DataActorState? _state;
 
@@ -31,6 +35,7 @@ public partial class RolePreviewControl : VBoxContainer
         AddChild(_title);
         AddChild(_stage);
         _stage.AddChild(_actor);
+        _stage.AddChild(_portrait);
         var rotation = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
         rotation.AddChild(ActionButton("逆时针旋转", "RotateCounterclockwise", () => Rotate(-1)));
         rotation.AddChild(ActionButton("顺时针旋转", "RotateClockwise", () => Rotate(1)));
@@ -47,6 +52,9 @@ public partial class RolePreviewControl : VBoxContainer
         _state = new DataActorState(roleId, gender, Vector2.Zero, RoleMotion.Stand, Vector2.Zero, 0, headId);
         _title.Text = title;
         _actor.Visible = true;
+        _portrait.Portrait = AvatarControl.LoadPortrait(gender, headId);
+        _portrait.Visible = true;
+        _portrait.QueueRedraw();
         Present();
     }
 
@@ -55,6 +63,7 @@ public partial class RolePreviewControl : VBoxContainer
     {
         _state = null;
         _actor.Visible = false;
+        _portrait.Visible = false;
         _title.Text = "暂无角色";
     }
 
@@ -75,6 +84,8 @@ public partial class RolePreviewControl : VBoxContainer
             Position = IsometricProjection.ToLogical(new Vector2(_stage.Size.X / 2, _stage.Size.Y - 12)),
             Facing = IsometricProjection.ToLogical(Vector2.FromAngle(Direction * Mathf.Pi / 4))
         });
+        _portrait.Position = new Vector2(Mathf.Max(12, _stage.Size.X / 2 - 120),
+            Mathf.Max(12, _stage.Size.Y - 280));
     }
 
     /// <summary>创建页面中尺寸一致且可被验收定位的操作按钮。</summary>

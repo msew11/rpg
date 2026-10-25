@@ -1,4 +1,7 @@
+using System;
 using Godot;
+using Rpg.Const;
+using Rpg.Services;
 
 namespace Rpg.UI;
 
@@ -7,6 +10,21 @@ public partial class AvatarControl : Control
 {
     /// <summary>与角色头型对应的头像图。</summary>
     public Texture2D? Portrait { get; set; }
+
+    /// <summary>预览时隐藏只属于游戏 HUD 的等级徽标。</summary>
+    public bool ShowLevel
+    {
+        get => _showLevel;
+        set
+        {
+            _showLevel = value;
+            _levelLabel.Visible = value;
+            QueueRedraw();
+        }
+    }
+
+    /// <summary>是否绘制等级徽标。</summary>
+    private bool _showLevel = true;
 
     /// <summary>等级徽标中的固定位置文字。</summary>
     private readonly Label _levelLabel = new() { Name = "LevelLabel", MouseFilter = MouseFilterEnum.Ignore,
@@ -43,7 +61,25 @@ public partial class AvatarControl : Control
         if (Portrait is not null)
             DrawTextureRect(Portrait, new Rect2(4, 4, 64, 64), false);
         DrawArc(center, 34, 0, Mathf.Tau, 64, new Color("87a8b1"), 2, true);
-        DrawCircle(new Vector2(13, 60), 12, new Color("192a34"));
-        DrawArc(new Vector2(13, 60), 12, 0, Mathf.Tau, 32, new Color("87a8b1"), 1.5f, true);
+        if (ShowLevel)
+        {
+            DrawCircle(new Vector2(13, 60), 12, new Color("192a34"));
+            DrawArc(new Vector2(13, 60), 12, 0, Mathf.Tau, 32, new Color("87a8b1"), 1.5f, true);
+        }
+    }
+
+    /// <summary>按性别和头型读取游戏 HUD 与角色预览共用的头像。</summary>
+    internal static Texture2D LoadPortrait(RoleGender gender, int headId)
+    {
+        var id = headId == 0 ? 1 : headId;
+        if (id <= 64)
+        {
+            var group = (id - 1) / 8 + 1;
+            var variant = (id - 1) % 8 + 1;
+            var suffix = gender == RoleGender.Male ? "01" : "51";
+            var path = $"res://assets/portraits/DThed0{group}{variant}_{suffix}.png";
+            return GD.Load<Texture2D>(path) ?? throw new InvalidOperationException($"头像资源加载失败：{path}");
+        }
+        return GameServices.Animation.GetHead(gender, id).Frames[4];
     }
 }
