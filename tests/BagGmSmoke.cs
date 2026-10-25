@@ -395,8 +395,8 @@ public partial class BagGmSmoke : Node
         for (var attempt = 0; attempt < 2; attempt++)
         {
             PressTitle(main, "系统");
-            PressTitle(main, "系统设置");
-            Check(hud.GetNode<Control>("系统设置").Visible, "进入调整前系统设置未打开");
+            PressTitle(main, "角色设置");
+            Check(hud.GetNode<Control>("角色设置").Visible, "进入调整前角色设置未打开");
             PressTitle(main, "进入 HUD 调整");
             await Frames();
             var editWindow = hud.GetNode<ViewportPanelControl>("HudEditWindow");

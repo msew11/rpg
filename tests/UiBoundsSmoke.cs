@@ -47,7 +47,7 @@ public partial class UiBoundsSmoke : Node
             await Frames();
             Check(hud.GetNode<Control>("系统设置").Visible && !menuButton.HasFocus(), "打开系统设置后系统按钮残留焦点高亮");
             Press(hud.GetNode<Control>("系统设置"), "关闭");
-            foreach (var title in new[] { "角色", "大地图", "GM", "系统设置" })
+            foreach (var title in new[] { "角色", "大地图", "GM", "系统设置", "角色设置" })
             {
                 Open(hud, title);
                 var panel = hud.GetNode<ViewportPanelControl>(title);
@@ -101,7 +101,7 @@ public partial class UiBoundsSmoke : Node
             Check(!catalog.Visible, "小窗口图鉴无法关闭");
             Resize(new Vector2I(1280, 720));
             await Frames();
-            Open(hud, "系统设置");
+            Open(hud, "角色设置");
             Press(hud, "进入 HUD 调整");
             Press(hud.GetNode<Control>("HudEditWindow"), "关闭");
             await Frames();
@@ -214,7 +214,7 @@ public partial class UiBoundsSmoke : Node
     /// <summary>按真实业务入口打开普通面板。</summary>
     private static void Open(Node hud, string title)
     {
-        if (title == "系统设置") { Press(hud, "系统"); Press(hud, title); }
+        if (title is "系统设置" or "角色设置") { Press(hud, "系统"); Press(hud, title); }
         else Press(hud, title);
     }
 

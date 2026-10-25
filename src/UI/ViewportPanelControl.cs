@@ -2,13 +2,17 @@ using Godot;
 
 namespace Rpg.UI;
 
-/// <summary>限制在视口内的居中弹窗，固定标题并滚动展示溢出内容。</summary>
+/// <summary>限制在视口内的弹窗，可选标题拖动，固定标题并滚动展示溢出内容。</summary>
 public partial class ViewportPanelControl : PanelContainer
 {
     /// <summary>显示在左侧标题栏的面板名称。</summary>
     public string Title { get; init; } = "";
     /// <summary>自然布局期望的最小宽度，小窗口时允许收窄。</summary>
     public float PreferredWidth { get; init; }
+    /// <summary>可拖动窗口的角色设置键，空值表示保持居中。</summary>
+    public string WindowSettingKey { get; init; } = "";
+    /// <summary>选配的标题拖动与持久化行为。</summary>
+    private WindowDragControl? _windowDrag;
     /// <summary>业务控件加入的可滚动内容列。</summary>
     public VBoxContainer Content { get; private set; } = null!;
     /// <summary>标题与滚动内容的纵向布局。</summary>
@@ -36,6 +40,11 @@ public partial class ViewportPanelControl : PanelContainer
         _column.AddChild(_scroll);
         Content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _scroll.AddChild(Content);
+        if (WindowSettingKey.Length > 0)
+        {
+            _windowDrag = new WindowDragControl { Panel = this, Header = _header, SettingKey = WindowSettingKey };
+            AddChild(_windowDrag);
+        }
         VisibilityChanged += () => { if (Visible) FitToViewport(); };
         FitToViewport();
     }
@@ -46,7 +55,7 @@ public partial class ViewportPanelControl : PanelContainer
         if (Visible) FitToViewport();
     }
 
-    /// <summary>按实际视口居中，内容过大时预留双向滚动条所需空间。</summary>
+    /// <summary>按保存位置或默认居中布局，内容过大时预留双向滚动条空间。</summary>
     public void FitToViewport()
     {
         if (_scroll is null) return;
@@ -64,6 +73,8 @@ public partial class ViewportPanelControl : PanelContainer
         if (vertical && desired.X + barWidth > available.X) horizontal = true;
         if (horizontal && desired.Y + barHeight > available.Y) vertical = true;
         Size = (desired + new Vector2(vertical ? barWidth : 0, horizontal ? barHeight : 0)).Min(available);
-        Position = ((viewport - Size) / 2).Max(Vector2.Zero);
+        var centered = ((viewport - Size) / 2).Max(Vector2.Zero);
+        if (_windowDrag is null) Position = centered;
+        else _windowDrag.ApplyPosition(centered);
     }
 }

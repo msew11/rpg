@@ -1,4 +1,4 @@
-param([switch]$ExportWindows, [switch]$Tests)
+﻿param([switch]$ExportWindows, [switch]$Tests)
 
 $ErrorActionPreference = 'Stop'
 
@@ -74,6 +74,8 @@ if ($Tests) {
     Invoke-GodotCheck 'ground item pickup' @('--headless', '--path', $projectPath, 'res://tests/ground_item_pickup_smoke.tscn')
     # 普通弹窗与 HUD 在缩放、加载和拖动后都不得越出窗口。
     Invoke-GodotCheck 'UI bounds' @('--headless', '--path', $projectPath, 'res://tests/ui_bounds_smoke.tscn')
+    # 角色设置通过真实输入验收窗口拖动、保存恢复与快捷键录入隔离。
+    Invoke-GodotCheck 'role settings' @('--headless', '--path', $projectPath, 'res://tests/role_settings_smoke.tscn')
 }
 
 if ($ExportWindows) {

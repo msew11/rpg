@@ -1,6 +1,7 @@
 using Rpg.Config;
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Rpg.Services;
 using Rpg.Settings.Data;
@@ -86,6 +87,39 @@ public sealed class SettingService : Service
     {
         var position = CurrentRole.HudPositions[key];
         return new HudPosition(position.X, position.Y);
+    }
+
+    /// <summary>读取普通窗口的保存位置副本，尚未拖动时返回空。</summary>
+    public HudPosition? GetWindowPosition(string key) => CurrentRole.WindowPositions.TryGetValue(key, out var value)
+        ? new HudPosition(value.X, value.Y) : null;
+
+    /// <summary>在拖动结束时立即提交普通窗口位置，不影响 HUD 草稿。</summary>
+    public void SaveWindowPosition(string key, float x, float y)
+    {
+        if (!float.IsFinite(x) || !float.IsFinite(y)) throw new ArgumentOutOfRangeException(nameof(x));
+        CurrentRole.WindowPositions[key] = new HudPosition(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1));
+        _roleDirty = true;
+        SaveCurrentRole();
+    }
+
+    /// <summary>读取指定操作的不可变快捷键。</summary>
+    public DataShortcut GetShortcut(string key) => CurrentRole.Shortcuts[key];
+
+    /// <summary>校验范围与冲突，写入成功后才让新快捷键生效。</summary>
+    public bool TrySetShortcut(string key, DataShortcut value, out string error)
+    {
+        var current = CurrentRole.Shortcuts;
+        if (!current.ContainsKey(key)) throw new ArgumentException("未知快捷键项目", nameof(key));
+        if (!value.IsAllowed()) { error = "该按键不可使用，请选择字母、数字或 F1–F12。"; return false; }
+        if (current.Any(pair => pair.Key != key && pair.Value == value))
+        { error = "该快捷键已被其他项目使用，请重新输入。"; return false; }
+        var previous = current[key];
+        current[key] = value;
+        _roleDirty = true;
+        try { SaveCurrentRole(); }
+        catch { current[key] = previous; throw; }
+        error = "";
+        return true;
     }
 
     /// <summary>更新当前角色的 HUD 位置，提交时再保存。</summary>
@@ -185,6 +219,19 @@ public sealed class SettingService : Service
     private RoleSetting LoadRole(long roleId)
     {
         var setting = Read(GetRolePath(roleId), new RoleSetting());
+        setting.WindowPositions ??= new();
+        foreach (var key in setting.WindowPositions.Keys.ToArray())
+        {
+            var position = setting.WindowPositions[key];
+            if (position is null || !float.IsFinite(position.X) || !float.IsFinite(position.Y))
+                setting.WindowPositions.Remove(key);
+            else { position.X = Math.Clamp(position.X, 0, 1); position.Y = Math.Clamp(position.Y, 0, 1); }
+        }
+        setting.Shortcuts ??= RoleSetting.DefaultShortcuts();
+        foreach (var (key, value) in RoleSetting.DefaultShortcuts()) setting.Shortcuts.TryAdd(key, value);
+        var shortcuts = RoleSetting.DefaultShortcuts().Keys.Select(key => setting.Shortcuts[key]).ToArray();
+        if (shortcuts.Any(value => value is null || !value.IsAllowed()) || shortcuts.Distinct().Count() != shortcuts.Length)
+            setting.Shortcuts = RoleSetting.DefaultShortcuts();
         if (setting.VisibleHotbars is null || setting.VisibleHotbars.Length != 3)
             setting.VisibleHotbars = [true, false, false];
         setting.HudPositions ??= RoleSetting.DefaultPositions();

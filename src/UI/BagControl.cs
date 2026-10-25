@@ -49,6 +49,8 @@ public partial class BagControl : PanelContainer
     private Label _itemName = null!;
     /// <summary>输入事件提供的视口坐标，不受世界摄像机或滚动影响。</summary>
     private Vector2 _pointerPosition;
+    /// <summary>背包标题栏拖动与角色位置存储。</summary>
+    private WindowDragControl _windowDrag = null!;
 
     /// <summary>创建标题、关闭按钮与双向滚动网格。</summary>
     public override void _Ready()
@@ -57,9 +59,9 @@ public partial class BagControl : PanelContainer
         MouseFilter = MouseFilterEnum.Stop;
         _column = new VBoxContainer();
         AddChild(_column);
-        _header = new HBoxContainer();
+        _header = new HBoxContainer { Name = "PanelHeader" };
         _column.AddChild(_header);
-        _header.AddChild(new Label { Text = "背包", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        _header.AddChild(new Label { Text = "背包", SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
         var close = new Button { Text = "关闭" };
         close.Pressed += Hide;
         _header.AddChild(close);
@@ -91,6 +93,8 @@ public partial class BagControl : PanelContainer
         _dropDialog.Confirmed += ConfirmGroundDrop;
         _dropDialog.Canceled += CloseDropDialog;
         _dropDialog.CloseRequested += CloseDropDialog;
+        _windowDrag = new WindowDragControl { Panel = this, Header = _header, SettingKey = "bag" };
+        AddChild(_windowDrag);
         _Process(0);
     }
 
@@ -116,8 +120,8 @@ public partial class BagControl : PanelContainer
         if (vertical && desired.X + barWidth > available.X) horizontal = true;
         if (horizontal && desired.Y + barHeight > available.Y) vertical = true;
         Size = (desired + new Vector2(vertical ? barWidth : 0, horizontal ? barHeight : 0)).Min(available);
-        Position = new Vector2(Mathf.Min(Mathf.Max(432, (viewport.X - Size.X) / 2), Mathf.Max(16, viewport.X - Size.X - 16)),
-            (viewport.Y - Size.Y) / 2);
+        _windowDrag.ApplyPosition(new Vector2(Mathf.Min(Mathf.Max(432, (viewport.X - Size.X) / 2), Mathf.Max(16, viewport.X - Size.X - 16)),
+            (viewport.Y - Size.Y) / 2));
     }
 
     /// <summary>读取最新只读缓存，按格子呈现图标、全部数量和名称提示。</summary>

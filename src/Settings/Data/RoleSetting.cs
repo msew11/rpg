@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Rpg.Settings.Data;
 
-/// <summary>单个 HUD 元素的相对屏幕左上坐标。</summary>
+/// <summary>界面元素或窗口的相对屏幕左上坐标。</summary>
 public sealed class HudPosition
 {
     /// <summary>相对横向坐标。</summary>
@@ -17,9 +17,22 @@ public sealed class HudPosition
     public HudPosition(float x, float y) { X = x; Y = y; }
 }
 
-/// <summary>按角色独立持久化的技能栏显隐与 HUD 布局。</summary>
+/// <summary>按角色独立持久化的 HUD、窗口坐标与快捷键。</summary>
 public sealed class RoleSetting
 {
+    /// <summary>角色、道具和地图窗口的相对视口坐标；缺失时采用初始布局。</summary>
+    public Dictionary<string, HudPosition> WindowPositions { get; set; } = new();
+    /// <summary>按角色独立保存的窗口快捷键。</summary>
+    public Dictionary<string, DataShortcut> Shortcuts { get; set; } = DefaultShortcuts();
+
+    /// <summary>提供角色 C、道具 B、地图 M 的初始绑定。</summary>
+    public static Dictionary<string, DataShortcut> DefaultShortcuts() => new()
+    {
+        ["character"] = new() { Key = Godot.Key.C },
+        ["bag"] = new() { Key = Godot.Key.B },
+        ["map"] = new() { Key = Godot.Key.M }
+    };
+
     /// <summary>三条技能栏各自是否可见。</summary>
     public bool[] VisibleHotbars { get; set; } = [true, false, false];
     /// <summary>头像、技能栏、系统按钮条、小地图和聊天框的相对位置。</summary>

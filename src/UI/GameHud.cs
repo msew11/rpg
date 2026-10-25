@@ -44,7 +44,7 @@ public partial class GameHud : Control
     private Button _systemButton = null!;
     /// <summary>菜单展开时消费外部点击的透明遮罩。</summary>
     private Control _systemMenuOverlay = null!;
-    /// <summary>包含四项系统操作的上拉面板。</summary>
+    /// <summary>包含系统与角色设置及会话操作的上拉面板。</summary>
     private PanelContainer _systemMenu = null!;
     /// <summary>当前是否允许拖动 HUD。</summary>
     private bool _editing;
@@ -68,6 +68,16 @@ public partial class GameHud : Control
     private BagControl _bag = null!;
     /// <summary>独立于弹出面板显隐的聊天输入与 GM 反馈。</summary>
     private ChatControl _chat = null!;
+    /// <summary>角色设置窗口，用于关闭时取消快捷键监听。</summary>
+    private Control _roleSettings = null!;
+    /// <summary>三个快捷键按钮及其等待状态。</summary>
+    private readonly Dictionary<string, Button> _shortcutButtons = new();
+    /// <summary>最近成功保存的按钮文字，离开角色后取消监听也无需访问设置服务。</summary>
+    private readonly Dictionary<string, string> _shortcutLabels = new();
+    /// <summary>正在等待键盘输入的操作，空值表示未录入。</summary>
+    private string? _capturingShortcut;
+    /// <summary>快捷键范围、冲突或保存失败提示。</summary>
+    private Label _shortcutHint = null!;
 
     /// <summary>需要返回角色选择界面时通知主控制器。</summary>
     public event Action? ChangeRoleRequested;
@@ -128,6 +138,23 @@ public partial class GameHud : Control
     /// <summary>在整个视口内持续拖动 HUD，避免指针离开把手后中断。</summary>
     public override void _Input(InputEvent input)
     {
+        if (_capturingShortcut is not null && input is InputEventKey captured)
+        {
+            GetViewport().SetInputAsHandled();
+            if (!captured.Pressed || captured.Echo) return;
+            if (captured.MetaPressed)
+            { _shortcutHint.Text = "系统键不可使用，请重新输入。"; return; }
+            try
+            {
+                if (!GameServices.Setting.TrySetShortcut(_capturingShortcut, DataShortcut.FromInput(captured), out var error))
+                { _shortcutHint.Text = error; return; }
+                _shortcutLabels[_capturingShortcut] = GameServices.Setting.GetShortcut(_capturingShortcut).DisplayName();
+                CancelShortcutCapture();
+                _shortcutHint.Text = "已保存快捷键。";
+            }
+            catch (Exception error) { _shortcutHint.Text = $"保存失败，请重试：{error.Message}"; }
+            return;
+        }
         if (_systemMenuOverlay.Visible && input is InputEventKey { Keycode: Key.Escape, Pressed: true })
         {
             CloseSystemMenu();
@@ -157,6 +184,31 @@ public partial class GameHud : Control
             _resizingChat = false;
             GetViewport().SetInputAsHandled();
         }
+    }
+
+    /// <summary>文本与模态输入优先，普通游戏状态下只响应首次按下的窗口快捷键。</summary>
+    public override void _UnhandledKeyInput(InputEvent input)
+    {
+        if (_editing || _capturingShortcut is not null || _systemMenuOverlay.Visible ||
+            HasModalWindow() ||
+            GetViewport().GuiGetFocusOwner() is LineEdit or TextEdit ||
+            input is not InputEventKey { Pressed: true, Echo: false, MetaPressed: false } key) return;
+        var value = DataShortcut.FromInput(key);
+        foreach (var (action, title) in new[] { ("character", "角色"), ("bag", "背包"), ("map", "大地图") })
+        {
+            if (GameServices.Setting.GetShortcut(action) != value) continue;
+            TogglePanel(title);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+    }
+
+    /// <summary>模态确认框存在时保留它的键盘操作。</summary>
+    private bool HasModalWindow()
+    {
+        foreach (var window in GetViewport().GetEmbeddedSubwindows())
+            if (window.Visible && window.Exclusive) return true;
+        return false;
     }
 
     /// <summary>窗口失焦结束抓取，保留尚未确认的布局草稿。</summary>
@@ -241,6 +293,7 @@ public partial class GameHud : Control
         var entries = new VBoxContainer();
         _systemMenu.AddChild(entries);
         AddSystemMenuItem(entries, "系统设置", () => TogglePanel("系统设置"));
+        AddSystemMenuItem(entries, "角色设置", () => TogglePanel("角色设置"));
         AddSystemMenuItem(entries, "返回角色选择", () => ChangeRoleRequested?.Invoke());
         AddSystemMenuItem(entries, "返回登陆", () => LoginRequested?.Invoke());
         AddSystemMenuItem(entries, "退出游戏", () => QuitRequested?.Invoke());
@@ -311,7 +364,7 @@ public partial class GameHud : Control
         _handles[key] = handle;
     }
 
-    /// <summary>创建角色、背包、地图、GM 与系统面板及设置页签。</summary>
+    /// <summary>创建业务窗口及独立的系统、角色设置页签。</summary>
     private void BuildPanels()
     {
         var character = CreatePanel("角色", new Vector2(300, 255));
@@ -382,7 +435,14 @@ public partial class GameHud : Control
         system.AddChild(tabs);
         BuildDisplayTab(tabs);
         BuildSoundTab(tabs);
-        BuildHudTab(tabs);
+        var role = CreatePanel("角色设置", new Vector2(440, 0));
+        _roleSettings = GetNode<Control>("角色设置");
+        var roleTabs = new TabContainer { Name = "RoleSettingTabs", CustomMinimumSize = new Vector2(360, 295) };
+        role.AddChild(roleTabs);
+        BuildHudTab(roleTabs);
+        BuildShortcutTab(roleTabs);
+        _roleSettings.VisibilityChanged += () => { if (!_roleSettings.Visible) CancelShortcutCapture(); };
+        roleTabs.TabChanged += _ => CancelShortcutCapture();
     }
 
     /// <summary>保存检测秒数并立即供服务端读取，失败恢复输入并显示原因。</summary>
@@ -426,7 +486,11 @@ public partial class GameHud : Control
     /// <summary>创建标题居左、关闭按钮靠右的弹出面板内容列。</summary>
     private VBoxContainer CreatePanel(string title, Vector2 minimum)
     {
-        var outer = new ViewportPanelControl { Name = title, Title = title, PreferredWidth = minimum.X, Visible = false };
+        var outer = new ViewportPanelControl
+        {
+            Name = title, Title = title, PreferredWidth = minimum.X, Visible = false,
+            WindowSettingKey = title == "角色" ? "character" : title == "大地图" ? "map" : ""
+        };
         AddChild(outer);
         _panels.Add(outer);
         return outer.Content;
@@ -476,7 +540,7 @@ public partial class GameHud : Control
     /// <summary>加入技能栏显隐和 HUD 拖动调整入口。</summary>
     private void BuildHudTab(TabContainer tabs)
     {
-        var page = new VBoxContainer { Name = "角色 HUD" };
+        var page = new VBoxContainer { Name = "界面" };
         tabs.AddChild(page);
         page.AddChild(Text("技能栏 1 始终显示", 14));
         _secondBar = new CheckBox { Text = "显示技能栏 2", ButtonPressed = GameServices.Setting.IsHotbarVisible(2) };
@@ -491,6 +555,51 @@ public partial class GameHud : Control
         var reset = new Button { Text = "恢复默认布局" };
         reset.Pressed += ResetHudLayout;
         page.AddChild(reset);
+    }
+
+    /// <summary>创建按角色保存的三项快捷键，点击后持续高亮等待合法输入。</summary>
+    private void BuildShortcutTab(TabContainer tabs)
+    {
+        var page = new VBoxContainer { Name = "快捷键" };
+        tabs.AddChild(page);
+        foreach (var (key, title) in new[] { ("character", "角色"), ("bag", "道具"), ("map", "地图") })
+        {
+            var row = new HBoxContainer();
+            page.AddChild(row);
+            row.AddChild(new Label { Text = title, SizeFlagsHorizontal = SizeFlags.ExpandFill });
+            var button = new Button
+            {
+                Name = "Shortcut_" + key, Text = GameServices.Setting.GetShortcut(key).DisplayName(),
+                ToggleMode = true, FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(180, 36)
+            };
+            _shortcutButtons[key] = button;
+            _shortcutLabels[key] = button.Text;
+            button.Pressed += () =>
+            {
+                CancelShortcutCapture();
+                _capturingShortcut = key;
+                button.SetPressedNoSignal(true);
+                button.Text = "请按快捷键…";
+                _shortcutHint.Text = "等待键盘输入；非法按键会继续等待。";
+            };
+            row.AddChild(button);
+        }
+        _shortcutHint = Text("支持字母、数字、F1–F12，可组合 Ctrl / Alt / Shift。", 14);
+        _shortcutHint.Name = "ShortcutHint";
+        _shortcutHint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        page.AddChild(_shortcutHint);
+    }
+
+    /// <summary>结束监听并清除所有绑定高亮，恢复已保存的键名。</summary>
+    private void CancelShortcutCapture()
+    {
+        _capturingShortcut = null;
+        foreach (var (key, button) in _shortcutButtons)
+        {
+            button.SetPressedNoSignal(false);
+            button.Text = _shortcutLabels[key];
+            button.ReleaseFocus();
+        }
     }
 
     /// <summary>创建可独立关闭的调整操作窗，以及不拦截输入的顶部提示。</summary>
