@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>配置表编辑器</title>
+  <style>
+    :root { font: 14px/1.5 system-ui, sans-serif; color: #243047; background: #f5f7fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header { padding: 18px 24px; color: white; background: #243b61; }
+    h1 { margin: 0; font-size: 22px; }
+    header p { margin: 4px 0 0; color: #d4e1f8; }
+    main { padding: 18px 24px; max-width: 100%; }
+    .bar, .panel { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    button, select, input, textarea { font: inherit; }
+    button, select, input { min-height: 32px; border: 1px solid #b9c7da; border-radius: 5px; background: white; color: #243047; padding: 4px 9px; }
+    button { cursor: pointer; }
+    button:hover { background: #e7effc; }
+    button.primary { color: white; background: #2755a0; border-color: #2755a0; }
+    button.danger { color: #9b2831; }
+    button:disabled { opacity: .5; cursor: default; }
+    .panel { background: white; border: 1px solid #d9e1ed; border-radius: 8px; padding: 12px; }
+    .panel h2 { margin: 0 10px 0 0; font-size: 15px; }
+    .panel label { display: inline-flex; align-items: center; gap: 5px; }
+    .panel input[type=text] { width: 145px; }
+    #status { min-height: 24px; margin: 8px 0; color: #385275; }
+    #status.error { color: #a32631; }
+    .table-wrap { overflow: auto; max-height: calc(100vh - 310px); min-height: 220px; background: white; border: 1px solid #cdd8e8; border-radius: 8px; }
+    table { border-collapse: separate; border-spacing: 0; min-width: max-content; width: 100%; }
+    th, td { border-right: 1px solid #d7e0ec; border-bottom: 1px solid #d7e0ec; padding: 6px 9px; min-width: 100px; text-align: left; vertical-align: top; }
+    thead th { position: sticky; top: 0; z-index: 2; background: #e6edf8; color: #29446e; }
+    thead tr:nth-child(2) th { top: 33px; }
+    thead tr:nth-child(3) th { top: 66px; }
+    thead tr:nth-child(4) th { top: 99px; }
+    td.group { background: #f1f5fc; font-weight: 600; min-width: 54px; }
+    td.empty { color: #8995a8; }
+    td.invalid { background: #fff0f0; }
+    td[data-edit] { cursor: text; }
+    td input { width: 100%; min-width: 100px; }
+    tr.selected td { box-shadow: inset 0 2px #93b4e9; }
+    .hint { color: #687991; font-size: 12px; }
+    dialog { width: min(880px, 95vw); border: 1px solid #b9c7da; border-radius: 8px; padding: 18px; }
+    dialog::backdrop { background: #1c2b42aa; }
+    dialog textarea { display: block; width: 100%; height: 55vh; font: 13px/1.5 ui-monospace, monospace; resize: vertical; }
+    dialog menu { padding: 0; display: flex; justify-content: flex-end; gap: 8px; }
+  </style>
+</head>
+<body>
+<header><h1>配置表编辑器</h1><p>离线查看与编辑 JSON 配置及对应 Schema</p></header>
+<main>
+  <div class="bar">
+    <label>示例配置 <select id="preset"><option value="basic">basic.json</option><option value="item">item.json</option><option value="map">map.json</option></select></label>
+    <button id="openData">打开 JSON</button><button id="openSchema">打开 Schema</button>
+    <button id="saveData" class="primary">保存 JSON</button><button id="saveSchema">保存 Schema</button>
+    <button id="editSchema">编辑 Schema 原文</button>
+  </div>
+  <div class="panel">
+    <h2>数据行</h2><button id="addRow">添加顶层记录</button><button id="removeRow" class="danger">删除选中记录</button>
+    <label>嵌套数组 <select id="arrayPath"></select></label><button id="addNested">添加子项</button><button id="removeNested" class="danger">删除选中子项</button>
+    <span class="hint">点击单元格编辑；先点击记录选择目标。空数组可用“添加子项”。</span>
+  </div>
+  <div class="panel">
+    <h2>字段与 Schema</h2>
+    <label>所在对象 <select id="objectPath"></select></label>
+    <label>字段名 <input id="fieldName" type="text" placeholder="新字段名"></label>
+    <label>类型 <select id="fieldType"><option>string</option><option>integer</option><option>number</option><option>boolean</option><option>object</option><option>array</option></select></label>
+    <button id="addField">添加字段</button><button id="renameField">重命名字段</button><button id="removeField" class="danger">删除字段</button>
+    <span class="hint">重命名/删除时字段名填写现有名称；重命名会询问新名称。结构操作会同步数据和 Schema。</span>
+  </div>
+  <div id="status" role="status"></div>
+  <div class="table-wrap"><table id="grid"></table></div>
+  <p class="hint">页面内置的是生成时的配置快照。编辑当前文件请分别打开 JSON 与 Schema；支持的浏览器可直接保存回原文件，其他浏览器会下载修改后的文件。保存前会检查 Schema 中常用的类型、必填、范围、长度与正则约束。</p>
+</main>
+<dialog id="schemaDialog"><h2>编辑 Schema JSON</h2><p class="hint">应用后重建表头；直接编辑 Schema 不会自动增删数据字段。</p><textarea id="schemaText" spellcheck="false"></textarea><menu><button id="cancelSchema">取消</button><button id="applySchema" class="primary">应用</button></menu></dialog>
+<input id="dataInput" type="file" accept=".json,application/json" hidden><input id="schemaInput" type="file" accept=".json,application/json" hidden>
+<script id="embedded" type="application/json">{"basic":{"data":{"bagColumns":8,"bagRows":5,"initialMapId":1},"schema":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["bagColumns","bagRows","initialMapId"],"properties":{"bagColumns":{"type":"integer","minimum":1,"maximum":2147483647},"bagRows":{"type":"integer","minimum":1,"maximum":2147483647},"initialMapId":{"type":"integer","minimum":1,"maximum":2147483647}}}},"item":{"data":[{"id":1012,"name":"测试长剑","category":1,"subCategory":2,"maxStack":1,"iconAssetId":"item/itempic/itempic1001","groundAssetId":"item/item/item1001"},{"id":1013,"name":"测试双手剑","category":1,"subCategory":4,"maxStack":1,"iconAssetId":"item/itempic/itempic1501","groundAssetId":"item/item/item1501"},{"id":1014,"name":"测试盾牌","category":2,"subCategory":105,"maxStack":1,"iconAssetId":"item/itempic/itempic1102","groundAssetId":"item/item/item1102"},{"id":1015,"name":"测试木杖","category":1,"subCategory":16,"maxStack":1,"iconAssetId":"item/itempic/itempic1301","groundAssetId":"item/item/item1301"},{"id":1016,"name":"测试枪","category":1,"subCategory":1,"maxStack":1,"iconAssetId":"item/itempic/itempic1601","groundAssetId":"item/item/item1601"},{"id":1017,"name":"测试拳刃","category":1,"subCategory":8,"maxStack":1,"iconAssetId":"item/itempic/itempic1801","groundAssetId":"item/item/item1801"},{"id":1018,"name":"测试飞刀","category":1,"subCategory":32,"maxStack":1,"iconAssetId":"item/itempic/itempic1903","groundAssetId":"item/item/item1903"}],"schema":{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"Client item configuration","type":"array","items":{"type":"object","required":["id","name","category","subCategory","maxStack"],"additionalProperties":false,"properties":{"iconAssetId":{"type":"string"},"groundAssetId":{"type":"string"},"name":{"type":"string","minLength":1},"id":{"type":"integer","minimum":1,"maximum":2147483647},"category":{"type":"integer","minimum":0,"maximum":2147483647},"subCategory":{"type":"integer","minimum":0,"maximum":2147483647},"maxStack":{"type":"integer","minimum":1,"maximum":2147483647}}}}},"map":{"data":[{"id":1,"width":1000,"height":1000,"tileSize":32,"bgmTrackId":"M015a","defaultTile":"ground","overrides":[{"x":505,"y":500,"tile":"accent"},{"x":505,"y":501,"tile":"accent"},{"x":505,"y":502,"tile":"accent"}],"chunkSizeTiles":32}],"schema":{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"array","minItems":1,"items":{"title":"Client map configuration","type":"object","required":["id","width","height","tileSize","defaultTile","overrides","chunkSizeTiles"],"additionalProperties":false,"properties":{"id":{"type":"integer","minimum":1,"maximum":2147483647},"width":{"type":"integer","minimum":1},"height":{"type":"integer","minimum":1},"tileSize":{"type":"integer","minimum":1},"bgmTrackId":{"type":"string","pattern":"^M[0-9]{3}[A-Za-z]?$"},"defaultTile":{"type":"string","minLength":1},"overrides":{"type":"array","items":{"type":"object","required":["x","y","tile"],"additionalProperties":false,"properties":{"x":{"type":"integer","minimum":0},"y":{"type":"integer","minimum":0},"tile":{"type":"string","minLength":1}}}},"chunkSizeTiles":{"type":"integer","minimum":1,"maximum":2147483647}}}}}}</script>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const presets = JSON.parse($('embedded').textContent);
+  let name = 'basic', data, schema, dataHandle = null, schemaHandle = null;
+  let selectedRoot = 0, selectedNested = null, dirtyData = false, dirtySchema = false;
+  const clone = value => structuredClone(value);
+  const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const show = (message, error = false) => { $('status').textContent = message; $('status').className = error ? 'error' : ''; };
+  const rootSchema = () => schema.type === 'array' ? schema.items : schema;
+  const roots = () => Array.isArray(data) ? data : [data];
+  const selected = () => roots()[selectedRoot];
+  const displayPath = path => path.length ? path.join(' / ') : '(根对象)';
+
+  // 根据 Schema 生成多行表头；对象和数组字段作为合并列的分组。
+  function columns(node, path = [], title = '') {
+    if (node?.type === 'array') return columns(node.items || {}, [...path, '[]'], title);
+    if (node?.type === 'object' && node.properties && Object.keys(node.properties).length) {
+      return { title, path, children: Object.entries(node.properties).map(([key, child]) => columns(child, [...path, key], key)) };
+    }
+    return { title: title || '值', path, children: [] };
+  }
+  const leaves = node => node.children.length ? node.children.flatMap(leaves) : [node];
+  const depth = node => node.children.length ? 1 + Math.max(...node.children.map(depth)) : 1;
+  function headerRows(tree) {
+    const count = depth(tree) - 1;
+    const rows = Array.from({ length: Math.max(count, 1) }, () => []);
+    function visit(node, level) {
+      if (node !== tree) rows[level - 1].push({ title: node.title, colspan: leaves(node).length, rowspan: node.children.length ? 1 : rows.length - level + 1 });
+      for (const child of node.children) visit(child, level + (node === tree ? 0 : 1));
+    }
+    for (const child of tree.children.length ? tree.children : [tree]) visit(child, 1);
+    return rows;
+  }
+  function getAt(value, path) {
+    let current = value;
+    for (const part of path) current = current?.[part];
+    return current;
+  }
+  function schemaAt(path) {
+    let current = rootSchema();
+    for (const part of path) current = part === '[]' ? current?.items : current?.properties?.[part];
+    return current;
+  }
+  function objectPaths(node = rootSchema(), path = []) {
+    let result = node?.type === 'object' ? [path] : [];
+    if (node?.type === 'object') for (const [key, child] of Object.entries(node.properties || {})) result.push(...objectPaths(child, [...path, key]));
+    if (node?.type === 'array') result.push(...objectPaths(node.items, [...path, '[]']));
+    return result;
+  }
+  function arrayPaths(node = rootSchema(), path = []) {
+    let result = [];
+    if (node?.type === 'array') result.push(path);
+    if (node?.type === 'object') for (const [key, child] of Object.entries(node.properties || {})) result.push(...arrayPaths(child, [...path, key]));
+    if (node?.type === 'array') result.push(...arrayPaths(node.items, [...path, '[]']));
+    return result;
+  }
+  function fillSelect(select, paths) {
+    const old = select.value;
+    select.replaceChildren();
+    for (const path of paths) {
+      const option = new Option(displayPath(path), JSON.stringify(path));
+      select.add(option);
+    }
+    if ([...select.options].some(option => option.value === old)) select.value = old;
+  }
+  function defaultValue(node) {
+    if (node?.default !== undefined) return clone(node.default);
+    switch (node?.type) {
+      case 'object': return Object.fromEntries(Object.entries(node.properties || {}).filter(([key]) => (node.required || []).includes(key)).map(([key, child]) => [key, defaultValue(child)]));
+      case 'array': return [];
+      case 'integer': case 'number': return node.minimum ?? 0;
+      case 'boolean': return false;
+      default: return '';
+    }
+  }
+  // 每个数组元素展开为内容行，父级标量字段由相同数据路径合并为 rowspan。
+  function expand(value, node, path = []) {
+    if (node?.type === 'array') {
+      if (!Array.isArray(value) || !value.length) return [{ cells: {}, arrays: { [JSON.stringify(path)]: { path, index: null } } }];
+      return value.flatMap((item, index) => expand(item, node.items || {}, [...path, index]).map(row => {
+        const localPath = Array.isArray(data) ? path.slice(1) : path;
+        const logicalPath = localPath.map(part => typeof part === 'number' ? '[]' : part);
+        row.arrays[JSON.stringify(logicalPath)] = { path: logicalPath, index };
+        return row;
+      }));
+    }
+    if (node?.type === 'object' && node.properties) {
+      const parts = Object.entries(node.properties).map(([key, child]) => expand(value?.[key], child, [...path, key]));
+      const count = Math.max(1, ...parts.map(part => part.length));
+      return Array.from({ length: count }, (_, index) => parts.reduce((row, part) => {
+        const fragment = part[index];
+        if (fragment) { Object.assign(row.cells, fragment.cells); Object.assign(row.arrays, fragment.arrays); }
+        return row;
+      }, { cells: {}, arrays: {} }));
+    }
+    const localPath = Array.isArray(data) ? path.slice(1) : path;
+    return [{ cells: { [JSON.stringify(localPath.map(part => typeof part === 'number' ? '[]' : part))]: { path, value } }, arrays: {} }];
+  }
+  function physicalPath(fieldPath, row, rootIndex) {
+    const path = Array.isArray(data) ? [rootIndex] : [];
+    const logical = [];
+    for (const part of fieldPath) {
+      if (part === '[]') {
+        const index = row.arrays[JSON.stringify(logical)]?.index;
+        if (index == null) return null;
+        path.push(index);
+      } else path.push(part);
+      logical.push(part);
+    }
+    return path;
+  }
+  function render() {
+    const grid = $('grid'); grid.replaceChildren();
+    const tree = columns(rootSchema());
+    const fields = leaves(tree);
+    const thead = grid.createTHead();
+    headerRows(tree).forEach((headers, index) => {
+      const tr = thead.insertRow();
+      if (!index) { const th = document.createElement('th'); th.textContent = '#'; th.rowSpan = Math.max(depth(tree) - 1, 1); tr.append(th); }
+      for (const header of headers) { const th = document.createElement('th'); th.textContent = header.title; th.colSpan = header.colspan; th.rowSpan = header.rowspan; tr.append(th); }
+    });
+    const body = grid.createTBody();
+    roots().forEach((record, rootIndex) => {
+      const rows = expand(record, rootSchema(), Array.isArray(data) ? [rootIndex] : []);
+      rows.forEach((row, rowIndex) => {
+        const tr = body.insertRow();
+        tr.dataset.root = rootIndex;
+        if (rootIndex === selectedRoot) tr.classList.add('selected');
+        tr.addEventListener('click', () => { selectedRoot = rootIndex; selectedNested = row.arrays; renderSelection(); });
+        if (!rowIndex) { const td = tr.insertCell(); td.className = 'group'; td.rowSpan = rows.length; td.textContent = String(rootIndex + 1); }
+        for (const field of fields) {
+          const key = JSON.stringify(field.path);
+          const cell = row.cells[key];
+          const path = physicalPath(field.path, row, rootIndex);
+          if (path && rowIndex && rows.slice(0, rowIndex).some(previous => JSON.stringify(physicalPath(field.path, previous, rootIndex)) === JSON.stringify(path))) continue;
+          let span = 1;
+          if (path) while (rowIndex + span < rows.length && JSON.stringify(physicalPath(field.path, rows[rowIndex + span], rootIndex)) === JSON.stringify(path)) span++;
+          const td = tr.insertCell();
+          td.rowSpan = span;
+          if (!cell || cell.value === undefined) {
+            td.className = 'empty'; td.textContent = '—';
+            if (path && getAt(data, path.slice(0, -1)) !== undefined) {
+              td.dataset.edit = '1'; td.title = `${path.join(' / ')}\n双击补全`;
+              td.addEventListener('dblclick', () => editCell(td, { path, value: undefined }, schemaAt(field.path)));
+            }
+            continue;
+          }
+          td.dataset.edit = '1';
+          td.textContent = cell.value === null ? 'null' : typeof cell.value === 'object' ? JSON.stringify(cell.value) : String(cell.value);
+          td.title = cell.path.join(' / ') + '\n双击编辑';
+          td.addEventListener('dblclick', () => editCell(td, cell, schemaAt(field.path)));
+        }
+      });
+    });
+    fillSelect($('objectPath'), objectPaths());
+    fillSelect($('arrayPath'), arrayPaths().filter(path => path.length));
+    renderSelection();
+  }
+  function renderSelection() {
+    [...($('grid').tBodies[0]?.rows || [])].forEach(tr => tr.classList.toggle('selected', Number(tr.dataset.root) === selectedRoot));
+  }
+  function editCell(td, cell, node) {
+    if (td.querySelector('input')) return;
+    const input = document.createElement('input'); input.value = cell.value === undefined ? String(defaultValue(node)) : cell.value === null ? 'null' : String(cell.value);
+    td.replaceChildren(input); input.focus(); input.select();
+    const finish = commit => {
+      if (!input.isConnected) return;
+      if (!commit) { render(); return; }
+      let value = input.value;
+      try {
+        if (node?.type === 'integer' || node?.type === 'number') { value = Number(value); if (!Number.isFinite(value) || (node.type === 'integer' && !Number.isInteger(value))) throw Error('请输入有效数字'); }
+        else if (node?.type === 'boolean') { if (!['true', 'false'].includes(value)) throw Error('布尔值只能是 true 或 false'); value = value === 'true'; }
+        else if (node?.type === 'object' || node?.type === 'array') value = JSON.parse(value);
+        const issue = validate(value, node, cell.path.join('/'));
+        if (issue) throw Error(issue);
+        const parent = getAt(data, cell.path.slice(0, -1));
+        parent[cell.path.at(-1)] = value;
+        dirtyData = true; show('数据已修改，尚未保存'); render();
+      } catch (error) { show(error.message, true); input.focus(); }
+    };
+    input.addEventListener('keydown', event => { if (event.key === 'Enter') finish(true); if (event.key === 'Escape') finish(false); });
+    input.addEventListener('blur', () => finish(true));
+  }
+  function validate(value, node, path = '$') {
+    if (!node) return null;
+    const type = node.type;
+    if (type && !(type === 'integer' ? Number.isInteger(value) : type === 'number' ? typeof value === 'number' && Number.isFinite(value) : type === 'array' ? Array.isArray(value) : type === 'object' ? isObject(value) : typeof value === type)) return `${path}: 需要 ${type}`;
+    if (typeof value === 'number' && ((node.minimum !== undefined && value < node.minimum) || (node.maximum !== undefined && value > node.maximum))) return `${path}: 超出范围`;
+    if (typeof value === 'string' && ((node.minLength !== undefined && value.length < node.minLength) || (node.maxLength !== undefined && value.length > node.maxLength) || (node.pattern && !(new RegExp(node.pattern).test(value))))) return `${path}: 不符合长度或格式约束`;
+    if (Array.isArray(value)) {
+      if (node.minItems !== undefined && value.length < node.minItems) return `${path}: 条目少于 ${node.minItems}`;
+      for (let i = 0; i < value.length; i++) { const issue = validate(value[i], node.items, `${path}/${i}`); if (issue) return issue; }
+    }
+    if (isObject(value)) {
+      for (const key of node.required || []) if (!(key in value)) return `${path}: 缺少 ${key}`;
+      for (const [key, child] of Object.entries(value)) {
+        if (!node.properties?.[key] && node.additionalProperties === false) return `${path}: 未声明字段 ${key}`;
+        const issue = validate(child, node.properties?.[key], `${path}/${key}`); if (issue) return issue;
+      }
+    }
+    return null;
+  }
+  function eachObject(path, callback) {
+    function walk(value, rest) {
+      if (!rest.length) { if (isObject(value)) callback(value); return; }
+      const [step, ...tail] = rest;
+      if (step === '[]') { if (Array.isArray(value)) value.forEach(item => walk(item, tail)); }
+      else walk(value?.[step], tail);
+    }
+    roots().forEach(root => walk(root, path));
+  }
+  function pathValue(path) {
+    let value = selected();
+    for (let position = 0; position < path.length; position++) {
+      const step = path[position];
+      if (step === '[]') { const prefix = path.slice(0, position); const index = selectedNested?.[JSON.stringify(prefix)]?.index; value = value?.[index]; }
+      else value = value?.[step];
+    }
+    return value;
+  }
+  function saveDownload(filename, content) {
+    const url = URL.createObjectURL(new Blob([content], { type: 'application/json;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  async function save(which) {
+    if (which === 'data') { try { const issue = validate(data, schema); if (issue) { show(`不能保存：${issue}`, true); return; } } catch (error) { show(`Schema 校验失败：${error.message}`, true); return; } }
+    const content = JSON.stringify(which === 'data' ? data : schema, null, 2) + '\n';
+    const handle = which === 'data' ? dataHandle : schemaHandle;
+    const filename = which === 'data' ? `${name}.json` : `${name}.schema.json`;
+    try {
+      if (handle?.createWritable) { const writer = await handle.createWritable(); await writer.write(content); await writer.close(); }
+      else saveDownload(filename, content);
+      if (which === 'data') dirtyData = false; else dirtySchema = false;
+      show(handle ? `已保存 ${filename}` : `已下载 ${filename}，请替换原文件`);
+    } catch (error) { show(`保存失败：${error.message}`, true); }
+  }
+  async function open(which) {
+    try {
+      let file, handle = null;
+      if (window.showOpenFilePicker) { [handle] = await showOpenFilePicker({ types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] }); file = await handle.getFile(); }
+      else { const input = $(which === 'data' ? 'dataInput' : 'schemaInput'); input.value = ''; file = await new Promise(resolve => { input.onchange = () => resolve(input.files[0]); input.click(); }); }
+      if (!file) return;
+      const parsed = JSON.parse(await file.text());
+      if (which === 'data') {
+        const nextName = file.name.replace(/\.json$/i, '');
+        if (nextName !== name) schemaHandle = null;
+        if (!schemaHandle && presets[nextName]) schema = clone(presets[nextName].schema);
+        data = parsed; dataHandle = handle; name = nextName; selectedRoot = 0; selectedNested = null; dirtyData = false;
+      } else {
+        if (!isObject(parsed) || !parsed.type) throw Error('Schema 需要根 type');
+        const nextName = file.name.replace(/\.schema\.json$/i, '');
+        if (nextName !== name) dataHandle = null;
+        if (!dataHandle && presets[nextName]) { data = clone(presets[nextName].data); name = nextName; selectedRoot = 0; }
+        schema = parsed; schemaHandle = handle; dirtySchema = false;
+      }
+      render(); show(`已打开 ${file.name}`);
+    } catch (error) { if (error.name !== 'AbortError') show(`打开失败：${error.message}`, true); }
+  }
+  function confirmSwitch() { return !(dirtyData || dirtySchema) || confirm('当前有未保存的修改，确定切换示例吗？'); }
+  $('preset').addEventListener('change', event => {
+    if (!confirmSwitch()) { event.target.value = name in presets ? name : 'basic'; return; }
+    name = event.target.value; data = clone(presets[name].data); schema = clone(presets[name].schema);
+    dataHandle = schemaHandle = null; dirtyData = dirtySchema = false; selectedRoot = 0; selectedNested = null; render(); show(`已加载 ${name} 的内置快照`);
+  });
+  $('openData').onclick = () => open('data'); $('openSchema').onclick = () => open('schema');
+  $('saveData').onclick = () => save('data'); $('saveSchema').onclick = () => save('schema');
+  $('addRow').onclick = () => { if (!Array.isArray(data)) return show('单对象配置不能添加顶层记录', true); data.push(defaultValue(schema.items)); selectedRoot = data.length - 1; dirtyData = true; render(); show('已添加记录'); };
+  $('removeRow').onclick = () => { if (!Array.isArray(data) || !data.length) return; if (!confirm(`删除第 ${selectedRoot + 1} 条记录？`)) return; data.splice(selectedRoot, 1); selectedRoot = Math.max(0, Math.min(selectedRoot, data.length - 1)); dirtyData = true; render(); show('已删除记录'); };
+  $('addNested').onclick = () => {
+    const path = JSON.parse($('arrayPath').value || 'null'); if (!path) return show('当前没有嵌套数组', true);
+    const array = pathValue(path), node = schemaAt(path);
+    if (!Array.isArray(array)) return show('请先选择包含该数组的内容行', true);
+    array.push(defaultValue(node.items)); dirtyData = true; render(); show('已添加子项');
+  };
+  $('removeNested').onclick = () => {
+    const path = JSON.parse($('arrayPath').value || 'null'); const array = path && pathValue(path);
+    const index = selectedNested?.[JSON.stringify(path)]?.index;
+    if (!Array.isArray(array) || index == null) return show('请点击要删除的子项内容行', true);
+    if (!confirm(`删除子项 ${index + 1}？`)) return;
+    array.splice(index, 1); selectedNested = null; dirtyData = true; render(); show('已删除子项');
+  };
+  $('addField').onclick = () => {
+    const path = JSON.parse($('objectPath').value || '[]'), key = $('fieldName').value.trim(), parent = schemaAt(path);
+    if (!key || !parent || parent.type !== 'object' || Object.hasOwn(parent.properties || {}, key)) return show('请选择对象并输入未使用的字段名', true);
+    const type = $('fieldType').value;
+    const child = { type, ...(type === 'object' ? { properties: {}, additionalProperties: false } : {}), ...(type === 'array' ? { items: { type: 'object', properties: {}, additionalProperties: false } } : {}) };
+    parent.properties ||= {}; parent.properties[key] = child; parent.required ||= []; parent.required.push(key);
+    eachObject(path, object => { object[key] = defaultValue(child); });
+    dirtyData = dirtySchema = true; render(); show(`已添加 ${key}，并同步 Schema`);
+  };
+  $('renameField').onclick = () => {
+    const path = JSON.parse($('objectPath').value || '[]'), oldKey = $('fieldName').value.trim(), parent = schemaAt(path);
+    if (!Object.hasOwn(parent?.properties || {}, oldKey)) return show('字段不存在', true);
+    const newKey = prompt('新字段名', oldKey)?.trim(); if (!newKey || newKey === oldKey) return;
+    if (Object.hasOwn(parent.properties, newKey)) return show('新字段名已存在', true);
+    const entries = Object.entries(parent.properties).map(([key, value]) => [key === oldKey ? newKey : key, value]); parent.properties = Object.fromEntries(entries);
+    parent.required = (parent.required || []).map(key => key === oldKey ? newKey : key);
+    eachObject(path, object => { if (Object.hasOwn(object, oldKey)) { const value = object[oldKey]; delete object[oldKey]; object[newKey] = value; } });
+    $('fieldName').value = newKey; dirtyData = dirtySchema = true; render(); show(`已重命名 ${oldKey} → ${newKey}`);
+  };
+  $('removeField').onclick = () => {
+    const path = JSON.parse($('objectPath').value || '[]'), key = $('fieldName').value.trim(), parent = schemaAt(path);
+    if (!Object.hasOwn(parent?.properties || {}, key)) return show('字段不存在', true);
+    if (!confirm(`删除 ${displayPath([...path, key])} 及所有对应数据？`)) return;
+    delete parent.properties[key]; parent.required = (parent.required || []).filter(item => item !== key);
+    eachObject(path, object => { delete object[key]; });
+    dirtyData = dirtySchema = true; render(); show(`已删除字段 ${key}`);
+  };
+  $('editSchema').onclick = () => { $('schemaText').value = JSON.stringify(schema, null, 2); $('schemaDialog').showModal(); };
+  $('cancelSchema').onclick = () => $('schemaDialog').close();
+  $('applySchema').onclick = () => {
+    try { const parsed = JSON.parse($('schemaText').value); if (!isObject(parsed) || !parsed.type) throw Error('Schema 需要根 type'); schema = parsed; dirtySchema = true; $('schemaDialog').close(); render(); show('Schema 已更新；保存前请检查数据与新结构一致'); }
+    catch (error) { show(`Schema 无效：${error.message}`, true); }
+  };
+  window.addEventListener('beforeunload', event => { if (dirtyData || dirtySchema) { event.preventDefault(); event.returnValue = ''; } });
+  data = clone(presets[name].data); schema = clone(presets[name].schema); render(); show('已加载 basic 的内置快照；打开当前文件后可保存回原文件');
+})();
+</script>
+</body>
+</html>
