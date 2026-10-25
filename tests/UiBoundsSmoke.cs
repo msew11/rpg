@@ -82,17 +82,36 @@ public partial class UiBoundsSmoke : Node
             hud.GetNode<Control>("系统设置").Hide();
             await Frames();
             var portrait = hud.GetNode<Control>("portrait");
-            var handle = portrait.FindChildren("*", "Label", true, false).OfType<Label>().Single(label => label.Text.StartsWith("角色头像  拖动"));
+            var handle = portrait.GetNode<HudEditOverlay>("HudEditOverlay");
             var before = portrait.Position;
             var start = handle.GetGlobalRect().GetCenter();
             Button(start, true);
             Move(start + new Vector2(10, 8));
-            Check(portrait.Position.IsEqualApprox(before + new Vector2(10, 8)), "拖动把手局部坐标导致面板跳动");
+            Check(portrait.Position.IsEqualApprox(before + new Vector2(10, 8)), "整区拖动局部坐标导致面板跳动");
             Move(new Vector2(-1000, -1000));
             AssertInside(portrait, "拖出左上边界");
+            await Frames();
+            Check(main.GetNode<PointerCursor>("PointerCursor").IsHudDragging, "拖出绿色区域未保持握手");
             Move(new Vector2(5000, 5000));
             AssertInside(portrait, "拖出右下边界");
             Button(new Vector2(5000, 5000), false);
+            await Frames();
+            Check(!main.GetNode<PointerCursor>("PointerCursor").IsHudDragging, "区域外松开后残留握手");
+            // client-ui：覆盖菜单按钮内容区也只能拖动，不触发系统菜单。
+            var menu = hud.GetNode<Control>("menu");
+            var systemButton = menu.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "系统");
+            var menuBefore = menu.Position;
+            var menuStart = systemButton.GetGlobalRect().GetCenter();
+            Button(menuStart, true);
+            Move(menuStart + new Vector2(-30, -80));
+            Button(menuStart + new Vector2(-30, -80), false);
+            Check(menu.Position.IsEqualApprox(menuBefore + new Vector2(-30, -80)), "菜单按钮内容区无法拖动");
+            Check(!hud.GetNode<Control>("SystemMenuOverlay").Visible, "菜单拖动触发了系统按钮");
+            // 调整覆盖按钮后仍能重新打开设置，完成与取消入口始终可达。
+            using (var escape = new InputEventKey { Keycode = Key.Escape, Pressed = true }) GetViewport().PushInput(escape, true);
+            Check(hud.GetNode<Control>("系统设置").Visible, "调整中 Esc 未重新打开系统设置");
+            using (var escape = new InputEventKey { Keycode = Key.Escape, Pressed = true }) GetViewport().PushInput(escape, true);
+            Check(!hud.GetNode<Control>("系统设置").Visible, "调整中 Esc 未收起系统设置");
             foreach (var key in new[] { "portrait", "hotbar1", "menu" }) GameServices.Setting.SetHudPosition(key, 1, 1);
             GameServices.Setting.SaveCurrentRole();
             foreach (var size in new[] { new Vector2I(480, 270), new Vector2I(1920, 1080) })

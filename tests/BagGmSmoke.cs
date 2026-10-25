@@ -380,25 +380,48 @@ public partial class BagGmSmoke : Node
         var originalFile = File.ReadAllText(path);
         var originalChat = chat.Position;
         var originalRadar = radar.Position;
+        var originalSizes = new[] { "portrait", "hotbar1", "menu", "Radar", "Chat" }
+            .ToDictionary(key => key, key => hud.GetNode<Control>(key).GetRect());
         var target = GameServices.World.RoleTarget;
         for (var attempt = 0; attempt < 2; attempt++)
         {
             PressTitle(main, "进入 HUD 调整");
             hud.GetNode<Control>("系统设置").Hide();
             await Frames();
+            foreach (var (key, rect) in originalSizes)
+                Check(hud.GetNode<Control>(key).GetRect() == rect, key + " 进入调整改变外框尺寸或位置");
+            // 图形运行可导出调整覆盖层，核对名称位置与绿色高亮外框。
+            if (attempt == 0 && OS.GetCmdlineUserArgs().Contains("--capture-hud") && DisplayServer.GetName() != "headless")
+            {
+                hud.GetNode<Control>("背包").Hide();
+                hud.ShowNetworkError("");
+                using (var motion = new InputEventMouseMotion { Position = new Vector2(800, 200) }) GetViewport().PushInput(motion, true);
+                await Frames();
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                GetViewport().GetTexture().GetImage().SavePng("build/hud-edit-highlight.png");
+            }
             foreach (var title in new[] { "小地图", "聊天框" })
             {
-                var handle = hud.FindChildren("*", "Label", true, false).OfType<Label>()
-                    .Single(label => label.Text == title + "  拖动");
+                var handle = hud.FindChildren("*", "Control", true, false).OfType<HudEditOverlay>()
+                    .Single(overlay => overlay.Title == title);
                 var start = handle.GetGlobalRect().GetCenter();
+                var cursor = main.GetNode<PointerCursor>("PointerCursor");
+                using (var hover = new InputEventMouseMotion { Position = start }) GetViewport().PushInput(hover, true);
+                await Frames();
+                Check(cursor.IsHudHovering && !cursor.IsHudDragging && cursor.CurrentHotspot == new Vector2(7.5f, 7.5f),
+                    "HUD 悬停未使用 Fetch 开手与对应热点");
+                var fetchTexture = cursor.CurrentTexture;
                 var end = start + new Vector2(title == "小地图" ? -230 : 150, title == "小地图" ? 120 : -180);
                 using (var press = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = start })
                     GetViewport().PushInput(press, true);
                 using (var motion = new InputEventMouseMotion { Position = end, Relative = end - start })
                     GetViewport().PushInput(motion, true);
+                await Frames();
+                Check(cursor.IsHudDragging && cursor.CurrentTexture != fetchTexture, "HUD 按住未保持 Fetch 握手");
                 using (var release = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = end })
                     GetViewport().PushInput(release, true);
                 await Frames();
+                Check(!cursor.IsHudDragging, "释放后残留握手");
             }
             Check(radar.Position.DistanceTo(originalRadar) > 50 && chat.Position.DistanceTo(originalChat) > 50, "小地图或聊天拖动未生效");
             Check(File.ReadAllText(path) == originalFile, "拖动松开提前保存布局");

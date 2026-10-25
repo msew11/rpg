@@ -12,8 +12,8 @@ public partial class GameHud : Control
 {
     /// <summary>可调整位置的 HUD 元素。</summary>
     private readonly Dictionary<string, PanelContainer> _movable = new();
-    /// <summary>HUD 元素的拖动把手。</summary>
-    private readonly Dictionary<string, Label> _handles = new();
+    /// <summary>HUD 元素上不参与排版的绿色调整覆盖层。</summary>
+    private readonly Dictionary<string, HudEditOverlay> _handles = new();
     /// <summary>识别旧存档中尚未调整的默认坐标，按内容计算初始布局。</summary>
     private readonly Dictionary<string, HudPosition> _defaultPositions = RoleSetting.DefaultPositions();
     /// <summary>角色、背包、地图、GM 和系统弹出面板。</summary>
@@ -80,7 +80,7 @@ public partial class GameHud : Control
         BuildPanels();
         _chat = new ChatControl();
         AddChild(_chat);
-        RegisterMovable("chat", "聊天框", _chat, _chat.GetChild<VBoxContainer>(0));
+        RegisterMovable("chat", "聊天框", _chat);
         BuildSystemMenu();
         ApplyLayout();
         RefreshData();
@@ -121,6 +121,14 @@ public partial class GameHud : Control
             GetViewport().SetInputAsHandled();
             return;
         }
+        if (_editing && input is InputEventKey { Keycode: Key.Escape, Pressed: true, Echo: false })
+        {
+            if (_dragging is not null) _handles[_dragging].Dragging = false;
+            _dragging = null;
+            TogglePanel("系统设置");
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (!_editing || _dragging is null) return;
         if (input is InputEventMouseMotion motion)
         {
@@ -129,9 +137,18 @@ public partial class GameHud : Control
         }
         else if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false })
         {
+            _handles[_dragging].Dragging = false;
             _dragging = null;
             GetViewport().SetInputAsHandled();
         }
+    }
+
+    /// <summary>窗口失焦结束抓取，保留尚未确认的布局草稿。</summary>
+    public override void _Notification(int what)
+    {
+        if (what != NotificationApplicationFocusOut || _dragging is null) return;
+        _handles[_dragging].Dragging = false;
+        _dragging = null;
     }
 
     /// <summary>创建头像、小地图、三条九格技能栏和系统菜单。</summary>
@@ -251,19 +268,16 @@ public partial class GameHud : Control
         AddChild(panel);
         var box = new VBoxContainer();
         panel.AddChild(box);
-        RegisterMovable(key, title, panel, box);
+        RegisterMovable(key, title, panel);
         return box;
     }
 
-    /// <summary>给已有面板注册统一拖动把手。</summary>
-    private void RegisterMovable(string key, string title, PanelContainer panel, VBoxContainer box)
+    /// <summary>注册整区可拖动的绿色覆盖框，不占用容器布局。</summary>
+    private void RegisterMovable(string key, string title, PanelContainer panel)
     {
-        var handle = Text(title + "  拖动", 12);
-        handle.Visible = false;
-        handle.MouseFilter = MouseFilterEnum.Stop;
+        var handle = new HudEditOverlay { Name = "HudEditOverlay", Title = title, TopLevel = true, Visible = false };
         handle.GuiInput += input => HandleDrag(key, input);
-        box.AddChild(handle);
-        box.MoveChild(handle, 0);
+        panel.AddChild(handle);
         _movable[key] = panel;
         _handles[key] = handle;
     }
@@ -458,25 +472,30 @@ public partial class GameHud : Control
     /// <summary>丢弃当前布局草稿，恢复已提交的位置。</summary>
     private void CancelEdit() => SetEditing(false);
 
-    /// <summary>同步调整入口、退出入口和所有拖动把手。</summary>
+    /// <summary>同步调整入口、退出入口和所有调整覆盖框。</summary>
     private void SetEditing(bool editing)
     {
         _editing = editing;
         _dragging = null;
         _editButton.Text = editing ? "完成 HUD 调整" : "进入 HUD 调整";
         _cancelEditButton.Visible = editing;
-        foreach (var handle in _handles.Values) handle.Visible = editing;
+        foreach (var handle in _handles.Values)
+        {
+            handle.Dragging = false;
+            handle.Visible = editing;
+        }
         if (!editing) _draftPositions.Clear();
         ApplyLayout();
     }
 
-    /// <summary>处理拖动把手的按下、移动和松开事件。</summary>
+    /// <summary>处理调整覆盖框的按下、移动和松开事件。</summary>
     private void HandleDrag(string key, InputEvent input)
     {
         if (!_editing) return;
         if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } button)
         {
             _dragging = key;
+            _handles[key].Dragging = true;
             _dragOffset = _handles[key].GetGlobalTransform() * button.Position - _movable[key].GlobalPosition;
             AcceptEvent();
         }
@@ -590,6 +609,11 @@ public partial class GameHud : Control
     {
         _chat?.ReleaseSubscription();
         _bag?.ReleaseSubscription();
+        foreach (var handle in _handles.Values)
+        {
+            handle.Dragging = false;
+            handle.Hide();
+        }
         _editing = false;
         _dragging = null;
         _draftPositions.Clear();

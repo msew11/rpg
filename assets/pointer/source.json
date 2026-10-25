@@ -29,6 +29,22 @@
         "click_1.png"
       ],
       "selected_frame": "all"
+    },
+    {
+      "source": "res/uires/cursor/Fetch.gsa",
+      "sha256": "bd66ea4bed8dd7eb2b8a2c17762d3d035d321c27219dc56c56955514abf9d664",
+      "frames": 2,
+      "width": 42,
+      "height": 43,
+      "output": [
+        "fetch_0.png",
+        "fetch_1.png"
+      ],
+      "selected_frame": "all",
+      "hotspot": [
+        6,
+        6
+      ]
     }
   ],
   "cursor_config": {
@@ -43,5 +59,5 @@
   "circle_fade_seconds": 0.5,
   "cursor_display_scale": 1.25,
   "click_frame_seconds": 0.08,
-  "note": "circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal。"
+  "note": "circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal；Fetch 第一帧悬停，第二帧握住拖动，热点 (6,6)。"
 }
