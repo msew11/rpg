@@ -87,19 +87,8 @@ public partial class ChatControl : PanelContainer
         _Process(0);
     }
 
-    /// <summary>聊天底边与默认底栏齐平，空间不足时收窄以避让相邻技能栏。</summary>
-    public override void _Process(double delta)
-    {
-        var viewport = GetViewportRect().Size;
-        var width = Mathf.Min(400, Mathf.Max(160, viewport.X - 32));
-        var height = Mathf.Min(180, Mathf.Max(100, viewport.Y - 150));
-        var hotbar = GetParent().GetNodeOrNull<Control>("hotbar1");
-        if (hotbar is not null && hotbar.GetRect().End.Y > viewport.Y - 16 - height)
-            width = Mathf.Min(width, Mathf.Max(160, hotbar.Position.X - 24));
-        Size = new Vector2(width, height);
-        Position = new Vector2(16, Mathf.Max(16, viewport.Y - Size.Y - 16));
-        LayoutHints();
-    }
+    /// <summary>随 HUD 位置和窗口变化同步候选浮层。</summary>
+    public override void _Process(double delta) => LayoutHints();
 
     /// <summary>按输入阶段重建候选，校验仅表示格式合法，不预判服务端容量或落盘。</summary>
     private void RefreshInput()

@@ -22,7 +22,7 @@ public sealed class RoleSetting
 {
     /// <summary>三条技能栏各自是否可见。</summary>
     public bool[] VisibleHotbars { get; set; } = [true, false, false];
-    /// <summary>头像、技能栏和系统按钮条的相对位置。</summary>
+    /// <summary>头像、技能栏、系统按钮条、小地图和聊天框的相对位置。</summary>
     public Dictionary<string, HudPosition> HudPositions { get; set; } = DefaultPositions();
 
     /// <summary>为未保存过设置的角色提供默认 HUD 布局。</summary>
@@ -32,6 +32,8 @@ public sealed class RoleSetting
         ["hotbar1"] = new(0.31f, 0.88f),
         ["hotbar2"] = new(0.31f, 0.77f),
         ["hotbar3"] = new(0.31f, 0.66f),
-        ["menu"] = new(0.76f, 0.90f)
+        ["menu"] = new(0.76f, 0.90f),
+        ["radar"] = new(0.85f, 0.02f),
+        ["chat"] = new(0.015f, 0.72f)
     };
 }

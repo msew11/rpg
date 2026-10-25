@@ -134,6 +134,7 @@ public partial class BagGmSmoke : Node
             await Frames();
             CheckHudLayout(main, chat);
 
+            await CheckHudEditing(main, chat);
             GameServices.Env.ConsoleLogEnabled = true;
             main.QueueFree();
             await Frames();
@@ -367,6 +368,96 @@ public partial class BagGmSmoke : Node
         CheckName(slot, name);
         Check(slot.FindChild("ItemIcon", true, false) is TextureRect { Texture: not null }, "物品图标未显示");
         Check(slot.FindChild("ItemCount", true, false) is Label { Text: "1" }, "数量一未显示");
+    }
+
+    /// <summary>验收 client-settings：小地图聊天拖动、完成保存、退出还原及两种默认恢复时机。</summary>
+    private async Task CheckHudEditing(Node main, ChatControl chat)
+    {
+        var hud = main.FindChildren("*", "Control", true, false).OfType<GameHud>().Single();
+        var radar = hud.GetNode<Control>("Radar");
+        GameServices.Setting.SaveCurrentRole();
+        var path = GameServices.Setting.RolePath;
+        var originalFile = File.ReadAllText(path);
+        var originalChat = chat.Position;
+        var originalRadar = radar.Position;
+        var target = GameServices.World.RoleTarget;
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            PressTitle(main, "进入 HUD 调整");
+            hud.GetNode<Control>("系统设置").Hide();
+            await Frames();
+            foreach (var title in new[] { "小地图", "聊天框" })
+            {
+                var handle = hud.FindChildren("*", "Label", true, false).OfType<Label>()
+                    .Single(label => label.Text == title + "  拖动");
+                var start = handle.GetGlobalRect().GetCenter();
+                var end = start + new Vector2(title == "小地图" ? -230 : 150, title == "小地图" ? 120 : -180);
+                using (var press = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = start })
+                    GetViewport().PushInput(press, true);
+                using (var motion = new InputEventMouseMotion { Position = end, Relative = end - start })
+                    GetViewport().PushInput(motion, true);
+                using (var release = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = end })
+                    GetViewport().PushInput(release, true);
+                await Frames();
+            }
+            Check(radar.Position.DistanceTo(originalRadar) > 50 && chat.Position.DistanceTo(originalChat) > 50, "小地图或聊天拖动未生效");
+            Check(File.ReadAllText(path) == originalFile, "拖动松开提前保存布局");
+            Check(GameServices.World.RoleTarget == target, "HUD 拖动穿透世界");
+            if (attempt == 1)
+            {
+                PressTitle(main, "完成 HUD 调整");
+                await Frames();
+                Check(File.ReadAllText(path) != originalFile, "完成拖动后未保存位置");
+                var chatPosition = chat.Position;
+                var radarPosition = radar.Position;
+                GameServices.Setting.SelectRole(GameServices.Session.RoleId);
+                var viewport = GetViewport().GetVisibleRect().Size;
+                Check(chatPosition.DistanceTo(viewport * new Vector2(GameServices.Setting.GetHudPosition("chat").X,
+                    GameServices.Setting.GetHudPosition("chat").Y)) < 1, "聊天拖动未持久化");
+                Check(radarPosition.DistanceTo(viewport * new Vector2(GameServices.Setting.GetHudPosition("radar").X,
+                    GameServices.Setting.GetHudPosition("radar").Y)) < 1, "小地图拖动未持久化");
+                break;
+            }
+            PressTitle(main, "退出 HUD 调整");
+            await Frames();
+            Check(chat.Position.DistanceTo(originalChat) < 1 && radar.Position.DistanceTo(originalRadar) < 1, "取消未还原进入前位置");
+            Check(File.ReadAllText(path) == originalFile, "退出调整写入文件");
+
+        }
+
+        GameServices.Setting.SetHudPosition("chat", 0.3f, 0.3f);
+        GameServices.Setting.SetHudPosition("radar", 0.6f, 0.2f);
+        GameServices.Setting.SaveCurrentRole();
+        ResizeViewport(new Vector2I(1280, 720));
+        await Frames();
+        var savedFile = File.ReadAllText(path);
+        var savedChat = chat.Position;
+        var savedRadar = radar.Position;
+        PressTitle(main, "进入 HUD 调整");
+        PressTitle(main, "恢复默认布局");
+        await Frames();
+        Check(File.ReadAllText(path) == savedFile, "调整中恢复默认提前保存");
+        Check(chat.Position.DistanceTo(savedChat) > 20, "默认草稿未应用");
+        // 显隐设置照常保存，也不能把草稿写入角色文件。
+        GameServices.Setting.SetHotbarVisible(2, false);
+        Check(File.ReadAllText(path) == savedFile, "其他角色设置保存泄漏布局草稿");
+        PressTitle(main, "退出 HUD 调整");
+        await Frames();
+        Check(chat.Position.DistanceTo(savedChat) < 1 && radar.Position.DistanceTo(savedRadar) < 1, "默认草稿取消未恢复自定义位置");
+        PressTitle(main, "进入 HUD 调整");
+        PressTitle(main, "恢复默认布局");
+        PressTitle(main, "完成 HUD 调整");
+        await Frames();
+        Check(File.ReadAllText(path) != savedFile, "完成未保存默认布局");
+        GameServices.Setting.SelectRole(GameServices.Session.RoleId);
+        Check(GameServices.Setting.GetHudPosition("chat").X == Rpg.Settings.Data.RoleSetting.DefaultPositions()["chat"].X,
+            "重新读取未保留完成的布局");
+        GameServices.Setting.SetHudPosition("chat", 0.3f, 0.3f);
+        GameServices.Setting.SaveCurrentRole();
+        PressTitle(main, "恢复默认布局");
+        GameServices.Setting.SelectRole(GameServices.Session.RoleId);
+        Check(GameServices.Setting.GetHudPosition("chat").X == Rpg.Settings.Data.RoleSetting.DefaultPositions()["chat"].X,
+            "非调整模式恢复默认未立即保存");
     }
 
     /// <summary>验收 client-ui 内容贴合与底部对齐：真实外框底边一致，内容下方没有空带。</summary>

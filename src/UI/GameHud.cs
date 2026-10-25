@@ -46,6 +46,10 @@ public partial class GameHud : Control
     private PanelContainer _systemMenu = null!;
     /// <summary>当前是否允许拖动 HUD。</summary>
     private bool _editing;
+    /// <summary>调整期间独立于设置服务的坐标草稿。</summary>
+    private Dictionary<string, HudPosition> _draftPositions = new();
+    /// <summary>丢弃草稿并还原布局的退出按钮。</summary>
+    private Button _cancelEditButton = null!;
     /// <summary>正在拖动的 HUD 元素键。</summary>
     private string? _dragging;
     /// <summary>鼠标与被拖动元素左上角的距离。</summary>
@@ -76,6 +80,7 @@ public partial class GameHud : Control
         BuildPanels();
         _chat = new ChatControl();
         AddChild(_chat);
+        RegisterMovable("chat", "聊天框", _chat, _chat.GetChild<VBoxContainer>(0));
         BuildSystemMenu();
         ApplyLayout();
         RefreshData();
@@ -89,7 +94,7 @@ public partial class GameHud : Control
         _subscriptions.Add(GameServices.EventBus.Subscribe<BagChangedNotice>(OnBagNotice));
     }
 
-    /// <summary>退出界面时保存未提交的拖动位置并释放会话订阅。</summary>
+    /// <summary>退出界面时丢弃未确认的调整并释放会话订阅。</summary>
     public override void _ExitTree() => ReleaseSubscriptions();
 
     /// <summary>窗口或内容尺寸变化后重新收紧并排列 HUD。</summary>
@@ -100,7 +105,7 @@ public partial class GameHud : Control
         {
             var unchanged = true;
             foreach (var panel in _movable.Values)
-                if (panel.Size != panel.GetCombinedMinimumSize() || !new Rect2(Vector2.Zero, size).Encloses(panel.GetRect()))
+                if ((panel != _chat && panel.Size != panel.GetCombinedMinimumSize()) || !new Rect2(Vector2.Zero, size).Encloses(panel.GetRect()))
                 { unchanged = false; break; }
             if (unchanged) return;
         }
@@ -125,7 +130,6 @@ public partial class GameHud : Control
         else if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false })
         {
             _dragging = null;
-            GameServices.Setting.SaveCurrentRole();
             GetViewport().SetInputAsHandled();
         }
     }
@@ -140,20 +144,9 @@ public partial class GameHud : Control
         _portraitText = Text("", 14);
         portraitRow.AddChild(_portraitText);
 
-        var radarPanel = new PanelContainer
-        {
-            Name = "Radar",
-            AnchorLeft = 1,
-            AnchorRight = 1,
-            OffsetLeft = -186,
-            OffsetRight = -16,
-            OffsetTop = 16,
-            OffsetBottom = 186,
-            CustomMinimumSize = new Vector2(170, 170)
-        };
-        AddChild(radarPanel);
-        var radarBox = new VBoxContainer();
-        radarPanel.AddChild(radarBox);
+        var radarBox = Movable("radar", "小地图");
+        _movable["radar"].Name = "Radar";
+        _movable["radar"].CustomMinimumSize = new Vector2(170, 170);
         radarBox.AddChild(Text("小地图", 15));
         _miniMap = new MiniMapControl { CustomMinimumSize = new Vector2(150, 145) };
         radarBox.AddChild(_miniMap);
@@ -258,14 +251,21 @@ public partial class GameHud : Control
         AddChild(panel);
         var box = new VBoxContainer();
         panel.AddChild(box);
+        RegisterMovable(key, title, panel, box);
+        return box;
+    }
+
+    /// <summary>给已有面板注册统一拖动把手。</summary>
+    private void RegisterMovable(string key, string title, PanelContainer panel, VBoxContainer box)
+    {
         var handle = Text(title + "  拖动", 12);
         handle.Visible = false;
         handle.MouseFilter = MouseFilterEnum.Stop;
         handle.GuiInput += input => HandleDrag(key, input);
         box.AddChild(handle);
+        box.MoveChild(handle, 0);
         _movable[key] = panel;
         _handles[key] = handle;
-        return box;
     }
 
     /// <summary>创建角色、背包、地图、GM 与系统面板及设置页签。</summary>
@@ -418,10 +418,14 @@ public partial class GameHud : Control
         _editButton = new Button { Text = "进入 HUD 调整" };
         _editButton.Pressed += ToggleEdit;
         page.AddChild(_editButton);
+        _cancelEditButton = new Button { Text = "退出 HUD 调整", Visible = false };
+        _cancelEditButton.Pressed += CancelEdit;
+        page.AddChild(_cancelEditButton);
         var reset = new Button { Text = "恢复默认布局" };
         reset.Pressed += () =>
         {
-            GameServices.Setting.ResetHudPositions();
+            if (_editing) _draftPositions = RoleSetting.DefaultPositions();
+            else GameServices.Setting.ResetHudPositions();
             ApplyLayout();
         };
         page.AddChild(reset);
@@ -434,14 +438,36 @@ public partial class GameHud : Control
         _movable[$"hotbar{index}"].Visible = visible;
     }
 
-    /// <summary>切换 HUD 调整模式及拖动把手。</summary>
+    /// <summary>进入时复制布局草稿，完成时才提交并保存。</summary>
     private void ToggleEdit()
     {
-        _editing = !_editing;
-        _editButton.Text = _editing ? "完成 HUD 调整" : "进入 HUD 调整";
-        foreach (var handle in _handles.Values) handle.Visible = _editing;
+        if (!_editing)
+        {
+            _draftPositions.Clear();
+            foreach (var key in _movable.Keys) _draftPositions[key] = GameServices.Setting.GetHudPosition(key);
+        }
+        else
+        {
+            foreach (var (key, position) in _draftPositions)
+                GameServices.Setting.SetHudPosition(key, position.X, position.Y);
+            GameServices.Setting.SaveCurrentRole();
+        }
+        SetEditing(!_editing);
+    }
+
+    /// <summary>丢弃当前布局草稿，恢复已提交的位置。</summary>
+    private void CancelEdit() => SetEditing(false);
+
+    /// <summary>同步调整入口、退出入口和所有拖动把手。</summary>
+    private void SetEditing(bool editing)
+    {
+        _editing = editing;
+        _dragging = null;
+        _editButton.Text = editing ? "完成 HUD 调整" : "进入 HUD 调整";
+        _cancelEditButton.Visible = editing;
+        foreach (var handle in _handles.Values) handle.Visible = editing;
+        if (!editing) _draftPositions.Clear();
         ApplyLayout();
-        if (!_editing) { _dragging = null; GameServices.Setting.SaveCurrentRole(); }
     }
 
     /// <summary>处理拖动把手的按下、移动和松开事件。</summary>
@@ -466,7 +492,7 @@ public partial class GameHud : Control
             Mathf.Clamp(desired.X, 0, Mathf.Max(0, viewport.X - panel.Size.X)),
             Mathf.Clamp(desired.Y, 0, Mathf.Max(0, viewport.Y - panel.Size.Y)));
         panel.Position = bounded;
-        GameServices.Setting.SetHudPosition(key, bounded.X / viewport.X, bounded.Y / viewport.Y);
+        _draftPositions[key] = new HudPosition(bounded.X / viewport.X, bounded.Y / viewport.Y);
     }
 
     /// <summary>按内容收紧 HUD，默认底栏齐平并保留自定义相对坐标。</summary>
@@ -475,15 +501,19 @@ public partial class GameHud : Control
         CloseSystemMenu();
         var viewport = GetViewportRect().Size;
         _lastViewport = viewport;
-        foreach (var panel in _movable.Values) panel.Size = panel.GetCombinedMinimumSize();
+        foreach (var panel in _movable.Values)
+            if (panel != _chat) panel.Size = panel.GetCombinedMinimumSize();
         foreach (var (key, panel) in _movable)
         {
-            var position = GameServices.Setting.GetHudPosition(key);
+            if (key == "chat") LayoutChatSize(viewport);
+            var position = _editing ? _draftPositions[key] : GameServices.Setting.GetHudPosition(key);
             var desired = new Vector2(position.X * viewport.X, position.Y * viewport.Y);
             var initial = _defaultPositions[key];
             if (position.X == initial.X && position.Y == initial.Y)
             {
-                if (key == "menu") desired = viewport - panel.Size - new Vector2(16, 16);
+                if (key == "chat") desired = new Vector2(16, viewport.Y - panel.Size.Y - 16);
+                else if (key == "radar") desired = new Vector2(viewport.X - panel.Size.X - 16, 16);
+                else if (key == "menu") desired = viewport - panel.Size - new Vector2(16, 16);
                 else if (key.StartsWith("hotbar", StringComparison.Ordinal))
                 {
                     var index = int.Parse(key[^1..]) - 1;
@@ -495,6 +525,19 @@ public partial class GameHud : Control
                 Mathf.Clamp(desired.X, 0, Mathf.Max(0, viewport.X - panel.Size.X)),
                 Mathf.Clamp(desired.Y, 0, Mathf.Max(0, viewport.Y - panel.Size.Y)));
         }
+    }
+
+    /// <summary>保留聊天自适应尺寸，并在默认布局下避让首条技能栏。</summary>
+    private void LayoutChatSize(Vector2 viewport)
+    {
+        var width = Mathf.Min(400, Mathf.Max(160, viewport.X - 32));
+        var height = Mathf.Min(180, Mathf.Max(100, viewport.Y - 150));
+        var position = _editing ? _draftPositions["chat"] : GameServices.Setting.GetHudPosition("chat");
+        var initial = _defaultPositions["chat"];
+        var hotbar = _movable["hotbar1"];
+        if (position.X == initial.X && position.Y == initial.Y && hotbar.GetRect().End.Y > viewport.Y - 16 - height)
+            width = Mathf.Min(width, Mathf.Max(160, hotbar.Position.X - 24));
+        _chat.Size = new Vector2(width, height);
     }
 
     /// <summary>打开指定面板并关闭其他面板。</summary>
@@ -547,11 +590,9 @@ public partial class GameHud : Control
     {
         _chat?.ReleaseSubscription();
         _bag?.ReleaseSubscription();
-        if (_dragging is not null && GameServices.IsInitialized)
-        {
-            GameServices.Setting.SaveCurrentRole();
-            _dragging = null;
-        }
+        _editing = false;
+        _dragging = null;
+        _draftPositions.Clear();
         foreach (var subscription in _subscriptions) subscription.Dispose();
         _subscriptions.Clear();
     }
