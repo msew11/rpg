@@ -36,9 +36,18 @@ public partial class PointerFeedbackSmoke : Node
             await Frames();
             Check(cursor.IsPressed && cursor.CurrentTexture != normal && cursor.CurrentTexture != firstPressed &&
                 cursor.CurrentTexture.GetSize() == normal.GetSize(), "按下动画未推进或尺寸跳变");
+            await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
             using (var up = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Position = new Vector2(10, 10) })
                 GetViewport().PushInput(up, true);
-            Check(!cursor.IsPressed && cursor.CurrentTexture == normal, "松开未恢复普通指针");
+            Check(!cursor.IsPressed && cursor.CurrentTexture == normal, "长按松开未立即恢复普通指针");
+            Click(new Vector2(10, 10));
+            Check(!cursor.IsPressed && cursor.CurrentTexture != normal, "同帧按下松开未保留反馈");
+            await ToSignal(GetTree().CreateTimer(0.1), SceneTreeTimer.SignalName.Timeout);
+            Check(cursor.CurrentTexture != normal && cursor.CurrentTexture != firstPressed, "短按没有显示第二帧");
+            Click(new Vector2(10, 10));
+            Check(cursor.CurrentTexture == firstPressed, "连续点击未从首帧重新播放");
+            await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+            Check(cursor.CurrentTexture == normal, "连续点击反馈结束后未恢复普通指针");
             Click(new Vector2(10, 10));
             Check(Circles(main).Length == 0, "登录页面创建了光圈");
             main.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "登录")

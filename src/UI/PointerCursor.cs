@@ -11,6 +11,8 @@ public partial class PointerCursor : Node
     private const float DisplayScale = 1.25f;
     /// <summary>按下动画每帧秒数，播放一次后保持末帧。</summary>
     private const double FrameSeconds = 0.08;
+    /// <summary>一次短按也要完整显示两帧，输入释放不截断视觉反馈。</summary>
+    private const double FeedbackSeconds = FrameSeconds * 2;
     /// <summary>普通硬件指针纹理。</summary>
     private Texture2D _normal = null!;
     /// <summary>按下反馈的两帧完整画布。</summary>
@@ -37,6 +39,8 @@ public partial class PointerCursor : Node
     public Texture2D CurrentTexture { get; private set; } = null!;
     /// <summary>按下状态累计播放时间。</summary>
     private double _elapsed;
+    /// <summary>Click 动画是否仍需呈现，与实际按键状态独立。</summary>
+    private bool _feedbackActive;
 
     /// <summary>加载并统一缩放素材，在输入分发开始前启用普通指针。</summary>
     public override void _Ready()
@@ -53,16 +57,41 @@ public partial class PointerCursor : Node
         if (input is not InputEventMouseButton { ButtonIndex: MouseButton.Left } click) return;
         var hudActive = RefreshHudCursor();
         IsPressed = click.Pressed;
-        _elapsed = 0;
-        if (!hudActive) Present(IsPressed ? _pressed[0] : _normal);
-        else RefreshHudCursor();
+        if (hudActive)
+        {
+            _feedbackActive = false;
+            RefreshHudCursor();
+            return;
+        }
+        if (click.Pressed)
+        {
+            _elapsed = 0;
+            _feedbackActive = true;
+            Present(_pressed[0]);
+        }
+        else if (!_feedbackActive || _elapsed >= FeedbackSeconds)
+        {
+            _feedbackActive = false;
+            Present(_normal);
+        }
     }
 
-    /// <summary>优先呈现 HUD 抓取；普通点击播放两帧并保持末帧至释放。</summary>
+    /// <summary>优先呈现 Fetch；短按完成两帧，长按保持末帧。</summary>
     public override void _Process(double delta)
     {
-        if (RefreshHudCursor() || !IsPressed) return;
+        if (RefreshHudCursor())
+        {
+            _feedbackActive = false;
+            return;
+        }
+        if (!_feedbackActive) return;
         _elapsed += delta;
+        if (!IsPressed && _elapsed >= FeedbackSeconds)
+        {
+            _feedbackActive = false;
+            Present(_normal);
+            return;
+        }
         Present(_pressed[_elapsed >= FrameSeconds ? 1 : 0]);
     }
 
@@ -78,6 +107,7 @@ public partial class PointerCursor : Node
         IsWindowDragging = false;
         IsItemHovering = false;
         IsPressed = false;
+        _feedbackActive = false;
         Present(_normal);
     }
 
@@ -116,7 +146,7 @@ public partial class PointerCursor : Node
         }
         if (previous)
         {
-            IsPressed = false;
+            _feedbackActive = false;
             Present(_normal);
         }
         return false;
