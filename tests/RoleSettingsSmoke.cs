@@ -105,6 +105,13 @@ public partial class RoleSettingsSmoke : Node
             Check(tabs.GetTabTitle(0) == "界面" && tabs.GetTabTitle(1) == "快捷键", "角色设置分类错误");
             var systemTabs = hud.GetNode("系统设置").FindChildren("*", "TabContainer", true, false).OfType<TabContainer>().Single();
             Check(systemTabs.GetTabCount() == 2, "系统设置仍包含 HUD 页签");
+            // client-settings：显示页提供常用尺寸与三种桌面窗口模式。
+            var displayPage = systemTabs.GetTabControl(0);
+            var displayOptions = displayPage.FindChildren("*", "OptionButton", true, false).OfType<OptionButton>().ToArray();
+            Check(displayOptions.Length == 2 && displayOptions[0].ItemCount >= 10 && displayOptions[1].ItemCount == 3,
+                "显示页分辨率或模式选项不完整");
+            Check(displayOptions[1].GetItemText(0) == "窗口" && displayOptions[1].GetItemText(1) == "全屏" &&
+                displayOptions[1].GetItemText(2) == "无边框窗口全屏", "窗口模式顺序或名称错误");
             tabs.CurrentTab = 1;
             await Frames();
             var groundBind = (Button)rolePanel.FindChild("Shortcut_groundItems", true, false);

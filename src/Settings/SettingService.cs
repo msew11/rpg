@@ -40,6 +40,8 @@ public sealed class SettingService : Service
     public int Width { get { ThrowIfDisposed(); return _systemSetting.Width; } }
     /// <summary>当前窗口高度。</summary>
     public int Height { get { ThrowIfDisposed(); return _systemSetting.Height; } }
+    /// <summary>当前桌面窗口模式。</summary>
+    public WindowDisplayMode WindowMode { get { ThrowIfDisposed(); return _systemSetting.WindowMode; } }
     /// <summary>当前主音量。</summary>
     public float MasterVolume { get { ThrowIfDisposed(); return _systemSetting.MasterVolume; } }
     /// <summary>切换当前角色并载入其独立设置。</summary>
@@ -55,9 +57,19 @@ public sealed class SettingService : Service
     /// <summary>修改并保存当前分辨率。</summary>
     public void SetResolution(int width, int height)
     {
+        SetDisplay(width, height, WindowMode);
+    }
+
+    /// <summary>一次保存窗口尺寸与模式，分辨率始终代表普通窗口尺寸。</summary>
+    public void SetDisplay(int width, int height, WindowDisplayMode mode)
+    {
         ThrowIfDisposed();
+        if (width < 800 || width > 3840) throw new ArgumentOutOfRangeException(nameof(width));
+        if (height < 600 || height > 2160) throw new ArgumentOutOfRangeException(nameof(height));
+        if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
         _systemSetting.Width = width;
         _systemSetting.Height = height;
+        _systemSetting.WindowMode = mode;
         Write(SystemPath, _systemSetting);
     }
 
@@ -210,6 +222,7 @@ public sealed class SettingService : Service
         var setting = Read(SystemPath, new SystemSetting());
         if (setting.Width < 800 || setting.Width > 3840) setting.Width = 1280;
         if (setting.Height < 600 || setting.Height > 2160) setting.Height = 720;
+        if (!Enum.IsDefined(setting.WindowMode)) setting.WindowMode = WindowDisplayMode.Windowed;
         if (!float.IsFinite(setting.MasterVolume)) setting.MasterVolume = 0.8f;
         setting.MasterVolume = Math.Clamp(setting.MasterVolume, 0, 1);
         return setting;

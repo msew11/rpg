@@ -216,6 +216,36 @@ public sealed class SettingsAcceptanceTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
+    /// <summary>验收 client-settings：旧系统文件和非法模式回退，三种模式均可保存。</summary>
+    [Fact]
+    public void DisplayModePersistsAndLegacySettingsRemainWindowed()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "rpg-display-test-" + Guid.NewGuid());
+        try
+        {
+            Directory.CreateDirectory(directory);
+            using var setting = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
+            File.WriteAllText(setting.SystemPath, "{\"Width\":1920,\"Height\":1080,\"MasterVolume\":0.5}");
+            using var legacy = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
+            Assert.Equal(WindowDisplayMode.Windowed, legacy.WindowMode);
+            Assert.Equal(1920, legacy.Width);
+            legacy.SetDisplay(1920, 1080, WindowDisplayMode.Fullscreen);
+            using var fullscreen = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
+            Assert.Equal(WindowDisplayMode.Fullscreen, fullscreen.WindowMode);
+            fullscreen.SetDisplay(1280, 720, WindowDisplayMode.BorderlessFullscreen);
+            using var borderless = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
+            Assert.Equal(WindowDisplayMode.BorderlessFullscreen, borderless.WindowMode);
+            borderless.SetDisplay(1024, 768, WindowDisplayMode.Windowed);
+            using var windowed = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
+            Assert.Equal(WindowDisplayMode.Windowed, windowed.WindowMode);
+            File.WriteAllText(setting.SystemPath, "{\"Width\":1920,\"Height\":1080,\"WindowMode\":99}");
+            using var invalid = new SettingService(new EnvService(directory), new Rpg.Services.LogService(Console.WriteLine));
+            Assert.Equal(WindowDisplayMode.Windowed, invalid.WindowMode);
+            Assert.Equal(1920, invalid.Width);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
     /// <summary>验证 openspec/specs/client-settings 的角色隔离及 HUD 拖动保存时机。</summary>
     [Fact]
     public void CurrentSettingsOwnUpdatesAndDeferredHudSave()

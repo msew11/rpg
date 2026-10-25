@@ -539,24 +539,45 @@ public partial class GameHud : Control
         return outer.Content;
     }
 
-    /// <summary>加入分辨率选择和应用操作。</summary>
+    /// <summary>加入普通窗口分辨率、显示模式和应用操作。</summary>
     private void BuildDisplayTab(TabContainer tabs)
     {
         var page = new VBoxContainer { Name = "显示" };
         tabs.AddChild(page);
         page.AddChild(Text("窗口分辨率", 16));
         var options = new OptionButton();
-        var sizes = new[] { new Vector2I(1280, 720), new Vector2I(1600, 900), new Vector2I(1920, 1080) };
+        var sizes = new[]
+        {
+            new Vector2I(800, 600), new Vector2I(1024, 768), new Vector2I(1280, 720),
+            new Vector2I(1280, 800), new Vector2I(1366, 768), new Vector2I(1440, 900),
+            new Vector2I(1600, 900), new Vector2I(1920, 1080), new Vector2I(2560, 1440),
+            new Vector2I(3840, 2160)
+        };
         for (var i = 0; i < sizes.Length; i++) options.AddItem($"{sizes[i].X} × {sizes[i].Y}", i);
         var selected = Array.FindIndex(sizes, size => size.X == GameServices.Setting.Width && size.Y == GameServices.Setting.Height);
-        options.Select(Math.Max(0, selected));
+        if (selected < 0)
+        {
+            selected = sizes.Length;
+            options.AddItem($"{GameServices.Setting.Width} × {GameServices.Setting.Height}", selected);
+        }
+        options.Select(selected);
         page.AddChild(options);
+        page.AddChild(Text("显示模式", 16));
+        var modes = new OptionButton();
+        modes.AddItem("窗口", (int)WindowDisplayMode.Windowed);
+        modes.AddItem("全屏", (int)WindowDisplayMode.Fullscreen);
+        modes.AddItem("无边框窗口全屏", (int)WindowDisplayMode.BorderlessFullscreen);
+        modes.Select((int)GameServices.Setting.WindowMode);
+        page.AddChild(modes);
         var apply = new Button { Text = "应用并保存" };
         apply.Pressed += () =>
         {
-            var size = sizes[options.Selected];
-            GameServices.Setting.SetResolution(size.X, size.Y);
-            DisplayServer.WindowSetSize(size);
+            var size = options.Selected == sizes.Length
+                ? new Vector2I(GameServices.Setting.Width, GameServices.Setting.Height)
+                : sizes[options.Selected];
+            var mode = (WindowDisplayMode)modes.Selected;
+            GameServices.Setting.SetDisplay(size.X, size.Y, mode);
+            DisplaySettings.Apply(GetWindow(), size, mode);
             ApplyLayout();
         };
         page.AddChild(apply);
