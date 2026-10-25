@@ -27,6 +27,11 @@ public partial class RoleSettingsSmoke : Node
             var radar = hud.GetNode<Control>("Radar");
             Check(!radar.FindChildren("*", "Label", true, false).OfType<Label>().Any(label => label.Text == "小地图") &&
                 radar.GetNode<HudEditOverlay>("HudEditOverlay").Title == "小地图", "小地图标题或调整名称错误");
+            // client-ui：地图与 HUD 外框重合，不能残留外层黑框及底部空带。
+            var map = radar.FindChildren("*", "Control", true, false).OfType<MiniMapControl>().Single();
+            Check(radar.GetGlobalRect().IsEqualApprox(map.GetGlobalRect()) &&
+                radar.GetThemeStylebox("panel") is StyleBoxEmpty, "小地图外层仍有边距、黑框或空带");
+            await VerifyWindowCoexistence(hud);
             var cursor = main.GetNode<PointerCursor>("PointerCursor");
             var target = GameServices.World.RoleTarget;
             foreach (var (title, key, action) in new[] { ("角色", Key.C, "character"), ("背包", Key.B, "bag"), ("大地图", Key.M, "map") })
@@ -172,6 +177,37 @@ public partial class RoleSettingsSmoke : Node
             GetTree().Quit(1);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    /// <summary>验收 client-ui：多个独立窗口与普通面板共存，单独开关及置前不影响其他窗口。</summary>
+    private async Task VerifyWindowCoexistence(GameHud hud)
+    {
+        var titles = new[] { "角色", "背包", "大地图" };
+        foreach (var key in new[] { Key.C, Key.B, Key.M }) { SendKey(key); await Frames(); }
+        var panels = titles.Select(title => hud.GetNode<Control>(title)).ToArray();
+        Check(panels.All(panel => panel.Visible), "快捷键打开窗口仍互斥");
+        var positions = panels.Select(panel => panel.Position).ToArray();
+        SendKey(Key.B); await Frames();
+        Check(panels[0].Visible && !panels[1].Visible && panels[2].Visible, "关闭背包影响其他窗口");
+        Press(hud, "背包"); await Frames();
+        Check(panels.All(panel => panel.Visible) && panels[1].GetIndex() > panels[2].GetIndex(), "按钮重开未共存或置前");
+        foreach (var title in new[] { "GM", "系统设置", "角色设置", "图鉴" })
+        {
+            if (title == "图鉴") { Press(hud, "GM"); Press(hud, "查看道具图鉴"); }
+            else if (title.EndsWith("设置")) { Press(hud, "系统"); Press(hud, title); }
+            else Press(hud, title);
+            await Frames();
+            var other = hud.GetNode<Control>(title == "图鉴" ? "ItemCatalog" : title);
+            Check(other.Visible && panels.All(panel => panel.Visible), "其他面板关闭独立窗口：" + title);
+            SendKey(Key.C); await Frames();
+            Check(other.Visible && !panels[0].Visible && panels[1].Visible && panels[2].Visible, "关闭角色影响其他面板");
+            SendKey(Key.C); await Frames();
+            Check(other.Visible && panels[0].Visible && panels[0].GetIndex() > other.GetIndex(), "打开角色关闭其他面板或未置前");
+            for (var index = 0; index < panels.Length; index++)
+                Check(panels[index].Position.IsEqualApprox(positions[index]), "共存切换改变窗口位置");
+            other.Hide();
+        }
+        foreach (var panel in panels) panel.Hide();
     }
 
     /// <summary>启动隔离环境并进入固定验收角色。</summary>

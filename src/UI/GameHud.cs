@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using System.Linq;
 using Rpg.Services;
 using Rpg.Net.Message;
 using Rpg.Settings.Data;
@@ -232,7 +233,7 @@ public partial class GameHud : Control
 
         var radarBox = Movable("radar", "小地图");
         _movable["radar"].Name = "Radar";
-        _movable["radar"].CustomMinimumSize = new Vector2(170, 170);
+        _movable["radar"].AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
         _miniMap = new MiniMapControl { CustomMinimumSize = new Vector2(150, 145) };
         radarBox.AddChild(_miniMap);
 
@@ -424,8 +425,9 @@ public partial class GameHud : Control
         };
         openCatalog.Pressed += () =>
         {
-            foreach (var panel in _panels) panel.Hide();
+            foreach (var panel in _panels.Where(panel => !IsIndependentWindow(panel))) panel.Hide();
             _itemCatalog.Open();
+            MoveChild(_itemCatalog, GetChildCount() - 1);
         };
         gmActions.AddChild(openCatalog);
 
@@ -778,15 +780,21 @@ public partial class GameHud : Control
         _draftPositions["chat"] = new HudPosition(_chat.Position.X / viewport.X, top / viewport.Y);
     }
 
-    /// <summary>打开指定面板并关闭其他面板。</summary>
+    /// <summary>三个可移动窗口独立切换，其他普通面板切换时保留这些窗口。</summary>
     private void TogglePanel(string title)
     {
+        var target = _panels.Single(panel => panel.Name == title);
         foreach (var panel in _panels)
         {
-            panel.Visible = panel.Name == title ? !panel.Visible : false;
+            if (panel == target) panel.Visible = !panel.Visible;
+            else if (!IsIndependentWindow(target) && !IsIndependentWindow(panel)) panel.Hide();
             if (panel.Visible && panel is ViewportPanelControl bounded) bounded.FitToViewport();
         }
+        if (target.Visible) MoveChild(target, GetChildCount() - 1);
     }
+
+    /// <summary>角色、背包与大地图拥有独立显隐，不参与普通面板互斥。</summary>
+    private static bool IsIndependentWindow(Control panel) => panel.Name == "角色" || panel.Name == "背包" || panel.Name == "大地图";
 
     /// <summary>从会话缓存刷新角色数值和地图位置。</summary>
     private void RefreshData()
