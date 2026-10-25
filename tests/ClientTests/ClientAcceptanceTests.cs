@@ -29,6 +29,8 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
         Assert.Equal(1000, repo.Map.Items[1].Height);
         Assert.Equal(32, repo.Map.Items[1].TileSize);
         Assert.Equal(1, repo.Map.Items[1].Id);
+        // client-config-map：地图 1 从配置指定背景音乐。
+        Assert.Equal("M015a", repo.Map.Items[1].BgmTrackId);
         var map = MapUtils.CreateMap(repo.Map.Items[1]);
         Assert.Equal("accent", MapUtils.TileAt(map, 505, 500));
         Assert.Equal("ground", MapUtils.TileAt(map, 1, 1));

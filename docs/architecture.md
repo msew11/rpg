@@ -35,7 +35,7 @@
 `NetService.Send(IMessage)` 调用时序列化并入队，回调内新增请求留到下一帧发送。`INetTransport` 隔离具体传输，`MockTransport` 在同进程连接 `MockServer`，双向仅交换 protobuf 字节。真实连接以后提供新的传输适配器，世界与 UI 不接触传输细节。
 
 本地系统设置保存到 `user://settings/system.json`，角色设置按 `role_id` 保存到 `user://settings/roles/`。`SettingService` 独占当前设置，提供当前值、分辨率、音量、技能栏、HUD 布局、普通窗口坐标和快捷键操作；原始读写方法保持私有。离开角色或关闭服务时提交未保存布局并清空角色设置。窗口、声音和 HUD 实际呈现由节点应用，设置不作为服务器权威数据。
-声音设置保留旧 `MasterVolume` 字段作为 BGM 音量来源，新增 `EffectsVolume`；两路分别应用到 BGM、SFX 总线。声音页预览仅改变总线，保存时一次提交两路值，关闭或离开世界时恢复保存值。`UiSoundPlayer` 属于主场景，复用短音效播放器并监听动态按钮与页签，离场时停止播放。登录及进入游戏成功使用 1005；菜单、开窗、角色外观预览、确认、取消和关闭使用 1003；物品交互保留原音效。
+声音设置保留旧 `MasterVolume` 字段作为 BGM 音量来源，新增 `EffectsVolume`；两路分别应用到 BGM、SFX 总线。声音页预览仅改变总线，保存时一次提交两路值，关闭或离开世界时恢复保存值。`UiSoundPlayer` 属于主场景，复用短音效播放器并监听动态按钮与页签，离场时停止播放。登录及进入游戏成功使用 1005；菜单、开窗、角色外观预览、确认、取消和关闭使用 1003；物品交互保留原音效。主场景的 `BgmPlayer` 使用 BGM 总线与单个循环播放器：登录、选角及角色创建页面播放 M001，世界播放当前地图配置的曲目；同曲不重启，返回页面切回 M001，离场停止。
 显示设置另存窗口模式：普通窗口、Godot 独占全屏、Godot 无边框全屏。保存的宽高始终是普通窗口尺寸；全屏实际尺寸由显示器决定。显示页先选模式，普通窗口可选分辨率；两种全屏只显示当前显示器分辨率并禁用选择，切回窗口时恢复预览中的窗口尺寸。选项变更直接应用到 Godot 窗口但不写盘；“保存”成功后才更新基线，关闭面板或离开世界恢复最近保存值。SettingService 写入候选设置成功后再替换内存值。启动和显示页预览共用窗口切换逻辑，返回普通窗口时恢复尺寸并居中；旧系统设置缺少模式或模式无效时采用普通窗口。
 
 ### 配置编写规范
@@ -47,6 +47,8 @@
 - 每个文件配套 `schemas/xxx.schema.json`。`CfgCache` 统一读取、Schema 校验、异常诊断和生命周期；两个泛型基类决定对象或数组的解析与存储，具体缓存仅补充必要的跨字段校验。新增缓存后在 ConfigService 显式声明引用并加入统一加载集合，禁止添加按业务类型分派的解析分支。
 
 `config/map.json` 对应 `MapCfgCache : MultiCfgCache<int, MapCfg>`，根为数组，各行以正整数 id 为主键，保存尺寸、瓦片规格、AOI chunkSizeTiles、默认地块和稀疏覆盖格；basic.json 的 initialMapId 必须存在于地图表；缓存检查覆盖格边界及坐标唯一性。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，当前包含 1012—1018 七件测试装备。每行包含 `id`、`name`（名称）、`category`（大类）、`subCategory`（小类）、`maxStack`（可堆叠上限）、可选 `iconAssetId`（背包图集素材键）与 `groundAssetId`（地面素材键），`ItemCfg.Id` 标注 `[CfgKey]`。名称为非空字符串，数值字段均为 Int32，ID 和上限为正数，分类编号非负。已确认大类 1=武器、2=防具；七件装备分别为测试长剑（小类2）、测试双手剑（4）、测试盾牌（105，大类2）、测试木杖（16）、测试枪（1）、测试拳刃（8）、测试飞刀（32），堆叠上限均为1；其余大类及道具内容仍待确认，与 GM 图鉴数据独立管理。
+
+地图条目的可选 `bgmTrackId` 保存曲目编号；地图 1 配置 M015a，未配置的地图不播放地图 BGM。Schema 限制编号格式，曲目资源位于 `assets/audio/music/`。
 
 ```csharp
 var map = GameServices.Config.Map.Items[mapId];

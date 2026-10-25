@@ -4,6 +4,7 @@
     "width": 1000,
     "height": 1000,
     "tileSize": 32,
+    "bgmTrackId": "M015a",
     "defaultTile": "ground",
     "overrides": [
       {

@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change data-driven-rpg-client. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: 启动加载全部客户端配置
 客户端 SHALL 统一通过 Godot 的 DirAccess 和 FileAccess 读取平铺于配置根目录的 JSON 并拒绝子目录，不为独立 .NET 测试保留 System.IO 加载分支；配置加载及依赖该加载的验收 SHALL 在 Godot headless 环境执行。客户端 SHALL 加载全部 JSON，以对应 JSON Schema 验证并组合成类型化游戏配置；地图配置文件 SHALL 命名为 `map.json`。地图 SHALL 使用标注 map.json 的 MapCfgCache : MultiCfgCache<int, MapCfg>，以根数组承载多地图配置且不含 kind；每行 SHALL 包含正整数主键 id 和正整数 chunkSizeTiles，basic.json 的 initialMapId SHALL 引用存在的地图；未知、重复或无效配置 SHALL 给出文件相关错误。
 
@@ -48,3 +50,18 @@ MapUtils SHALL 基于纯数据地图组件封装地图读取、坐标与边界�
 #### Scenario: 合并绘制保持画面
 - **WHEN** 分块首次显示或相机跨界创建新分块
 - **THEN** 合并绘制保持原有等轴位置、棋盘颜色、覆盖地块与网格线，静止时不重复构建几何
+
+### Requirement: 地图背景音乐配置
+地图配置 SHALL 提供可选的背景音乐曲目编号。地图 1 SHALL 配置为 M015a；配置编号 SHALL 是合法的曲目标识，未配置时该地图不播放地图 BGM。
+
+#### Scenario: 地图 1 曲目
+- **WHEN** 客户端加载项目自带的地图配置并读取地图 1
+- **THEN** 地图 1 的背景音乐曲目编号为 M015a
+
+#### Scenario: 未配置曲目
+- **WHEN** 地图配置没有背景音乐曲目编号
+- **THEN** 该地图仍可加载，进入该地图时不播放地图 BGM
+
+#### Scenario: 无效编号
+- **WHEN** 地图配置包含非法的背景音乐曲目编号
+- **THEN** 启动时报告地图配置错误

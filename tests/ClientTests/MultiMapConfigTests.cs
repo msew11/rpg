@@ -20,7 +20,7 @@ public sealed class MultiMapConfigTests : IDisposable
             File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", name + ".json"), Path.Combine(_directory, name + ".json"));
         var maps = JsonNode.Parse(File.ReadAllText(Path.Combine(_directory, "map.json")))!.AsArray();
         var second = maps[0]!.DeepClone(); second["id"] = 2; second["width"] = 200; second["height"] = 300;
-        second["overrides"] = new JsonArray(); maps.Insert(0, second);
+        second["overrides"] = new JsonArray(); second.AsObject().Remove("bgmTrackId"); maps.Insert(0, second);
         File.WriteAllText(Path.Combine(_directory, "map.json"), maps.ToJsonString());
         var basic = JsonNode.Parse(File.ReadAllText(Path.Combine(_directory, "basic.json")))!;
         basic["initialMapId"] = 2;
@@ -44,6 +44,8 @@ public sealed class MultiMapConfigTests : IDisposable
         Assert.Equal(2, session.Role.MapId); Assert.Equal(2, session.Map!.MapId);
         GameServices.World.InitializeRole();
         Assert.Equal(200, GameServices.World.MapConfig.Width);
+        // client-config-map：未配置曲目的地图仍可进入，并保持无 BGM 编号。
+        Assert.Equal("", GameServices.World.MapConfig.BgmTrackId);
         Assert.Equal(session.Map.Sequence, GameServices.World.MapObjects!.Sequence);
         GameServices.World.LeaveRole(); session.LeaveRole();
         Assert.Null(GameServices.World.MapObjects); Assert.Null(session.Map);
@@ -63,6 +65,19 @@ public sealed class MultiMapConfigTests : IDisposable
         var maps = JsonNode.Parse(File.ReadAllText(mapsPath))!.AsArray(); maps[1]!["id"] = 2;
         File.WriteAllText(mapsPath, maps.ToJsonString());
         Assert.Contains("重复", Assert.Throws<InvalidDataException>(() => new ConfigService(Env())).Message);
+    }
+
+    /// <summary>client-config-map：非法曲目编号在地图配置加载时拒绝。</summary>
+    [Fact]
+    public void InvalidBgmTrackIdIsRejected()
+    {
+        var mapsPath = Path.Combine(_directory, "map.json");
+        var maps = JsonNode.Parse(File.ReadAllText(mapsPath))!.AsArray();
+        maps[1]!["bgmTrackId"] = "../M001";
+        File.WriteAllText(mapsPath, maps.ToJsonString());
+        var error = Assert.Throws<InvalidDataException>(() => new ConfigService(Env()));
+        Assert.Contains("map.json", error.Message);
+        Assert.Contains("Schema", error.Message);
     }
 
     /// <summary>移除测试配置与存档。</summary>

@@ -39,6 +39,8 @@ public partial class MainController : Control
     private Camera2D? _camera;
     /// <summary>独立于 ECS 的游戏界面。</summary>
     private GameHud? _hud;
+    /// <summary>主场景持有的页面与地图背景音乐播放器。</summary>
+    private BgmPlayer? _bgm;
     /// <summary>隔离世界摄像机变换的 HUD 画布层。</summary>
     private CanvasLayer? _hudLayer;
 
@@ -51,6 +53,8 @@ public partial class MainController : Control
             AddChild(new PointerCursor { Name = "PointerCursor" });
             _servicesLifetime = InitializeServices();
             AddChild(new UiSoundPlayer { Name = "UiSound" });
+            _bgm = new BgmPlayer { Name = "Bgm" };
+            AddChild(_bgm);
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;
             GameServices.EventBus.Error += OnNetworkError;
@@ -145,6 +149,7 @@ public partial class MainController : Control
         if (!TryFlushBeforeLeavingRole()) return;
         ClearGame();
         GameServices.Session.Logout();
+        _bgm?.PlayTrack("M001");
         var box = CenteredScreen("网络 RPG 客户端 · 模拟登录");
         box.AddChild(Label("演示账号：demo / demo", 15));
         var username = new LineEdit { PlaceholderText = "用户名", Text = "demo", CustomMinimumSize = new Vector2(280, 36) };
@@ -169,6 +174,7 @@ public partial class MainController : Control
     {
         if (!TryFlushBeforeLeavingRole()) return;
         ClearGame();
+        _bgm?.PlayTrack("M001");
         _screen = new CanvasLayer { Name = "ScreenLayer", Layer = 10 };
         AddChild(_screen);
         var page = new RoleSelectionControl { Name = "RoleSelectionPage" };
@@ -318,6 +324,7 @@ public partial class MainController : Control
     /// <summary>为服务已经初始化的世界建立地图、角色、摄像机与 HUD 表现。</summary>
     private void BuildRoleWorld()
     {
+        _bgm?.PlayTrack(GameServices.World.MapConfig.BgmTrackId);
         _screen?.QueueFree();
         _screen = null;
         _feedback = null;

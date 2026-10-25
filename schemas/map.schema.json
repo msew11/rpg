@@ -33,6 +33,10 @@
         "type": "integer",
         "minimum": 1
       },
+      "bgmTrackId": {
+        "type": "string",
+        "pattern": "^M[0-9]{3}[A-Za-z]?$"
+      },
       "defaultTile": {
         "type": "string",
         "minLength": 1

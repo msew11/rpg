@@ -3,7 +3,7 @@ using Rpg.Config.Cache;
 
 namespace Rpg.Config.Data;
 
-/// <summary>地图尺寸、默认瓦片和稀疏覆盖配置。</summary>
+/// <summary>地图尺寸、地块和背景音乐配置。</summary>
 public sealed class MapCfg
 {
     /// <summary>地图标识。</summary>
@@ -19,6 +19,8 @@ public sealed class MapCfg
     public int TileSize { get; init; }
     /// <summary>未覆盖格子的地块类型。</summary>
     public string DefaultTile { get; init; } = "";
+    /// <summary>进入地图时播放的背景音乐编号，留空表示不播放。</summary>
+    public string BgmTrackId { get; init; } = "";
     /// <summary>少量不同于默认地块的格子。</summary>
     public List<TileOverride> Overrides { get; init; } = [];
 }

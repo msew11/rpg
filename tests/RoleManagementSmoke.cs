@@ -13,7 +13,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验证 openspec/specs/role-management、server-write-back 的角色界面与离角落地。</summary>
+/// <summary>验证 openspec/specs/role-management、server-write-back 与 client-ui 的角色界面、背景音乐及离角落地。</summary>
 public partial class RoleManagementSmoke : Node
 {
     /// <summary>隔离存档，自动操作真实按钮并以退出码报告验收结果。</summary>
@@ -26,9 +26,16 @@ public partial class RoleManagementSmoke : Node
             main = new DoubleMainController { SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server") };
             AddChild(main);
             await Frame();
+            // client-ui：登录与角色页面循环使用 M001，并走 BGM 总线。
+            var bgm = (BgmPlayer)main.FindChild("Bgm", true, false);
+            var music = bgm.GetNode<AudioStreamPlayer>("Music");
+            Check(bgm.CurrentTrackId == "M001" && music.Bus == "BGM" &&
+                music.Stream is AudioStreamOggVorbis { Loop: true } &&
+                music.Stream.ResourcePath.EndsWith("M001.ogg"), "登录页没有循环播放 M001 或没有使用 BGM 总线");
             main.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "登录")
                 .EmitSignal(Button.SignalName.Pressed);
             await Frames();
+            Check(bgm.CurrentTrackId == "M001", "选角页没有保持 M001");
             GameServices.Env.ServerFlushIntervalSeconds = 0;
             var selection = (RoleSelectionControl)main.FindChild("RoleSelectionPage", true, false);
             AssertLayout(selection, "ReturnLogin");
@@ -38,6 +45,7 @@ public partial class RoleManagementSmoke : Node
             Check(main.FindChild("OpenCreateRole", true, false) is Button { Disabled: false }, "首次空列表无法创建");
             Press(main, "OpenCreateRole");
             await Frames();
+            Check(bgm.CurrentTrackId == "M001", "角色创建页没有保持 M001");
             var page = main.FindChild("CreateRolePage", true, false) as RoleCreateControl
                 ?? throw new InvalidOperationException("创建页面未显示");
             AssertLayout(page, "CancelCreate");
@@ -157,6 +165,9 @@ public partial class RoleManagementSmoke : Node
             Check(!GameServices.World.HasWorld, "预览角色时创建了世界");
             Press(main, "EnterRole");
             await Frames();
+            Check(GameServices.World.MapConfig.BgmTrackId == "M015a" &&
+                bgm.CurrentTrackId == "M015a" && music.Stream is AudioStreamOggVorbis { Loop: true } &&
+                music.Stream.ResourcePath.EndsWith("M015a.ogg"), "地图 1 没有按配置循环播放 M015a");
             Check(GameServices.World.ActorState?.HeadId == 74, "选角没有把头型交给世界");
             var rolePath = Path.Combine(directory, "server", $"{role.RoleId}.role.json");
             Check(!File.Exists(rolePath), "禁用定时检测时角色已提前落地");
@@ -166,6 +177,7 @@ public partial class RoleManagementSmoke : Node
             hud.GetNode("SystemMenuOverlay/SystemMenu").FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text == "返回角色选择").EmitSignal(Button.SignalName.Pressed);
             await Frame();
+            Check(bgm.CurrentTrackId == "M001", "返回选角后没有恢复 M001");
             Check(File.Exists(rolePath), "返回角色选择没有在清理会话前落地角色文件");
             foreach (var summary in GameServices.Session.Roles.ToArray())
             {
