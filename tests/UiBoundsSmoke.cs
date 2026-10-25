@@ -6,6 +6,7 @@ using Godot;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
+using Rpg.Const;
 
 namespace Rpg.Tests;
 
@@ -22,6 +23,27 @@ public partial class UiBoundsSmoke : Node
             RoleTestData.Seed(Path.Combine(directory, "server"));
             main = await StartMain(directory);
             var hud = main.FindChildren("*", "Control", true, false).OfType<GameHud>().Single();
+            // client-ui：头像展示当前角色，等级只在头像角标，状态条采用明确的百分比色阶。
+            var portraitPanel = hud.GetNode<PanelContainer>("portrait");
+            var avatar = portraitPanel.FindChildren("Avatar", "Control", true, false).OfType<AvatarControl>().Single();
+            var name = portraitPanel.FindChildren("PortraitName", "Label", true, false).OfType<Label>().Single();
+            var health = portraitPanel.FindChildren("HealthBar", "ProgressBar", true, false).OfType<ProgressBar>().Single();
+            var mana = portraitPanel.FindChildren("ManaBar", "ProgressBar", true, false).OfType<ProgressBar>().Single();
+            Check(avatar.Level == 5 && avatar.Portrait?.ResourcePath.EndsWith("DThed011_01.png") == true,
+                "头像或等级与选中角色不一致");
+            Check(name.Text == "晨星" && Math.Abs(health.Value - 86) < 0.01 &&
+                Math.Abs(mana.Value - 70) < 0.01, "头像右侧未按角色快照显示名字和比例");
+            Check(!portraitPanel.FindChildren("*", "Label", true, false).OfType<Label>()
+                .Any(label => label.Text.Contains("经验") || label.Text.Contains("Lv.")), "头像区域出现多余信息");
+            Check(GameHud.HealthColor(0.51f) == new Color("3ca66d") &&
+                GameHud.HealthColor(0.5f) == new Color("d89137") &&
+                GameHud.HealthColor(0.26f) == new Color("d89137") &&
+                GameHud.HealthColor(0.25f) == new Color("c94d4d"), "生命百分比边界颜色错误");
+            // client-ui：全部创角头型均有当前性别的专用头像或正面头部帧。
+            foreach (var gender in new[] { RoleGender.Male, RoleGender.Female })
+            foreach (var headId in Enumerable.Range(1, 74))
+                Check(GameHud.LoadPortrait(gender, headId) is not null,
+                    $"{gender} 头型 {headId} 没有 HUD 头像");
             // client-ui：普通窗口样式不改变聊天、雷达和角色信息的原有边距。
             foreach (var key in new[] { "portrait", "Radar", "Chat" })
             {

@@ -5,6 +5,7 @@ using System.Linq;
 using Rpg.Services;
 using Rpg.Net.Message;
 using Rpg.Settings.Data;
+using Rpg.Const;
 
 namespace Rpg.UI;
 
@@ -23,8 +24,14 @@ public partial class GameHud : Control
     private readonly List<IDisposable> _subscriptions = [];
     /// <summary>显示可恢复的网络或服务端错误。</summary>
     private Label _networkError = null!;
-    /// <summary>头像区域中的角色状态文字。</summary>
-    private Label _portraitText = null!;
+    /// <summary>显示角色头型与等级的头像。</summary>
+    private AvatarControl _avatar = null!;
+    /// <summary>头像右侧的角色名字。</summary>
+    private Label _portraitName = null!;
+    /// <summary>根据生命比例变色的状态条。</summary>
+    private ProgressBar _healthBar = null!;
+    /// <summary>显示当前魔力比例的状态条。</summary>
+    private ProgressBar _manaBar = null!;
     /// <summary>角色面板中的详细状态文字。</summary>
     private Label _characterText = null!;
     /// <summary>大地图面板中的地图和位置文字。</summary>
@@ -241,9 +248,19 @@ public partial class GameHud : Control
         var portrait = Movable("portrait", "角色头像");
         var portraitRow = new HBoxContainer();
         portrait.AddChild(portraitRow);
-        portraitRow.AddChild(new AvatarControl { CustomMinimumSize = new Vector2(64, 64) });
-        _portraitText = Text("", 14);
-        portraitRow.AddChild(_portraitText);
+        portraitRow.AddThemeConstantOverride("separation", 7);
+        _avatar = new AvatarControl { Name = "Avatar", CustomMinimumSize = new Vector2(72, 72), MouseFilter = MouseFilterEnum.Ignore };
+        portraitRow.AddChild(_avatar);
+        var status = new VBoxContainer { CustomMinimumSize = new Vector2(155, 0) };
+        status.AddThemeConstantOverride("separation", 5);
+        portraitRow.AddChild(status);
+        _portraitName = Text("", 14);
+        _portraitName.Name = "PortraitName";
+        status.AddChild(_portraitName);
+        _healthBar = CreateStatusBar("HealthBar", new Color("3ca66d"));
+        status.AddChild(_healthBar);
+        _manaBar = CreateStatusBar("ManaBar", new Color("418ec4"));
+        status.AddChild(_manaBar);
 
         var radarBox = Movable("radar", "小地图");
         _movable["radar"].Name = "Radar";
@@ -894,7 +911,14 @@ public partial class GameHud : Control
     private void RefreshData()
     {
         var state = GameServices.Session.Role;
-        _portraitText.Text = $"● {state.Name}  Lv.{state.Level}\n生命 {state.Health}/{state.MaxHealth}\n魔力 {state.Mana}/{state.MaxMana}\n经验 {state.Experience}/{state.NextExperience}";
+        _portraitName.Text = state.Name;
+        _avatar.Level = state.Level;
+        _avatar.Portrait = LoadPortrait(state.Gender, state.HeadId);
+        _avatar.QueueRedraw();
+        var healthRatio = Mathf.Clamp((float)state.Health / Mathf.Max(1, state.MaxHealth), 0, 1);
+        _healthBar.Value = healthRatio * 100;
+        _healthBar.AddThemeStyleboxOverride("fill", BarFill(HealthColor(healthRatio)));
+        _manaBar.Value = Mathf.Clamp((float)state.Mana / Mathf.Max(1, state.MaxMana), 0, 1) * 100;
         _characterText.Text = $"角色 ID：{state.RoleId}\n等级：{state.Level}\n生命：{state.Health}/{state.MaxHealth}\n魔力：{state.Mana}/{state.MaxMana}\n经验：{state.Experience}/{state.NextExperience}";
         var mapConfig = GameServices.World.MapConfig;
         _mapText.Text = $"地图：{mapConfig.Id}  {mapConfig.Width}×{mapConfig.Height}\n位置：{state.Position.X:0}, {state.Position.Y:0}";
@@ -903,6 +927,46 @@ public partial class GameHud : Control
         _miniMap.QueueRedraw();
         _largeMap.QueueRedraw();
     }
+
+    /// <summary>读取原游戏专用头像，超出该图集范围时使用所选头型的正面帧。</summary>
+    internal static Texture2D LoadPortrait(RoleGender gender, int headId)
+    {
+        var id = headId == 0 ? 1 : headId;
+        if (id <= 64)
+        {
+            var group = (id - 1) / 8 + 1;
+            var variant = (id - 1) % 8 + 1;
+            var suffix = gender == RoleGender.Male ? "01" : "51";
+            var path = $"res://assets/portraits/DThed0{group}{variant}_{suffix}.png";
+            return GD.Load<Texture2D>(path) ?? throw new InvalidOperationException($"头像资源加载失败：{path}");
+        }
+        return GameServices.Animation.GetHead(gender, id).Frames[2];
+    }
+
+    /// <summary>创建与 HUD 配色一致的紧凑状态条。</summary>
+    private static ProgressBar CreateStatusBar(string name, Color color)
+    {
+        var bar = new ProgressBar { Name = name, CustomMinimumSize = new Vector2(155, 13),
+            ShowPercentage = false, MinValue = 0, MaxValue = 100, MouseFilter = MouseFilterEnum.Ignore };
+        var background = new StyleBoxFlat { BgColor = new Color("182630"), BorderColor = new Color("7899a6") };
+        background.SetBorderWidthAll(1);
+        background.SetCornerRadiusAll(5);
+        bar.AddThemeStyleboxOverride("background", background);
+        bar.AddThemeStyleboxOverride("fill", BarFill(color));
+        return bar;
+    }
+
+    /// <summary>生成生命与魔力条共用的填充样式。</summary>
+    private static StyleBoxFlat BarFill(Color color)
+    {
+        var fill = new StyleBoxFlat { BgColor = color };
+        fill.SetCornerRadiusAll(4);
+        return fill;
+    }
+
+    /// <summary>按生命比例选取正常、警戒和危险颜色。</summary>
+    internal static Color HealthColor(float ratio) => ratio <= 0.25f
+        ? new Color("c94d4d") : ratio <= 0.5f ? new Color("d89137") : new Color("3ca66d");
 
     /// <summary>读取移动响应在缓存阶段更新后的快照。</summary>
     private void OnMoved(MoveRt response)
