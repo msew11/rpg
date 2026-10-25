@@ -218,12 +218,21 @@ public partial class BagGmSmoke : Node
         interval.Value = 0;
         Check(GameServices.Env.ServerFlushIntervalSeconds == 0, "未关闭检测");
         Check(File.ReadAllText(envPath).Contains("RPG_SERVER_FLUSH_INTERVAL_SECONDS=0"), "未保存检测间隔");
+        // client-ecs-world：滑条立即生效，写入 .env，重建 HUD 保留当前值。
+        var speed = (HSlider)main.FindChild("MovementSpeed", true, false);
+        Check(speed.MinValue == 60 && speed.MaxValue == 360 && speed.Step == 10 && speed.Value == 180,
+            "GM 移动速度范围或默认值错误");
+        speed.Value = 300;
+        Check(GameServices.Env.MovementSpeed == 300 && File.ReadAllText(envPath).Contains("RPG_MOVEMENT_SPEED=300"),
+            "GM 移动速度未即时保存");
         Check(File.ReadAllText(envPath).Contains("RPG_CONSOLE_LOG_ENABLED=true"), "GM 未保存 .env");
         var rebuilt = new GameHud { Visible = false };
         AddChild(rebuilt);
         await Frames();
         Check(((CheckButton)rebuilt.FindChild("ConsoleLogEnabled", true, false)).ButtonPressed,
             "重建 HUD 未保留环境日志标记");
+        Check(((HSlider)rebuilt.FindChild("MovementSpeed", true, false)).Value == 300,
+            "重建 HUD 未恢复移动速度");
         rebuilt.QueueFree();
         await Frames();
         Click(toggle.GetGlobalRect().GetCenter());
@@ -232,6 +241,10 @@ public partial class BagGmSmoke : Node
         Check(File.ReadAllText(envPath).Contains("RPG_CONSOLE_LOG_ENABLED=false"), "关闭未保存 .env");
         using (var locked = new FileStream(envPath, FileMode.Open, System.IO.FileAccess.Read, FileShare.None))
         {
+            speed.Value = 360;
+            Check(speed.Value == 300 && GameServices.Env.MovementSpeed == 300 &&
+                ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("无法保存移动速度"),
+                "移动速度保存失败未恢复滑条或显示原因");
             Click(toggle.GetGlobalRect().GetCenter());
             await Frames();
             Check(!toggle.ButtonPressed && !GameServices.Env.ConsoleLogEnabled &&

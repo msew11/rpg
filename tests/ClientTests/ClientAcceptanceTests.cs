@@ -132,6 +132,22 @@ public sealed class ClientAcceptanceTests : RegisteredServiceTestScope
         Assert.Equal(1, notifications);
     }
 
+    /// <summary>client-ecs-world：已有模拟服务端在移动过程中采用更新后的速度。</summary>
+    [Fact]
+    public void ExistingMockServerUsesUpdatedMovementSpeed()
+    {
+        var speed = 180;
+        using var source = new NetworkTestFixture(EventBus, seedRoles: true, movementSpeed: () => speed);
+        source.Login();
+        using var session = source.SelectRole(1001);
+        var start = session.Role.Position;
+        session.SubmitMove(1, start + new Vector2(1000, 0));
+        source.Net.Tick(0.2);
+        speed = 300;
+        source.Net.Tick(0.3);
+        Assert.InRange(session.Role.Position.X - start.X, 128, 129); // 36 + 90 + 横向 3 单位修正。
+    }
+
 }
 
 /// <summary>验证 openspec/specs/client-ecs-world 的 Action、重定目标与校正场景。</summary>
@@ -184,6 +200,25 @@ public sealed class WorldAcceptanceTests
         world.Tick(0);
         Assert.Equal(new Vector2(999, 999), world.RolePosition);
     }
+
+    /// <summary>client-ecs-world：GM 修改速度后，已有世界的下一帧采用新速度。</summary>
+    [Fact]
+    public void ExistingWorldUsesUpdatedMovementSpeed()
+    {
+        var speed = 180;
+        var world = new WorldManager(() => speed);
+        var role = new RoleWorldStatePbData(1, "测试", 1, 10, 10, 10, 10, 0, 10,
+            new Vector2(100, 100), RoleGender.Male, 0, 0);
+        world.Enqueue(new InitializeWorldAction(MapUtils.CreateMap(new MapCfg { Width = 1000, Height = 1000, TileSize = 32 })));
+        world.Enqueue(new InitializeRoleAction(role));
+        world.Enqueue(new MoveAction(1, new Vector2(500, 100)));
+        world.Tick(1);
+        Assert.Equal(280, world.RolePosition.X);
+        speed = 60;
+        world.Tick(1);
+        Assert.Equal(340, world.RolePosition.X);
+    }
+
 }
 
 /// <summary>验证 openspec/specs/client-settings 的系统持久化和角色隔离场景。</summary>

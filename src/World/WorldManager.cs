@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Frozen;
 using System.Linq;
+using Rpg.Config;
 using Godot;
 using Rpg.Const;
 using Rpg.World.Actions;
@@ -24,7 +25,10 @@ internal sealed class WorldManager
     /// <summary>由当前 ECS 组件生成的只读对象集合。</summary>
     public DataWorldObjectsState? MapObjects { get; private set; }
     /// <summary>固定运行顺序的逻辑系统。</summary>
-    private readonly IWorldSystem[] _systems = [new MovementSystem()];
+    private readonly IWorldSystem[] _systems;
+    /// <summary>绑定速度来源；独立世界测试使用原有默认速度。</summary>
+    internal WorldManager(Func<int>? movementSpeed = null)
+        => _systems = [new MovementSystem(movementSpeed ?? (() => EnvService.DefaultMovementSpeed))];
     /// <summary>地图世界实体 ID。</summary>
     private int _worldEntity;
     /// <summary>当前角色实体 ID。</summary>

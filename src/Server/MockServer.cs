@@ -6,6 +6,7 @@ using System.Numerics;
 using Google.Protobuf;
 using Rpg.Net;
 using Rpg.Net.Message;
+using Rpg.Config;
 using Rpg.Server.Data;
 
 namespace Rpg.Server;
@@ -33,6 +34,8 @@ public sealed class MockServer
     private MapAoiTracker? _aoi;
     /// <summary>由运行环境提供当前检测秒数，隔离测试默认五秒。</summary>
     private readonly Func<int> _flushInterval;
+    /// <summary>当前环境的角色移动速度。</summary>
+    private readonly Func<int> _movementSpeed;
     /// <summary>当前使用的检测周期，用于设置变更后重新计时。</summary>
     private int _lastFlushInterval = -1;
     /// <summary>距离上次检测累计的模拟秒数。</summary>
@@ -60,12 +63,14 @@ public sealed class MockServer
 
     /// <summary>绑定独立服务端存储目录。</summary>
     public MockServer(string directory, DataServerBagRules bagRules, Action<string, string>? writeLog = null,
-        Func<int>? flushInterval = null, IEnumerable<DataServerMapRules>? maps = null, int initialMapId = 1)
+        Func<int>? flushInterval = null, IEnumerable<DataServerMapRules>? maps = null, int initialMapId = 1,
+        Func<int>? movementSpeed = null)
     {
         _transfers = new RepoServerItemTransfer(directory, writeLog);
         _transfers.Recover();
         _roles = new RepoServerRole(directory, writeLog, deferWrites: true);
         _flushInterval = flushInterval ?? (() => 5);
+        _movementSpeed = movementSpeed ?? (() => EnvService.DefaultMovementSpeed);
         _bagRules = bagRules;
         _mapRules = (maps ?? [new DataServerMapRules(1, 1000, 1000, 32, 32)]).ToDictionary(map => map.MapId);
         foreach (var map in _mapRules.Values) map.Validate();
@@ -224,13 +229,13 @@ public sealed class MockServer
         Send(response);
     }
 
-    /// <summary>按既有模拟速度推进位置，延迟 0.45 秒后提交内存并返回移动确认。</summary>
+    /// <summary>按当前环境速度推进位置，延迟 0.45 秒后提交内存并返回移动确认。</summary>
     private void AdvanceMovement(double delta)
     {
         if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
         if (_current is null) return;
         var distance = Vector2.Distance(_position, _target);
-        var step = (float)(180 * delta);
+        var step = (float)(_movementSpeed() * delta);
         _position = distance <= step || distance == 0 ? _target : _position + (_target - _position) / distance * step;
         for (var index = 0; index < _pending.Count;)
         {

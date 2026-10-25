@@ -66,7 +66,7 @@ public static class GameServices
             created.Add(net);
             var session = new SessionService(net);
             created.Add(session);
-            var world = new WorldService(config, setting, session);
+            var world = new WorldService(env, config, setting, session);
             created.Add(world);
             var animation = new AnimationService();
             created.Add(animation);

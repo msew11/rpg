@@ -15,6 +15,25 @@ public sealed class EnvService : Service
     public const string ShowEntityAnchorsVariable = "RPG_SHOW_ENTITY_ANCHORS";
     /// <summary>.env 中持有服务端检测间隔的秒数键，0 关闭检测。</summary>
     public const string ServerFlushIntervalVariable = "RPG_SERVER_FLUSH_INTERVAL_SECONDS";
+    /// <summary>.env 中保存角色每秒移动的逻辑单位数。</summary>
+    public const string MovementSpeedVariable = "RPG_MOVEMENT_SPEED";
+    /// <summary>GM 可调移动速度的下限、上限和默认值。</summary>
+    public const int MinimumMovementSpeed = 60, MaximumMovementSpeed = 360, DefaultMovementSpeed = 180;
+    /// <summary>当前移动速度，写入成功后才更新内存。</summary>
+    private int _movementSpeed = DefaultMovementSpeed;
+    /// <summary>角色每秒移动的逻辑单位数，限于滑条范围及十的倍数。</summary>
+    public int MovementSpeed
+    {
+        get => _movementSpeed;
+        set
+        {
+            ThrowIfDisposed();
+            if (value < MinimumMovementSpeed || value > MaximumMovementSpeed || value % 10 != 0)
+                throw new ArgumentOutOfRangeException(nameof(value), "移动速度必须为 60 至 360 范围内 10 的倍数");
+            SaveVariable(MovementSpeedVariable, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            _movementSpeed = value;
+        }
+    }
     /// <summary>缺失或非法配置时的默认检测秒数。</summary>
     private int _serverFlushIntervalSeconds = 5;
     /// <summary>服务端检测秒数，只接受零或正的五秒倍数，写入成功才更新内存。</summary>
@@ -90,6 +109,10 @@ public sealed class EnvService : Service
                     _consoleLogEnabled = ReadBoolean(logText);
                 if (TryReadVariable(line, ShowEntityAnchorsVariable, out var anchorText))
                     _showEntityAnchors = ReadBoolean(anchorText);
+                if (TryReadVariable(line, MovementSpeedVariable, out var speedText))
+                    _movementSpeed = int.TryParse(speedText, out var speed) &&
+                        speed >= MinimumMovementSpeed && speed <= MaximumMovementSpeed && speed % 10 == 0
+                        ? speed : DefaultMovementSpeed;
             }
         }
         SettingsDirectory = settingsDirectory;

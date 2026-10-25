@@ -14,6 +14,38 @@ public sealed class EnvServiceTests : IDisposable
     /// <summary>创建带隔离 .env 的环境，不访问系统环境变量。</summary>
     private EnvService Open() => new(_root, envFilePath: EnvPath);
 
+    /// <summary>client-ecs-world：速度在合理范围内跨启动保留，其他 .env 键不被覆盖。</summary>
+    [Fact]
+    public void MovementSpeedPersistsAndPreservesOtherKeys()
+    {
+        using var env = Open();
+        Assert.Equal(180, env.MovementSpeed);
+        env.ConsoleLogEnabled = true;
+        env.MovementSpeed = 300;
+        using var restarted = Open();
+        Assert.Equal(300, restarted.MovementSpeed);
+        Assert.True(restarted.ConsoleLogEnabled);
+        Assert.Contains("RPG_MOVEMENT_SPEED=300", File.ReadAllText(EnvPath));
+    }
+
+    /// <summary>client-ecs-world：非法速度回退默认值，保存失败不改变当前速度。</summary>
+    [Theory]
+    [InlineData("0")]
+    [InlineData("370")]
+    [InlineData("185")]
+    [InlineData("invalid")]
+    public void InvalidMovementSpeedAndFailedSavePreserveState(string invalid)
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(EnvPath, EnvService.MovementSpeedVariable + "=" + invalid);
+        using var env = Open();
+        Assert.Equal(180, env.MovementSpeed);
+        Assert.Throws<ArgumentOutOfRangeException>(() => env.MovementSpeed = 185);
+        using (var locked = new FileStream(EnvPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            Assert.True(Record.Exception(() => env.MovementSpeed = 300) is IOException or UnauthorizedAccessException);
+        Assert.Equal(180, env.MovementSpeed);
+    }
+
     /// <summary>缺失文件时默认关闭，首次切换才创建文件；开启和关闭均跨实例保留。</summary>
     [Fact]
     public void ToggleRemembersBothStatesWithoutLoggingItsOwnWrite()

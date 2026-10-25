@@ -29,13 +29,15 @@ internal sealed class NetworkTestFixture : IDisposable
     public List<Exception> Errors { get; } = [];
 
     /// <summary>使用独立或借用目录；仅显式指定时准备已有角色存档。</summary>
-    public NetworkTestFixture(EventBusService eventBus, string? directory = null, bool seedRoles = false)
+    public NetworkTestFixture(EventBusService eventBus, string? directory = null, bool seedRoles = false,
+        Func<int>? movementSpeed = null)
     {
         _eventBus = eventBus;
         _ownsDirectory = directory is null;
         DirectoryPath = directory ?? Path.Combine(Path.GetTempPath(), "rpg-network-" + Guid.NewGuid());
         if (seedRoles) Rpg.Tests.RoleTestData.Seed(DirectoryPath);
-        Server = new MockServer(DirectoryPath, new Rpg.Server.Data.DataServerBagRules(8, 5, []));
+        Server = new MockServer(DirectoryPath, new Rpg.Server.Data.DataServerBagRules(8, 5, []),
+            movementSpeed: movementSpeed);
         Net = new NetService(new MockTransport(Server), eventBus, new Rpg.Services.LogService(Console.WriteLine));
         Net.Error += Errors.Add;
         _eventBus.Error += Errors.Add;

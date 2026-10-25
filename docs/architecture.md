@@ -8,19 +8,19 @@
 
 | 服务 | 拥有的状态和行为 | 内部依赖 |
 | --- | --- | --- |
-| `EnvService Env` | 统一持有配置、Schema、设置与模拟服务端目录，以及 .env 日志和锚点显示开关 | 无依赖根服务 |
+| `EnvService Env` | 统一持有配置、Schema、设置与模拟服务端目录，以及 .env 日志、锚点显示和移动速度 | 无依赖根服务 |
 | `LogService Log` | 通信与成功文件提交的控制台日志，仅指定消息标记着色 | 构造绑定 Env；使用 Godot PrintRich |
 | `ConfigService Config` | 构造时加载、校验并持有配置 | Env；具体 CfgCache 统一读取 JSON 与 Schema |
 | `SettingService Setting` | 构造时加载系统设置，内部持有角色设置并修改、保存 | Env、Log；私有 JSON 读写方法 |
 | `EventBusService EventBus` | 唯一类型事件域、缓存优先分发、监听错误与订阅生命周期 | 内部监听集合与重入队列 |
 | `NetService Net` | protobuf 请求队列、固定帧收发及解码后发布消息 | Env、Log、EventBus、Config；内部 `INetTransport`，通过绑定的 EventBus 实例发布 |
 | `SessionService Session` | 持有登录尝试的摘要与角色缓存，提交登录、选角和角色管理请求并提供快照 | `NetService`、内部 `LoginCache`、`RoleCache` 与 `MapCache` |
-| `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Config、Setting、Session；内部只读地图组件、`MapUtils`、`WorldManager` |
+| `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Env、Config、Setting、Session；内部只读地图组件、`MapUtils`、`WorldManager` |
 | `AnimationService Animation` | 分别缓存身体动作与独立头部资源并解析朝向 | Godot 原生资源 |
 
 `ConfigService` 显式持有 `MapCfgCache Map`、`ItemCfgCache Item` 和 `BasicCfgCache Basic`，构造时按缓存类的文件标注读取平铺于 `res://config` 根目录的全部 JSON，拒绝子目录与未注册文件。单例数据通过 `GameServices.Config.Basic.Value` 读取，地图和道具多例分别通过 `GameServices.Config.Map.Items[mapId]` 与 `GameServices.Config.Item.Items` 读取。配置缓存统一使用 `res://schemas` 中同名的 Draft 2020-12 JSON Schema 校验；原始加载只走 Godot `DirAccess` 与 `FileAccess`，不保留 System.IO 测试分支。地图工具复制为只读地图快照，UI 与分块通过服务读取。缺失、重复、未注册、无效配置或 Schema 导致启动抛异常；错误保留文件路径及原因。配置与程序同包发布，服务释放全部缓存，已取得的缓存引用也拒绝继续读取。配置及整组服务验收在 Godot headless 执行；普通 .NET 地图用例直接提供 `MapCfg` 纯数据。
 
-主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config 的公开构造只接收 Env，Setting 接收 Env、Log，Net 接收 Env、EventBus、Config、Log，Session 接收 Net，World 接收 Config、Setting、Session，EventBus 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Env、Log、EventBus、Config、Setting、Net、Session、World、Animation 顺序显式创建全部九个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、EventBus、Log、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
+主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config 的公开构造只接收 Env，Setting 接收 Env、Log，Net 接收 Env、EventBus、Config、Log，Session 接收 Net，World 接收 Env、Config、Setting、Session，EventBus 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Env、Log、EventBus、Config、Setting、Net、Session、World、Animation 顺序显式创建全部九个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、EventBus、Log、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
 
 `MainController` 只协调页面与表现：登录和选角按钮调用 Session 服务，成功后创建相应页面或世界表现；固定帧先推进 Net 再推进 World，再更新角色与摄像机。输入由节点完成视口逆投影，再交给 World 服务限制边界、分配移动序号并同时提交 ECS Action 与网络请求。控制器不再保存目录或网络工厂；`InitializeServices()` 只调用无参启动，场景测试替身覆盖整组初始化以使用独立环境和传输。启动失败和退出共用清理，先撤销 UI 监听、提交拖动设置，再释放服务句柄；未获得句柄的控制器不会释放其他启动流程的服务。
 
@@ -66,7 +66,7 @@ if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
 
 `src/Server` 的 `MockServer` 使用 `src/Server/Data` 下的独立 `DataServerRole` 和服务端性别枚举，不引用客户端模型或 Godot。`RepoServerRole` 按角色 ID 与领域保存到 `user://server/<roleId>.role.json` 和 `<roleId>.bag.json`；服务端目录统一来自环境服务，测试通过内部环境构造使用临时目录。全新存档登录返回空角色列表，不生成演示角色；读取缺失角色直接报错，删除先在内存记录 IsDeleted 墓碑，落地时原子替换文件，角色编号保留且不会重启复活。创建使用递增新编号，名字去首尾空白并限制 1—16 个字符、拒绝控制字符及重名；头型限定性别内 1—74。旧 JSON 缺失 HeadId 默认 1；旧协议 head_id=0 以默认 1 展示。不再创建或依赖 initialized 标记，已有标记不影响读取且保留原样；已有角色不会自动删除或补齐。墓碑及角色文件仅由 MockServer 所属仓库管理；损坏数据、身份不符或写入失败明确报错，不静默覆盖。请求校验后先提交内存状态并返回响应或 Notice；仓库在首次访问完整加载角色与墓碑，此后读取内存，并按角色合并 role/bag 待写领域。检测节点仅序列化待写数据并比较最终 JSON，只有内容变化的领域才写同目录临时文件并刷盘、替换目标文件；恢复原值及空检测不写文件。创建和迁移保留既有多文件回滚。
 
-模拟移动保留每秒 180 逻辑单位、0.45 秒确认及横向 3 单位校正偏差。仅保存已确认/推送状态，不保存会话结束时仍待确认的移动；选角恢复位置和 revision，移动确认序号重置为 0，供新世界使用。`PublishRoleState` 提供服务端主动更新入口，内存提交成功后发送 Notice，不添加产品操作面板。JSON 存储仅面向单实例进程内 Mock，不提供多进程写入协调。
+模拟移动默认每秒 180 逻辑单位，GM 滑条可在 60–360 间以 10 为步长即时调整；客户端 ECS 与模拟服务端读取同一 Env 速度，保存到 `user://.env` 的 `RPG_MOVEMENT_SPEED`，重启恢复。确认延迟仍为 0.45 秒，横向校正偏差仍为 3 单位。仅保存已确认/推送状态，不保存会话结束时仍待确认的移动；选角恢复位置和 revision，移动确认序号重置为 0，供新世界使用。`PublishRoleState` 提供服务端主动更新入口，内存提交成功后发送 Notice，不添加产品操作面板。JSON 存储仅面向单实例进程内 Mock，不提供多进程写入协调。
 
 Godot UI 通过 `GameServices.EventBus.Subscribe<T>()` 获取并托管普通阶段句柄，读取服务快照并调用业务操作；缓存实现类通过 `CacheBase.Subscribe<T>()` 注册缓存阶段监听。`SessionService` 和 `WorldService` 不持有协议监听，不使用辅助监听器或回调包装绕过该边界。
 

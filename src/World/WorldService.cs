@@ -25,6 +25,8 @@ public sealed class WorldService : Service
     private DataMapComponent? _map;
     /// <summary>构造绑定地图配置，进入角色时按服务器身份选择。</summary>
     private readonly ConfigService _config;
+    /// <summary>当前环境的移动速度，世界每帧读取。</summary>
+    private readonly EnvService _env;
     /// <summary>当前世界使用的地图配置，无角色时不可读取。</summary>
     public MapCfg MapConfig => !IsDisposed && HasWorld && _session.HasRole && _config.Map.Items.TryGetValue(_session.Role.MapId, out var value)
         ? value : throw new InvalidOperationException("当前地图尚未初始化");
@@ -49,8 +51,9 @@ public sealed class WorldService : Service
     public DataActorState? ActorState => _world?.ActorState;
 
     /// <summary>显式绑定同次启动服务，世界操作由 UI 协调调用。</summary>
-    public WorldService(ConfigService config, SettingService setting, SessionService session)
+    public WorldService(EnvService env, ConfigService config, SettingService setting, SessionService session)
     {
+        _env = env;
         _session = session;
         _setting = setting;
         _config = config;
@@ -187,7 +190,7 @@ public sealed class WorldService : Service
         var map = MapUtils.CreateMap(config);
         _setting.SelectRole(_session.RoleId);
         _map = map;
-        var world = new WorldManager();
+        var world = new WorldManager(() => _env.MovementSpeed);
         world.Enqueue(new InitializeWorldAction(_map!));
         world.Enqueue(new InitializeRoleAction(_session.Role));
         _lastMapSnapshot = _session.Map;

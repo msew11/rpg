@@ -6,6 +6,7 @@ using Rpg.Services;
 using Rpg.Net.Message;
 using Rpg.Settings.Data;
 using Rpg.Const;
+using Rpg.Config;
 
 namespace Rpg.UI;
 
@@ -475,6 +476,21 @@ public partial class GameHud : Control
         flushInterval.ValueChanged += seconds => SetServerFlushInterval(flushInterval, seconds);
         flushRow.AddChild(flushInterval);
         gm.AddChild(flushRow);
+        var speedRow = new HBoxContainer { Name = "MovementSpeedControls" };
+        speedRow.AddChild(new Label { Text = "移动速度" });
+        var speedSlider = new HSlider
+        {
+            Name = "MovementSpeed", MinValue = EnvService.MinimumMovementSpeed,
+            MaxValue = EnvService.MaximumMovementSpeed, Step = 10,
+            Value = GameServices.Env.MovementSpeed,
+            CustomMinimumSize = new Vector2(150, 26), SizeFlagsHorizontal = SizeFlags.ExpandFill
+        };
+        var speedValue = new Label { Name = "MovementSpeedValue", Text = $"{speedSlider.Value:0}",
+            CustomMinimumSize = new Vector2(42, 0), HorizontalAlignment = HorizontalAlignment.Right };
+        speedSlider.ValueChanged += value => SetMovementSpeed(speedSlider, speedValue, value);
+        speedRow.AddChild(speedSlider);
+        speedRow.AddChild(speedValue);
+        gm.AddChild(speedRow);
         var healthRow = new HBoxContainer { Name = "HealthPreviewControls" };
         healthRow.AddChild(new Label { Text = "血条预览（%）" });
         _healthPercentInput = new HSlider
@@ -550,6 +566,23 @@ public partial class GameHud : Control
         {
             input.SetValueNoSignal(GameServices.Env.ServerFlushIntervalSeconds);
             _networkError.Text = $"无法保存落地检测设置：{error.Message}";
+        }
+    }
+
+    /// <summary>保存移动速度，失败时恢复滑条和数值并显示错误。</summary>
+    private void SetMovementSpeed(HSlider slider, Label label, double speed)
+    {
+        try
+        {
+            GameServices.Env.MovementSpeed = checked((int)speed);
+            label.Text = $"{GameServices.Env.MovementSpeed}";
+            _networkError.Text = "";
+        }
+        catch (Exception error)
+        {
+            slider.SetValueNoSignal(GameServices.Env.MovementSpeed);
+            label.Text = $"{GameServices.Env.MovementSpeed}";
+            _networkError.Text = $"无法保存移动速度：{error.Message}";
         }
     }
 
