@@ -34,7 +34,11 @@ public sealed class BasicConfigTests : IDisposable
         Assert.Equal(56, cache.Value.GetBagCapacity(2));
         Assert.Throws<InvalidDataException>(() => cache.Value.GetBagCapacity(-1));
         Assert.Throws<InvalidDataException>(() => cache.Value.GetBagCapacity(int.MaxValue));
-        Assert.All(config.Item.Items.Values, item => Assert.NotEmpty(item.IconAssetId));
+        Assert.All(config.Item.Items.Values, item =>
+        {
+            Assert.StartsWith("item/itempic/", item.IconAssetId);
+            Assert.StartsWith("item/item/", item.GroundAssetId);
+        });
         config.Dispose();
         Assert.Throws<ObjectDisposedException>(() => config.Basic);
         Assert.Throws<ObjectDisposedException>(() => cache.Value);
@@ -57,15 +61,21 @@ public sealed class BasicConfigTests : IDisposable
         Assert.Contains("basic.json", Assert.Throws<InvalidDataException>(() => Load()).Message);
     }
 
-    /// <summary>图标字段必须为字符串，缺少时兼容空字符串。</summary>
+    /// <summary>验证 client-item-config：背包与地面素材字段必须为字符串，缺少时兼容空字符串。</summary>
     [Fact]
     public void IconFieldIsOptionalButMustBeString()
     {
         var path = Path.Combine(_directory, "item.json");
         const string prefix = "\"id\":1,\"name\":\"临时\",\"category\":0,\"subCategory\":0,\"maxStack\":1";
         File.WriteAllText(path, "[{" + prefix + "}]");
-        using (var config = Load()) Assert.Empty(config.Item.Items[1].IconAssetId);
+        using (var config = Load())
+        {
+            Assert.Empty(config.Item.Items[1].IconAssetId);
+            Assert.Empty(config.Item.Items[1].GroundAssetId);
+        }
         File.WriteAllText(path, "[{" + prefix + ",\"iconAssetId\":1}]");
+        Assert.Contains("item.json", Assert.Throws<InvalidDataException>(() => Load()).Message);
+        File.WriteAllText(path, "[{" + prefix + ",\"groundAssetId\":1}]");
         Assert.Contains("item.json", Assert.Throws<InvalidDataException>(() => Load()).Message);
     }
 

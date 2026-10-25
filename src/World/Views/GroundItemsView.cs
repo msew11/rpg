@@ -18,8 +18,6 @@ public partial class GroundItemsView : Node2D
     private readonly ItemIconResolver _icons = new();
     /// <summary>图标资源按素材键复用，不保存第二份地图状态。</summary>
     private readonly Dictionary<string, DataItemOutline> _resources = new();
-    /// <summary>表现节点对应的像素命中资源。</summary>
-    private readonly Dictionary<Guid, DataItemOutline> _hitResources = new();
     /// <summary>输入事件提供的视口坐标，摄像机移动后也重新投影。</summary>
     private Vector2 _pointerPosition = new(-10000, -10000);
     /// <summary>失焦期间禁止悬停恢复。</summary>
@@ -67,7 +65,6 @@ public partial class GroundItemsView : Node2D
                 RemoveChild(view);
                 view.QueueFree();
                 _views.Remove(id);
-                _hitResources.Remove(id);
             }
         if (snapshot is null) return;
         var offsets = new Dictionary<(float X, float Y), int>();
@@ -86,9 +83,8 @@ public partial class GroundItemsView : Node2D
             view.Position = IsometricProjection.ToScreen(new Vector2(value.X, value.Y)) + new Vector2(0, offset * 48);
             foreach (var child in view.GetChildren()) { view.RemoveChild(child); child.QueueFree(); }
             var config = GameServices.Config.Item.Items[value.ItemId];
-            if (!_resources.TryGetValue(config.IconAssetId, out var resource))
-                _resources[config.IconAssetId] = resource = new DataItemOutline(_icons.Resolve(config.IconAssetId));
-            _hitResources[value.ObjectId] = resource;
+            if (!_resources.TryGetValue(config.GroundAssetId, out var resource))
+                _resources[config.GroundAssetId] = resource = new DataItemOutline(_icons.Resolve(config.GroundAssetId));
             var outline = new TextureRect { Name = "GroundItemOutline", Texture = resource.Outline,
                 Position = new Vector2(-18, -26), Size = new Vector2(36, 36), Visible = false,
                 MouseFilter = Control.MouseFilterEnum.Ignore, TextureFilter = TextureFilterEnum.Nearest };
@@ -114,9 +110,10 @@ public partial class GroundItemsView : Node2D
         foreach (var (id, view) in _views.Reverse())
         {
             var local = view.GetGlobalTransformWithCanvas().AffineInverse() * viewportPosition;
-            var iconLocal = local - new Vector2(-16, -24);
+            // 完整显示框外扩八像素，狭长图案和透明区域也容易选中；描边仍遵循 alpha。
+            var hitRect = new Rect2(-24, -32, 48, 48);
             var label = view.GetNode<Label>("GroundItemName");
-            if (_hitResources[id].IsOpaque(Mathf.FloorToInt(iconLocal.X), Mathf.FloorToInt(iconLocal.Y)) || label.GetRect().HasPoint(local))
+            if (hitRect.HasPoint(local) || label.GetRect().HasPoint(local))
                 return id;
         }
         return null;

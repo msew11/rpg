@@ -44,7 +44,7 @@
 - 多例数据恰有一个公开可读实例属性标注 `[CfgKey]`，其类型与 `TKey` 一致；支持整型和字符串等可用作字典键的类型，不隐式使用 `Id`。缺失、null 或重复主键抛异常。JSON 字段默认使用 camelCase，可用 `JsonPropertyName` 明确别名。
 - 每个文件配套 `schemas/xxx.schema.json`。`CfgCache` 统一读取、Schema 校验、异常诊断和生命周期；两个泛型基类决定对象或数组的解析与存储，具体缓存仅补充必要的跨字段校验。新增缓存后在 ConfigService 显式声明引用并加入统一加载集合，禁止添加按业务类型分派的解析分支。
 
-`config/map.json` 对应 `MapCfgCache : MultiCfgCache<int, MapCfg>`，根为数组，各行以正整数 id 为主键，保存尺寸、瓦片规格、AOI chunkSizeTiles、默认地块和稀疏覆盖格；basic.json 的 initialMapId 必须存在于地图表；缓存检查覆盖格边界及坐标唯一性。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，当前包含 1012—1018 七件测试装备。每行包含 `id`、`name`（名称）、`category`（大类）、`subCategory`（小类）、`maxStack`（可堆叠上限）、可选 `iconAssetId`（图集素材键），`ItemCfg.Id` 标注 `[CfgKey]`。名称为非空字符串，数值字段均为 Int32，ID 和上限为正数，分类编号非负。已确认大类 1=武器、2=防具；七件装备分别为测试长剑（小类2）、测试双手剑（4）、测试盾牌（105，大类2）、测试木杖（16）、测试枪（1）、测试拳刃（8）、测试飞刀（32），堆叠上限均为1；其余大类及道具内容仍待确认，与 GM 图鉴数据独立管理。
+`config/map.json` 对应 `MapCfgCache : MultiCfgCache<int, MapCfg>`，根为数组，各行以正整数 id 为主键，保存尺寸、瓦片规格、AOI chunkSizeTiles、默认地块和稀疏覆盖格；basic.json 的 initialMapId 必须存在于地图表；缓存检查覆盖格边界及坐标唯一性。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，当前包含 1012—1018 七件测试装备。每行包含 `id`、`name`（名称）、`category`（大类）、`subCategory`（小类）、`maxStack`（可堆叠上限）、可选 `iconAssetId`（背包图集素材键）与 `groundAssetId`（地面素材键），`ItemCfg.Id` 标注 `[CfgKey]`。名称为非空字符串，数值字段均为 Int32，ID 和上限为正数，分类编号非负。已确认大类 1=武器、2=防具；七件装备分别为测试长剑（小类2）、测试双手剑（4）、测试盾牌（105，大类2）、测试木杖（16）、测试枪（1）、测试拳刃（8）、测试飞刀（32），堆叠上限均为1；其余大类及道具内容仍待确认，与 GM 图鉴数据独立管理。
 
 ```csharp
 var map = GameServices.Config.Map.Items[mapId];
@@ -236,4 +236,4 @@ PickupItem 携带角色 ID、对象 GUID、对象版本、背包版本和 move_a
 
 DataServerBagRules.Add 统一 GM 和拾取的入包算法：优先补同类堆叠，再按空格分配新实例，容量不足整份拒绝，失败不消耗版本或实例编号。拾取成功保存候选背包、移除地图对象并登记已有共同落地关系，继续通过 BagChangedNotice、MapAoiNotice 和最终 PickupItemRt 交付结果；缓存不乐观更新。文件格式与 RepoServerItemTransfer 不变，反向拾取、同周期丢捡和不同角色之间的转移都属于同地图提交组。
 
-Items.DataItemOutline 将显示图标统一到透明 32×32 画布，按非透明像素生成两像素膨胀外轮廓，资源按素材键缓存；缺图问号也使用同一图形/命中遮罩。图标命中按 alpha，名称区域可命中，透明角落不会选中；坐标包含摄像机变换并在静止鼠标下逐帧重新计算。UI 悬停和模态窗口阻断命中，失焦、移出、AOI 移除和离开世界清除轮廓。PointerCursor 读取表现组的悬停状态，以 HUD 调整、物品 Fetch、普通指针为优先序；复用 Fetch 开手/握手两帧、1.25 缩放及源热点 (6,6)，没有世界对 UI 的反向依赖。
+Items.DataItemOutline 将显示图标统一到透明 32×32 画布，按非透明像素生成两像素膨胀外轮廓，资源按素材键缓存；缺图问号也使用同一图形/轮廓遮罩。地面使用 GroundAssetId 显式绑定 item/item，背包继续使用 IconAssetId 的 item/itempic；七件装备的地面键来自导出表 icon_small_code，不隐式换算编号。命中使用 32×32 显示矩形向外扩展 8 像素的 48×48 区域，含透明角落，名称区域也可命中；坐标包含摄像机变换并在静止鼠标下逐帧重新计算。UI 悬停和模态窗口阻断命中，失焦、移出、AOI 移除和离开世界清除轮廓。PointerCursor 读取表现组的悬停状态，以 HUD 调整、物品 Fetch、普通指针为优先序；复用 Fetch 开手/握手两帧、1.25 缩放及源热点 (6,6)，没有世界对 UI 的反向依赖。

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Godot;
+using Rpg.Items;
 using Rpg.Server;
 using Rpg.Server.Data;
 using Rpg.Services;
@@ -45,7 +46,14 @@ public partial class GroundItemPickupSmoke : Node
             var groundView = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
             var cursor = main.FindChildren("*", "Node", true, false).OfType<PointerCursor>().Single();
             var icon = groundView.FindChildren("GroundItemIcon", "TextureRect", true, false).OfType<TextureRect>().Single();
-            var point = PixelPoint(icon, true);
+            var groundAsset = GameServices.Config.Item.Items[1012].GroundAssetId;
+            Check(groundAsset == "item/item/item1001", "地面素材未按来源小图编号绑定");
+            var expectedGround = new DataItemOutline(new ItemIconResolver().Resolve(groundAsset));
+            var inventoryIcon = new DataItemOutline(new ItemIconResolver().Resolve(GameServices.Config.Item.Items[1012].IconAssetId));
+            Check(icon.Texture.GetImage().GetData().SequenceEqual(expectedGround.Icon.GetImage().GetData()), "地面表现未使用独立地面纹理");
+            Check(!icon.Texture.GetImage().GetData().SequenceEqual(inventoryIcon.Icon.GetImage().GetData()), "地面仍然复用了背包大图");
+            // 扩展框内无图像素也必须能通过实际点击拾取。
+            var point = icon.GetGlobalTransformWithCanvas() * new Vector2(-6, 16);
             Motion(point); await Frames();
             Check(groundView.HoveredObjectId is not null && cursor.IsItemHovering, "悬停未命中地面物品或未切 Fetch");
             var outline = (TextureRect)groundView.FindChild("GroundItemOutline", true, false);
@@ -59,7 +67,7 @@ public partial class GroundItemPickupSmoke : Node
             Check(!cursor.IsItemHovering && groundView.GetChildCount() == 0, "拾取后仍残留 Fetch 或地面表现");
             Check(!main.FindChildren("*", "Node", true, false).OfType<GroundClickView>().Any(), "点击物品同时触发普通点地反馈");
 
-            // 再丢出有图物品，验证透明命中、名称命中、遮挡和失焦。
+            // 再丢出有图物品，验证透明区域、扩展范围、名称命中、遮挡和失焦。
             PressTitle(main, "背包"); await Frames();
             var sword = GameServices.Session.Bag.Items.Single(item => item.ItemId == 1012);
             await DropAtGround(grid.GetChild<Control>(sword.SlotIndex));
@@ -67,7 +75,11 @@ public partial class GroundItemPickupSmoke : Node
             icon = groundView.FindChildren("GroundItemIcon", "TextureRect", true, false).OfType<TextureRect>().Single();
             point = PixelPoint(icon, true);
             Motion(PixelPoint(icon, false)); await Frames();
-            Check(groundView.HoveredObjectId is null && !cursor.IsItemHovering, "透明像素错误命中矩形区域");
+            Check(groundView.HoveredObjectId is not null && cursor.IsItemHovering, "透明像素未命中完整显示框");
+            Motion(icon.GetGlobalTransformWithCanvas() * new Vector2(-7, 16)); await Frames();
+            Check(groundView.HoveredObjectId is not null && cursor.IsItemHovering, "扩展区域未触发高亮");
+            Motion(icon.GetGlobalTransformWithCanvas() * new Vector2(-9, -9)); await Frames();
+            Check(groundView.HoveredObjectId is null && !cursor.IsItemHovering, "超出扩展区域仍触发高亮");
             var label = (Label)groundView.FindChild("GroundItemName", true, false);
             Motion(label.GetGlobalTransformWithCanvas() * (label.Size / 2)); await Frames();
             Check(groundView.HoveredObjectId is not null, "名称未命中同一地面物品");
@@ -154,7 +166,7 @@ public partial class GroundItemPickupSmoke : Node
         Motion(point); MouseButtonAt(point, true); MouseButtonAt(point, false); await Frames();
     }
 
-    /// <summary>注入真实鼠标移动以触发 GUI 遮挡和像素命中。</summary>
+    /// <summary>注入真实鼠标移动以触发 GUI 遮挡和扩展范围命中。</summary>
     private void Motion(Vector2 point)
     {
         using var motion = new InputEventMouseMotion { Position = point, GlobalPosition = point };
@@ -193,7 +205,8 @@ public partial class GroundItemPickupSmoke : Node
     private async Task Frames()
     {
         for (var index = 0; index < 4; index++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
-        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        // 指针在地面表现之前更新，需要完成两次处理帧后再读取反馈。
+        for (var index = 0; index < 3; index++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }
 
     /// <summary>将验收失败转换为场景非零退出。</summary>

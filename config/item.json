@@ -5,7 +5,8 @@
     "category": 1,
     "subCategory": 2,
     "maxStack": 1,
-    "iconAssetId": "item/itempic/itempic1001"
+    "iconAssetId": "item/itempic/itempic1001",
+    "groundAssetId": "item/item/item1001"
   },
   {
     "id": 1013,
@@ -13,7 +14,8 @@
     "category": 1,
     "subCategory": 4,
     "maxStack": 1,
-    "iconAssetId": "item/itempic/itempic1501"
+    "iconAssetId": "item/itempic/itempic1501",
+    "groundAssetId": "item/item/item1501"
   },
   {
     "id": 1014,
@@ -21,7 +23,8 @@
     "category": 2,
     "subCategory": 105,
     "maxStack": 1,
-    "iconAssetId": "item/itempic/itempic1102"
+    "iconAssetId": "item/itempic/itempic1102",
+    "groundAssetId": "item/item/item1102"
   },
   {
     "id": 1015,
@@ -29,7 +32,8 @@
     "category": 1,
     "subCategory": 16,
     "maxStack": 1,
-    "iconAssetId": "item/itempic/itempic1301"
+    "iconAssetId": "item/itempic/itempic1301",
+    "groundAssetId": "item/item/item1301"
   },
   {
     "id": 1016,
@@ -37,7 +41,8 @@
     "category": 1,
     "subCategory": 1,
     "maxStack": 1,
-    "iconAssetId": "item/itempic/itempic1601"
+    "iconAssetId": "item/itempic/itempic1601",
+    "groundAssetId": "item/item/item1601"
   },
   {
     "id": 1017,
@@ -45,7 +50,8 @@
     "category": 1,
     "subCategory": 8,
     "maxStack": 1,
-    "iconAssetId": "item/itempic/itempic1801"
+    "iconAssetId": "item/itempic/itempic1801",
+    "groundAssetId": "item/item/item1801"
   },
   {
     "id": 1018,
@@ -53,6 +59,7 @@
     "category": 1,
     "subCategory": 32,
     "maxStack": 1,
-    "iconAssetId": "item/itempic/itempic1903"
+    "iconAssetId": "item/itempic/itempic1903",
+    "groundAssetId": "item/item/item1903"
   }
 ]

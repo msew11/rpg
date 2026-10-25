@@ -24,7 +24,7 @@ public sealed class ItemOutlineTests
         Assert.Equal(0f, outline.GetPixel(32, 32).A);
     }
 
-    /// <summary>无图的问号占位也有一致的图标、命中及轮廓。</summary>
+    /// <summary>无图的问号占位也有一致的图标与轮廓遮罩。</summary>
     [Fact]
     public void MissingIconUsesQuestionMarkMask()
     {

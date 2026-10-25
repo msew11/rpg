@@ -5,7 +5,7 @@ namespace Rpg.Items;
 /// <summary>物品表现资源：显示尺寸的 alpha 遮罩、图标与外轮廓，不包含业务对象状态。</summary>
 internal sealed class DataItemOutline
 {
-    /// <summary>图标显示与像素命中共用的 32 像素遮罩。</summary>
+    /// <summary>图标显示与轮廓生成共用的 32 像素遮罩。</summary>
     internal Image Mask { get; }
     /// <summary>精确匹配遮罩的图标纹理。</summary>
     internal ImageTexture Icon { get; }
@@ -18,7 +18,7 @@ internal sealed class DataItemOutline
         Mask = Image.CreateEmpty(32, 32, false, Image.Format.Rgba8);
         if (texture is null)
         {
-            // 缺图仍使用问号占位，图形和命中遮罩一致。
+            // 缺图仍使用问号占位，图形和轮廓遮罩一致。
             string[] rows = ["01110", "11011", "00011", "00110", "00100", "00000", "00100"];
             for (var y = 0; y < rows.Length; y++)
             for (var x = 0; x < rows[y].Length; x++)
@@ -50,6 +50,6 @@ internal sealed class DataItemOutline
         Outline = ImageTexture.CreateFromImage(outline);
     }
 
-    /// <summary>像素透明角落不参与物品命中。</summary>
+    /// <summary>查询 alpha 遮罩，供真实轮廓生成使用。</summary>
     internal bool IsOpaque(int x, int y) => x >= 0 && x < 32 && y >= 0 && y < 32 && Mask.GetPixel(x, y).A > 0.1f;
 }

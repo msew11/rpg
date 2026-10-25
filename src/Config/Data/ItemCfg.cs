@@ -18,4 +18,6 @@ public sealed class ItemCfg
     public int MaxStack { get; init; }
     /// <summary>客户端图集素材键，空值或未找到时显示占位图。</summary>
     public string IconAssetId { get; init; } = "";
+    /// <summary>独立地面素材键，缺失时显示占位，不复用背包图标。</summary>
+    public string GroundAssetId { get; init; } = "";
 }
