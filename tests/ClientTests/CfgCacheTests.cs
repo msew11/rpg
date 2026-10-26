@@ -51,6 +51,22 @@ public sealed class CfgCacheTests : IDisposable
         Assert.Equal("key", cache.Items["key"].Code);
     }
 
+    /// <summary>client-config-cache：索引失败保留文件诊断并清理半成品，修复后可重新加载。</summary>
+    [Fact]
+    public void FailedIndexBuildClearsDataAndAllowsRetry()
+    {
+        using var cache = new FailingIndexCache();
+        AssertLoadFails(cache, """[{"code":"alpha","amount":7}]""", "索引构建验收失败");
+        Assert.Equal(0, cache.IndexedCount);
+        Assert.Throws<InvalidOperationException>(() => cache.Items);
+        cache.RejectIndex = false;
+        cache.Load(ConfigPath, _directory);
+        Assert.Single(cache.Items);
+        Assert.Equal(1, cache.IndexedCount);
+        cache.Dispose();
+        Assert.Equal(0, cache.IndexedCount);
+    }
+
     /// <summary>单例只接受对象，基类在宽松 Schema 下也拒绝数组、null 和标量。</summary>
     [Theory]
     [InlineData("[]")]
@@ -131,6 +147,7 @@ public sealed class CfgCacheTests : IDisposable
         File.WriteAllText(Path.Combine(_directory, "map.json"),
             """[{"id":1,"width":1000,"height":1000,"tileSize":32,"chunkSizeTiles":32,"defaultTile":"ground","overrides":[""" + tiles + "]}]");
         File.WriteAllText(Path.Combine(_directory, "item.json"), "[]");
+        File.WriteAllText(Path.Combine(_directory, "equipment.json"), "[]");
         File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "basic.json"), Path.Combine(_directory, "basic.json"));
         using var env = new EnvService("", configDirectory: _directory,
             schemaDirectory: Path.Combine(ConfigTestFixture.FindRoot(), "schemas"));
@@ -169,6 +186,25 @@ public sealed class CfgCacheTests : IDisposable
     /// <summary>复用同一模型验证多例主键契约。</summary>
     [CfgFile("sample.json")]
     private sealed class SampleMultiCache : MultiCfgCache<string, SampleCfg> { }
+    /// <summary>验证加载后索引失败时的回滚契约。</summary>
+    [CfgFile("sample.json")]
+    private sealed class FailingIndexCache : MultiCfgCache<string, SampleCfg>
+    {
+        /// <summary>控制本次构建是否模拟失败。</summary>
+        public bool RejectIndex { get; set; } = true;
+        /// <summary>用于观察半成品是否被清理。</summary>
+        public int IndexedCount { get; private set; }
+
+        /// <summary>先建立候选索引再模拟失败，确保清理覆盖实际半成品。</summary>
+        protected override void BuildIndexes()
+        {
+            IndexedCount = Items.Count;
+            if (RejectIndex) throw new InvalidDataException("索引构建验收失败");
+        }
+
+        /// <summary>失败与释放都撤销候选索引。</summary>
+        protected override void ClearIndexes() => IndexedCount = 0;
+    }
     /// <summary>验证缺失文件标注的失败契约。</summary>
     private sealed class MissingFileCache : SingleCfgCache<SampleCfg> { }
     /// <summary>验证禁止路径作为文件名。</summary>

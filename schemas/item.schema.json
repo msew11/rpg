@@ -9,10 +9,12 @@
       "name",
       "category",
       "subCategory",
+      "relatedId",
       "maxStack"
     ],
     "additionalProperties": false,
     "properties": {
+      "relatedId": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
       "iconAssetId": { "type": "string" },
       "groundAssetId": { "type": "string" },
       "name": { "type": "string", "minLength": 1 },

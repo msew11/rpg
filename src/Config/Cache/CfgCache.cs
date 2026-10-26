@@ -14,6 +14,8 @@ public abstract class CfgCache : IDisposable
     private bool _isDisposed;
     /// <summary>当前缓存是否已成功加载。</summary>
     private bool _isLoaded;
+    /// <summary>最近加载的配置路径，用于整表关联错误诊断。</summary>
+    private string? _path;
     /// <summary>供泛型缓存统一使用的 JSON 字段命名规则。</summary>
     protected static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     /// <summary>具体缓存通过特性声明的配置文件名。</summary>
@@ -34,6 +36,7 @@ public abstract class CfgCache : IDisposable
     {
         ThrowIfDisposed();
         if (_isLoaded) throw new InvalidOperationException($"配置已加载：{FileName}");
+        _path = path;
         var schemaPath = $"{schemaDirectory}/{Path.GetFileNameWithoutExtension(FileName)}.schema.json";
         try
         {
@@ -48,10 +51,13 @@ public abstract class CfgCache : IDisposable
             if (!result.IsValid)
                 throw new InvalidDataException($"Schema 校验失败：{JsonSerializer.Serialize(result)}");
             Read(document.RootElement);
+            BuildIndexes();
             _isLoaded = true;
         }
         catch (Exception error)
         {
+            ClearIndexes();
+            Clear();
             throw new InvalidDataException($"配置文件 {path} 无效：{error.Message}", error);
         }
     }
@@ -59,11 +65,32 @@ public abstract class CfgCache : IDisposable
     /// <summary>由单例或多例基类解析已校验的 JSON 根。</summary>
     protected abstract void Read(JsonElement root);
 
+    /// <summary>整表解析成功后构建派生索引，不读取尚未完成加载的其他表。</summary>
+    protected virtual void BuildIndexes() { }
+
+    /// <summary>全部表完成加载后执行整表关联检查，并保留所属文件诊断。</summary>
+    internal void ValidateReferences(ConfigService config)
+    {
+        ThrowIfDisposed();
+        if (!_isLoaded) throw new InvalidOperationException($"配置尚未加载：{FileName}");
+        try { Validate(config); }
+        catch (Exception error)
+        {
+            throw new InvalidDataException($"配置文件 {_path} 关联校验失败：{error.Message}", error);
+        }
+    }
+
+    /// <summary>与逐行 Validate 重载区分，借用完整配置服务检查跨表引用。</summary>
+    protected virtual void Validate(ConfigService config) { }
+
+    /// <summary>释放或加载失败时清理派生索引。</summary>
+    protected virtual void ClearIndexes() { }
+
     /// <summary>访问缓存数据前拒绝已释放的缓存。</summary>
     protected void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_isDisposed, this);
 
     /// <summary>释放后阻止已借出的缓存引用继续访问数据。</summary>
-    public void Dispose() { _isDisposed = true; Clear(); }
+    public void Dispose() { _isDisposed = true; ClearIndexes(); Clear(); }
 
     /// <summary>由单例或多例缓存回收持有的数据。</summary>
     protected abstract void Clear();

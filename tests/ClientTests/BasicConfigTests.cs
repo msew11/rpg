@@ -14,7 +14,7 @@ public sealed class BasicConfigTests : IDisposable
     public BasicConfigTests()
     {
         Directory.CreateDirectory(_directory);
-        foreach (var name in new[] { "map", "item", "basic" })
+        foreach (var name in new[] { "map", "item", "basic", "equipment" })
             File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", name + ".json"), Path.Combine(_directory, name + ".json"));
     }
 
@@ -66,7 +66,7 @@ public sealed class BasicConfigTests : IDisposable
     public void IconFieldIsOptionalButMustBeString()
     {
         var path = Path.Combine(_directory, "item.json");
-        const string prefix = "\"id\":1,\"name\":\"临时\",\"category\":0,\"subCategory\":0,\"maxStack\":1";
+        const string prefix = "\"id\":1,\"name\":\"临时\",\"category\":1,\"subCategory\":2,\"relatedId\":1012,\"maxStack\":1";
         File.WriteAllText(path, "[{" + prefix + "}]");
         using (var config = Load())
         {

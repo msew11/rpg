@@ -1,3 +1,4 @@
+using Rpg.Const;
 using Rpg.Config;
 using Rpg.Config.Data;
 using Rpg.Services;
@@ -12,7 +13,7 @@ public sealed class ItemConfigTests : IDisposable
     /// <summary>仅由本次用例拥有的临时配置和存储目录。</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-item-config-" + Guid.NewGuid());
     /// <summary>合法测试行，仅验证加载，不定义正式道具。</summary>
-    private const string Row = """{"name":"临时道具","id":1001,"category":2,"subCategory":3,"maxStack":99}""";
+    private const string Row = """{"name":"临时道具","id":1001,"category":2,"subCategory":105,"relatedId":1012,"maxStack":99}""";
 
     /// <summary>在独立环境准备真实地图与空道具表。</summary>
     public ItemConfigTests()
@@ -22,6 +23,8 @@ public sealed class ItemConfigTests : IDisposable
             Path.Combine(_directory, "config", "map.json"));
         File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "basic.json"),
             Path.Combine(_directory, "config", "basic.json"));
+        File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "equipment.json"),
+            Path.Combine(_directory, "config", "equipment.json"));
         WriteTable("[]");
     }
 
@@ -29,18 +32,18 @@ public sealed class ItemConfigTests : IDisposable
     [Fact]
     public void LoadsRowsByIdThroughGameServices()
     {
-        WriteTable("[" + Row + "," + """{"name":"临时道具","id":1002,"category":0,"subCategory":0,"maxStack":1}""" + "]");
+        WriteTable("[" + Row + "," + """{"name":"临时道具","id":1002,"category":1,"subCategory":2,"relatedId":1012,"maxStack":1}""" + "]");
         using var env = CreateEnv();
         using var registration = GameServicesTestFactory.Register(env);
         var items = GameServices.Config.Item.Items;
         Assert.Equal(2, items.Count);
         Assert.Equal(1001, items[1001].Id);
         Assert.Equal("临时道具", items[1001].Name);
-        Assert.Equal(2, items[1001].Category);
-        Assert.Equal(3, items[1001].SubCategory);
+        Assert.Equal(ItemCategory.Armor, items[1001].Category);
+        Assert.Equal(ItemSubCategory.Shield, items[1001].SubCategory);
         Assert.Equal(99, items[1001].MaxStack);
-        Assert.Equal(0, items[1002].Category);
-        Assert.Equal(0, items[1002].SubCategory);
+        Assert.Equal(ItemCategory.Weapon, items[1002].Category);
+        Assert.Equal(ItemSubCategory.Sword, items[1002].SubCategory);
         Assert.Equal(1, items[1002].MaxStack);
         Assert.False(items.TryGetValue(9999, out _));
         Assert.Equal(1000, GameServices.Config.Map.Items[1].Width);
@@ -71,8 +74,9 @@ public sealed class ItemConfigTests : IDisposable
             Assert.True(config.Item.Items.TryGetValue(id, out var item));
             Assert.Equal(id, item.Id);
             Assert.Equal(name, item.Name);
-            Assert.Equal(category, item.Category);
-            Assert.Equal(subCategory, item.SubCategory);
+            Assert.Equal(id, item.RelatedId);
+            Assert.Equal((ItemCategory)category, item.Category);
+            Assert.Equal((ItemSubCategory)subCategory, item.SubCategory);
             Assert.Equal(1, item.MaxStack);
         }
     }
@@ -86,7 +90,7 @@ public sealed class ItemConfigTests : IDisposable
     public void RejectsInvalidNames(string? nameJson)
     {
         var nameField = nameJson is null ? "" : ",\"name\":" + nameJson;
-        WriteTable("[{\"id\":1,\"category\":1,\"subCategory\":1,\"maxStack\":1" + nameField + "}]");
+        WriteTable("[{\"id\":1,\"category\":1,\"subCategory\":1,\"relatedId\":1012,\"maxStack\":1" + nameField + "}]");
         AssertInvalid("Schema");
     }
 
@@ -99,9 +103,9 @@ public sealed class ItemConfigTests : IDisposable
         using var config = new ConfigService(env);
         var cache = config.Item;
         var dictionary = Assert.IsAssignableFrom<IDictionary<int, ItemCfg>>(cache.Items);
-        Assert.Throws<NotSupportedException>(() => dictionary.Add(1002, new ItemCfg()));
+        Assert.Throws<NotSupportedException>(() => dictionary.Add(1002, dictionary[1001]));
         Assert.Throws<NotSupportedException>(() => dictionary.Remove(1001));
-        Assert.Throws<NotSupportedException>(() => dictionary[1001] = new ItemCfg());
+        Assert.Throws<NotSupportedException>(() => dictionary[1001] = dictionary[1001]);
         Assert.Equal(99, config.Item.Items[1001].MaxStack);
         config.Dispose();
         Assert.Throws<ObjectDisposedException>(() => config.Item.Items);
@@ -110,19 +114,19 @@ public sealed class ItemConfigTests : IDisposable
 
     /// <summary>记录无效场景：缺字段、错类型、非法范围和未知字段均阻止启动。</summary>
     [Theory]
-    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0}""")]
-    [InlineData("""{"name":"临时道具","id":"1","category":0,"subCategory":0,"maxStack":1}""")]
-    [InlineData("""{"name":"临时道具","id":0,"category":0,"subCategory":0,"maxStack":1}""")]
-    [InlineData("""{"name":"临时道具","id":1,"category":-1,"subCategory":0,"maxStack":1}""")]
-    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":-1,"maxStack":1}""")]
-    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0,"maxStack":0}""")]
-    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0,"maxStack":-1}""")]
-    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0,"maxStack":1.5}""")]
-    [InlineData("""{"name":"临时道具","id":2147483648,"category":0,"subCategory":0,"maxStack":1}""")]
-    [InlineData("""{"name":"临时道具","id":1,"category":2147483648,"subCategory":0,"maxStack":1}""")]
-    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":2147483648,"maxStack":1}""")]
-    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0,"maxStack":2147483648}""")]
-    [InlineData("""{"name":"临时道具","id":1,"category":0,"subCategory":0,"maxStack":1,"unexpected":"额外字段"}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":1,"subCategory":2}""")]
+    [InlineData("""{"name":"临时道具","id":"1","category":1,"subCategory":2,"relatedId":1012,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":0,"category":1,"subCategory":2,"relatedId":1012,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":-1,"subCategory":2,"relatedId":1012,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":1,"subCategory":-1,"relatedId":1012,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":1,"subCategory":2,"relatedId":1012,"maxStack":0}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":1,"subCategory":2,"relatedId":1012,"maxStack":-1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":1,"subCategory":2,"relatedId":1012,"maxStack":1.5}""")]
+    [InlineData("""{"name":"临时道具","id":2147483648,"category":1,"subCategory":2,"relatedId":1012,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":2147483648,"subCategory":2,"relatedId":1012,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":1,"subCategory":2147483648,"relatedId":1012,"maxStack":1}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":1,"subCategory":2,"relatedId":1012,"maxStack":2147483648}""")]
+    [InlineData("""{"name":"临时道具","id":1,"category":1,"subCategory":2,"relatedId":1012,"maxStack":1,"unexpected":"额外字段"}""")]
     [InlineData("null")]
     public void RejectsInvalidRows(string row)
     {

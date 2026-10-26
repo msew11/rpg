@@ -27,10 +27,10 @@ public partial class GroundItemPickupSmoke : Node
             var config = Path.Combine(directory, "config");
             var server = Path.Combine(directory, "server");
             Directory.CreateDirectory(config);
-            foreach (var name in new[] { "basic", "map", "item" })
+            foreach (var name in new[] { "basic", "map", "item", "equipment" })
                 File.Copy(ProjectSettings.GlobalizePath($"res://config/{name}.json"), Path.Combine(config, name + ".json"));
             var definitions = JsonNode.Parse(File.ReadAllText(Path.Combine(config, "item.json")))!.AsArray();
-            definitions.Add(new JsonObject { ["id"] = 2000, ["name"] = "拾取验收", ["category"] = 0, ["subCategory"] = 0, ["maxStack"] = 10 });
+            definitions.Add(new JsonObject { ["id"] = 2000, ["name"] = "拾取验收", ["category"] = 1, ["subCategory"] = 2, ["relatedId"] = 1012, ["maxStack"] = 10 });
             File.WriteAllText(Path.Combine(config, "item.json"), definitions.ToJsonString());
             RoleTestData.Seed(server);
             var repo = new RepoServerRole(server);

@@ -17,6 +17,8 @@ public sealed class ConfigService : Service
     private readonly ItemCfgCache _item;
     /// <summary>本次启动拥有的单例基础参数缓存。</summary>
     private readonly BasicCfgCache _basic;
+    /// <summary>本次启动拥有的独立装备配置缓存。</summary>
+    private readonly EquipmentCfgCache _equipment;
     /// <summary>供统一加载和释放使用的缓存集合。</summary>
     private readonly CfgCache[] _caches;
 
@@ -38,6 +40,12 @@ public sealed class ConfigService : Service
         get { ThrowIfDisposed(); return _basic; }
     }
 
+    /// <summary>已完成加载及关联检测的装备配置。</summary>
+    public EquipmentCfgCache Equipment
+    {
+        get { ThrowIfDisposed(); return _equipment; }
+    }
+
     /// <summary>显式建立具体缓存，统一加载；任一失败都回收已创建缓存并抛出异常。</summary>
     public ConfigService(EnvService env)
     {
@@ -45,7 +53,8 @@ public sealed class ConfigService : Service
         _map = new MapCfgCache();
         _item = new ItemCfgCache();
         _basic = new BasicCfgCache();
-        _caches = [_map, _item, _basic];
+        _equipment = new EquipmentCfgCache();
+        _caches = [_map, _item, _basic, _equipment];
         try { Load(env.ConfigDirectory, env.SchemaDirectory); }
         catch { Dispose(); throw; }
     }
@@ -62,8 +71,7 @@ public sealed class ConfigService : Service
                 throw new InvalidDataException($"缺少配置文件：{configDirectory}/{cache.FileName}");
         }
         foreach (var cache in _caches) cache.Load(files[cache.FileName], schemaDirectory);
-        if (!_map.Items.ContainsKey(_basic.Value.InitialMapId))
-            throw new InvalidDataException("basic.json 的 initialMapId 不存在于 map.json");
+        foreach (var cache in _caches) cache.ValidateReferences(this);
     }
 
     /// <summary>通过 Godot 收集配置根目录的文件，拒绝子目录和未注册文件名。</summary>

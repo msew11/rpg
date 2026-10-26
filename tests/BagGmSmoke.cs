@@ -152,7 +152,7 @@ public partial class BagGmSmoke : Node
             // 重启使用隔离配置，覆盖缺失键和未知图标键的占位回退。
             var configDirectory = Path.Combine(directory, "config");
             Directory.CreateDirectory(configDirectory);
-            foreach (var name in new[] { "basic", "map", "item" })
+            foreach (var name in new[] { "basic", "map", "item", "equipment" })
                 File.Copy(ProjectSettings.GlobalizePath($"res://config/{name}.json"), Path.Combine(configDirectory, name + ".json"));
             var itemPath = Path.Combine(configDirectory, "item.json");
             var definitions = JsonNode.Parse(File.ReadAllText(itemPath))!.AsArray();

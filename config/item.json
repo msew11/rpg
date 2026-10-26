@@ -1,6 +1,7 @@
 [
   {
     "id": 1012,
+    "relatedId": 1012,
     "name": "测试长剑",
     "category": 1,
     "subCategory": 2,
@@ -10,6 +11,7 @@
   },
   {
     "id": 1013,
+    "relatedId": 1013,
     "name": "测试双手剑",
     "category": 1,
     "subCategory": 4,
@@ -19,6 +21,7 @@
   },
   {
     "id": 1014,
+    "relatedId": 1014,
     "name": "测试盾牌",
     "category": 2,
     "subCategory": 105,
@@ -28,6 +31,7 @@
   },
   {
     "id": 1015,
+    "relatedId": 1015,
     "name": "测试木杖",
     "category": 1,
     "subCategory": 16,
@@ -37,6 +41,7 @@
   },
   {
     "id": 1016,
+    "relatedId": 1016,
     "name": "测试枪",
     "category": 1,
     "subCategory": 1,
@@ -46,6 +51,7 @@
   },
   {
     "id": 1017,
+    "relatedId": 1017,
     "name": "测试拳刃",
     "category": 1,
     "subCategory": 8,
@@ -55,6 +61,7 @@
   },
   {
     "id": 1018,
+    "relatedId": 1018,
     "name": "测试飞刀",
     "category": 1,
     "subCategory": 32,

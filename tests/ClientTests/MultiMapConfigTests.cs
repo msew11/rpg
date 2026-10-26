@@ -16,7 +16,7 @@ public sealed class MultiMapConfigTests : IDisposable
     public MultiMapConfigTests()
     {
         Directory.CreateDirectory(_directory);
-        foreach (var name in new[] { "map", "item", "basic" })
+        foreach (var name in new[] { "map", "item", "basic", "equipment" })
             File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", name + ".json"), Path.Combine(_directory, name + ".json"));
         var maps = JsonNode.Parse(File.ReadAllText(Path.Combine(_directory, "map.json")))!.AsArray();
         var second = maps[0]!.DeepClone(); second["id"] = 2; second["width"] = 200; second["height"] = 300;
