@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import struct
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from decode_actor_heads import frame_end, read_header
 
@@ -78,6 +78,48 @@ def split_long_weapon(image, anchor):
     return front, rear
 
 
+def restore_grip(image, anchor):
+    """以原柄部颜色连接握点附近分离的护手和柄尾，只补短透明缺口，供跨手时由身体遮住。"""
+    pending = {(x, y) for y in range(image.height) for x in range(image.width) if image.getpixel((x, y))[3]}
+    components = []
+    while pending:
+        component = {pending.pop()}
+        stack = list(component)
+        while stack:
+            x, y = stack.pop()
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    point = (x + dx, y + dy)
+                    if point in pending:
+                        pending.remove(point)
+                        component.add(point)
+                        stack.append(point)
+        components.append(component)
+    result = Image.new('RGBA', image.size)
+    if len(components) < 2:
+        return result
+    components.sort(key=len, reverse=True)
+    distance = lambda p: (p[0] - anchor[0]) ** 2 + (p[1] - anchor[1]) ** 2
+    blade = min(components[0], key=lambda p: (distance(p), p))
+    candidates = [part for part in components[1:] if min(map(distance, part)) <= 64]
+    if distance(blade) > 64 or not candidates:
+        return result
+    pommel = min(set().union(*candidates), key=lambda p: (distance(p), p))
+    if (blade[0] - pommel[0]) ** 2 + (blade[1] - pommel[1]) ** 2 > 144:
+        return result
+    colors = [image.getpixel(p) for part in components for p in part
+              if (p[0] - pommel[0]) ** 2 + (p[1] - pommel[1]) ** 2 <= 4 and image.getpixel(p)[3] == 255]
+    if not colors:
+        return result
+    color = min(colors, key=lambda c: (sum(c[:3]), c))
+    ImageDraw.Draw(result).line([blade, anchor, pommel], fill=color, width=2)
+    for y in range(image.height):
+        for x in range(image.width):
+            if image.getpixel((x, y))[3]:
+                result.putpixel((x, y), (0, 0, 0, 0))
+    return result
+
+
 def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand="weaponr", series=1, variant=None):
     """按来源动作导入一次武器图集，并保留每帧独立连接点及层级。"""
     number = series * 100 + action + (50 if gender == 'female' else 0)
@@ -87,9 +129,10 @@ def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand
     width, height = frames[0][0].size
     atlas = Image.new('RGBA', (width * count, height * 5))
     rear_atlas = Image.new('RGBA', atlas.size) if item_id in (1015, 1016) else None
+    grip_atlas = Image.new('RGBA', atlas.size) if item_id in (1012, 1013) else None
     variant_id = '4' if rear_atlas is not None else '3'
     resource_folder = target.relative_to(Path(__file__).resolve().parents[1] / 'assets/characters/weapons').as_posix()
-    load_steps = len(frames) + 3 + (len(frames) + 1 if rear_atlas is not None else 0) + int(variant is not None)
+    load_steps = len(frames) + 3 + (len(frames) + 1 if rear_atlas is not None else 0) + int(variant is not None) + (len(frames) + 1 if grip_atlas is not None else 0)
     lines = [f'[gd_resource type="Resource" script_class="DataActorWeapon" load_steps={load_steps} format=3]',
              '[ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]',
              f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{resource_folder}/{gender}/{motion}.png" id="2"]']
@@ -97,8 +140,12 @@ def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand
         lines += [f'[ext_resource type="Resource" path="res://assets/characters/weapons/{item_id}/{variant}/{gender}/{motion}.tres" id="{variant_id}"]']
     if rear_atlas is not None:
         lines += [f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{resource_folder}/{gender}/{motion}.rear.png" id="3"]']
+    if grip_atlas is not None:
+        lines += [f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{resource_folder}/{gender}/{motion}.grip.png" id="5"]']
     for index, (image, anchor) in enumerate(frames):
         direction, frame = divmod(index, count)
+        if grip_atlas is not None:
+            grip_atlas.paste(restore_grip(image, anchor), (frame * width, direction * height))
         if rear_atlas is not None:
             image, rear = split_long_weapon(image, anchor)
             rear_atlas.paste(rear, (frame * width, direction * height))
@@ -108,20 +155,28 @@ def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand
         if rear_atlas is not None:
             lines += [f'[sub_resource type="AtlasTexture" id="Rear{index}"]', 'atlas = ExtResource("3")',
                       f'region = Rect2({frame * width}, {direction * height}, {width}, {height})', 'filter_clip = true']
+        if grip_atlas is not None:
+            lines += [f'[sub_resource type="AtlasTexture" id="Grip{index}"]', 'atlas = ExtResource("5")',
+                      f'region = Rect2({frame * width}, {direction * height}, {width}, {height})', 'filter_clip = true']
     folder = target / gender
     folder.mkdir(parents=True, exist_ok=True)
     atlas.save(folder / f'{motion}.png')
     if rear_atlas is not None:
         rear_atlas.save(folder / f'{motion}.rear.png')
+    if grip_atlas is not None:
+        grip_atlas.save(folder / f'{motion}.grip.png')
     textures = ', '.join(f'SubResource("Frame{index}")' for index in range(len(frames)))
     anchors = ', '.join(str(value) for _, anchor in frames for value in anchor)
     z_indices = ', '.join(str(layers[motion][direction][frame]) for direction in range(5) for frame in range(count))
     lines += ['[resource]', 'script = ExtResource("1")', f'Frames = Array[Texture2D]([{textures}])',
+              f'SourceRightHand = {str(hand == "weaponr").lower()}',
               f'Anchors = PackedVector2Array({anchors})', f'Layers = PackedInt32Array({z_indices})']
     if variant:
         lines += [f'{variant.capitalize()}HandVariant = ExtResource("{variant_id}")']
     if rear_atlas is not None:
         lines += ['RearFrames = Array[Texture2D]([' + ', '.join(f'SubResource("Rear{index}")' for index in range(len(frames))) + '])']
+    if grip_atlas is not None:
+        lines += ['GripFrames = Array[Texture2D]([' + ', '.join(f'SubResource("Grip{index}")' for index in range(len(frames))) + '])']
     (folder / f'{motion}.tres').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     return {'gender': gender, 'motion': motion, 'source': source.relative_to(raw).as_posix(),
             'sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'framesPerDirection': count}
@@ -174,6 +229,8 @@ def main():
         variant = variant if all(paired) else None
         records, layer_file = import_hand(args.raw, target, hand, series, item_id, actions, variant)
         evidence = {'itemId': item_id, 'binding': f'{hand}{series:02}',
+                    'nativeHand': 'right' if hand == 'weaponr' else 'left',
+                    'gripRestoration': '握点附近护手与柄尾的短透明缺口以原柄色连接，独立层仅跨手回退时置于身体下方，原画像素不变' if item_id in (1012, 1013) else None,
                     'bindingNote': '按物品图标核对持握系列；同系列另一手有男女原画时完整导入，镜像按源手别选择；不存在时明确沿用基础素材。',
                     'oppositeHandAvailable': variant is not None,
                     'rearLayer': '按握点沿像素主轴无损分层，较厚端为前段，后段随方向和动作切换身体前后关系' if item_id in (1015, 1016) else None,
@@ -185,6 +242,7 @@ def main():
         if variant:
             variant_records, variant_layers = import_hand(args.raw, target / variant, other_hand, series, item_id, actions)
             evidence[f'{variant}HandVariant'] = {
+                'nativeHand': variant,
                 'binding': f'{other_hand}{series:02}', 'layerSource': variant_layers.relative_to(args.raw).as_posix(),
                 'layerSha256': hashlib.sha256(variant_layers.read_bytes()).hexdigest(), 'animations': variant_records}
         matches = [(index + 1, item_data[16 + index * row_size:16 + (index + 1) * row_size])

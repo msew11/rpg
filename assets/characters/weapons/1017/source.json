@@ -1,6 +1,8 @@
 {
   "itemId": 1017,
   "binding": "weaponr51",
+  "nativeHand": "right",
+  "gripRestoration": null,
   "bindingNote": "按物品图标核对持握系列；同系列另一手有男女原画时完整导入，镜像按源手别选择；不存在时明确沿用基础素材。",
   "oppositeHandAvailable": true,
   "rearLayer": null,
@@ -129,6 +131,7 @@
     }
   ],
   "leftHandVariant": {
+    "nativeHand": "left",
     "binding": "weaponl51",
     "layerSource": "avatar/weaponl/Weaponl.ini",
     "layerSha256": "08b9930ca44333207eb52eb8ac3de5b6f799c2608e182b1507a538b5e8cf2776",

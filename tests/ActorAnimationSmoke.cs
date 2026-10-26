@@ -153,6 +153,7 @@ public partial class ActorAnimationSmoke : Node
                 await CaptureLongWeapons(screenDirections);
                 await CaptureKatars(screenDirections);
                 await CaptureOtherEquipment(screenDirections);
+                await ActorSwordGripAssertions.VerifyRendered(this, screenDirections);
             }
             GD.Print("Actor animation smoke passed: 26 motions, 605 body frames, 7 equipment types with native katar hands, 8 directions.");
             GetTree().Quit();
@@ -212,6 +213,7 @@ public partial class ActorAnimationSmoke : Node
             var hand = actor.GetNode<Node2D>(main ? "Facing/RightHand" : "Facing/LeftHand");
             var sprite = hand.GetNode<Sprite2D>("Weapon");
             var rear = actor.GetNode<Sprite2D>(main ? "Facing/RightWeaponRear" : "Facing/LeftWeaponRear");
+            var grip = actor.GetNode<Sprite2D>(main ? "Facing/RightWeaponGrip" : "Facing/LeftWeaponGrip");
             var resource = animations.Get(gender, motion);
             var (sourceDirection, mirrored) = AnimationService.ResolveDirection(state.Facing);
             var weapon = animations.GetWeapon(id, gender, motion, main != mirrored);
@@ -225,6 +227,15 @@ public partial class ActorAnimationSmoke : Node
                 Check(sprite.Visible && textureIndex >= 0 && textureIndex / (weapon.Frames.Length / 5) == sourceDirection,
                     $"装备方向或资源错误：{id}/{gender}/{motion}");
                 Check(sprite.Position + weapon.Anchors[textureIndex] == Vector2.Zero, "装备连接点错位");
+                var crossHand = (main != mirrored) != weapon.SourceRightHand;
+                Check(grip.Visible == (crossHand && weapon.GripFrames.Length != 0), "跨手握柄层显隐错误");
+                if (grip.Visible)
+                    Check(ReferenceEquals(grip.Texture, weapon.GripFrames[textureIndex]) &&
+                        grip.GlobalPosition == sprite.GlobalPosition && grip.GetIndex() < body.GetIndex(),
+                        "补充握柄没有跟帧或覆盖了手掌");
+                if (crossHand && sourceDirection is 0 or 1 or 2)
+                    Check((hand.GetIndex() < body.GetIndex()) == (main ? !mirrored : mirrored),
+                        "跨手回退仍套用原手偏置，近手装备被腿遮挡");
                 Check(rear.Visible == (id is 1015 or 1016), "普通装备残留长柄后段或长柄后段缺失");
                 if (rear.Visible)
                     Check(ReferenceEquals(rear.Texture, weapon.RearFrames[textureIndex]) &&
@@ -232,7 +243,8 @@ public partial class ActorAnimationSmoke : Node
                         (rear.GetIndex() < body.GetIndex()) != (hand.GetIndex() < body.GetIndex()),
                         "长柄后段未同步方向、帧或握点");
                 actor.Present(state with { MainHandId = 0, OffHandId = 0 });
-                Check(!sprite.Visible && sprite.Texture is null && !rear.Visible && rear.Texture is null, "空手残留武器前后段");
+                Check(!sprite.Visible && sprite.Texture is null && !rear.Visible && rear.Texture is null &&
+                    !grip.Visible && grip.Texture is null, "空手残留武器前后段或握柄");
                 Check(body.Frame == frame && Math.Abs(body.FrameProgress - 0.35f) < 0.001f, "卸下重启动画");
                 actor.Present(state);
                 Check(body.Frame == frame && sprite.Visible, "重新穿戴重启动画或未显示");

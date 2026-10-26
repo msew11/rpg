@@ -45,6 +45,7 @@ filter_clip = true
 [resource]
 script = ExtResource("1")
 Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
+SourceRightHand = true
 Anchors = PackedVector2Array(48, 26, 50, 19, 62, 14, 77, 15, 58, 32)
 Layers = PackedInt32Array(0, 0, 0, 0, 0)
 RearFrames = Array[Texture2D]([SubResource("Rear0"), SubResource("Rear1"), SubResource("Rear2"), SubResource("Rear3"), SubResource("Rear4")])

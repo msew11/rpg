@@ -95,6 +95,7 @@ public sealed class AnimationService : Service
     {
         if (weapon.Frames.Length == 0 || weapon.Frames.Length % 5 != 0 ||
             weapon.Anchors.Length != weapon.Frames.Length || weapon.Layers.Length != weapon.Frames.Length ||
+            (weapon.GripFrames.Length != 0 && weapon.GripFrames.Length != weapon.Frames.Length) ||
             (weapon.RearFrames.Length != 0 && weapon.RearFrames.Length != weapon.Frames.Length))
             throw new InvalidOperationException($"装备武器方向或连接点不完整：{path}");
     }

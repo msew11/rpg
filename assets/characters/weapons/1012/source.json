@@ -1,6 +1,8 @@
 {
   "itemId": 1012,
   "binding": "weaponr01",
+  "nativeHand": "right",
+  "gripRestoration": "握点附近护手与柄尾的短透明缺口以原柄色连接，独立层仅跨手回退时置于身体下方，原画像素不变",
   "bindingNote": "按物品图标核对持握系列；同系列另一手有男女原画时完整导入，镜像按源手别选择；不存在时明确沿用基础素材。",
   "oppositeHandAvailable": false,
   "rearLayer": null,

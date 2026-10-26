@@ -26,6 +26,8 @@ internal static class ActorWeaponHandAssertions
             var path = entry.GetProperty("path").GetString()!;
             Require(paths.Add(path), "原画黄金记录重复");
             var weapon = GD.Load<DataActorWeapon>(path);
+            Require(weapon.SourceRightHand == entry.GetProperty("source").GetString()!.StartsWith("avatar/weaponr/", StringComparison.Ordinal),
+                $"原画源手别不符：{path}");
             Require(weapon.Frames.Length == entry.GetProperty("frames").GetInt32(), $"原画帧数改变：{path}");
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             for (var frame = 0; frame < weapon.Frames.Length; frame++)
@@ -33,6 +35,15 @@ internal static class ActorWeaponHandAssertions
                 using var image = weapon.Frames[frame].GetImage();
                 image.Convert(Image.Format.Rgba8);
                 var pixels = image.GetData();
+                if (weapon.GripFrames.Length != 0)
+                {
+                    using var grip = weapon.GripFrames[frame].GetImage();
+                    grip.Convert(Image.Format.Rgba8);
+                    var gripPixels = grip.GetData();
+                    Require(gripPixels.Length == pixels.Length, "握柄层尺寸不符");
+                    for (var offset = 3; offset < pixels.Length; offset += 4)
+                        Require(pixels[offset] == 0 || gripPixels[offset] == 0, "补充握柄修改了原始像素");
+                }
                 if (weapon.RearFrames.Length != 0)
                 {
                     using var rear = weapon.RearFrames[frame].GetImage();

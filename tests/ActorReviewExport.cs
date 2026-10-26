@@ -181,6 +181,7 @@ public partial class ActorReviewExport : Node
         var index = Array.IndexOf(weapon.Frames, sprite.Texture);
         if (index < 0) throw new InvalidOperationException("实绘武器未使用清单所记录的资源");
         return new { itemId, appearance, resource = weapon.ResourcePath, sourceRightHand = main != mirrored,
+            nativeRightHand = weapon.SourceRightHand, crossHandFallback = (main != mirrored) != weapon.SourceRightHand,
             sourceIndex = index, sourceFrame = index % (weapon.Frames.Length / 5), framesPerDirection = weapon.Frames.Length / 5 };
     }
 
@@ -192,7 +193,11 @@ public partial class ActorReviewExport : Node
         var bounds = body.GlobalTransform * (Rect2)UsedRect(texture);
         foreach (var sprite in actor.FindChildren("*", "Sprite2D", true, false).OfType<Sprite2D>())
             if (sprite.Visible && sprite.Texture is { } frame)
-                bounds = bounds.Merge(sprite.GlobalTransform * (Rect2)UsedRect(frame));
+            {
+                var used = UsedRect(frame);
+                // 补充握柄允许空帧，零面积矩形不能当作可见像素扩大审查画布。
+                if (used.HasArea()) bounds = bounds.Merge(sprite.GlobalTransform * (Rect2)used);
+            }
         return bounds;
     }
 

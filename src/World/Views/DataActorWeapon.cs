@@ -6,6 +6,10 @@ namespace Rpg.World.Views;
 [GlobalClass]
 public partial class DataActorWeapon : Resource
 {
+    /// <summary>本套原画实际对应的镜像前源手别，用于辨认缺少另一手原画的回退。</summary>
+    [Export] public bool SourceRightHand { get; set; } = true;
+    /// <summary>剑柄为原手形预留的短缺口连接层；跨手回退时放在身体下方，原画保持不变。</summary>
+    [Export] public Texture2D[] GripFrames { get; set; } = [];
     /// <summary>基础素材来自左手时使用的独立右手原画及连接点。</summary>
     [Export] public DataActorWeapon? RightHandVariant { get; set; }
     /// <summary>独立左手原画及连接点；未提供时沿用本资源的固定持握素材。</summary>

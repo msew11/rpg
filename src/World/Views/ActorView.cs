@@ -30,6 +30,12 @@ public partial class ActorView : Node2D
     /// <summary>副手长柄后段，卸下或切换普通装备时清空。</summary>
     private readonly Sprite2D _offWeaponRear = new()
         { Name = "LeftWeaponRear", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
+    /// <summary>跨手回退的主手握柄短连接层，身体覆盖该层以保留真实手形。</summary>
+    private readonly Sprite2D _weaponGrip = new()
+        { Name = "RightWeaponGrip", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
+    /// <summary>副手握柄短连接层，与主手采用同样的清理和逐帧同步规则。</summary>
+    private readonly Sprite2D _offWeaponGrip = new()
+        { Name = "LeftWeaponGrip", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
     /// <summary>上次读取的快照，用来区分动作变化和普通位置变化。</summary>
     private DataActorState? _previous;
     /// <summary>角色实体原点的 GM 调试标记。</summary>
@@ -41,6 +47,8 @@ public partial class ActorView : Node2D
         AddChild(_facingRoot);
         _facingRoot.AddChild(_weaponRear);
         _facingRoot.AddChild(_offWeaponRear);
+        _facingRoot.AddChild(_weaponGrip);
+        _facingRoot.AddChild(_offWeaponGrip);
         _facingRoot.AddChild(_body);
         _facingRoot.AddChild(_head);
         _facingRoot.AddChild(_rightHand);
@@ -109,23 +117,26 @@ public partial class ActorView : Node2D
         var count = body.Frames.GetFrameCount(_body.Animation);
         _head.Texture = head.Frames[direction];
         _head.Position = -body.Anchor + body.HeadAttachments[direction * count + _body.Frame] - head.Anchors[direction];
-        UpdateWeapon(state.MainHandId, true, _rightHand, _weapon, _weaponRear, state, body, count, direction, mirrored);
-        UpdateWeapon(state.OffHandId, false, _leftHand, _offWeapon, _offWeaponRear, state, body, count, direction, mirrored);
+        UpdateWeapon(state.MainHandId, true, _rightHand, _weapon, _weaponRear, _weaponGrip, state, body, count, direction, mirrored);
+        UpdateWeapon(state.OffHandId, false, _leftHand, _offWeapon, _offWeaponRear, _offWeaponGrip, state, body, count, direction, mirrored);
     }
 
     /// <summary>解析显式配置外观并更新一只实际手的挂点、逐帧纹理和内部遮挡。</summary>
-    private void UpdateWeapon(int itemId, bool mainHand, Node2D hand, Sprite2D sprite, Sprite2D rear, DataActorState state,
+    private void UpdateWeapon(int itemId, bool mainHand, Node2D hand, Sprite2D sprite, Sprite2D rear, Sprite2D grip, DataActorState state,
         DataActorAnimation body, int count, int direction, bool mirrored)
     {
         sprite.Visible = itemId != 0;
         rear.Visible = false;
         rear.Texture = null;
+        grip.Visible = false;
+        grip.Texture = null;
         if (itemId == 0) { sprite.Texture = null; return; }
         var item = GameServices.Config.Item.Items[itemId];
         var appearance = GameServices.Config.Equipment.Items[item.RelatedId].AppearanceId;
-        // 原画、握点与身体挂点共用同一源手别，随后一起镜像为实际左右手。
+        // 优先采用对应源手原画；缺少时保留目标挂点，并显式修正跨手持握和层次。
         var sourceRightHand = mainHand != mirrored;
         var weapon = GameServices.Animation.GetWeapon(appearance, state.Gender, state.Motion, sourceRightHand);
+        var crossHand = sourceRightHand != weapon.SourceRightHand;
         var weaponCount = weapon.Frames.Length / 5;
         var weaponFrame = count <= 1 ? 0 : Mathf.RoundToInt((float)_body.Frame * (weaponCount - 1) / (count - 1));
         var index = direction * weaponCount + weaponFrame;
@@ -134,6 +145,13 @@ public partial class ActorView : Node2D
         var handPoints = sourceRightHand ? body.RightHandAttachments : body.LeftHandAttachments;
         hand.Position = -body.Anchor + handPoints[direction * count + _body.Frame];
         sprite.Position = -weapon.Anchors[index];
+        if (crossHand && weapon.GripFrames.Length != 0)
+        {
+            grip.Texture = weapon.GripFrames[index];
+            grip.Position = hand.Position + sprite.Position;
+            grip.Visible = true;
+            if (grip.GetIndex() != 0) _facingRoot.MoveChild(grip, 0);
+        }
         if (weapon.RearFrames.Length != 0)
         {
             rear.Texture = weapon.RearFrames[index];
@@ -146,7 +164,8 @@ public partial class ActorView : Node2D
         {
             3 => true,
             4 => false,
-            _ => layer == 0 ? farHand : mirrored ? layer < 0 : layer > 0
+            // 原手的动作偏置不能用于另一手，否则近手剑身会错误地落到腿后。
+            _ => crossHand || layer == 0 ? farHand : mirrored ? layer < 0 : layer > 0
         };
         // 只在角色内部排列，保持整个角色与其他实体的坐标排序。
         var childIndex = behind ? 0 : _facingRoot.GetChildCount() - 1;
