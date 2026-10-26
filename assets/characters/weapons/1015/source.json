@@ -1,7 +1,8 @@
 {
   "itemId": 1015,
   "binding": "weaponr21",
-  "bindingNote": "项目显式选取同类基础持握系列；物品编号不等于源素材编号。副手拳刃复用右手原画。",
+  "bindingNote": "按物品图标核对持握系列；大剑weaponr41、拳刃weaponr51。副手拳刃复用右手原画。",
+  "rearLayer": "按握点沿像素主轴无损分层，较厚端为前段，后段由身体遮挡",
   "motionReuse": {
     "die": "sit",
     "attack2": "attack1",

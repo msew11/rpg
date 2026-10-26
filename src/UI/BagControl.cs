@@ -52,6 +52,8 @@ public partial class BagControl : PanelContainer
     private Variant _pickedItem;
     /// <summary>没有默认等待时间的普通文本名称。</summary>
     private ItemNamePopup _itemName = null!;
+    /// <summary>当前信息所属槽位，用于所属窗口隐藏后立即撤销浮窗。</summary>
+    private Control? _itemNameOwner;
     /// <summary>输入事件提供的视口坐标，不受世界摄像机或滚动影响。</summary>
     private Vector2 _pointerPosition;
     /// <summary>背包标题栏拖动与角色位置存储。</summary>
@@ -113,6 +115,7 @@ public partial class BagControl : PanelContainer
     {
         var mouse = _pointerPosition;
         if (_itemPreview is not null) _itemPreview.Position = mouse - _itemPreview.Size / 2;
+        if (_itemNameOwner is not null && !_itemNameOwner.IsVisibleInTree()) HideItemName();
         if (_itemName.Visible) _itemName.MoveTo(mouse);
         var viewport = GetViewportRect().Size;
         var grid = _grid.GetCombinedMinimumSize();
@@ -166,22 +169,7 @@ public partial class BagControl : PanelContainer
         {
             var definition = config.Item.Items[item.ItemId];
             var slot = _slots[item.SlotIndex];
-            var content = ItemSlotStyle.CreateContent();
-            slot.AddChild(content);
-            var texture = ResolveTexture(definition.IconAssetId);
-            Control icon = texture is null
-                ? new Label { Name = "MissingIcon", Text = "?", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
-                : ItemSlotStyle.CreateIcon("ItemIcon");
-            if (icon is TextureRect image) image.Texture = texture;
-            content.AddChild(icon);
-            icon.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-            icon.MouseFilter = MouseFilterEnum.Ignore;
-            var count = new Label { Name = "ItemCount", Text = item.Count.ToString(), HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Bottom, MouseFilter = MouseFilterEnum.Ignore };
-            count.AddThemeColorOverride("font_outline_color", Colors.Black);
-            count.AddThemeConstantOverride("outline_size", 4);
-            content.AddChild(count);
-            count.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            slot.AddChild(ItemSlotStyle.CreateContent(ResolveTexture(definition.IconAssetId), item.Count));
         }
     }
 
@@ -208,7 +196,15 @@ public partial class BagControl : PanelContainer
         UiSoundPlayer.Play(this, 1001);
         _pickedItem = payload;
         HideItemName();
-        _itemPreview = (Control)_slots[slotIndex].GetChild<Control>(0).Duplicate();
+        var item = GameServices.Session.Bag.Items.Single(item => item.SlotIndex == slotIndex);
+        BeginPickup(item.ItemId, item.Count);
+    }
+
+    /// <summary>所有来源以背包内容为准建立同尺寸、透明度和中心吸附的拿起图像。</summary>
+    private void BeginPickup(int itemId, int count)
+    {
+        HideItemName();
+        _itemPreview = ItemSlotStyle.CreateContent(ResolveTexture(GameServices.Config.Item.Items[itemId].IconAssetId), count);
         _itemPreview.Name = "PickedItemPreview";
         _itemPreview.MouseFilter = MouseFilterEnum.Ignore;
         _itemPreview.Modulate = new Color(1, 1, 1, 0.85f);
@@ -261,11 +257,28 @@ public partial class BagControl : PanelContainer
         if (_itemPreview is not null || !IsVisibleInTree()) return;
         var item = GameServices.Session.Bag.Items.FirstOrDefault(item => item.SlotIndex == slotIndex);
         if (item is null) { HideItemName(); return; }
-        _itemName.ShowName(GameServices.Config.Item.Items[item.ItemId].Name, _pointerPosition);
+        ShowItemInfo(item.ItemId, _slots[slotIndex]);
+    }
+
+    /// <summary>装备槽解析权威物品后复用背包信息入口，不要求背包窗口打开。</summary>
+    internal void ShowEquipmentName(EquipmentSlot slot, Control owner)
+    {
+        if (!GameServices.Session.HasRole) { HideItemName(); return; }
+        var item = GameServices.Session.Bag.Equipment.FirstOrDefault(item => item.Slot == slot);
+        if (item is null) { HideItemName(); return; }
+        ShowItemInfo(item.ItemId, owner);
+    }
+
+    /// <summary>所有槽位共用道具配置与信息展示，后续类型信息在此入口扩展。</summary>
+    private void ShowItemInfo(int itemId, Control owner)
+    {
+        if (_itemPreview is not null || !owner.IsVisibleInTree()) { HideItemName(); return; }
+        _itemNameOwner = owner;
+        _itemName.ShowName(GameServices.Config.Item.Items[itemId].Name, _pointerPosition);
     }
 
     /// <summary>离开物品或拿起时立即隐藏名称。</summary>
-    internal void HideItemName() { if (_itemName is not null) _itemName.Hide(); }
+    internal void HideItemName() { _itemNameOwner = null; if (_itemName is not null) _itemName.Hide(); }
 
     /// <summary>角色槽点击复用同一拿起状态，背包物品只在服务器确认后穿戴。</summary>
     internal void ClickEquipment(EquipmentSlot slot)
@@ -291,12 +304,7 @@ public partial class BagControl : PanelContainer
             ["panel"] = GetInstanceId(), ["epoch"] = _dragEpoch, ["role"] = GameServices.Session.RoleId,
             ["revision"] = GameServices.Session.Bag.Revision, ["instance"] = item.InstanceId, ["equipment"] = (int)slot
         };
-        var texture = ResolveTexture(GameServices.Config.Item.Items[item.ItemId].IconAssetId);
-        _itemPreview = new TextureRect { Name = "PickedItemPreview", Texture = texture, Size = new Vector2(46, 46),
-            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-            TextureFilter = TextureFilterEnum.Nearest, MouseFilter = MouseFilterEnum.Ignore };
-        _itemLayer.AddChild(_itemPreview);
-        _itemPreview.Position = _pointerPosition - _itemPreview.Size / 2;
+        BeginPickup(item.ItemId, 1);
         UiSoundPlayer.Play(this, 1001);
     }
 

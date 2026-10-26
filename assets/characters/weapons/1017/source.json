@@ -1,7 +1,8 @@
 {
   "itemId": 1017,
-  "binding": "weaponr41",
-  "bindingNote": "项目显式选取同类基础持握系列；物品编号不等于源素材编号。副手拳刃复用右手原画。",
+  "binding": "weaponr51",
+  "bindingNote": "按物品图标核对持握系列；大剑weaponr41、拳刃weaponr51。副手拳刃复用右手原画。",
+  "rearLayer": null,
   "motionReuse": {
     "die": "sit",
     "attack2": "attack1",
@@ -16,112 +17,112 @@
     {
       "gender": "male",
       "motion": "stand",
-      "source": "avatar/weaponr/weaponr4101.gsn",
-      "sha256": "88387fcbbf41e86e753402726dac14e0e4cbe582e0f5c4b0e3fe8748cebaa413",
+      "source": "avatar/weaponr/weaponr5101.gsn",
+      "sha256": "a2a235150f8353bd9593809535ace2287d0a905ffeb0d728abf3f1bfdaf3f596",
       "framesPerDirection": 1,
       "sourceAction": 1
     },
     {
       "gender": "male",
       "motion": "run",
-      "source": "avatar/weaponr/weaponr4102.gsn",
-      "sha256": "01e46d4221abb8b9078ec4aaaac3c3d7ceb7b1fe8ecd3ef7411f23e4075594e9",
+      "source": "avatar/weaponr/weaponr5102.gsn",
+      "sha256": "8dbc9b749d3f9a4ead5f51b184f7a3525a607066c3ab1fd27c8afc94f6401f5c",
       "framesPerDirection": 8,
       "sourceAction": 2
     },
     {
       "gender": "male",
       "motion": "sit",
-      "source": "avatar/weaponr/weaponr4103.gsn",
-      "sha256": "5d8fd043ccf03eee205f323594e362738ac88948b8b0a0aea33023cb208289d2",
+      "source": "avatar/weaponr/weaponr5103.gsn",
+      "sha256": "687f8953c38954e9507135588f8f64c235eacd9401a41ed6bb17c8644fd24b5b",
       "framesPerDirection": 1,
       "sourceAction": 3
     },
     {
       "gender": "male",
       "motion": "attack1",
-      "source": "avatar/weaponr/weaponr4105.gsn",
-      "sha256": "f93f330fccdfef6579b2dfeb52aecfeb9ee72845e7f57c8e32db6a9ff82eaccb",
-      "framesPerDirection": 9,
-      "sourceAction": 5
+      "source": "avatar/weaponr/weaponr5101.gsn",
+      "sha256": "a2a235150f8353bd9593809535ace2287d0a905ffeb0d728abf3f1bfdaf3f596",
+      "framesPerDirection": 1,
+      "sourceAction": 1
     },
     {
       "gender": "male",
       "motion": "magic",
-      "source": "avatar/weaponr/weaponr4108.gsn",
-      "sha256": "b4468c3440a273fa488303891109a44a051d61a1b8a8d61e320e3ba56ea0bf38",
+      "source": "avatar/weaponr/weaponr5108.gsn",
+      "sha256": "6a7a574ace072ca1afe328f0b462c24ad22dd4f738016947b3230e239009125f",
       "framesPerDirection": 8,
       "sourceAction": 8
     },
     {
       "gender": "male",
       "motion": "prepare1",
-      "source": "avatar/weaponr/weaponr4109.gsn",
-      "sha256": "95d92a175c41dff2f80ca179378061c6ca32a2bf60af24a5bcc9475b8bf1cc89",
-      "framesPerDirection": 4,
-      "sourceAction": 9
+      "source": "avatar/weaponr/weaponr5101.gsn",
+      "sha256": "a2a235150f8353bd9593809535ace2287d0a905ffeb0d728abf3f1bfdaf3f596",
+      "framesPerDirection": 1,
+      "sourceAction": 1
     },
     {
       "gender": "male",
       "motion": "hurt",
-      "source": "avatar/weaponr/weaponr4112.gsn",
-      "sha256": "1fd8322cd624f7175f6d9870d5bd906b7136011e907e1786532e318f123df665",
+      "source": "avatar/weaponr/weaponr5112.gsn",
+      "sha256": "1838f8f5fdc080d0e144bf83a45b680249b4f36bd201d65c275c16c22168ae08",
       "framesPerDirection": 1,
       "sourceAction": 12
     },
     {
       "gender": "female",
       "motion": "stand",
-      "source": "avatar/weaponr/weaponr4151.gsn",
-      "sha256": "21eac01f33af83e78f3eb505b18992d196f4a55eed56384d54f74354a30139cb",
+      "source": "avatar/weaponr/weaponr5151.gsn",
+      "sha256": "a7dd8c972b453cc1d4dd0c367c39b254dc39e07d550737bf41fafbb21a8c099e",
       "framesPerDirection": 1,
       "sourceAction": 1
     },
     {
       "gender": "female",
       "motion": "run",
-      "source": "avatar/weaponr/weaponr4152.gsn",
-      "sha256": "6b9e51963641d95a9bfd1d7a4edfd4ebf4357386d85e65a5479b7ad2d83eed71",
+      "source": "avatar/weaponr/weaponr5152.gsn",
+      "sha256": "6f4842e1684b8696c0824a85974cab5f05f78aae54f42aa86a06f0b61a5ee08d",
       "framesPerDirection": 8,
       "sourceAction": 2
     },
     {
       "gender": "female",
       "motion": "sit",
-      "source": "avatar/weaponr/weaponr4153.gsn",
-      "sha256": "94fd869414487e4986c77586ed498a03fce9246d62b4aa56ff7a726d13ea71bd",
+      "source": "avatar/weaponr/weaponr5153.gsn",
+      "sha256": "141e54862608caf6fcf15f85209bd779e2085e716da52aaf3dbe34a1e86f8a99",
       "framesPerDirection": 1,
       "sourceAction": 3
     },
     {
       "gender": "female",
       "motion": "attack1",
-      "source": "avatar/weaponr/weaponr4155.gsn",
-      "sha256": "ea61e187ee04dce24e20f3b673a2eaf60382e0f66b88d716c4138bf5488c454f",
-      "framesPerDirection": 8,
-      "sourceAction": 5
+      "source": "avatar/weaponr/weaponr5151.gsn",
+      "sha256": "a7dd8c972b453cc1d4dd0c367c39b254dc39e07d550737bf41fafbb21a8c099e",
+      "framesPerDirection": 1,
+      "sourceAction": 1
     },
     {
       "gender": "female",
       "motion": "magic",
-      "source": "avatar/weaponr/weaponr4158.gsn",
-      "sha256": "95075238a6b03397243ff0a593ec98efd7c57dfad38c3bef02a801c0a13c59f5",
+      "source": "avatar/weaponr/weaponr5158.gsn",
+      "sha256": "4244096c312316cbc6bef1404be4b60b35f9945a3706cd496b68adaabb62e9bd",
       "framesPerDirection": 9,
       "sourceAction": 8
     },
     {
       "gender": "female",
       "motion": "prepare1",
-      "source": "avatar/weaponr/weaponr4159.gsn",
-      "sha256": "c7a4be5d807891bdeb28899d624af71a128345216b46eea0b3721a921970e35c",
-      "framesPerDirection": 4,
-      "sourceAction": 9
+      "source": "avatar/weaponr/weaponr5151.gsn",
+      "sha256": "a7dd8c972b453cc1d4dd0c367c39b254dc39e07d550737bf41fafbb21a8c099e",
+      "framesPerDirection": 1,
+      "sourceAction": 1
     },
     {
       "gender": "female",
       "motion": "hurt",
-      "source": "avatar/weaponr/weaponr4162.gsn",
-      "sha256": "9d845aa2227852f4bf63bb8a31d1a8b918d7a7f92dd956d67e8f8f4c552675c1",
+      "source": "avatar/weaponr/weaponr5162.gsn",
+      "sha256": "d203d9d4deff49418b98880dbf5afc5b0b1500223dfd48c3f30bbc2108077de5",
       "framesPerDirection": 1,
       "sourceAction": 12
     }

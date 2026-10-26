@@ -3,86 +3,86 @@
 [ext_resource type="Texture2D" path="res://assets/characters/weapons/1013/male/prepare1.png" id="2"]
 [sub_resource type="AtlasTexture" id="Frame0"]
 atlas = ExtResource("2")
-region = Rect2(0, 0, 97, 76)
+region = Rect2(0, 0, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame1"]
 atlas = ExtResource("2")
-region = Rect2(97, 0, 97, 76)
+region = Rect2(119, 0, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame2"]
 atlas = ExtResource("2")
-region = Rect2(194, 0, 97, 76)
+region = Rect2(238, 0, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame3"]
 atlas = ExtResource("2")
-region = Rect2(291, 0, 97, 76)
+region = Rect2(357, 0, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame4"]
 atlas = ExtResource("2")
-region = Rect2(0, 76, 97, 76)
+region = Rect2(0, 88, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame5"]
 atlas = ExtResource("2")
-region = Rect2(97, 76, 97, 76)
+region = Rect2(119, 88, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame6"]
 atlas = ExtResource("2")
-region = Rect2(194, 76, 97, 76)
+region = Rect2(238, 88, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame7"]
 atlas = ExtResource("2")
-region = Rect2(291, 76, 97, 76)
+region = Rect2(357, 88, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame8"]
 atlas = ExtResource("2")
-region = Rect2(0, 152, 97, 76)
+region = Rect2(0, 176, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame9"]
 atlas = ExtResource("2")
-region = Rect2(97, 152, 97, 76)
+region = Rect2(119, 176, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame10"]
 atlas = ExtResource("2")
-region = Rect2(194, 152, 97, 76)
+region = Rect2(238, 176, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame11"]
 atlas = ExtResource("2")
-region = Rect2(291, 152, 97, 76)
+region = Rect2(357, 176, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame12"]
 atlas = ExtResource("2")
-region = Rect2(0, 228, 97, 76)
+region = Rect2(0, 264, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame13"]
 atlas = ExtResource("2")
-region = Rect2(97, 228, 97, 76)
+region = Rect2(119, 264, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame14"]
 atlas = ExtResource("2")
-region = Rect2(194, 228, 97, 76)
+region = Rect2(238, 264, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame15"]
 atlas = ExtResource("2")
-region = Rect2(291, 228, 97, 76)
+region = Rect2(357, 264, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame16"]
 atlas = ExtResource("2")
-region = Rect2(0, 304, 97, 76)
+region = Rect2(0, 352, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame17"]
 atlas = ExtResource("2")
-region = Rect2(97, 304, 97, 76)
+region = Rect2(119, 352, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame18"]
 atlas = ExtResource("2")
-region = Rect2(194, 304, 97, 76)
+region = Rect2(238, 352, 119, 88)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame19"]
 atlas = ExtResource("2")
-region = Rect2(291, 304, 97, 76)
+region = Rect2(357, 352, 119, 88)
 filter_clip = true
 [resource]
 script = ExtResource("1")
 Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4"), SubResource("Frame5"), SubResource("Frame6"), SubResource("Frame7"), SubResource("Frame8"), SubResource("Frame9"), SubResource("Frame10"), SubResource("Frame11"), SubResource("Frame12"), SubResource("Frame13"), SubResource("Frame14"), SubResource("Frame15"), SubResource("Frame16"), SubResource("Frame17"), SubResource("Frame18"), SubResource("Frame19")])
-Anchors = PackedVector2Array(45, 44, 44, 43, 45, 47, 46, 47, 63, 41, 63, 40, 62, 44, 62, 44, 80, 45, 81, 44, 79, 48, 79, 48, 86, 54, 87, 54, 85, 56, 85, 56, 37, 53, 36, 52, 38, 56, 38, 55)
+Anchors = PackedVector2Array(61, 60, 60, 59, 61, 63, 62, 63, 79, 57, 79, 56, 78, 60, 78, 60, 96, 61, 97, 60, 95, 64, 95, 64, 102, 70, 103, 70, 101, 72, 101, 72, 53, 69, 52, 68, 54, 72, 54, 71)
 Layers = PackedInt32Array(-50, 50, 50, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 50, 50, 50)

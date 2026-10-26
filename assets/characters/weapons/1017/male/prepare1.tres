@@ -1,88 +1,28 @@
-[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=23 format=3]
+[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=8 format=3]
 [ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]
 [ext_resource type="Texture2D" path="res://assets/characters/weapons/1017/male/prepare1.png" id="2"]
 [sub_resource type="AtlasTexture" id="Frame0"]
 atlas = ExtResource("2")
-region = Rect2(0, 0, 119, 88)
+region = Rect2(0, 0, 53, 44)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame1"]
 atlas = ExtResource("2")
-region = Rect2(119, 0, 119, 88)
+region = Rect2(0, 44, 53, 44)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame2"]
 atlas = ExtResource("2")
-region = Rect2(238, 0, 119, 88)
+region = Rect2(0, 88, 53, 44)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame3"]
 atlas = ExtResource("2")
-region = Rect2(357, 0, 119, 88)
+region = Rect2(0, 132, 53, 44)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame4"]
 atlas = ExtResource("2")
-region = Rect2(0, 88, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame5"]
-atlas = ExtResource("2")
-region = Rect2(119, 88, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame6"]
-atlas = ExtResource("2")
-region = Rect2(238, 88, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame7"]
-atlas = ExtResource("2")
-region = Rect2(357, 88, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame8"]
-atlas = ExtResource("2")
-region = Rect2(0, 176, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame9"]
-atlas = ExtResource("2")
-region = Rect2(119, 176, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame10"]
-atlas = ExtResource("2")
-region = Rect2(238, 176, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame11"]
-atlas = ExtResource("2")
-region = Rect2(357, 176, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame12"]
-atlas = ExtResource("2")
-region = Rect2(0, 264, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame13"]
-atlas = ExtResource("2")
-region = Rect2(119, 264, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame14"]
-atlas = ExtResource("2")
-region = Rect2(238, 264, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame15"]
-atlas = ExtResource("2")
-region = Rect2(357, 264, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame16"]
-atlas = ExtResource("2")
-region = Rect2(0, 352, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame17"]
-atlas = ExtResource("2")
-region = Rect2(119, 352, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame18"]
-atlas = ExtResource("2")
-region = Rect2(238, 352, 119, 88)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Frame19"]
-atlas = ExtResource("2")
-region = Rect2(357, 352, 119, 88)
+region = Rect2(0, 176, 53, 44)
 filter_clip = true
 [resource]
 script = ExtResource("1")
-Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4"), SubResource("Frame5"), SubResource("Frame6"), SubResource("Frame7"), SubResource("Frame8"), SubResource("Frame9"), SubResource("Frame10"), SubResource("Frame11"), SubResource("Frame12"), SubResource("Frame13"), SubResource("Frame14"), SubResource("Frame15"), SubResource("Frame16"), SubResource("Frame17"), SubResource("Frame18"), SubResource("Frame19")])
-Anchors = PackedVector2Array(61, 60, 60, 59, 61, 63, 62, 63, 79, 57, 79, 56, 78, 60, 78, 60, 96, 61, 97, 60, 95, 64, 95, 64, 102, 70, 103, 70, 101, 72, 101, 72, 53, 69, 52, 68, 54, 72, 54, 71)
-Layers = PackedInt32Array(-50, 50, 50, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 50, 50, 50)
+Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
+Anchors = PackedVector2Array(14, 5, 28, 4, 39, 8, 41, 15, 6, 11)
+Layers = PackedInt32Array(-50, 0, 0, 0, 50)

@@ -103,6 +103,7 @@ public partial class CharacterEquipmentControl : VBoxContainer
         if (ReferenceEquals(_lastBag, GameServices.Session.Bag) && _lastAppearance == appearance) return;
         _lastBag = GameServices.Session.Bag;
         _lastAppearance = appearance;
+        Bag.HideItemName();
         var equipment = GameServices.Session.Bag.Equipment;
         _preview.ShowRole(role.Gender, role.HeadId, role.RoleId, role.Name,
             mainHandId: equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
@@ -114,7 +115,6 @@ public partial class CharacterEquipmentControl : VBoxContainer
             var cfg = item is null ? null : GameServices.Config.Item.Items[item.ItemId];
             icon.Texture = cfg is null ? null : ItemAtlasUtil.Resolve(_assets, cfg.IconAssetId);
             _slotNames[slot].Visible = item is null;
-            ((Control)icon.GetParent().GetParent()).TooltipText = cfg?.Name ?? (slot is EquipmentSlot.MainHand or EquipmentSlot.OffHand ? "空槽" : "暂未开放");
         }
     }
 

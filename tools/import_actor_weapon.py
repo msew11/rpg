@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import struct
@@ -56,6 +57,27 @@ def read_layers(path):
     return layers
 
 
+def split_long_weapon(image, anchor):
+    """沿握点的主轴切开长柄，较厚的杖头或枪尖为前段，像素无损且不重复。"""
+    pixels = [(x, y) for y in range(image.height) for x in range(image.width) if image.getpixel((x, y))[3]]
+    mean_x = sum(x for x, _ in pixels) / len(pixels)
+    mean_y = sum(y for _, y in pixels) / len(pixels)
+    xx = sum((x - mean_x) ** 2 for x, _ in pixels)
+    yy = sum((y - mean_y) ** 2 for _, y in pixels)
+    xy = sum((x - mean_x) * (y - mean_y) for x, y in pixels)
+    angle = math.atan2(2 * xy, xx - yy) / 2
+    axis = (math.cos(angle), math.sin(angle))
+    projections = [(x, y, (x - anchor[0]) * axis[0] + (y - anchor[1]) * axis[1]) for x, y in pixels]
+    sign = 1 if sum(value > 3 for _, _, value in projections) > sum(value < -3 for _, _, value in projections) else -1
+    front = Image.new('RGBA', image.size)
+    rear = Image.new('RGBA', image.size)
+    for x, y, value in projections:
+        (front if value * sign >= 0 else rear).putpixel((x, y), image.getpixel((x, y)))
+    if not front.getbbox() or not rear.getbbox() or Image.alpha_composite(rear, front).tobytes() != image.tobytes():
+        raise ValueError('长柄分层无法无损还原原图')
+    return front, rear
+
+
 def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand="weaponr", series=1):
     """按来源动作导入一次武器图集，并保留每帧独立连接点及层级。"""
     number = series * 100 + action + (50 if gender == 'female' else 0)
@@ -64,22 +86,36 @@ def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand
     count = len(frames) // 5
     width, height = frames[0][0].size
     atlas = Image.new('RGBA', (width * count, height * 5))
-    lines = [f'[gd_resource type="Resource" script_class="DataActorWeapon" load_steps={len(frames) + 3} format=3]',
+    rear_atlas = Image.new('RGBA', atlas.size) if item_id in (1015, 1016) else None
+    load_steps = len(frames) + 3 + (len(frames) + 1 if rear_atlas is not None else 0)
+    lines = [f'[gd_resource type="Resource" script_class="DataActorWeapon" load_steps={load_steps} format=3]',
              '[ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]',
              f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{item_id}/{gender}/{motion}.png" id="2"]']
-    for index, (image, _) in enumerate(frames):
+    if rear_atlas is not None:
+        lines += [f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{item_id}/{gender}/{motion}.rear.png" id="3"]']
+    for index, (image, anchor) in enumerate(frames):
         direction, frame = divmod(index, count)
+        if rear_atlas is not None:
+            image, rear = split_long_weapon(image, anchor)
+            rear_atlas.paste(rear, (frame * width, direction * height))
         atlas.paste(image, (frame * width, direction * height))
         lines += [f'[sub_resource type="AtlasTexture" id="Frame{index}"]', 'atlas = ExtResource("2")',
                   f'region = Rect2({frame * width}, {direction * height}, {width}, {height})', 'filter_clip = true']
+        if rear_atlas is not None:
+            lines += [f'[sub_resource type="AtlasTexture" id="Rear{index}"]', 'atlas = ExtResource("3")',
+                      f'region = Rect2({frame * width}, {direction * height}, {width}, {height})', 'filter_clip = true']
     folder = target / gender
     folder.mkdir(parents=True, exist_ok=True)
     atlas.save(folder / f'{motion}.png')
+    if rear_atlas is not None:
+        rear_atlas.save(folder / f'{motion}.rear.png')
     textures = ', '.join(f'SubResource("Frame{index}")' for index in range(len(frames)))
     anchors = ', '.join(str(value) for _, anchor in frames for value in anchor)
     z_indices = ', '.join(str(layers[motion][direction][frame]) for direction in range(5) for frame in range(count))
     lines += ['[resource]', 'script = ExtResource("1")', f'Frames = Array[Texture2D]([{textures}])',
               f'Anchors = PackedVector2Array({anchors})', f'Layers = PackedInt32Array({z_indices})']
+    if rear_atlas is not None:
+        lines += ['RearFrames = Array[Texture2D]([' + ', '.join(f'SubResource("Rear{index}")' for index in range(len(frames))) + '])']
     (folder / f'{motion}.tres').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     return {'gender': gender, 'motion': motion, 'source': source.relative_to(raw).as_posix(),
             'sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'framesPerDirection': count}
@@ -91,9 +127,9 @@ def main():
     parser.add_argument('--raw', type=Path, required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1] / 'assets/characters/weapons'
-    # 已核对源图形：基础剑、长剑、盾、木杖、枪、短刃、飞刀；编号不从物品主键推导。
-    bindings = {1012: ('weaponr', 1), 1013: ('weaponr', 9), 1014: ('weaponl', 11),
-                1015: ('weaponr', 21), 1016: ('weaponr', 31), 1017: ('weaponr', 41),
+    # 对照物品图标核对基础剑、宽刃大剑、盾、木杖、枪、红柄拳刃、飞刀。
+    bindings = {1012: ('weaponr', 1), 1013: ('weaponr', 41), 1014: ('weaponl', 11),
+                1015: ('weaponr', 21), 1016: ('weaponr', 31), 1017: ('weaponr', 51),
                 1018: ('weaponl', 105)}
     actions = {'stand': 1, 'run': 2, 'sit': 3, 'attack1': 5, 'magic': 8, 'prepare1': 9, 'hurt': 12}
     item_data = (args.raw / 'zipbin/ov_arm.bin').read_bytes()
@@ -118,7 +154,8 @@ def main():
                 record['sourceAction'] = selected
                 records.append(record)
         evidence = {'itemId': item_id, 'binding': f'{hand}{series:02}',
-                    'bindingNote': '项目显式选取同类基础持握系列；物品编号不等于源素材编号。副手拳刃复用右手原画。',
+                    'bindingNote': '按物品图标核对持握系列；大剑weaponr41、拳刃weaponr51。副手拳刃复用右手原画。',
+                    'rearLayer': '按握点沿像素主轴无损分层，较厚端为前段，后段由身体遮挡' if item_id in (1015, 1016) else None,
                     'motionReuse': {'die': 'sit', 'attack2': 'attack1', 'attack3': 'attack1',
                                     'prepare2': 'prepare1', 'prepare3': 'prepare1', 'ride': 'stand'},
                     'layerSource': layer_file.relative_to(args.raw).as_posix(),

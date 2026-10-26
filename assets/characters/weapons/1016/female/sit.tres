@@ -1,24 +1,45 @@
-[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=8 format=3]
+[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=14 format=3]
 [ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]
 [ext_resource type="Texture2D" path="res://assets/characters/weapons/1016/female/sit.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/characters/weapons/1016/female/sit.rear.png" id="3"]
 [sub_resource type="AtlasTexture" id="Frame0"]
 atlas = ExtResource("2")
+region = Rect2(0, 0, 131, 77)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Rear0"]
+atlas = ExtResource("3")
 region = Rect2(0, 0, 131, 77)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame1"]
 atlas = ExtResource("2")
 region = Rect2(0, 77, 131, 77)
 filter_clip = true
+[sub_resource type="AtlasTexture" id="Rear1"]
+atlas = ExtResource("3")
+region = Rect2(0, 77, 131, 77)
+filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame2"]
 atlas = ExtResource("2")
+region = Rect2(0, 154, 131, 77)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Rear2"]
+atlas = ExtResource("3")
 region = Rect2(0, 154, 131, 77)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame3"]
 atlas = ExtResource("2")
 region = Rect2(0, 231, 131, 77)
 filter_clip = true
+[sub_resource type="AtlasTexture" id="Rear3"]
+atlas = ExtResource("3")
+region = Rect2(0, 231, 131, 77)
+filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame4"]
 atlas = ExtResource("2")
+region = Rect2(0, 308, 131, 77)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Rear4"]
+atlas = ExtResource("3")
 region = Rect2(0, 308, 131, 77)
 filter_clip = true
 [resource]
@@ -26,3 +47,4 @@ script = ExtResource("1")
 Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
 Anchors = PackedVector2Array(60, 27, 63, 21, 73, 18, 84, 20, 66, 32)
 Layers = PackedInt32Array(0, 0, 0, 0, 0)
+RearFrames = Array[Texture2D]([SubResource("Rear0"), SubResource("Rear1"), SubResource("Rear2"), SubResource("Rear3"), SubResource("Rear4")])

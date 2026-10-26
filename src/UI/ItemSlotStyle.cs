@@ -27,6 +27,29 @@ public static class ItemSlotStyle
         Name = "ItemContent", CustomMinimumSize = Vector2.One * ContentSize, MouseFilter = Control.MouseFilterEnum.Ignore
     };
 
+    /// <summary>统一格内与拿起图像，保留背包的图标区域、缺图占位和可选数量。</summary>
+    public static Control CreateContent(Texture2D? texture, int? quantity)
+    {
+        var content = CreateContent();
+        Control icon = texture is null
+            ? new Label { Name = "MissingIcon", Text = "?", HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore }
+            : CreateIcon("ItemIcon");
+        if (icon is TextureRect image) image.Texture = texture;
+        content.AddChild(icon);
+        icon.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        if (quantity is { } count)
+        {
+            var label = new Label { Name = "ItemCount", Text = count.ToString(), HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Bottom, MouseFilter = Control.MouseFilterEnum.Ignore };
+            label.AddThemeColorOverride("font_outline_color", Colors.Black);
+            label.AddThemeConstantOverride("outline_size", 4);
+            content.AddChild(label);
+            label.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        }
+        return content;
+    }
+
     /// <summary>图标在完整内容区域内等比居中，所有槽位采用同一采样方式。</summary>
     public static TextureRect CreateIcon(string name) => new()
     {

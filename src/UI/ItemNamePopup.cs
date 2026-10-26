@@ -2,7 +2,7 @@ using Godot;
 
 namespace Rpg.UI;
 
-/// <summary>背包与地面共用的即时名称浮层，使用视口坐标避开鼠标并裁剪边缘。</summary>
+/// <summary>背包、装备与地面共用的即时道具信息浮层，目前显示名称并避开鼠标和视口边缘。</summary>
 public partial class ItemNamePopup : Label
 {
     /// <summary>建立统一名称样式，不参与鼠标命中。</summary>

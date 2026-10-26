@@ -8,6 +8,8 @@ public partial class DataActorWeapon : Resource
 {
     /// <summary>按方向、帧顺序排列的纹理，每个方向帧数相同。</summary>
     [Export] public Texture2D[] Frames { get; set; } = [];
+    /// <summary>长柄握点后的独立帧，与前段同步但始终由身体遮挡；普通装备为空。</summary>
+    [Export] public Texture2D[] RearFrames { get; set; } = [];
     /// <summary>每帧持握位置在原始画布内的连接坐标。</summary>
     [Export] public Vector2[] Anchors { get; set; } = [];
     /// <summary>原武器每帧的层次偏置，由实际持握手和朝向决定最终前后遮挡。</summary>

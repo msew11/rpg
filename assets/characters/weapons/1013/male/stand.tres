@@ -3,26 +3,26 @@
 [ext_resource type="Texture2D" path="res://assets/characters/weapons/1013/male/stand.png" id="2"]
 [sub_resource type="AtlasTexture" id="Frame0"]
 atlas = ExtResource("2")
-region = Rect2(0, 0, 80, 65)
+region = Rect2(0, 0, 100, 75)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame1"]
 atlas = ExtResource("2")
-region = Rect2(0, 65, 80, 65)
+region = Rect2(0, 75, 100, 75)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame2"]
 atlas = ExtResource("2")
-region = Rect2(0, 130, 80, 65)
+region = Rect2(0, 150, 100, 75)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame3"]
 atlas = ExtResource("2")
-region = Rect2(0, 195, 80, 65)
+region = Rect2(0, 225, 100, 75)
 filter_clip = true
 [sub_resource type="AtlasTexture" id="Frame4"]
 atlas = ExtResource("2")
-region = Rect2(0, 260, 80, 65)
+region = Rect2(0, 300, 100, 75)
 filter_clip = true
 [resource]
 script = ExtResource("1")
 Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
-Anchors = PackedVector2Array(43, 12, 57, 11, 68, 15, 70, 22, 35, 18)
+Anchors = PackedVector2Array(59, 6, 73, 5, 84, 9, 86, 16, 51, 12)
 Layers = PackedInt32Array(0, 0, 0, 50, -50)

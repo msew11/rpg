@@ -83,7 +83,8 @@ public sealed class AnimationService : Service
         weapon = GD.Load<DataActorWeapon>(path)
             ?? throw new InvalidOperationException($"装备武器资源加载失败：{path}");
         if (weapon.Frames.Length == 0 || weapon.Frames.Length % 5 != 0 ||
-            weapon.Anchors.Length != weapon.Frames.Length || weapon.Layers.Length != weapon.Frames.Length)
+            weapon.Anchors.Length != weapon.Frames.Length || weapon.Layers.Length != weapon.Frames.Length ||
+            (weapon.RearFrames.Length != 0 && weapon.RearFrames.Length != weapon.Frames.Length))
             throw new InvalidOperationException($"装备武器方向或连接点不完整：{path}");
         _weapons.Add((appearanceId, gender, sourceMotion), weapon);
         return weapon;

@@ -144,7 +144,12 @@ public partial class ActorAnimationSmoke : Node
             actor.Present(run with { Gender = RoleGender.Female });
             Check(body.Frame == 0 && ReferenceEquals(body.SpriteFrames, repo.Get(RoleGender.Female, RoleMotion.Run).Frames),
                 "性别更新后残留旧资源或帧");
-            if (OS.GetCmdlineUserArgs().Contains("--capture-actors")) await CaptureActors(screenDirections);
+            CheckWeaponIdentity();
+            if (OS.GetCmdlineUserArgs().Contains("--capture-actors"))
+            {
+                await CaptureActors(screenDirections);
+                await CaptureLongWeapons(screenDirections);
+            }
             GD.Print("Actor animation smoke passed: 26 motions, 605 body frames, 320 weapon frames, 8 directions.");
             GetTree().Quit();
         }
@@ -202,6 +207,7 @@ public partial class ActorAnimationSmoke : Node
             actor.Present(state);
             var hand = actor.GetNode<Node2D>(main ? "Facing/RightHand" : "Facing/LeftHand");
             var sprite = hand.GetNode<Sprite2D>("Weapon");
+            var rear = actor.GetNode<Sprite2D>(main ? "Facing/RightWeaponRear" : "Facing/LeftWeaponRear");
             var resource = animations.Get(gender, motion);
             var weapon = animations.GetWeapon(id, gender, motion);
             var (sourceDirection, mirrored) = AnimationService.ResolveDirection(state.Facing);
@@ -215,8 +221,13 @@ public partial class ActorAnimationSmoke : Node
                 Check(sprite.Visible && textureIndex >= 0 && textureIndex / (weapon.Frames.Length / 5) == sourceDirection,
                     $"装备方向或资源错误：{id}/{gender}/{motion}");
                 Check(sprite.Position + weapon.Anchors[textureIndex] == Vector2.Zero, "装备连接点错位");
+                Check(rear.Visible == (id is 1015 or 1016), "普通装备残留长柄后段或长柄后段缺失");
+                if (rear.Visible)
+                    Check(ReferenceEquals(rear.Texture, weapon.RearFrames[textureIndex]) &&
+                        rear.GlobalPosition == sprite.GlobalPosition && rear.GetIndex() < body.GetIndex(),
+                        "长柄后段未同步方向、帧或握点");
                 actor.Present(state with { MainHandId = 0, OffHandId = 0 });
-                Check(!sprite.Visible && sprite.Texture is null, "空手残留武器");
+                Check(!sprite.Visible && sprite.Texture is null && !rear.Visible && rear.Texture is null, "空手残留武器前后段");
                 Check(body.Frame == frame && Math.Abs(body.FrameProgress - 0.35f) < 0.001f, "卸下重启动画");
                 actor.Present(state);
                 Check(body.Frame == frame && sprite.Visible, "重新穿戴重启动画或未显示");
@@ -363,6 +374,99 @@ public partial class ActorAnimationSmoke : Node
         Check(overlapCounts.All(count => count > 0), $"正背面没有实际交叠像素：{string.Join(',', overlapCounts)}");
         GD.Print($"Weapon rendered occlusion pixels passed: {string.Join(',', overlapCounts)}.");
         viewport.Free();
+    }
+
+    /// <summary>client-actor-presentation：以原始大剑和拳刃的首帧像素哈希阻止再次绑定错误系列。</summary>
+    private static void CheckWeaponIdentity()
+    {
+        foreach (var (id, expected) in new[]
+        {
+            (1013, "1B74063A55FBE80D892DFCF96E1604DFA8EE80A563F346292854D71025F65F31"),
+            (1017, "5F124D27C4B959A8C1AD997478849B87DA9E3C4F342DD4099A35B18FE603C91B")
+        })
+        {
+            using var pixels = GameServices.Animation.GetWeapon(id, RoleGender.Male, RoleMotion.Stand).Frames[0].GetImage();
+            pixels.Convert(Image.Format.Rgba8);
+            var data = pixels.GetData();
+            // Godot 导入会填充半透明边缘的 RGB，保留全部 alpha 及不透明颜色进行比较。
+            for (var offset = 0; offset < data.Length; offset += 4)
+                if (data[offset + 3] < 255) Array.Clear(data, offset, 3);
+            Check(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data)) == expected,
+                $"装备外观与原始图标对应系列不符：{id}/{pixels.GetSize()}/{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data))}");
+        }
+    }
+
+    /// <summary>client-actor-presentation：渲染男女枪杖的站立、跑步和八方向，核验后段交叠像素及握点同步。</summary>
+    private async Task CaptureLongWeapons(Vector2[] directions)
+    {
+        var viewport = new SubViewport { Size = new Vector2I(960, 1200), Disable3D = true,
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Always };
+        AddChild(viewport);
+        viewport.AddChild(new ColorRect { Size = viewport.Size, Color = new Color("24303d") });
+        var actors = new System.Collections.Generic.List<ActorView>();
+        var totals = new int[8];
+        for (var row = 0; row < 8; row++)
+        for (var direction = 0; direction < 8; direction++)
+        {
+            var actor = new ActorView();
+            viewport.AddChild(actor);
+            var position = new Vector2(60 + direction * 120, 135 + row * 150);
+            var id = row % 4 < 2 ? 1015 : 1016;
+            var motion = row % 2 == 0 ? RoleMotion.Stand : RoleMotion.Run;
+            actor.Present(new DataActorState(1, (RoleGender)(row / 4), IsometricProjection.ToLogical(position),
+                motion, IsometricProjection.ToLogical(directions[direction]), 0, 1, id));
+            actor.GetNode<AnimatedSprite2D>("Facing/Body").Pause();
+            actors.Add(actor);
+        }
+        for (var frame = 0; frame < 8; frame++)
+        {
+            foreach (var actor in actors)
+            {
+                var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+                body.SetFrameAndProgress(frame % body.SpriteFrames.GetFrameCount(body.Animation), 0);
+                var rear = actor.GetNode<Sprite2D>("Facing/RightWeaponRear");
+                var front = actor.GetNode<Sprite2D>("Facing/RightHand/Weapon");
+                Check(rear.Visible && rear.Texture is not null && rear.GlobalPosition == front.GlobalPosition &&
+                    rear.GetIndex() < body.GetIndex() && rear.ZIndex == 0, "长柄分层未随握点和身体帧同步");
+            }
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            using var rendered = viewport.GetTexture().GetImage();
+            for (var index = 0; index < actors.Count; index++)
+                totals[index / 8] += CheckRearOverlap(rendered, actors[index]);
+            if (frame == 0) rendered.SavePng(ProjectSettings.GlobalizePath("res://build/long-weapon-preview.png"));
+        }
+        Check(totals.All(total => total > 0), $"男女站立或跑步缺少枪杖后段交叠验收：{string.Join(',', totals)}");
+        GD.Print($"Long weapon rendered occlusion pixels passed: {string.Join(',', totals)}.");
+        viewport.Free();
+    }
+
+    /// <summary>跳过头部覆盖区域，直接核对后段重叠处的 GPU 输出来自身体。</summary>
+    private static int CheckRearOverlap(Image rendered, ActorView actor)
+    {
+        var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+        var rear = actor.GetNode<Sprite2D>("Facing/RightWeaponRear");
+        var head = actor.GetNode<Sprite2D>("Facing/Head");
+        using var bodyImage = body.SpriteFrames.GetFrameTexture(body.Animation, body.Frame).GetImage();
+        using var rearImage = rear.Texture.GetImage();
+        using var headImage = head.Texture.GetImage();
+        var count = 0;
+        for (var y = 0; y < rearImage.GetHeight(); y++)
+        for (var x = 0; x < rearImage.GetWidth(); x++)
+        {
+            if (rearImage.GetPixel(x, y).A < 1) continue;
+            var world = rear.ToGlobal(new Vector2(x + 0.5f, y + 0.5f));
+            var point = (Vector2I)body.ToLocal(world).Floor();
+            if (!bodyImage.GetUsedRect().HasPoint(point) || bodyImage.GetPixelv(point).A < 1) continue;
+            var headPoint = (Vector2I)head.ToLocal(world).Floor();
+            if (headImage.GetUsedRect().HasPoint(headPoint) && headImage.GetPixelv(headPoint).A > 0) continue;
+            var actual = rendered.GetPixelv((Vector2I)world.Floor());
+            var expected = bodyImage.GetPixelv(point);
+            Check(Mathf.Abs(actual.R - expected.R) < 0.02f && Mathf.Abs(actual.G - expected.G) < 0.02f &&
+                Mathf.Abs(actual.B - expected.B) < 0.02f, $"长柄后段覆盖身体：{world}");
+            count++;
+        }
+        return count;
     }
 
     /// <summary>验证 client-actor-presentation 正背面遮挡：直接比较 GPU 渲染的交叠像素与应在前的原图颜色。</summary>

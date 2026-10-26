@@ -11,9 +11,18 @@ public partial class EquipmentSlotControl : PanelContainer
     /// <summary>此控件代表的枚举槽位。</summary>
     public EquipmentSlot Slot { get; init; }
 
+    /// <summary>已穿装备与背包使用同一个即时信息浮窗。</summary>
+    public override void _Ready()
+    {
+        MouseEntered += () => Bag.ShowEquipmentName(Slot, this);
+        MouseExited += Bag.HideItemName;
+        VisibilityChanged += () => { if (!IsVisibleInTree()) Bag.HideItemName(); };
+    }
+
     /// <summary>消费整个鼠标操作，避免按下或松开穿透至世界。</summary>
     public override void _GuiInput(InputEvent input)
     {
+        if (input is InputEventMouseMotion) { Bag.ShowEquipmentName(Slot, this); return; }
         if (input is not InputEventMouseButton click) return;
         if (click.ButtonIndex is not (MouseButton.Left or MouseButton.Right)) return;
         if (click.Pressed && Slot is EquipmentSlot.MainHand or EquipmentSlot.OffHand)

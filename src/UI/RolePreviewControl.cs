@@ -14,8 +14,10 @@ public partial class RolePreviewControl : VBoxContainer
     public bool ShowPortrait { get; init; } = true;
     /// <summary>预览人物相对原始地图素材的比例。</summary>
     public float ActorScale { get; init; } = 2.4f;
-    /// <summary>当前预览朝向，屏幕下方为初始方向。</summary>
-    public int Direction { get; private set; } = 2;
+    /// <summary>所有人物展示统一使用参考图的朝右侧身方向。</summary>
+    public const int DefaultDirection = 0;
+    /// <summary>当前预览朝向，用户旋转后保留展示状态。</summary>
+    public int Direction { get; private set; } = DefaultDirection;
     /// <summary>供页面记录当前草稿朝向。</summary>
     public event Action<int>? DirectionChanged;
     /// <summary>预览下方的页面操作区。</summary>
@@ -76,7 +78,8 @@ public partial class RolePreviewControl : VBoxContainer
     /// <summary>每次按屏幕坐标系顺逆转动 45 度并记录当前草稿。</summary>
     private void Rotate(int step)
     {
-        Direction = Mathf.PosMod(Direction + step, 8);
+        // 人物绕自身竖轴的旋转方向与屏幕朝向角度增量相反。
+        Direction = Mathf.PosMod(Direction - step, 8);
         DirectionChanged?.Invoke(Direction);
         Present();
     }

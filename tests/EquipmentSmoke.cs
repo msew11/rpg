@@ -13,7 +13,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>role-equipment 与 client-ui：验收五行槽位、背包等大图标、紧凑旋转及真实穿脱。</summary>
+/// <summary>openspec/specs/role-equipment、role-management 与 client-ui：验收统一拿起、即时信息、侧身旋转及真实穿脱。</summary>
 public partial class EquipmentSmoke : Node
 {
     /// <summary>隔离存档并通过正式节点走完整穿脱流程。</summary>
@@ -49,6 +49,8 @@ public partial class EquipmentSmoke : Node
                 "角色窗口没有十一种独立槽位");
             var preview = (RolePreviewControl)character.FindChild("EquipmentPreview", true, false);
             var previewActor = (ActorView)preview.FindChild("PreviewActor", true, false);
+            Check(preview.Direction == 0 && previewActor.GetNode<AnimatedSprite2D>("Facing/Body").Animation == "dir1" &&
+                previewActor.GetNode<Node2D>("Facing").Scale.X == -1, "装备展示默认未向右侧身");
             Check(previewActor.Scale == Vector2.One &&
                 preview.FindChild("PreviewPortrait", true, false) is AvatarControl { Visible: false },
                 "装备预览未使用地图原始比例或仍显示头像");
@@ -100,7 +102,9 @@ public partial class EquipmentSmoke : Node
                 var sourceSize = bagIcon.Texture.GetSize();
                 var iconStretch = bagIcon.StretchMode;
                 var iconFilter = bagIcon.TextureFilter;
-                await Transfer(grid.GetChild<Control>(item.SlotIndex), control);
+                await Click(grid.GetChild<Control>(item.SlotIndex));
+                var bagPicked = PickedAppearance(bag);
+                await Click(control);
                 var equippedIcon = (TextureRect)control.FindChild("EquipmentIcon", true, false);
                 Check(equippedIcon.Size == iconSize && equippedIcon.Texture.GetSize() == sourceSize &&
                     equippedIcon.StretchMode == iconStretch && equippedIcon.TextureFilter == iconFilter,
@@ -110,6 +114,27 @@ public partial class EquipmentSmoke : Node
                 Check((slot == EquipmentSlot.MainHand ? state.MainHandId : state.OffHandId) == id, "权威装备未同步世界");
                 var sprite = previewActor.GetNode<Sprite2D>(slot == EquipmentSlot.MainHand ? "Facing/RightHand/Weapon" : "Facing/LeftHand/Weapon");
                 Check(sprite.Visible && sprite.Texture is not null, "预览未显示实际装备");
+                // 隐藏背包仍立即显示装备信息，复用同一个浮窗且没有引擎延迟提示。
+                bag.Hide();
+                await Frames();
+                Hover(control);
+                var info = (ItemNamePopup)bag.FindChild("ItemNamePopup", true, false);
+                Check(info.IsVisibleInTree() && info.Text == GameServices.Config.Item.Items[id].Name && control.TooltipText == "",
+                    "背包隐藏时装备没有即时共用名称框");
+                Hover(feet);
+                Check(!info.Visible, "空槽仍显示上一装备信息");
+                Hover(control);
+                character.Hide();
+                await Frames();
+                Check(!info.Visible, "关闭角色窗口残留道具信息");
+                character.Show();
+                await Frames();
+                await Click(control);
+                Check(!info.Visible && PickedAppearance(bag) == bagPicked, "两处拿起的图像尺寸、数量、采样或透明度不一致");
+                var picked = (Control)bag.FindChild("PickedItemPreview", true, false);
+                Check(picked.GetGlobalRect().GetCenter().DistanceTo(control.GetGlobalRect().GetCenter()) < 0.1f,
+                    "装备拿起图像未以鼠标为中心");
+                await Click(control);
             }
             var off = (Control)character.FindChild("EquipmentOffHand", true, false);
             var extra = GameServices.Session.Bag.Items.Single(item => item.InstanceId == 8);
@@ -117,7 +142,9 @@ public partial class EquipmentSmoke : Node
             Check(GameServices.Session.Bag.Equipment.Count(item => item.ItemId == 1017) == 2, "双拳刃未同时显示");
             var direction = preview.Direction;
             await Click((Control)preview.FindChild("RotateClockwise", true, false));
-            Check(preview.Direction == (direction + 1) % 8, "预览旋转没有生效");
+            Check(preview.Direction == (direction + 7) % 8, "右按钮没有使人物顺时针自转");
+            await Click((Control)preview.FindChild("RotateCounterclockwise", true, false));
+            Check(preview.Direction == direction, "左按钮没有逆时针抵消旋转");
             var mainSlot = (Control)character.FindChild("EquipmentMainHand", true, false);
             var empty = Enumerable.Range(0, 40).First(index => GameServices.Session.Bag.Items.All(item => item.SlotIndex != index));
             await Transfer(mainSlot, grid.GetChild<Control>(empty));
@@ -225,6 +252,25 @@ public partial class EquipmentSmoke : Node
         await Click(source);
         Check(ReferenceEquals(before, GameServices.Session.Bag), "拿起装备提前修改了快照");
         await Click(target);
+    }
+
+    /// <summary>比较实际拿起图像的渲染区域、纹理、数量和透明度，而非只比较格子。</summary>
+    private static (Vector2, Vector2, string, CanvasItem.TextureFilterEnum, Color, string) PickedAppearance(BagControl bag)
+    {
+        var picked = (Control)bag.FindChild("PickedItemPreview", true, false);
+        var icon = (TextureRect)picked.FindChild("ItemIcon", true, false);
+        using var pixels = icon.Texture.GetImage();
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(pixels.GetData()));
+        return (picked.Size, icon.Size, hash, icon.TextureFilter, picked.Modulate,
+            ((Label)picked.FindChild("ItemCount", true, false)).Text);
+    }
+
+    /// <summary>仅注入鼠标移动，验证悬停当帧出现信息。</summary>
+    private void Hover(Control control)
+    {
+        var point = control.GetGlobalRect().GetCenter();
+        using var input = new InputEventMouseMotion { Position = point, GlobalPosition = point };
+        GetViewport().PushInput(input, true);
     }
 
     /// <summary>实际注入移动、按下及松开以覆盖 GUI 路由。</summary>

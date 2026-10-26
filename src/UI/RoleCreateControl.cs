@@ -16,7 +16,7 @@ public partial class RoleCreateControl : RoleScreenControl
     /// <summary>男女独立的头型编号，切换不相互覆盖。</summary>
     private readonly int[] _headIds = [AvatarControl.FirstPortraitHeadId, AvatarControl.FirstPortraitHeadId];
     /// <summary>男女独立的屏幕八方向预览索引。</summary>
-    private readonly int[] _directions = [2, 2];
+    private readonly int[] _directions = [RolePreviewControl.DefaultDirection, RolePreviewControl.DefaultDirection];
     /// <summary>男女独立的名字草稿，取消或请求失败时保留。</summary>
     private readonly string[] _names = ["", ""];
     /// <summary>当前是否正在等待服务器创建响应。</summary>

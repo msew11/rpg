@@ -24,6 +24,12 @@ public partial class ActorView : Node2D
     /// <summary>副手装备层，与主手共享身体时钟。</summary>
     private readonly Sprite2D _offWeapon = new()
         { Name = "Weapon", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
+    /// <summary>主手长柄后段在身体后方绘制，共用握点和身体帧。</summary>
+    private readonly Sprite2D _weaponRear = new()
+        { Name = "RightWeaponRear", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
+    /// <summary>副手长柄后段，卸下或切换普通装备时清空。</summary>
+    private readonly Sprite2D _offWeaponRear = new()
+        { Name = "LeftWeaponRear", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
     /// <summary>上次读取的快照，用来区分动作变化和普通位置变化。</summary>
     private DataActorState? _previous;
     /// <summary>角色实体原点的 GM 调试标记。</summary>
@@ -33,6 +39,8 @@ public partial class ActorView : Node2D
     public override void _Ready()
     {
         AddChild(_facingRoot);
+        _facingRoot.AddChild(_weaponRear);
+        _facingRoot.AddChild(_offWeaponRear);
         _facingRoot.AddChild(_body);
         _facingRoot.AddChild(_head);
         _facingRoot.AddChild(_rightHand);
@@ -101,15 +109,17 @@ public partial class ActorView : Node2D
         var count = body.Frames.GetFrameCount(_body.Animation);
         _head.Texture = head.Frames[direction];
         _head.Position = -body.Anchor + body.HeadAttachments[direction * count + _body.Frame] - head.Anchors[direction];
-        UpdateWeapon(state.MainHandId, true, _rightHand, _weapon, state, body, count, direction, mirrored);
-        UpdateWeapon(state.OffHandId, false, _leftHand, _offWeapon, state, body, count, direction, mirrored);
+        UpdateWeapon(state.MainHandId, true, _rightHand, _weapon, _weaponRear, state, body, count, direction, mirrored);
+        UpdateWeapon(state.OffHandId, false, _leftHand, _offWeapon, _offWeaponRear, state, body, count, direction, mirrored);
     }
 
     /// <summary>解析显式配置外观并更新一只实际手的挂点、逐帧纹理和内部遮挡。</summary>
-    private void UpdateWeapon(int itemId, bool mainHand, Node2D hand, Sprite2D sprite, DataActorState state,
+    private void UpdateWeapon(int itemId, bool mainHand, Node2D hand, Sprite2D sprite, Sprite2D rear, DataActorState state,
         DataActorAnimation body, int count, int direction, bool mirrored)
     {
         sprite.Visible = itemId != 0;
+        rear.Visible = false;
+        rear.Texture = null;
         if (itemId == 0) { sprite.Texture = null; return; }
         var item = GameServices.Config.Item.Items[itemId];
         var appearance = GameServices.Config.Equipment.Items[item.RelatedId].AppearanceId;
@@ -122,6 +132,12 @@ public partial class ActorView : Node2D
         var handPoints = mainHand != mirrored ? body.RightHandAttachments : body.LeftHandAttachments;
         hand.Position = -body.Anchor + handPoints[direction * count + _body.Frame];
         sprite.Position = -weapon.Anchors[index];
+        if (weapon.RearFrames.Length != 0)
+        {
+            rear.Texture = weapon.RearFrames[index];
+            rear.Position = hand.Position + sprite.Position;
+            rear.Visible = true;
+        }
         var layer = weapon.Layers[index];
         var farHand = mainHand ? !mirrored : mirrored;
         var behind = direction switch
