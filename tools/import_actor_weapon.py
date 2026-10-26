@@ -78,7 +78,7 @@ def split_long_weapon(image, anchor):
     return front, rear
 
 
-def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand="weaponr", series=1, left_variant=False):
+def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand="weaponr", series=1, variant=None):
     """按来源动作导入一次武器图集，并保留每帧独立连接点及层级。"""
     number = series * 100 + action + (50 if gender == 'female' else 0)
     source = raw / 'avatar' / hand / f'{hand}{number:04}.gsn'
@@ -87,15 +87,16 @@ def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand
     width, height = frames[0][0].size
     atlas = Image.new('RGBA', (width * count, height * 5))
     rear_atlas = Image.new('RGBA', atlas.size) if item_id in (1015, 1016) else None
-    resource_folder = f'{item_id}/left' if item_id == 1017 and hand == 'weaponl' else str(item_id)
-    load_steps = len(frames) + 3 + (len(frames) + 1 if rear_atlas is not None else 0) + int(left_variant)
+    variant_id = '4' if rear_atlas is not None else '3'
+    resource_folder = target.relative_to(Path(__file__).resolve().parents[1] / 'assets/characters/weapons').as_posix()
+    load_steps = len(frames) + 3 + (len(frames) + 1 if rear_atlas is not None else 0) + int(variant is not None)
     lines = [f'[gd_resource type="Resource" script_class="DataActorWeapon" load_steps={load_steps} format=3]',
              '[ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]',
              f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{resource_folder}/{gender}/{motion}.png" id="2"]']
-    if left_variant:
-        lines += [f'[ext_resource type="Resource" path="res://assets/characters/weapons/{item_id}/left/{gender}/{motion}.tres" id="3"]']
+    if variant:
+        lines += [f'[ext_resource type="Resource" path="res://assets/characters/weapons/{item_id}/{variant}/{gender}/{motion}.tres" id="{variant_id}"]']
     if rear_atlas is not None:
-        lines += [f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{item_id}/{gender}/{motion}.rear.png" id="3"]']
+        lines += [f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{resource_folder}/{gender}/{motion}.rear.png" id="3"]']
     for index, (image, anchor) in enumerate(frames):
         direction, frame = divmod(index, count)
         if rear_atlas is not None:
@@ -117,8 +118,8 @@ def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand
     z_indices = ', '.join(str(layers[motion][direction][frame]) for direction in range(5) for frame in range(count))
     lines += ['[resource]', 'script = ExtResource("1")', f'Frames = Array[Texture2D]([{textures}])',
               f'Anchors = PackedVector2Array({anchors})', f'Layers = PackedInt32Array({z_indices})']
-    if left_variant:
-        lines += ['LeftHandVariant = ExtResource("3")']
+    if variant:
+        lines += [f'{variant.capitalize()}HandVariant = ExtResource("{variant_id}")']
     if rear_atlas is not None:
         lines += ['RearFrames = Array[Texture2D]([' + ', '.join(f'SubResource("Rear{index}")' for index in range(len(frames))) + '])']
     (folder / f'{motion}.tres').write_text('\n'.join(lines) + '\n', encoding='utf-8')
@@ -126,7 +127,7 @@ def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand
             'sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'framesPerDirection': count}
 
 
-def import_hand(raw, target, hand, series, item_id, actions, left_variant=False):
+def import_hand(raw, target, hand, series, item_id, actions, variant=None):
     """保留每只源手独立的动作编号、连接点和遮挡表，不把右手平移到左手。"""
     layer_file = raw / 'avatar' / hand / (hand.capitalize() + '.ini')
     layers = read_layers(layer_file)
@@ -137,10 +138,10 @@ def import_hand(raw, target, hand, series, item_id, actions, left_variant=False)
             source = raw / 'avatar' / hand / f'{hand}{number:04}.gsn'
             selected = action
             if not source.exists():
-                selected = {'attack1': 7, 'prepare1': 11}.get(motion, 1) if hand == 'weaponl' else 1
+                selected = {'attack1': 7, 'prepare1': 11}.get(motion, 1) if hand == 'weaponl' or item_id == 1018 else 1
             if not (raw / 'avatar' / hand / f'{hand}{series * 100 + selected + (50 if gender == 'female' else 0):04}.gsn').exists():
                 selected = 1
-            record = write_weapon(gender, motion, selected, raw, target, layers, item_id, hand, series, left_variant)
+            record = write_weapon(gender, motion, selected, raw, target, layers, item_id, hand, series, variant)
             record['sourceAction'] = selected
             records.append(record)
     return records, layer_file
@@ -163,20 +164,29 @@ def main():
         raise ValueError('原始装备表长度不符')
     for item_id, (hand, series) in bindings.items():
         target = root / str(item_id)
-        records, layer_file = import_hand(args.raw, target, hand, series, item_id, actions, item_id == 1017)
+        other_hand = 'weaponl' if hand == 'weaponr' else 'weaponr'
+        variant = 'left' if hand == 'weaponr' else 'right'
+        # 逐项检查同系列另一手；存在时必须导入，防止增加新绑定后漏掉镜像持握。
+        paired = [(args.raw / 'avatar' / other_hand / f'{other_hand}{series * 100 + action:04}.gsn').exists()
+                  for action in (1, 51)]
+        if any(paired) and not all(paired):
+            raise ValueError(f'{item_id} 另一手素材缺少一个性别')
+        variant = variant if all(paired) else None
+        records, layer_file = import_hand(args.raw, target, hand, series, item_id, actions, variant)
         evidence = {'itemId': item_id, 'binding': f'{hand}{series:02}',
-                    'bindingNote': '按物品图标核对持握系列；大剑weaponr41、拳刃weaponr51。拳刃左右手分别使用weaponr51和weaponl51。',
+                    'bindingNote': '按物品图标核对持握系列；同系列另一手有男女原画时完整导入，镜像按源手别选择；不存在时明确沿用基础素材。',
+                    'oppositeHandAvailable': variant is not None,
                     'rearLayer': '按握点沿像素主轴无损分层，较厚端为前段，后段随方向和动作切换身体前后关系' if item_id in (1015, 1016) else None,
                     'motionReuse': {'die': 'sit', 'attack2': 'attack1', 'attack3': 'attack1',
                                     'prepare2': 'prepare1', 'prepare3': 'prepare1', 'ride': 'stand'},
                     'layerSource': layer_file.relative_to(args.raw).as_posix(),
                     'layerSha256': hashlib.sha256(layer_file.read_bytes()).hexdigest(), 'animations': records}
-        left_records = []
-        if item_id == 1017:
-            left_records, left_layers = import_hand(args.raw, target / 'left', 'weaponl', series, item_id, actions)
-            evidence['leftHandVariant'] = {
-                'binding': 'weaponl51', 'layerSource': left_layers.relative_to(args.raw).as_posix(),
-                'layerSha256': hashlib.sha256(left_layers.read_bytes()).hexdigest(), 'animations': left_records}
+        variant_records = []
+        if variant:
+            variant_records, variant_layers = import_hand(args.raw, target / variant, other_hand, series, item_id, actions)
+            evidence[f'{variant}HandVariant'] = {
+                'binding': f'{other_hand}{series:02}', 'layerSource': variant_layers.relative_to(args.raw).as_posix(),
+                'layerSha256': hashlib.sha256(variant_layers.read_bytes()).hexdigest(), 'animations': variant_records}
         matches = [(index + 1, item_data[16 + index * row_size:16 + (index + 1) * row_size])
                    for index in range(row_count) if struct.unpack_from('<I', item_data, 16 + index * row_size)[0] == item_id]
         if len(matches) != 1:
@@ -184,7 +194,7 @@ def main():
         evidence.update({'itemSource': 'zipbin/ov_arm.bin', 'itemSourceRow': matches[0][0],
                          'itemSourceSha256': hashlib.sha256(item_data).hexdigest(), 'itemRowHex': matches[0][1].hex()})
         (target / 'source.json').write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-        all_records = records + left_records
+        all_records = records + variant_records
         print(f'{item_id}: {len(all_records)} sets, {sum(r["framesPerDirection"] * 5 for r in all_records)} frames')
 
 

@@ -58,7 +58,7 @@ public sealed class AnimationService : Service
         return head;
     }
 
-    /// <summary>按镜像前的源手别加载武器；独立左手原画和缺失动作分别复用已声明资源。</summary>
+    /// <summary>按镜像前的源手别加载武器；左右手原画和缺失动作分别复用已声明资源。</summary>
     public DataActorWeapon GetWeapon(int appearanceId, RoleGender gender, RoleMotion motion, bool rightHand = true)
     {
         ThrowIfDisposed();
@@ -73,7 +73,7 @@ public sealed class AnimationService : Service
             _ => motion
         };
         if (_weapons.TryGetValue((appearanceId, gender, sourceMotion), out var weapon))
-            return rightHand ? weapon : weapon.LeftHandVariant ?? weapon;
+            return rightHand ? weapon.RightHandVariant ?? weapon : weapon.LeftHandVariant ?? weapon;
         var body = gender switch
         {
             RoleGender.Male => "male",
@@ -84,12 +84,13 @@ public sealed class AnimationService : Service
         weapon = GD.Load<DataActorWeapon>(path)
             ?? throw new InvalidOperationException($"装备武器资源加载失败：{path}");
         ValidateWeapon(weapon, path);
+        if (weapon.RightHandVariant is { } right) ValidateWeapon(right, path + " 的右手变体");
         if (weapon.LeftHandVariant is { } left) ValidateWeapon(left, path + " 的左手变体");
         _weapons.Add((appearanceId, gender, sourceMotion), weapon);
-        return rightHand ? weapon : weapon.LeftHandVariant ?? weapon;
+        return rightHand ? weapon.RightHandVariant ?? weapon : weapon.LeftHandVariant ?? weapon;
     }
 
-    /// <summary>基础原画与独立左手原画都必须具有完整的五方向帧、连接点和层次。</summary>
+    /// <summary>基础原画与独立左右手原画都必须具有完整的五方向帧、连接点和层次。</summary>
     private static void ValidateWeapon(DataActorWeapon weapon, string path)
     {
         if (weapon.Frames.Length == 0 || weapon.Frames.Length % 5 != 0 ||

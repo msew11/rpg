@@ -111,6 +111,7 @@ public partial class ActorAnimationSmoke : Node
             CheckDefaultWeapon(repo, actor);
             CheckEquipmentVariants(repo, actor);
             CheckKatarHands(repo, actor);
+            ActorWeaponHandAssertions.Verify(repo, actor);
 
             var run = new DataActorState(1001, RoleGender.Male, Vector2.Zero, RoleMotion.Run, Vector2.Right, 0);
             actor.Present(run);
@@ -544,7 +545,7 @@ public partial class ActorAnimationSmoke : Node
             (1018, "55889D97FD2F69B24FF0E13473BA0A74B5BD77E5DF2F91EBABA3CED8D97310FB")
         })
         {
-            using var pixels = GameServices.Animation.GetWeapon(id, RoleGender.Male, RoleMotion.Stand).Frames[0].GetImage();
+            using var pixels = GameServices.Animation.GetWeapon(id, RoleGender.Male, RoleMotion.Stand, id != 1018).Frames[0].GetImage();
             pixels.Convert(Image.Format.Rgba8);
             var data = pixels.GetData();
             // Godot 导入会填充半透明边缘的 RGB，保留全部 alpha 及不透明颜色进行比较。

@@ -111,7 +111,9 @@ internal sealed class DataPositionComponent
 
 装备表现由独立公开装备快照驱动，空槽不显示武器。`WorldService` 在固定帧发现已验证 `RoleWorldEquipmentPbData` 引用变化时提交 `SyncEquipmentAction`，ECS 按装备版本更新主副手道具编号，`DataActorState` 输出只读编号。`ActorView` 通过道具 `RelatedId` 取得装备 `AppearanceId`，`AnimationService.GetWeapon` 按外观、性别和动作缓存 `DataActorWeapon`；切换装备不重启身体时钟，卸下清除对应纹理和可见性。
 
-`tools/import_actor_weapon.py --raw <原始目录>` 将七件测试装备明确绑定到基础系列：1012→weaponr01、1013→weaponr41、1014→weaponl11、1015→weaponr21、1016→weaponr31、1017→weaponr51及weaponl51、1018→weaponl105。`assets/characters/weapons/<appearanceId>/` 包含男女七类动作，含独立左手拳刃共1995帧；每套 source.json 记录装备表来源行、原始像素和遮挡表哈希及实际动作编号。缺少死亡、骑乘、攻击2/3和准备2/3时复用坐下、站立、攻击1和准备1；盾牌仅有站立原画，其他动作复用该帧并跟随身体。拳刃的 `LeftHandVariant` 引用 left 子目录内独立的 weaponl51 原画、连接点和层次；左手攻击及准备使用原始动作7/11，右手来源缺失时仍按记录复用站立。其他装备未声明变体时使用原有固定持握素材。
+`tools/import_actor_weapon.py --raw <原始目录>` 将七件测试装备明确绑定到基础系列：1012→weaponr01、1013→weaponr41、1014→weaponl11、1015→weaponr21、1016→weaponr31、1017→weaponr51及weaponl51、1018→weaponl105及weaponr105。`assets/characters/weapons/<appearanceId>/` 包含男女七类动作，含独立左手拳刃及右手飞刀共2315帧；每套 source.json 记录装备表来源行、原始像素和遮挡表哈希及实际动作编号。缺少死亡、骑乘、攻击2/3和准备2/3时复用坐下、站立、攻击1和准备1；盾牌仅有站立原画，其他动作复用该帧并跟随身体。拳刃的 `LeftHandVariant` 引用 left 子目录内独立的 weaponl51；飞刀的 `RightHandVariant` 引用 right 子目录内独立的 weaponr105，均保留各自原画、连接点和层次。左手拳刃及双手飞刀攻击/准备使用原始动作7/11；右手拳刃缺失时仍按记录复用站立。导入时逐项探测同系列另一手男女素材，成对存在则完整导入，缺少一个性别报错；均无来源时记录 `oppositeHandAvailable=false`，沿用基础素材。镜像后的源手别通过对称变体选择，不再把飞刀左手原画平移到右手挂点。
+
+`tests/fixtures/actor_weapon_sources.json` 保存从只读原始GSN与INI取得的126套、2315帧黄金摘要，`ActorWeaponHandAssertions` 逐套校验原始RGBA、连接点、层次和画布尺寸；长柄先无损合并前后段，半透明像素RGB清零以兼容Godot导入。测试同时验证生产加载覆盖全部黄金路径，并以独立路径期望核对男女飞刀跑步八方向全部帧，重点覆盖→和↘的右手变体。
 
 身体 `LeftHandAttachments` / `RightHandAttachments` 读取源像素块尾 +28 / +36 的双手坐标。`ActorView` 的 `Facing/RightHand` 与 `Facing/LeftHand` 分别承载实际主手和副手；镜像前同时交换源手别原画、连接点和身体挂点，再统一镜像，保持实际左右手语义。装备位置为“身体手部挂点 − 身体世界锚点 − 装备连接点”，与身体共用方向、帧进度和时钟。正面装备在身体前、背面在后，侧面按手别与源逐帧层次调整内部兄弟顺序，保持实体 Z 和坐标排序。木杖与枪在握点沿像素主轴拆成无损的前后段，较厚的杖头/枪尖为前段；`RearFrames` 随同一握点、帧和镜像绘制，与前段分处身体两侧：正面由身体遮挡，背面遮住身体，侧面随手别与动作偏置切换，前段继续采用原有方向及动作层次。导入检查两段逐像素重组等于原图，运行不做像素拆分。场景验收覆盖七件、男女全部动作/帧、八方向、拳刃双手、空槽及替换保留进度；七件原始首帧与左手拳刃五方向使用像素哈希回归，正背面检查双手刀尖向外展开，侧面检查近远手，GPU保存男女站立/跑步逐帧图；既有长剑黄金挂点与枪杖真实交叠像素验收保留。
 

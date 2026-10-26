@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=43 format=3]
+[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=44 format=3]
 [ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]
 [ext_resource type="Texture2D" path="res://assets/characters/weapons/1018/female/attack1.png" id="2"]
+[ext_resource type="Resource" path="res://assets/characters/weapons/1018/right/female/attack1.tres" id="3"]
 [sub_resource type="AtlasTexture" id="Frame0"]
 atlas = ExtResource("2")
 region = Rect2(0, 0, 96, 80)
@@ -166,3 +167,4 @@ script = ExtResource("1")
 Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4"), SubResource("Frame5"), SubResource("Frame6"), SubResource("Frame7"), SubResource("Frame8"), SubResource("Frame9"), SubResource("Frame10"), SubResource("Frame11"), SubResource("Frame12"), SubResource("Frame13"), SubResource("Frame14"), SubResource("Frame15"), SubResource("Frame16"), SubResource("Frame17"), SubResource("Frame18"), SubResource("Frame19"), SubResource("Frame20"), SubResource("Frame21"), SubResource("Frame22"), SubResource("Frame23"), SubResource("Frame24"), SubResource("Frame25"), SubResource("Frame26"), SubResource("Frame27"), SubResource("Frame28"), SubResource("Frame29"), SubResource("Frame30"), SubResource("Frame31"), SubResource("Frame32"), SubResource("Frame33"), SubResource("Frame34"), SubResource("Frame35"), SubResource("Frame36"), SubResource("Frame37"), SubResource("Frame38"), SubResource("Frame39")])
 Anchors = PackedVector2Array(53, 64, 53, 60, 74, 58, 88, 48, 39, 50, 20, 21, 17, 40, 53, 64, 33, 60, 33, 57, 54, 63, 78, 61, 16, 40, 39, 12, 20, 26, 33, 60, 24, 51, 24, 48, 32, 59, 53, 66, 14, 25, 65, 12, 42, 18, 24, 51, 31, 41, 30, 37, 21, 49, 27, 62, 33, 14, 83, 21, 69, 20, 31, 41, 72, 60, 73, 56, 82, 47, 76, 35, 70, 49, 20, 34, 34, 51, 72, 60)
 Layers = PackedInt32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+RightHandVariant = ExtResource("3")
