@@ -95,4 +95,47 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
         Assert.False(session.HasRole);
         Assert.Single(fixture.Errors);
     }
+
+    /// <summary>role-equipment：两侧共用完整校验，重复实例或不适配装备不得留下半份快照。</summary>
+    [Theory]
+    [InlineData("sharedInstance")]
+    [InlineData("duplicateSlot")]
+    [InlineData("unknownSlot")]
+    [InlineData("wrongCategory")]
+    public void InvalidEquipmentPreservesWholeInventory(string kind)
+    {
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
+        fixture.Login();
+        var session = fixture.SelectRole(1001);
+        var previous = session.Bag;
+        var message = Snapshot(1);
+        message.Equipment.Add(new EquippedItemPb { InstanceId = kind == "sharedInstance" ? 1 : 2,
+            ItemId = kind == "wrongCategory" ? 1018 : 1012,
+            Slot = kind == "unknownSlot" ? (EquipmentSlotPb)999 : EquipmentSlotPb.MainHand });
+        if (kind == "duplicateSlot") message.Equipment.Add(new EquippedItemPb { InstanceId = 3, ItemId = 1017, Slot = EquipmentSlotPb.MainHand });
+        var called = false;
+        using var ui = EventBus.Subscribe<BagChangedNotice>(_ => called = true);
+        EventBus.Publish(new BagChangedNotice { RoleId = 1001, Bag = message });
+        Assert.False(called);
+        Assert.Single(fixture.Errors);
+        Assert.Same(previous, session.Bag);
+    }
+
+    /// <summary>装备协议复制后不可变，普通阶段同时看到背包和装备的新版本。</summary>
+    [Fact]
+    public void EquipmentSnapshotsAreCopiedAndAcceptedAtomically()
+    {
+        using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
+        fixture.Login();
+        var session = fixture.SelectRole(1001);
+        var message = Snapshot(1);
+        message.Equipment.Add(new EquippedItemPb { InstanceId = 2, ItemId = 1017, Slot = EquipmentSlotPb.OffHand });
+        var called = false;
+        using var ui = EventBus.Subscribe<BagChangedNotice>(_ => called = session.Bag.Items.Count == 1 && session.Bag.Equipment.Count == 1);
+        EventBus.Publish(new BagChangedNotice { RoleId = 1001, Bag = message });
+        Assert.True(called);
+        message.Equipment[0].ItemId = 1014;
+        session.Bag.ToPb().Equipment.Clear();
+        Assert.Equal(1017, Assert.Single(session.Bag.Equipment).ItemId);
+    }
 }

@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=8 format=3]
+[ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]
+[ext_resource type="Texture2D" path="res://assets/characters/weapons/1015/female/attack1.png" id="2"]
+[sub_resource type="AtlasTexture" id="Frame0"]
+atlas = ExtResource("2")
+region = Rect2(0, 0, 104, 60)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Frame1"]
+atlas = ExtResource("2")
+region = Rect2(0, 60, 104, 60)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Frame2"]
+atlas = ExtResource("2")
+region = Rect2(0, 120, 104, 60)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Frame3"]
+atlas = ExtResource("2")
+region = Rect2(0, 180, 104, 60)
+filter_clip = true
+[sub_resource type="AtlasTexture" id="Frame4"]
+atlas = ExtResource("2")
+region = Rect2(0, 240, 104, 60)
+filter_clip = true
+[resource]
+script = ExtResource("1")
+Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
+Anchors = PackedVector2Array(47, 23, 60, 22, 70, 26, 71, 32, 40, 28)
+Layers = PackedInt32Array(50, 0, 0, 0, 0)

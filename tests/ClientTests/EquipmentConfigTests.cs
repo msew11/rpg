@@ -158,6 +158,27 @@ public sealed class EquipmentConfigTests : IDisposable
         Assert.Contains("equipment.json", Assert.Throws<InvalidDataException>(Load).Message);
     }
 
+    /// <summary>外观编号独立于两张表主键，不存在的资源必须启动失败。</summary>
+    [Theory]
+    [InlineData(1012, true)]
+    [InlineData(999999, false)]
+    public void ResolvesExplicitAppearanceAndRejectsMissingAssets(int appearanceId, bool valid)
+    {
+        var rows = JsonNode.Parse(File.ReadAllText(Path.Combine(_directory, "equipment.json")))!.AsArray();
+        rows[0]!["appearanceId"] = appearanceId;
+        rows[0]!["id"] = 9001;
+        Write("equipment", rows);
+        var items = ReadItems();
+        items[0]!["relatedId"] = 9001;
+        Write("item", items);
+        if (valid)
+        {
+            using var config = Load();
+            Assert.Equal(1012, config.Equipment.Items[config.Item.Items[1012].RelatedId].AppearanceId);
+        }
+        else Assert.Contains("equipment.json", Assert.Throws<InvalidDataException>(Load).Message);
+    }
+
     /// <summary>回收测试目录及其中的配置副本。</summary>
     public void Dispose() => Directory.Delete(_directory, true);
 }

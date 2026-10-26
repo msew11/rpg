@@ -1,4 +1,4 @@
-"""从只读 DIMG 导入测试长剑 1012 的男女完整帧、剑柄连接点和逐帧遮挡。"""
+"""从只读 DIMG 导入七件测试装备的男女帧、持握连接点和逐帧遮挡。"""
 
 import argparse
 import hashlib
@@ -56,17 +56,17 @@ def read_layers(path):
     return layers
 
 
-def write_weapon(gender, motion, action, raw, target, layers):
+def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand="weaponr", series=1):
     """按来源动作导入一次武器图集，并保留每帧独立连接点及层级。"""
-    number = 100 + action + (50 if gender == 'female' else 0)
-    source = raw / 'avatar/weaponr' / f'weaponr{number:04}.gsn'
+    number = series * 100 + action + (50 if gender == 'female' else 0)
+    source = raw / 'avatar' / hand / f'{hand}{number:04}.gsn'
     frames = decode_weapon(source)
     count = len(frames) // 5
     width, height = frames[0][0].size
     atlas = Image.new('RGBA', (width * count, height * 5))
     lines = [f'[gd_resource type="Resource" script_class="DataActorWeapon" load_steps={len(frames) + 3} format=3]',
              '[ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]',
-             f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/1012/{gender}/{motion}.png" id="2"]']
+             f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{item_id}/{gender}/{motion}.png" id="2"]']
     for index, (image, _) in enumerate(frames):
         direction, frame = divmod(index, count)
         atlas.paste(image, (frame * width, direction * height))
@@ -86,37 +86,51 @@ def write_weapon(gender, motion, action, raw, target, layers):
 
 
 def main():
-    """重建基础剑七类动作；缺少独立武器动作时显式复用并按身体进度选帧。"""
+    """按明确系列绑定重建七件装备，缺失源动作复用站立并记录证据。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--raw', type=Path, required=True)
     args = parser.parse_args()
-    target = Path(__file__).resolve().parents[1] / 'assets/characters/weapons/1012'
-    layer_file = args.raw / 'avatar/weaponr/Weaponr.ini'
-    layers = read_layers(layer_file)
+    root = Path(__file__).resolve().parents[1] / 'assets/characters/weapons'
+    # 已核对源图形：基础剑、长剑、盾、木杖、枪、短刃、飞刀；编号不从物品主键推导。
+    bindings = {1012: ('weaponr', 1), 1013: ('weaponr', 9), 1014: ('weaponl', 11),
+                1015: ('weaponr', 21), 1016: ('weaponr', 31), 1017: ('weaponr', 41),
+                1018: ('weaponl', 105)}
     actions = {'stand': 1, 'run': 2, 'sit': 3, 'attack1': 5, 'magic': 8, 'prepare1': 9, 'hurt': 12}
-    # 测试道具保留来源证据；外观绑定由项目显式指定，不把物品 ID 当作武器文件编号。
-    item_file = args.raw / 'zipbin/ov_arm.bin'
-    item_data = item_file.read_bytes()
+    item_data = (args.raw / 'zipbin/ov_arm.bin').read_bytes()
     _, _, row_size, row_count = struct.unpack_from('<4I', item_data)
     if len(item_data) != 16 + row_size * row_count:
         raise ValueError('原始装备表长度不符')
-    rows = [(index + 1, item_data[16 + index * row_size:16 + (index + 1) * row_size])
-            for index in range(row_count) if struct.unpack_from('<I', item_data, 16 + index * row_size)[0] == 1012]
-    if len(rows) != 1 or rows[0][1][4:68].split(b'\0')[0].decode('gb18030') != '测试长剑':
-        raise ValueError('原始装备表缺少唯一的 1012 测试长剑')
-    records = [write_weapon(gender, motion, action, args.raw, target, layers)
-               for gender in ['male', 'female'] for motion, action in actions.items()]
-    evidence = {'itemId': 1012, 'binding': '基础右手长剑 weaponr01，男女动作后缀分别为 01–13 / 51–63',
-                'bindingNote': '项目将测试长剑显式绑定基础剑系列；物品编号不等于武器文件编号。',
-                'itemSource': 'zipbin/ov_arm.bin', 'itemSourceRow': rows[0][0],
-                'itemSourceSha256': hashlib.sha256(item_data).hexdigest(),
-                'itemRowHex': rows[0][1].hex(),
-                'motionReuse': {'die': 'sit', 'attack2': 'attack1', 'attack3': 'attack1',
-                                'prepare2': 'prepare1', 'prepare3': 'prepare1', 'ride': 'stand'},
-                'layerSource': 'avatar/weaponr/Weaponr.ini',
-                'layerSha256': hashlib.sha256(layer_file.read_bytes()).hexdigest(), 'animations': records}
-    (target / 'source.json').write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    print(f'已导入 {len(records)} 套默认长剑动作资源，共 {sum(r["framesPerDirection"] * 5 for r in records)} 帧。')
+    for item_id, (hand, series) in bindings.items():
+        target = root / str(item_id)
+        layer_file = args.raw / 'avatar' / hand / (hand.capitalize() + '.ini')
+        layers = read_layers(layer_file)
+        records = []
+        for gender in ['male', 'female']:
+            for motion, action in actions.items():
+                number = series * 100 + action + (50 if gender == 'female' else 0)
+                source = args.raw / 'avatar' / hand / f'{hand}{number:04}.gsn'
+                selected = action
+                if not source.exists():
+                    selected = {'attack1': 7, 'prepare1': 11}.get(motion, 1) if hand == 'weaponl' else 1
+                if not (args.raw / 'avatar' / hand / f'{hand}{series * 100 + selected + (50 if gender == 'female' else 0):04}.gsn').exists():
+                    selected = 1
+                record = write_weapon(gender, motion, selected, args.raw, target, layers, item_id, hand, series)
+                record['sourceAction'] = selected
+                records.append(record)
+        evidence = {'itemId': item_id, 'binding': f'{hand}{series:02}',
+                    'bindingNote': '项目显式选取同类基础持握系列；物品编号不等于源素材编号。副手拳刃复用右手原画。',
+                    'motionReuse': {'die': 'sit', 'attack2': 'attack1', 'attack3': 'attack1',
+                                    'prepare2': 'prepare1', 'prepare3': 'prepare1', 'ride': 'stand'},
+                    'layerSource': layer_file.relative_to(args.raw).as_posix(),
+                    'layerSha256': hashlib.sha256(layer_file.read_bytes()).hexdigest(), 'animations': records}
+        matches = [(index + 1, item_data[16 + index * row_size:16 + (index + 1) * row_size])
+                   for index in range(row_count) if struct.unpack_from('<I', item_data, 16 + index * row_size)[0] == item_id]
+        if len(matches) != 1:
+            raise ValueError(f'原始装备表记录不唯一：{item_id}')
+        evidence.update({'itemSource': 'zipbin/ov_arm.bin', 'itemSourceRow': matches[0][0],
+                         'itemSourceSha256': hashlib.sha256(item_data).hexdigest(), 'itemRowHex': matches[0][1].hex()})
+        (target / 'source.json').write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+        print(f'{item_id}: {len(records)} sets, {sum(r["framesPerDirection"] * 5 for r in records)} frames')
 
 
 if __name__ == '__main__':

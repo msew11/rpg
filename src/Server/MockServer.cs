@@ -104,6 +104,7 @@ public sealed class MockServer
             case Move move: HandleMove(move); break;
             case Gm gm: HandleGm(gm); break;
             case MoveItem moveItem: HandleMoveItem(moveItem); break;
+            case EquipItem equip: HandleEquipItem(equip); break;
             case DropItem dropItem: HandleDropItem(dropItem); break;
             case PickupItem pickup: HandlePickupItem(pickup); break;
             case ResyncMapAoi resync: HandleResyncMapAoi(resync); break;
@@ -492,6 +493,27 @@ public sealed class MockServer
         Send(response);
     }
 
+    /// <summary>完整校验装备请求，使用同一物品领域提交和推送两侧状态。</summary>
+    private void HandleEquipItem(EquipItem request)
+    {
+        var response = new EquipItemRt { RoleId = request.RoleId, Slot = request.Slot };
+        try
+        {
+            if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
+                throw new InvalidOperationException("请先进入当前角色");
+            if (request.ExpectedRevision != _current.Bag.Revision)
+                throw new InvalidOperationException("物品已更新，请重新选择装备");
+            var candidate = _bagRules.Equip(_current, request.InstanceId, (Rpg.Const.EquipmentSlot)request.Slot,
+                request.HasTargetBagSlot ? request.TargetBagSlot : null);
+            _roles.SaveBag(candidate);
+            _current = candidate;
+            Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+            response.Success = true;
+        }
+        catch (Exception error) { response.Error = error.Message; }
+        Send(response);
+    }
+
     /// <summary>在独立候选背包内移动、合并或交换，原子保存成功后才发布快照。</summary>
     private void HandleMoveItem(MoveItem request)
     {
@@ -731,6 +753,10 @@ public sealed class MockServer
         message.Items.AddRange(bag.Items.Select(item => new ItemPb
         {
             InstanceId = item.InstanceId, ItemId = item.ItemId, SlotIndex = item.SlotIndex, Count = item.Count
+        }));
+        message.Equipment.AddRange(bag.Equipment.Select(item => new EquippedItemPb
+        {
+            InstanceId = item.InstanceId, ItemId = item.ItemId, Slot = (EquipmentSlotPb)item.Slot
         }));
         return message;
     }

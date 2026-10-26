@@ -1,0 +1,133 @@
+{
+  "itemId": 1016,
+  "binding": "weaponr31",
+  "bindingNote": "项目显式选取同类基础持握系列；物品编号不等于源素材编号。副手拳刃复用右手原画。",
+  "motionReuse": {
+    "die": "sit",
+    "attack2": "attack1",
+    "attack3": "attack1",
+    "prepare2": "prepare1",
+    "prepare3": "prepare1",
+    "ride": "stand"
+  },
+  "layerSource": "avatar/weaponr/Weaponr.ini",
+  "layerSha256": "7c4ce5448e89a70846d1c72427028b100748f8521e910feec6678267bad4e832",
+  "animations": [
+    {
+      "gender": "male",
+      "motion": "stand",
+      "source": "avatar/weaponr/weaponr3101.gsn",
+      "sha256": "c8365e385238b47ebf81b088853574ecea680a0d3bc52c3b66cb4b30c9c0b1c4",
+      "framesPerDirection": 1,
+      "sourceAction": 1
+    },
+    {
+      "gender": "male",
+      "motion": "run",
+      "source": "avatar/weaponr/weaponr3102.gsn",
+      "sha256": "b4bd100e08bc632f418bb75eaea5417ea24ac962430ededf7b9da94006bdf89a",
+      "framesPerDirection": 8,
+      "sourceAction": 2
+    },
+    {
+      "gender": "male",
+      "motion": "sit",
+      "source": "avatar/weaponr/weaponr3103.gsn",
+      "sha256": "e9597c09cbf378d1857e3ee228f4e035b98d77f541bfe5dc4efac84de7584758",
+      "framesPerDirection": 1,
+      "sourceAction": 3
+    },
+    {
+      "gender": "male",
+      "motion": "attack1",
+      "source": "avatar/weaponr/weaponr3101.gsn",
+      "sha256": "c8365e385238b47ebf81b088853574ecea680a0d3bc52c3b66cb4b30c9c0b1c4",
+      "framesPerDirection": 1,
+      "sourceAction": 1
+    },
+    {
+      "gender": "male",
+      "motion": "magic",
+      "source": "avatar/weaponr/weaponr3108.gsn",
+      "sha256": "decf0919b0429a416e8e34ae88a0cc950c8868cf7d45906aa8a22e694c50383c",
+      "framesPerDirection": 8,
+      "sourceAction": 8
+    },
+    {
+      "gender": "male",
+      "motion": "prepare1",
+      "source": "avatar/weaponr/weaponr3101.gsn",
+      "sha256": "c8365e385238b47ebf81b088853574ecea680a0d3bc52c3b66cb4b30c9c0b1c4",
+      "framesPerDirection": 1,
+      "sourceAction": 1
+    },
+    {
+      "gender": "male",
+      "motion": "hurt",
+      "source": "avatar/weaponr/weaponr3112.gsn",
+      "sha256": "79e345e69d325cdb100185ddb7f7ce2080e315e8add9da1a349ec731bdd3bac8",
+      "framesPerDirection": 1,
+      "sourceAction": 12
+    },
+    {
+      "gender": "female",
+      "motion": "stand",
+      "source": "avatar/weaponr/weaponr3151.gsn",
+      "sha256": "01e66b2ce244b1cde763c2593ad31f2fcff0eae2210120281e10b0b863a570ac",
+      "framesPerDirection": 1,
+      "sourceAction": 1
+    },
+    {
+      "gender": "female",
+      "motion": "run",
+      "source": "avatar/weaponr/weaponr3152.gsn",
+      "sha256": "f17d3fdd76721536459543b9c615be54577bc2f1a8865314d99d18ea16891463",
+      "framesPerDirection": 8,
+      "sourceAction": 2
+    },
+    {
+      "gender": "female",
+      "motion": "sit",
+      "source": "avatar/weaponr/weaponr3153.gsn",
+      "sha256": "4aedcf6e80d7567cb6e77a859abd9074947e70e4df7f9fef9f7490f4fe510f1a",
+      "framesPerDirection": 1,
+      "sourceAction": 3
+    },
+    {
+      "gender": "female",
+      "motion": "attack1",
+      "source": "avatar/weaponr/weaponr3151.gsn",
+      "sha256": "01e66b2ce244b1cde763c2593ad31f2fcff0eae2210120281e10b0b863a570ac",
+      "framesPerDirection": 1,
+      "sourceAction": 1
+    },
+    {
+      "gender": "female",
+      "motion": "magic",
+      "source": "avatar/weaponr/weaponr3158.gsn",
+      "sha256": "d7d33d28d6c59c0d0579937833b9019e0dcce01c0f1842dd5b9f72a42ea321e6",
+      "framesPerDirection": 9,
+      "sourceAction": 8
+    },
+    {
+      "gender": "female",
+      "motion": "prepare1",
+      "source": "avatar/weaponr/weaponr3151.gsn",
+      "sha256": "01e66b2ce244b1cde763c2593ad31f2fcff0eae2210120281e10b0b863a570ac",
+      "framesPerDirection": 1,
+      "sourceAction": 1
+    },
+    {
+      "gender": "female",
+      "motion": "hurt",
+      "source": "avatar/weaponr/weaponr3162.gsn",
+      "sha256": "51a7aa5f847f2841fa6a57be1282420786a83db6cc21bdd9b47b3e54d5d0cabc",
+      "framesPerDirection": 1,
+      "sourceAction": 12
+    }
+  ],
+  "itemSource": "zipbin/ov_arm.bin",
+  "itemSourceRow": 16,
+  "itemSourceSha256": "408e9e8751a80efbb278a548b505fd4d3362a63b8305140b8107f3cce68243ac",
+  "itemRowHex": "f8030000b2e2cad4c7b9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d010000630000000000000000000064000000000000000000000000000000000001000100000040420f00000000000100000000000000000000000000000000000000000000000000000101010000010100000000b004000000000000000000000000000000000000000000000000000000000000000000000000000001010000010000002c0100002c010000010000000000010100000000010000000000383c640000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000a00050000000000000001000000000000000000000000000000000000000000000000000101000000000001000100e8030000000100"
+}

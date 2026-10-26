@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Linq;
+using Rpg.Const;
 
 namespace Rpg.Server.Data;
 
@@ -21,9 +22,18 @@ public sealed record DataServerBag
         init => _items = value is null ? null! : Array.AsReadOnly(value.ToArray());
     }
 
+    /// <summary>穿戴物品的独立只读副本，旧存档缺失时为空。</summary>
+    private readonly IReadOnlyList<DataServerEquipment> _equipment = Array.AsReadOnly(Array.Empty<DataServerEquipment>());
+    /// <summary>与背包共用版本及编号的装备列表。</summary>
+    public IReadOnlyList<DataServerEquipment> Equipment
+    {
+        get => _equipment;
+        init => _equipment = value is null ? null! : Array.AsReadOnly(value.ToArray());
+    }
+
     /// <summary>按背包内容比较记录，保证存档序列化前后角色值相等。</summary>
     public bool Equals(DataServerBag? other) => other is not null && Revision == other.Revision &&
-        NextInstanceId == other.NextInstanceId && Items.SequenceEqual(other.Items);
+        NextInstanceId == other.NextInstanceId && Items.SequenceEqual(other.Items) && Equipment.SequenceEqual(other.Equipment);
 
     /// <summary>使用与内容相等规则一致的字段和实例哈希。</summary>
     public override int GetHashCode()
@@ -32,6 +42,7 @@ public sealed record DataServerBag
         hash.Add(Revision);
         hash.Add(NextInstanceId);
         foreach (var item in Items) hash.Add(item);
+        foreach (var item in Equipment) hash.Add(item);
         return hash.ToHashCode();
     }
 
@@ -44,5 +55,10 @@ public sealed record DataServerBag
             Items.Select(item => item.InstanceId).Distinct().Count() != Items.Count ||
             Items.Select(item => item.SlotIndex).Distinct().Count() != Items.Count)
             throw new InvalidDataException("背包存档包含无效编号、数量或重复格子");
+        if (Equipment is null || Equipment.Any(item => item is null || item.InstanceId <= 0 ||
+                item.InstanceId >= NextInstanceId || item.ItemId <= 0 || !Enum.IsDefined(item.Slot)) ||
+            Equipment.Select(item => item.Slot).Distinct().Count() != Equipment.Count ||
+            Equipment.Select(item => item.InstanceId).Concat(Items.Select(item => item.InstanceId)).Distinct().Count() != Equipment.Count + Items.Count)
+            throw new InvalidDataException("装备存档包含无效槽位或重复实例");
     }
 }

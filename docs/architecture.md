@@ -49,7 +49,7 @@
 
 `config/map.json` 对应 `MapCfgCache : MultiCfgCache<int, MapCfg>`，地图条目和初始地图引用保持原有校验；初始地图关联检查位于 `BasicCfgCache.Validate(ConfigService)`。`config/item.json` 对应 `ItemCfgCache : MultiCfgCache<int, ItemCfg>`，保留 1012—1018 七件测试装备及其名称、分类、堆叠和图标。`Category` 为非空 `ItemCategory` 枚举（1=Weapon、2=Armor），`SubCategory` 为非空 `ItemSubCategory` 枚举（枪1、剑2、双手武器/工具4、拳刃8、法杖16、暗器32、盾牌105），JSON 仍保存数字。缺失、null、零、未定义枚举和大小类错配均阻止启动，其他分类按后续需求确认后新增。`relatedId` 为必填非负整数，装备道具必须关联存在的装备配置。`GetByCategory` 和 `GetByCategoryAndSubCategory` 使用加载后构建的单键及双键索引，内部值为 `List<ItemCfg>`；查询返回保留配置顺序的列表副本，未命中为空列表，释放后拒绝查询。
 
-`config/equipment.json` 由 `EquipmentCfgCache : MultiCfgCache<int, EquipmentCfg>` 加载，当前每行仅声明正整数 `id`。装备配置 id 默认约定与对应道具 id 同值，正式七条记录均为 1012—1018；仍由道具 `RelatedId` 显式引用，不强制 id 相等，允许多个道具共享引用。`EquipmentCfgCache.Validate(ConfigService)` 使用道具大类索引检查所有武器和防具，缺失引用错误包含两张表、道具及关联 ID。十一种 `EquipmentSlot` 独立枚举；`EquipmentSlotUtil.TryGetSlot` 当前仅将 Weapon/Sword 绑定 MainHand，其他组合无映射；装备表不承载槽位。当前只完成配置基础，不实现穿戴、装备消息或装备属性，既有固定长剑表现保持原样。
+`config/equipment.json` 由 `EquipmentCfgCache` 加载，每行声明正整数 `id` 和 `appearanceId`，后者显式关联项目内持握资源。默认约定装备与道具 id 同值，但实际关联由 `ItemCfg.RelatedId` 决定，允许不同编号与共享配置；外观编号也不要求与两张表主键相同。缓存逐行验证男女七类动作资源存在，整表 `Validate(ConfigService)` 检查全部武器和防具的引用。十一种 `EquipmentSlot` 使用稳定枚举；`EquipmentSlotUtil.CanEquip` 在代码中绑定剑、双手武器、法杖、枪到主手，盾牌和暗器到副手，拳刃两手均可分别放一件。`TryGetSlot` 提供默认推荐槽，拳刃默认主手；装备表不承载槽位和属性。
 
 地图条目的可选 `bgmTrackId` 保存曲目编号；地图 1 配置 M015a，未配置的地图不播放地图 BGM。Schema 限制编号格式，曲目资源位于 `assets/audio/music/`。
 
@@ -106,13 +106,13 @@ internal sealed class DataPositionComponent
 
 `ActorView.Present` 读取快照并投影位置和朝向，表现层 `AnimationService` 按性别和动作缓存 `DataActorAnimation`，按性别和头型编号缓存 `DataActorHead`。男女共用各自身体动作集，148 套头部与身体分别存储，换头不复制身体图集，不生成头身组合资源。每个身体动作包含五方向 `SpriteFrames`、原始世界定位点和方向/帧顺序的 `HeadAttachments`；每个头型包含五方向纹理与各自脖颈连接点。`ActorView` 在同一个镜像容器下放置身体 `AnimatedSprite2D` 与头部 `Sprite2D`，身体帧变化时按“身体挂接点 − 身体世界锚点 − 头部连接点”更新头部位置。两层共用朝向、镜像和身体时钟，改向保持帧进度，动作播放不改变世界逻辑。
 
-`tools/import_actor_animations.ps1 -SourcePath <解码帧目录> -RawPath <原始目录>` 调用 `import_actor_layers.py` 重建全部 26 个身体动作、605 帧头部及双手挂接点与 148 套独立头部，再调用 `import_actor_weapon.py` 导入默认长剑；`decode_actor_heads.py` 只解码原始像素及定位点。稳定编号按原始数字文件名排序，男女各 74，来源及哈希记录在 `assets/characters/head_composition.json`。创角只提供编号 9–72，对应原始 `head1101` 至 `head8801` 及配套 DT 头像；旧角色的 1–8、73–74 仍可加载并以头部正面帧作头像。运行与导出只依赖项目资源。当前头部包含配套头发，未拆分染色或独立发型；后续衣服及正式装备规则待定。
+`tools/import_actor_animations.ps1 -SourcePath <解码帧目录> -RawPath <原始目录>` 调用 `import_actor_layers.py` 重建全部 26 个身体动作、605 帧头部及双手挂接点与 148 套独立头部，再调用 `import_actor_weapon.py` 导入七件测试装备；`decode_actor_heads.py` 只解码原始像素及定位点。稳定编号按原始数字文件名排序，男女各 74，来源及哈希记录在 `assets/characters/head_composition.json`。创角只提供编号 9–72，对应原始 `head1101` 至 `head8801` 及配套 DT 头像；旧角色的 1–8、73–74 仍可加载并以头部正面帧作头像。运行与导出只依赖项目资源。当前头部包含配套头发，未拆分染色或独立发型；后续衣服、装备属性及战斗规则待定。
 
-默认武器 1012（测试长剑）是表现层的固定外观，项目显式绑定基础右手剑 `weaponr01` 系列，不由物品 ID 猜测文件名，也不要求背包持有。`assets/characters/weapons/1012/` 保存男女七类动作共 320 帧，`source.json` 记录原始装备表第 12 行、素材及遮挡表的 SHA256。原始素材没有独立死亡、骑乘、攻击2/3和准备2/3武器动作；分别复用坐下、站立、攻击1和准备1，按身体动作进度映射帧，不宣称有独立原画。
+装备表现由当前角色的物品快照驱动，空槽不显示武器。`WorldService` 在固定帧发现已验证 `BagPbData` 引用变化时提交 `SyncEquipmentAction`，ECS 按物品版本更新主副手道具编号，`DataActorState` 输出只读编号。`ActorView` 通过道具 `RelatedId` 取得装备 `AppearanceId`，`AnimationService.GetWeapon` 按外观、性别和动作缓存 `DataActorWeapon`；切换装备不重启身体时钟，卸下清除对应纹理和可见性。
 
-`AnimationService.GetDefaultWeapon` 缓存独立 `DataActorWeapon`。身体 `LeftHandAttachments` / `RightHandAttachments` 分别读取源像素块尾 +28 / +36 的原画双手坐标。`ActorView` 的 `Facing/RightHand` 是实际右手挂点，持有 `Weapon` 子节点，与身体、头部共用镜像容器和身体时钟。未镜像使用源右手，镜像时使用源左手，再经 Facing 镜像成为实际右手，避免转向换手。挂点位置为“选定手部连接点 − 身体世界锚点”，剑的局部位置为“−剑柄连接点”，与头部采用同样的逐帧挂接公式。
+`tools/import_actor_weapon.py --raw <原始目录>` 将七件测试装备明确绑定到基础系列：1012→weaponr01、1013→weaponr09、1014→weaponl11、1015→weaponr21、1016→weaponr31、1017→weaponr41、1018→weaponl105。`assets/characters/weapons/<appearanceId>/` 包含男女七类动作，合计1780帧；每套 source.json 记录装备表来源行、原始像素和遮挡表哈希及实际动作编号。缺少死亡、骑乘、攻击2/3和准备2/3时复用坐下、站立、攻击1和准备1；盾牌仅有站立原画，其他动作复用该帧并跟随身体。副手拳刃复用同一套短刃原画，不假定存在独立左手素材。
 
-正面剑在身体前，背面身体在剑前；侧面默认远手在后、近手在前，`Weaponr.ini` 的非零逐帧偏置在切换原画持握手时反转。遮挡只调整 RightHand 与身体的兄弟节点顺序，不提高实体 Z 值，保留角色和地面物品的坐标遮挡。场景测试覆盖男女全部动作/帧、八方向实际右手黄金坐标、剑柄与挂点对齐、改向进度和停止；图形模式附加 `-- --capture-actors` 还验证真实渲染的正背面交叠像素，并输出四排男女站立/跑步预览帧到 `build/weapon-preview-0.png` 至 `7.png`。
+身体 `LeftHandAttachments` / `RightHandAttachments` 读取源像素块尾 +28 / +36 的双手坐标。`ActorView` 的 `Facing/RightHand` 与 `Facing/LeftHand` 分别承载实际主手和副手；镜像前交换源手别，再统一镜像，保持实际左右手语义。装备位置为“身体手部挂点 − 身体世界锚点 − 装备连接点”，与身体共用方向、帧进度和时钟。正面装备在身体前、背面在后，侧面按手别与源逐帧层次调整内部兄弟顺序，保持实体 Z 和坐标排序。场景验收覆盖七件、男女全部动作/帧、八方向、拳刃双手、空槽及替换保留进度；既有长剑黄金挂点与真实交叠像素验收保留。
 
 选角与创建页面复用 `RoleScreenControl` 的全屏布局和 `RolePreviewControl` 的独立角色预览。选角页右侧为滚动列表，点击条目只更新中央角色，预览下方独立进入按钮才请求选角；创建按钮在列表下方，返回登录在屏幕右下角。创建页右侧顶部为男女互斥按钮，下方滚动平铺当前性别编号 9–72 的 64 套 DT 头像缩略图，不使用下拉菜单。`RoleCreateControl` 分别保存男女的头型、朝向与命名草稿，切换恢复对应状态且互不覆盖。中央预览下方提供旋转及创建按钮；点击创建打开角色名确认窗口，确认才提交请求，取消不提交，失败保留窗口与草稿。预览复用独立 `ActorView`，不创建 ECS 世界；右侧网格在较小逻辑视口减少列数。创建/删除等待期间禁用操作，失败恢复可操作状态。两类成功响应均包含完整摘要列表，`LoginCache` 在 Cache 阶段完整校验后原子替换，UI 在 Normal 阶段只读 `Session.Roles` 刷新；允许删空和重启保持空列表，删除不清理角色本地设置文件。
 
@@ -266,3 +266,12 @@ DropItem 的 destroy 字段默认 false；Session 仅发送意图。MockServer �
 快捷键按角色保存为逻辑键及 Ctrl/Alt/Shift 组合，默认角色 C、道具 B、地图 M、地面物品信息 Z。范围限定字母、数字、F1–F12，拒绝系统保留组合与重复绑定。录入在 _Input 消费键盘，非法输入保持高亮；合法保存后生效。普通切换在 _UnhandledKeyInput 处理，文本、模态与 HUD 调整优先。关闭角色设置或切页取消录入，界面清理不访问已撤销的角色数据。
 
 地面丢弃由客户端 WorldService 根据当前 ECS/AOI 地面物品在角色周围的等轴画面半径 48 至 56 像素之间选择落点，排除横向小于 40 且纵向偏移小于 24 的身体遮挡区，优先与快照中已有物品保持 40 像素投影间距；拥挤时取最疏合法候选。64 个随机候选外加四个固定边缘方向确保正常地图角落有候选；评分使用预计算投影与平方距离，循环中不做除法、开方或 LINQ。DropItem 可选携带逻辑坐标；服务端仅校验它与权威角色的距离、身体避让及地图边界，不扫描物品。旧请求及极小地图无合法候选时沿用服务端原有选点和裁剪退路。快照延迟与同时丢弃可能造成重叠，间距只由当前客户端视图尽力保证。已有地面坐标不迁移，拾取继续沿用走近机制。
+
+
+## 角色装备与窗口
+
+所有角色共用十一槽位定义，装备内容独立；初始与旧存档均为空，不自动赠送武器。`DataServerBag.Equipment` 与背包 `Items` 共用 Revision、NextInstanceId 和 `<roleId>.bag.json` 原子提交域；实例只在一侧出现且穿脱不创建新编号。`BagPb` 同时携带独立 `EquippedItemPb` 列表，`BagPbData` 完整检查两侧实例唯一性、装备槽唯一性、配置与槽位适配后一次接纳。旧版本和其他角色推送继续忽略。原有延迟落地、失败重试、正常离角补写及地面转移共同提交组自然包含装备。
+
+`EquipItem/EquipItemRt` 位于 bag.proto，目标为稳定 `EquipmentSlotPb`；正实例编号表示从背包穿戴，零表示卸下目标槽，附带角色和预期物品版本。服务器复制静态分类到独立道具规则，校验身份、版本、数量一及分类适配。替换回来源背包格，卸下缺省取首个空格；显式目标占用时仅允许适配物品交换。失败保持整份状态和版本；客户端不乐观改写物品。双手武器仅绑定主手，本轮不增加副手占用限制。
+
+角色窗口上方由 `CharacterEquipmentControl` 复用 `RolePreviewControl` 展示当前双手并保留旋转朝向；左右依次为主手/副手、头/面、身体/项链、手/戒指一、裤子/戒指二、鞋。主副手可操作，其余占位。背包控件统一持有跨窗口拿起状态，左键拿起、再次按下放置，点击已穿装备时自动打开背包；右键直接卸下至空格。界面明确反馈错误，刷新、关闭、切角使上下文失效，拿起装备后点击地图只取消，不直接丢弃。窗口继续复用拖动与小视口滚动机制。

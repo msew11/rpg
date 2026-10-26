@@ -46,10 +46,11 @@ public partial class RolePreviewControl : VBoxContainer
     }
 
     /// <summary>选择外观并恢复可选的草稿朝向，空角色列表可清除预览。</summary>
-    public void ShowRole(RoleGender gender, int headId, long roleId, string title, int? direction = null)
+    public void ShowRole(RoleGender gender, int headId, long roleId, string title, int? direction = null,
+        int mainHandId = 0, int offHandId = 0)
     {
         if (direction is { } value) Direction = Mathf.PosMod(value, 8);
-        _state = new DataActorState(roleId, gender, Vector2.Zero, RoleMotion.Stand, Vector2.Zero, 0, headId);
+        _state = new DataActorState(roleId, gender, Vector2.Zero, RoleMotion.Stand, Vector2.Zero, 0, headId, mainHandId, offHandId);
         _title.Text = title;
         _actor.Visible = true;
         _portrait.Portrait = AvatarControl.LoadPortrait(gender, headId);

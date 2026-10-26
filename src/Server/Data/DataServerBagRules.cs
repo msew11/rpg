@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using Rpg.Const;
+using Rpg.Utils;
 
 namespace Rpg.Server.Data;
 
@@ -65,7 +67,7 @@ public sealed class DataServerBagRules
             nextId = checked(nextId + 1);
             remaining -= added;
         }
-        var candidate = role with { Bag = new DataServerBag
+        var candidate = role with { Bag = role.Bag with
         {
             Revision = checked(role.Bag.Revision + 1), NextInstanceId = nextId,
             Items = items.OrderBy(item => item.SlotIndex).ToList().AsReadOnly()
@@ -73,6 +75,55 @@ public sealed class DataServerBagRules
         Validate(candidate);
         return candidate;
     }
+
+    /// <summary>构造穿戴、替换或卸下候选，保持实例与编号序列，失败不更改源状态。</summary>
+    public DataServerRole Equip(DataServerRole role, long instanceId, EquipmentSlot slot, int? targetBagSlot = null)
+    {
+        Validate(role);
+        if (slot is not (EquipmentSlot.MainHand or EquipmentSlot.OffHand) || instanceId < 0)
+            throw new InvalidOperationException("装备槽位或物品无效");
+        var items = role.Bag.Items.ToList();
+        var equipment = role.Bag.Equipment.ToList();
+        var previous = equipment.SingleOrDefault(item => item.Slot == slot);
+        if (instanceId > 0)
+        {
+            if (targetBagSlot.HasValue) throw new InvalidOperationException("穿戴不能指定卸下格子");
+            var source = items.SingleOrDefault(item => item.InstanceId == instanceId)
+                ?? throw new InvalidOperationException("背包物品不存在");
+            if (source.Count != 1 || !CanEquip(source.ItemId, slot)) throw new InvalidOperationException("道具不适配此装备槽位");
+            items.Remove(source);
+            if (previous is not null)
+            {
+                equipment.Remove(previous);
+                items.Add(new DataServerItem(previous.InstanceId, previous.ItemId, source.SlotIndex, 1));
+            }
+            equipment.Add(new DataServerEquipment(source.InstanceId, source.ItemId, slot));
+        }
+        else
+        {
+            if (previous is null) throw new InvalidOperationException("此槽位没有装备");
+            var capacity = GetCapacity(role.BagExtraRows);
+            var destination = targetBagSlot ?? Enumerable.Range(0, capacity).FirstOrDefault(index => items.All(item => item.SlotIndex != index), -1);
+            if (destination < 0 || destination >= capacity) throw new InvalidOperationException("背包空间不足或目标格无效");
+            var target = items.SingleOrDefault(item => item.SlotIndex == destination);
+            equipment.Remove(previous);
+            if (target is not null)
+            {
+                if (target.Count != 1 || !CanEquip(target.ItemId, slot)) throw new InvalidOperationException("目标物品不适配此装备槽位");
+                items.Remove(target);
+                equipment.Add(new DataServerEquipment(target.InstanceId, target.ItemId, slot));
+            }
+            items.Add(new DataServerItem(previous.InstanceId, previous.ItemId, destination, 1));
+        }
+        var candidate = role with { Bag = role.Bag with { Revision = checked(role.Bag.Revision + 1),
+            Items = items.OrderBy(item => item.SlotIndex).ToArray(), Equipment = equipment.OrderBy(item => item.Slot).ToArray() } };
+        Validate(candidate);
+        return candidate;
+    }
+
+    /// <summary>只按服务端启动时复制的静态分类校验目标槽位。</summary>
+    private bool CanEquip(int itemId, EquipmentSlot slot) => Items.TryGetValue(itemId, out var definition) &&
+        definition.MaxStack == 1 && EquipmentSlotUtil.CanEquip(definition.Category, definition.SubCategory, slot);
 
     /// <summary>在存档结构校验后核对当前配置与容量。</summary>
     public void Validate(DataServerRole role)
@@ -84,5 +135,7 @@ public sealed class DataServerBagRules
             if (item.SlotIndex >= capacity || !Items.TryGetValue(item.ItemId, out var definition) || item.Count > definition.MaxStack)
                 throw new InvalidDataException("背包物品超出容量、配置不存在或数量超出堆叠上限");
         }
+        foreach (var item in role.Bag.Equipment)
+            if (!CanEquip(item.ItemId, item.Slot)) throw new InvalidDataException("装备配置不存在或不适配槽位");
     }
 }

@@ -5,6 +5,7 @@ using System.Linq;
 using Godot;
 using Rpg.Services;
 using Rpg.Net.Message;
+using Rpg.Const;
 
 namespace Rpg.UI;
 
@@ -31,6 +32,8 @@ public partial class BagControl : PanelContainer
     private IDisposable? _moveSubscription;
     /// <summary>数量确认结果订阅，与原移动响应一起释放。</summary>
     private IDisposable? _dropSubscription;
+    /// <summary>穿脱错误与普通物品操作显示在同一反馈区。</summary>
+    private IDisposable? _equipSubscription;
     /// <summary>地图点击弹出的数量确认，模态隔离世界输入。</summary>
     private ConfirmationDialog _dropDialog = null!;
     /// <summary>一至源数量的整数选择。</summary>
@@ -82,6 +85,10 @@ public partial class BagControl : PanelContainer
         VisibilityChanged += () => { _dragEpoch++; if (IsVisibleInTree()) Refresh(); else CancelItemDrag(); };
         _moveSubscription = GameServices.EventBus.Subscribe<MoveItemRt>(OnItemMoved);
         _dropSubscription = GameServices.EventBus.Subscribe<DropItemRt>(OnItemDropped);
+        _equipSubscription = GameServices.EventBus.Subscribe<EquipItemRt>(response =>
+        {
+            if (response.RoleId == GameServices.Session.RoleId) ShowMoveStatus(response.Success ? "" : response.Error);
+        });
         _dropDialog = new ConfirmationDialog { Name = "DropItemDialog", Title = "丢弃道具", Exclusive = true };
         _dropDialog.GetOkButton().Text = "丢弃";
         _dropDialog.GetCancelButton().Text = "取消";
@@ -131,6 +138,7 @@ public partial class BagControl : PanelContainer
         HideItemName();
         CloseDropDialog();
         _dragEpoch++;
+        CancelItemDrag();
         var config = GameServices.Config;
         var capacity = config.Basic.Value.GetBagCapacity(GameServices.Session.Role.BagExtraRows);
         _grid.Columns = config.Basic.Value.BagColumns;
@@ -185,6 +193,13 @@ public partial class BagControl : PanelContainer
             var data = _pickedItem;
             CancelItemDrag();
             UiSoundPlayer.Play(this, 1010);
+            if (IsEquipmentPayload(data))
+            {
+                if (!IsCurrentEquipment(data)) { ShowMoveStatus("物品已更新，请重新选择装备"); return; }
+                var equippedPayload = data.AsGodotDictionary();
+                GameServices.Session.EquipItem(0, (EquipmentSlot)equippedPayload["equipment"].AsInt32(), equippedPayload["revision"].AsInt64(), slotIndex);
+                return;
+            }
             DropItem(data, slotIndex);
             return;
         }
@@ -214,6 +229,7 @@ public partial class BagControl : PanelContainer
         if (_itemPreview is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } click) return;
         var data = _pickedItem;
         CancelItemDrag();
+        if (IsEquipmentPayload(data)) { GetViewport().SetInputAsHandled(); return; }
         if (GameServices.World.HasRole && CanDropItem(data, 0))
         {
             var payload = data.AsGodotDictionary();
@@ -250,6 +266,65 @@ public partial class BagControl : PanelContainer
 
     /// <summary>离开物品或拿起时立即隐藏名称。</summary>
     internal void HideItemName() { if (_itemName is not null) _itemName.Hide(); }
+
+    /// <summary>角色槽点击复用同一拿起状态，背包物品只在服务器确认后穿戴。</summary>
+    internal void ClickEquipment(EquipmentSlot slot)
+    {
+        if (_itemPreview is not null)
+        {
+            var data = _pickedItem;
+            CancelItemDrag();
+            if (IsEquipmentPayload(data)) return;
+            if (!CanDropItem(data, 0)) { ShowMoveStatus("物品已更新，请重新选择装备"); return; }
+            var payload = data.AsGodotDictionary();
+            var instance = payload["instance"].AsInt64();
+            GameServices.Session.EquipItem(instance, slot, payload["revision"].AsInt64());
+            UiSoundPlayer.Play(this, 1010);
+            return;
+        }
+        var item = GameServices.Session.Bag.Equipment.FirstOrDefault(item => item.Slot == slot);
+        if (item is null) return;
+        Show();
+        CancelItemDrag();
+        _pickedItem = new Godot.Collections.Dictionary
+        {
+            ["panel"] = GetInstanceId(), ["epoch"] = _dragEpoch, ["role"] = GameServices.Session.RoleId,
+            ["revision"] = GameServices.Session.Bag.Revision, ["instance"] = item.InstanceId, ["equipment"] = (int)slot
+        };
+        var texture = ResolveTexture(GameServices.Config.Item.Items[item.ItemId].IconAssetId);
+        _itemPreview = new TextureRect { Name = "PickedItemPreview", Texture = texture, Size = new Vector2(46, 46),
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            TextureFilter = TextureFilterEnum.Nearest, MouseFilter = MouseFilterEnum.Ignore };
+        _itemLayer.AddChild(_itemPreview);
+        _itemPreview.Position = _pointerPosition - _itemPreview.Size / 2;
+        UiSoundPlayer.Play(this, 1001);
+    }
+
+    /// <summary>右键卸下到首个空格，不使用乐观修改。</summary>
+    internal void Unequip(EquipmentSlot slot)
+    {
+        CancelItemDrag();
+        if (GameServices.Session.Bag.Equipment.All(item => item.Slot != slot)) return;
+        GameServices.Session.EquipItem(0, slot, GameServices.Session.Bag.Revision);
+    }
+
+    /// <summary>辨认内部创建的装备来源载荷。</summary>
+    private static bool IsEquipmentPayload(Variant data) => data.VariantType == Variant.Type.Dictionary &&
+        data.AsGodotDictionary().ContainsKey("equipment");
+
+    /// <summary>检查冻结装备仍属于当前角色、版本和拿起代次。</summary>
+    private bool IsCurrentEquipment(Variant data)
+    {
+        if (!IsVisibleInTree() || !GameServices.Session.HasRole) return false;
+        var payload = data.AsGodotDictionary();
+        return payload["panel"].AsUInt64() == GetInstanceId() && payload["epoch"].AsInt64() == _dragEpoch &&
+            payload["role"].AsInt64() == GameServices.Session.RoleId && payload["revision"].AsInt64() == GameServices.Session.Bag.Revision &&
+            GameServices.Session.Bag.Equipment.Any(item => item.InstanceId == payload["instance"].AsInt64() &&
+                (int)item.Slot == payload["equipment"].AsInt32());
+    }
+
+    /// <summary>关闭角色窗口时清除跨面板拿起状态。</summary>
+    internal void CancelHeldItem() => CancelItemDrag();
 
     /// <summary>记录拖动开始时的角色、版本与实例，禁止空格创建拖放。</summary>
     internal Variant CreateItemDrag(int sourceSlot)
@@ -348,6 +423,8 @@ public partial class BagControl : PanelContainer
         _moveSubscription = null;
         _dropSubscription?.Dispose();
         _dropSubscription = null;
+        _equipSubscription?.Dispose();
+        _equipSubscription = null;
     }
 
     /// <summary>释放点选预览和名称，关闭及切角时幂等执行。</summary>

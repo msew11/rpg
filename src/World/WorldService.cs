@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Rpg.Const;
 using Rpg.Config.Data;
 using Rpg.Session.Data;
 using Godot;
@@ -34,6 +36,8 @@ public sealed class WorldService : Service
     public DataWorldObjectsState? MapObjects => _world?.MapObjects;
     /// <summary>已提交 ECS 的最后一份 AOI 快照引用。</summary>
     private DataMapAoiSnapshotPbData? _lastMapSnapshot;
+    /// <summary>上次同步的完整物品快照，固定帧只在引用变化时提交装备 Action。</summary>
+    private BagPbData? _lastBagSnapshot;
     /// <summary>活动角色的 ECS 实例。</summary>
     private WorldManager? _world;
     /// <summary>当前启动内递增的移动意图序号。</summary>
@@ -154,6 +158,7 @@ public sealed class WorldService : Service
             _lastMapSnapshot = snapshot;
             _world.Enqueue(new SyncMapObjectsAction(snapshot));
         }
+        SyncEquipment(_world);
         _world.Tick(delta);
     }
 
@@ -176,6 +181,7 @@ public sealed class WorldService : Service
         ThrowIfDisposed();
         _world = null;
         _lastMapSnapshot = null;
+        _lastBagSnapshot = null;
         _map = null;
         _setting.LeaveRole();
     }
@@ -195,6 +201,8 @@ public sealed class WorldService : Service
         world.Enqueue(new InitializeRoleAction(_session.Role));
         _lastMapSnapshot = _session.Map;
         if (_lastMapSnapshot is not null) world.Enqueue(new SyncMapObjectsAction(_lastMapSnapshot));
+        _lastBagSnapshot = null;
+        SyncEquipment(world);
         world.Tick(0);
         _world = world;
     }
@@ -206,6 +214,17 @@ public sealed class WorldService : Service
         if (_session.HasRole) _world?.Enqueue(new SyncRoleAction(_session.Role));
     }
 
+    /// <summary>从已验证的会话快照生成不可变装备动作，不在服务中订阅协议。</summary>
+    private void SyncEquipment(WorldManager world)
+    {
+        if (!_session.HasRole || ReferenceEquals(_lastBagSnapshot, _session.Bag)) return;
+        var bag = _session.Bag;
+        _lastBagSnapshot = bag;
+        world.Enqueue(new SyncEquipmentAction(_session.RoleId, bag.Revision,
+            bag.Equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
+            bag.Equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0));
+    }
+
     /// <summary>移除所有角色实体，不拥有协议监听。</summary>
     public override void Dispose()
     {
@@ -213,6 +232,7 @@ public sealed class WorldService : Service
         IsDisposed = true;
         _world = null;
         _lastMapSnapshot = null;
+        _lastBagSnapshot = null;
         _map = null;
     }
 

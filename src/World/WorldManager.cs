@@ -60,7 +60,7 @@ internal sealed class WorldManager
             var role = _entities.Get<DataRoleComponent>(_roleEntity);
             var actor = _entities.Get<DataActorComponent>(_roleEntity);
             return new DataActorState(role.RoleId, role.Gender, RolePosition,
-                actor.Motion, actor.Facing, actor.MotionVersion, role.HeadId);
+                actor.Motion, actor.Facing, actor.MotionVersion, role.HeadId, actor.MainHandId, actor.OffHandId);
         }
     }
 
@@ -114,6 +114,14 @@ internal sealed class WorldManager
                 var actor = _entities.Get<DataActorComponent>(_roleEntity);
                 actor.Motion = motion.Motion;
                 actor.MotionVersion++;
+                break;
+            case SyncEquipmentAction equipment:
+                if (!HasRole || equipment.RoleId != _entities.Get<DataRoleComponent>(_roleEntity).RoleId) return;
+                var equippedActor = _entities.Get<DataActorComponent>(_roleEntity);
+                if (equipment.Revision <= equippedActor.EquipmentRevision) return;
+                equippedActor.EquipmentRevision = equipment.Revision;
+                equippedActor.MainHandId = equipment.MainHandId;
+                equippedActor.OffHandId = equipment.OffHandId;
                 break;
             case SyncRoleAction sync:
                 if (!HasRole || sync.State.RoleId != _entities.Get<DataRoleComponent>(_roleEntity).RoleId) return;

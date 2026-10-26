@@ -49,6 +49,8 @@ public partial class GameHud : Control
     private Label _healthPercentText = null!;
     /// <summary>角色面板中的详细状态文字。</summary>
     private Label _characterText = null!;
+    /// <summary>角色上方的预览和装备槽位。</summary>
+    private CharacterEquipmentControl _equipment = null!;
     /// <summary>大地图面板中的地图和位置文字。</summary>
     private Label _mapText = null!;
     /// <summary>地图画面右上角的雷达控件。</summary>
@@ -427,13 +429,17 @@ public partial class GameHud : Control
     /// <summary>创建业务窗口及独立的系统、角色设置页签。</summary>
     private void BuildPanels()
     {
-        var character = CreatePanel("角色", new Vector2(300, 255));
-        _characterText = Text("", 16);
-        character.AddChild(_characterText);
+        var character = CreatePanel("角色", new Vector2(430, 0));
+        _characterText = Text("", 14);
 
         _bag = new BagControl { Name = "背包", Visible = false };
         AddChild(_bag);
         _panels.Add(_bag);
+        _equipment = new CharacterEquipmentControl { Name = "CharacterEquipment", Bag = _bag };
+        character.AddChild(_equipment);
+        character.AddChild(_characterText);
+        var characterWindow = (Control)character.GetParent().GetParent().GetParent();
+        characterWindow.VisibilityChanged += () => { if (!characterWindow.Visible) _bag.CancelHeldItem(); };
 
         var mapPanel = CreatePanel("大地图", new Vector2(440, 440));
         _mapText = Text("", 14);
@@ -1032,6 +1038,7 @@ public partial class GameHud : Control
         _manaBar.Value = Mathf.Clamp((float)state.Mana / Mathf.Max(1, state.MaxMana), 0, 1) * 100;
         _manaValue.Text = $"{state.Mana}/{state.MaxMana}";
         _characterText.Text = $"角色 ID：{state.RoleId}\n等级：{state.Level}\n生命：{state.Health}/{state.MaxHealth}\n魔力：{state.Mana}/{state.MaxMana}\n经验：{state.Experience}/{state.NextExperience}";
+        _equipment.Refresh();
         var mapConfig = GameServices.World.MapConfig;
         _mapText.Text = $"地图：{mapConfig.Id}  {mapConfig.Width}×{mapConfig.Height}\n位置：{state.Position.X:0}, {state.Position.Y:0}";
         _miniMap.RolePosition = state.Position;
@@ -1134,7 +1141,7 @@ public partial class GameHud : Control
     /// <summary>在缓存阶段接纳背包后刷新已打开的格子。</summary>
     private void OnBagNotice(BagChangedNotice notice)
     {
-        if (notice.RoleId == GameServices.Session.RoleId) _bag.Refresh();
+        if (notice.RoleId == GameServices.Session.RoleId) { _bag.Refresh(); _equipment.Refresh(); }
     }
 
     /// <summary>在界面上保留服务器或传输失败原因。</summary>

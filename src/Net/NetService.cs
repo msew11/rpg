@@ -37,7 +37,7 @@ public sealed class NetService : Service
     public NetService(EnvService env, EventBusService eventBus, ConfigService config, LogService log)
         : this(new MockTransport(new MockServer(env.ServerDirectory,
             new DataServerBagRules(config.Basic.Value.BagColumns, config.Basic.Value.BagRows,
-                config.Item.Items.Values.Select(item => new DataServerItemDefinition(item.Id, item.Name, item.MaxStack))),
+                config.Item.Items.Values.Select(item => new DataServerItemDefinition(item.Id, item.Name, item.MaxStack, item.Category, item.SubCategory))),
             log.ServerIO, () => env.ServerFlushIntervalSeconds,
             config.Map.Items.Values.Select(map => new DataServerMapRules(map.Id, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles)),
             config.Basic.Value.InitialMapId, () => env.MovementSpeed)), eventBus, log) { }

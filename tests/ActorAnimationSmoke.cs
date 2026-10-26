@@ -109,6 +109,7 @@ public partial class ActorAnimationSmoke : Node
             Check(total == 605, $"动作资源帧不完整：{total}");
             CheckDefaultHeads(repo, actor);
             CheckDefaultWeapon(repo, actor);
+            CheckEquipmentVariants(repo, actor);
 
             var run = new DataActorState(1001, RoleGender.Male, Vector2.Zero, RoleMotion.Run, Vector2.Right, 0);
             actor.Present(run);
@@ -186,7 +187,49 @@ public partial class ActorAnimationSmoke : Node
         }
     }
 
-    /// <summary>验证 client-actor-presentation 默认长剑场景，覆盖真实节点逐帧同步、八方向和角色内部遮挡。</summary>
+    /// <summary>role-equipment：全部装备、男女、动作和八方向挂点，空槽清理与替换保留动画进度。</summary>
+    private static void CheckEquipmentVariants(AnimationService animations, ActorView actor)
+    {
+        var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+        foreach (var gender in Enum.GetValues<RoleGender>())
+        foreach (var motion in Enum.GetValues<RoleMotion>())
+        foreach (var id in Enumerable.Range(1012, 7))
+        foreach (var main in id == 1017 ? new[] { true, false } : new[] { id is not (1014 or 1018) })
+        for (var direction = 0; direction < 8; direction++)
+        {
+            var state = new DataActorState(1, gender, Vector2.Zero, motion,
+                IsometricProjection.ToLogical(Vector2.FromAngle(direction * Mathf.Pi / 4)), 0, 1, main ? id : 0, main ? 0 : id);
+            actor.Present(state);
+            var hand = actor.GetNode<Node2D>(main ? "Facing/RightHand" : "Facing/LeftHand");
+            var sprite = hand.GetNode<Sprite2D>("Weapon");
+            var resource = animations.Get(gender, motion);
+            var weapon = animations.GetWeapon(id, gender, motion);
+            var (sourceDirection, mirrored) = AnimationService.ResolveDirection(state.Facing);
+            var count = body.SpriteFrames.GetFrameCount(body.Animation);
+            for (var frame = 0; frame < count; frame++)
+            {
+                body.SetFrameAndProgress(frame, 0.35f);
+                var points = main != mirrored ? resource.RightHandAttachments : resource.LeftHandAttachments;
+                Check(hand.Position == points[sourceDirection * count + frame] - resource.Anchor, $"装备换手：{id}/{main}/{direction}");
+                var textureIndex = Array.IndexOf(weapon.Frames, sprite.Texture);
+                Check(sprite.Visible && textureIndex >= 0 && textureIndex / (weapon.Frames.Length / 5) == sourceDirection,
+                    $"装备方向或资源错误：{id}/{gender}/{motion}");
+                Check(sprite.Position + weapon.Anchors[textureIndex] == Vector2.Zero, "装备连接点错位");
+                actor.Present(state with { MainHandId = 0, OffHandId = 0 });
+                Check(!sprite.Visible && sprite.Texture is null, "空手残留武器");
+                Check(body.Frame == frame && Math.Abs(body.FrameProgress - 0.35f) < 0.001f, "卸下重启动画");
+                actor.Present(state);
+                Check(body.Frame == frame && sprite.Visible, "重新穿戴重启动画或未显示");
+            }
+        }
+        GD.Print("Equipment actor variants passed: 7 items, both genders, 13 motions, 8 directions, both katar hands and empty slots.");
+    }
+
+    /// <summary>构造明确装备长剑的外观快照，空手默认不再显示武器。</summary>
+    private static DataActorState SwordState(long role, RoleGender gender, Vector2 position, RoleMotion motion,
+        Vector2 facing, long version, int headId = 0) => new(role, gender, position, motion, facing, version, headId, 1012);
+
+    /// <summary>保留长剑的黄金挂点与内部遮挡验收，角色状态显式带装备。</summary>
     private static void CheckDefaultWeapon(AnimationService animations, ActorView actor)
     {
         var directions = new[] { Vector2.Down, new Vector2(-1, 1), Vector2.Left,
@@ -199,13 +242,13 @@ public partial class ActorAnimationSmoke : Node
         foreach (var motion in Enum.GetValues<RoleMotion>())
         {
             var resource = animations.Get(gender, motion);
-            var weapon = animations.GetDefaultWeapon(gender, motion);
-            Check(ReferenceEquals(weapon, animations.GetDefaultWeapon(gender, motion)), "武器没有复用缓存");
+            var weapon = animations.GetWeapon(1012, gender, motion);
+            Check(ReferenceEquals(weapon, animations.GetWeapon(1012, gender, motion)), "武器没有复用缓存");
             Check(resource.RightHandAttachments.Length == resource.HeadAttachments.Length &&
                 resource.LeftHandAttachments.Length == resource.HeadAttachments.Length, "身体缺少逐帧双手连接点");
             for (var direction = 0; direction < directions.Length; direction++)
             {
-                var state = new DataActorState(1, gender, Vector2.Zero, motion,
+                var state = SwordState(1, gender, Vector2.Zero, motion,
                     IsometricProjection.ToLogical(directions[direction]), 0);
                 actor.Present(state);
                 var count = body.SpriteFrames.GetFrameCount(body.Animation);
@@ -244,7 +287,7 @@ public partial class ActorAnimationSmoke : Node
         for (var gender = 0; gender < 2; gender++)
         for (var direction = 0; direction < directions.Length; direction++)
         {
-            actor.Present(new DataActorState(1, (RoleGender)gender, Vector2.Zero, RoleMotion.Stand,
+            actor.Present(SwordState(1, (RoleGender)gender, Vector2.Zero, RoleMotion.Stand,
                 IsometricProjection.ToLogical(directions[direction]), 0));
             Check(handNode.GlobalPosition == standingHands[gender][direction], $"八方向换到左手：{gender}/{direction}");
         }
@@ -259,13 +302,13 @@ public partial class ActorAnimationSmoke : Node
         };
         foreach (var (gender, motion, screenDirection, frame, position, behind) in samples)
         {
-            actor.Present(new DataActorState(1, gender, Vector2.Zero, motion,
+            actor.Present(SwordState(1, gender, Vector2.Zero, motion,
                 IsometricProjection.ToLogical(screenDirection), 0));
             body.SetFrameAndProgress(frame, 0);
             Check(handNode.Position == position, $"右手挂点坐标漂移：{gender}/{motion}/{frame}");
             Check((handNode.GetIndex() < body.GetIndex()) == behind, "右手逐帧遮挡回归");
         }
-        var run = new DataActorState(1, RoleGender.Male, Vector2.Zero, RoleMotion.Run,
+        var run = SwordState(1, RoleGender.Male, Vector2.Zero, RoleMotion.Run,
             IsometricProjection.ToLogical(new Vector2(-1, 1)), 0);
         actor.Present(run);
         body.SetFrameAndProgress(3, 0.4f);
@@ -295,7 +338,7 @@ public partial class ActorAnimationSmoke : Node
             var preview = new ActorView();
             viewport.AddChild(preview);
             actors.Add(preview);
-            preview.Present(new DataActorState(1, (RoleGender)(row % 2), IsometricProjection.ToLogical(position),
+            preview.Present(SwordState(1, (RoleGender)(row % 2), IsometricProjection.ToLogical(position),
                 row < 2 ? RoleMotion.Stand : RoleMotion.Run, IsometricProjection.ToLogical(directions[direction]), 0));
             var sprite = preview.GetNode<AnimatedSprite2D>("Facing/Body");
             sprite.Pause();

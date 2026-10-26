@@ -168,6 +168,17 @@ public sealed class SessionService : Service
             TargetSlotIndex = targetSlotIndex, ExpectedRevision = expectedRevision });
     }
 
+    /// <summary>提交穿戴或卸下，不预先改变背包与装备；实例零表示卸下目标槽位。</summary>
+    public void EquipItem(long instanceId, Rpg.Const.EquipmentSlot slot, long expectedRevision, int? targetBagSlot = null)
+    {
+        EnsureActive();
+        if (!HasRole) throw new InvalidOperationException("请先进入角色");
+        var request = new EquipItem { RoleId = RoleId, InstanceId = instanceId,
+            Slot = (EquipmentSlotPb)slot, ExpectedRevision = expectedRevision };
+        if (targetBagSlot is { } index) request.TargetBagSlot = index;
+        _net.Send(request);
+    }
+
     /// <summary>请求丢弃或销毁指定数量，不预先修改背包和地图缓存。</summary>
     public void DropItem(long instanceId, int count, long expectedRevision, bool destroy = false, Vector2? position = null)
     {

@@ -12,6 +12,12 @@ internal sealed class DataActorComponent
     public Vector2 Facing;
     /// <summary>显式动作请求版本，使相同动作可以再次播放。</summary>
     public long MotionVersion;
+    /// <summary>已接纳的独立物品领域版本。</summary>
+    public long EquipmentRevision = -1;
+    /// <summary>主手道具编号，零表示无装备。</summary>
+    public int MainHandId;
+    /// <summary>副手道具编号，零表示无装备。</summary>
+    public int OffHandId;
 
     /// <summary>以站立动作、默认朝向和初始动作版本构造组件。</summary>
     public DataActorComponent()
