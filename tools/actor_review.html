@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>角色逐帧审查</title>
+<style>
+:root{color-scheme:dark;font-family:"Microsoft YaHei",system-ui,sans-serif;background:#131b24;color:#e6edf6}*{box-sizing:border-box}body{margin:0}header{padding:24px 28px 18px;border-bottom:1px solid #334355;background:#1a2532}h1{font-size:24px;margin:0 0 8px}p{margin:6px 0;color:#a8b9ca;font-size:14px;line-height:1.7}.controls{display:flex;gap:16px;flex-wrap:wrap;margin:18px 0 10px}label{font-size:13px;color:#a8b9ca;display:flex;gap:7px;align-items:center}select,button{font:inherit;color:#e6edf6;border:1px solid #46596d;background:#243345;border-radius:6px;padding:7px 10px}select{max-width:100%}button{cursor:pointer}button:hover{background:#344b62}button.primary{background:#275d82;border-color:#4489b8}a{color:#85c9f6}main{padding:20px 28px}.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}input[type=range]{width:min(380px,60vw);accent-color:#72b8e8}.status{font:13px ui-monospace,monospace;color:#c0d3e7}.grid{display:grid;grid-template-columns:repeat(4,minmax(200px,1fr));gap:12px;overflow:auto;align-items:start}.card{border:1px solid #33465b;border-radius:8px;overflow:auto;background:#1a2633}.card h2{font-size:14px;margin:0;padding:10px 12px;background:#243345}.stage{display:flex;justify-content:center;min-width:max-content;background:#24303d}.stage.checker{background-color:#d4dae0;background-image:linear-gradient(45deg,#b8c2cc 25%,transparent 25%),linear-gradient(-45deg,#b8c2cc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#b8c2cc 75%),linear-gradient(-45deg,transparent 75%,#b8c2cc 75%);background-size:24px 24px;background-position:0 0,0 12px,12px -12px,-12px 0}.stage.light{background:#e2e8ee}canvas{display:block;image-rendering:pixelated;flex-shrink:0}.source{font-size:11px;line-height:1.6;color:#a8b9ca;padding:10px;overflow-wrap:anywhere;min-height:70px}.links{display:flex;gap:18px;flex-wrap:wrap;margin:16px 0}details{margin-top:22px;border:1px solid #33465b;border-radius:8px;padding:14px}summary{cursor:pointer}.sheetbox{overflow:auto;max-height:85vh;margin-top:14px}#sheet{display:block;image-rendering:pixelated;max-width:none}footer{font-size:12px;line-height:1.8;color:#8ca1b7;margin-top:20px;overflow-wrap:anywhere}@media(max-width:1000px){.grid{grid-template-columns:repeat(2,minmax(200px,1fr))}header,main{padding:18px}}@media(max-width:520px){.grid{grid-template-columns:1fr}}
+</style>
+<header>
+<h1>角色逐帧审查</h1>
+<p id="overview"></p>
+<p>画面取自当前游戏的正式角色节点。固定角色定位点，保留每一身体帧的武器姿态与遮挡。</p>
+<div class="controls">
+<label>性别<select id="gender" aria-label="性别"></select></label>
+<label>装备<select id="equipment" aria-label="装备组合"></select></label>
+<label>动作<select id="motion" aria-label="动作"></select></label>
+<label>像素缩放<select id="zoom" aria-label="像素缩放"><option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option></select></label>
+<label>背景<select id="background" aria-label="背景"><option value="dark">深色</option><option value="checker">透明棋盘</option><option value="light">浅色</option></select></label>
+</div>
+</header>
+<main>
+<div class="toolbar"><button id="prev" aria-label="上一帧">← 上一帧</button><button id="play" class="primary">播放</button><button id="next" aria-label="下一帧">下一帧 →</button><input id="frame" type="range" min="0" max="0" value="0" aria-label="身体帧号"><span id="status" class="status" role="status"></span></div>
+<p>帧号从 0 开始。键盘 ← / → 切帧，空格播放。每张图下方可打开当前透明 PNG。</p>
+<div class="links"><a id="labelled" target="_blank">中文全帧总览 ↗</a><a id="raw" target="_blank">透明实绘联系表 ↗</a><a href="coverage.csv">完整覆盖表 CSV</a><a href="使用说明.txt">使用说明</a></div>
+<div id="grid" class="grid"></div>
+<details id="all"><summary>展开此装备与动作的全部帧（行为方向，列为帧）</summary><div class="sheetbox"><img id="sheet" alt="带中文方向与帧号的完整联系表"></div></details>
+<footer id="provenance"></footer>
+</main>
+<script src="manifest.js"></script>
+<script>
+// 完整导出清单由本地脚本加载，离线浏览不依赖fetch或服务器。
+const data=window.ACTOR_REVIEW;
+const $=id=>document.getElementById(id);
+let group,frame=0,picture=null,playing=false,previous=0,elapsed=0,loadVersion=0;
+const cards=[];
+// 使用清单填充筛选项，装备名称不写死在页面中。
+function options(id,entries){for(const entry of entries){const option=document.createElement('option');option.value=entry.key;option.textContent=entry.label||entry.name;$(id).append(option);}}
+options('gender',data.genders);options('equipment',data.equipment);options('motion',data.motions);
+$('equipment').value=data.equipment.find(e=>e.main===1017&&e.off===1017)?.key||data.equipment[0].key;
+$('overview').textContent=`男女 · ${data.equipment.length} 种装备组合 · ${data.motions.length} 个动作 · 8 方向 · ${data.frameCount.toLocaleString()} 张独立帧 / ${data.groupCount} 张总览`;
+$('provenance').textContent=`来源版本 ${data.revision} ｜ 生成于 ${data.generatedAt} ｜ 默认头型 ${data.headId} ｜ 画布 ${data.cell.width}×${data.cell.height}，定位点 (${data.cell.anchorX}, ${data.cell.anchorY})。部分武器动作会复用已有素材，下方标注实际资源与武器采样帧。完整记录见 manifest.json。`;
+for(const direction of data.directions){const card=document.createElement('article');card.className='card';const title=document.createElement('h2');title.textContent=direction.label;const stage=document.createElement('div');stage.className='stage';const canvas=document.createElement('canvas');canvas.width=data.cell.width;canvas.height=data.cell.height;stage.append(canvas);const source=document.createElement('div');source.className='source';const link=document.createElement('a');link.target='_blank';card.append(title,stage,source);source.append(link);$('grid').append(card);cards.push({canvas,stage,source,link});}
+// 手动切换时停止播放，避免审查帧在用户操作后自动跳动。
+function pause(){playing=false;$('play').textContent='播放';elapsed=0;}
+// 展示正式角色实际取用的左右手资源和武器采样帧。
+function describe(value,label){if(!value)return `${label}空手`;return `${label}武器帧 ${value.frames[frame]} / ${value.count-1} · ${value.resource.replace('res://assets/characters/weapons/','')}`;}
+// 从正式实绘联系表取当前列，以整数倍像素显示八方向。
+function draw(){if(!group||!picture)return;const scale=Number($('zoom').value);$('grid').style.gridTemplateColumns=`repeat(auto-fit,minmax(min(100%,${data.cell.width*scale+2}px),1fr))`;$('frame').value=frame;$('status').textContent=`身体帧 ${frame} / ${group.count-1} · ${group.fps} FPS`;
+for(let direction=0;direction<8;direction++){const card=cards[direction];const ctx=card.canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,data.cell.width,data.cell.height);ctx.drawImage(picture,frame*data.cell.width,direction*data.cell.height,data.cell.width,data.cell.height,0,0,data.cell.width,data.cell.height);card.canvas.style.width=data.cell.width*scale+'px';card.canvas.style.height=data.cell.height*scale+'px';card.stage.className='stage '+$('background').value;card.source.replaceChildren();const a=document.createElement('a');a.target='_blank';a.href=`frames/${group.key}/d${String(direction).padStart(2,'0')}-${data.directions[direction].key}-f${String(frame).padStart(3,'0')}.png`;a.textContent=`打开 d${direction} · f${String(frame).padStart(3,'0')} PNG ↗`;card.source.append(a,document.createElement('br'),document.createTextNode(describe(group.sources[direction].main,'主手：')),document.createElement('br'),document.createTextNode(describe(group.sources[direction].off,'副手：')));}}
+// 异步切换图片时按请求版本丢弃过时结果，避免快速筛选显示错组。
+async function select(){pause();frame=0;picture=null;group=data.groups.find(g=>g.gender===$('gender').value&&g.equipment===$('equipment').value&&g.motion===$('motion').value);const version=++loadVersion;$('status').textContent='正在加载…';$('frame').max=group.count-1;$('labelled').href=group.labelled;$('raw').href=group.sheet;$('sheet').removeAttribute('src');if($('all').open)$('sheet').src=group.labelled;const image=new Image();image.src=group.sheet;try{await image.decode();if(version!==loadVersion)return;picture=image;draw();}catch(error){$('status').textContent='图片加载失败，请将压缩包完整解压后打开 index.html';console.error(error);}}
+// 手动前后切帧在首尾循环，便于反复审查交界姿态。
+function step(delta){pause();frame=(frame+delta+group.count)%group.count;draw();}
+for(const id of ['gender','equipment','motion'])$(id).addEventListener('change',select);
+for(const id of ['zoom','background'])$(id).addEventListener('change',draw);
+$('prev').onclick=()=>step(-1);$('next').onclick=()=>step(1);$('frame').oninput=()=>{pause();frame=Number($('frame').value);draw();};$('play').onclick=()=>{playing=!playing;elapsed=0;previous=0;$('play').textContent=playing?'暂停':'播放';};
+$('all').ontoggle=()=>{if($('all').open&&group)$('sheet').src=group.labelled;};
+document.addEventListener('keydown',event=>{if(['SELECT','INPUT'].includes(event.target.tagName))return;if(event.code==='ArrowLeft'){event.preventDefault();step(-1);}if(event.code==='ArrowRight'){event.preventDefault();step(1);}if(event.code==='Space'){event.preventDefault();$('play').click();}});
+// 按身体资源中的帧时长播放；审查时非循环动作也可重复对照。
+function tick(time){if(playing&&picture){if(previous)elapsed+=Math.min(time-previous,200);const duration=1000*group.durations[frame]/group.fps;if(elapsed>=duration){elapsed-=duration;frame=(frame+1)%group.count;draw();}}previous=time;requestAnimationFrame(tick);}
+select();requestAnimationFrame(tick);
+</script>
+</html>

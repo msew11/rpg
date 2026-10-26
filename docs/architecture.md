@@ -286,3 +286,5 @@ DropItem 的 destroy 字段默认 false；Session 仅发送意图。MockServer �
 装备和背包拿起图像统一由 `ItemSlotStyle.CreateContent` 和 `BagControl.BeginPickup` 生成，46×46 内容区、最近邻、0.85 透明度及数量展示保持背包规则。装备槽与背包槽共用 `BagControl.ShowItemInfo` 和 `ItemNamePopup` 即时信息入口，目前只显示配置名称，为后续分类信息保留统一扩展位置；不使用引擎延迟 Tooltip。装备悬停不要求背包打开；所属窗口隐藏、空槽、移出、拿起、刷新和切角清理信息。
 
 物品素材由 `GameServices.Items` 在主线程惰性读取 `assets/items/catalog.json` 并建立只读索引。背包、装备窗口、地面物品和图鉴共同访问该服务，不各自解析目录；图集按路径、裁剪纹理按素材键缓存并强引用。选角成功后、世界与 HUD 创建前仅预热当前背包和装备的图标；空包不加载无关图集，切角继续复用静态资源，新增物品按需补充。完整服务释放时清空缓存，仍由节点持有的纹理由 Godot 管理。首次目录解析和所需图集加载仍在进入阶段同步执行。
+
+完整逐帧审查使用 `tools/export_actor_review.ps1` 调用独立开发场景，直接渲染正式ActorView。按当前配置允许的主副手组合、男女13动作和八方向导出每个身体帧，固定默认头型1，统一画布与定位点；保留当前武器动作复用与遮挡。Pillow整理透明PNG、中文联系表、离线浏览索引、覆盖与采样清单，并校验像素和ZIP。导出目录带 `.gdignore`，图片和ZIP只放忽略的build；工具不修改正式资源与存档。使用方法见 `docs/actor-review-export.md`。
