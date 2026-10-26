@@ -76,7 +76,7 @@ public sealed class DataServerBagRules
         return candidate;
     }
 
-    /// <summary>构造穿戴、替换或卸下候选，保持实例与编号序列，失败不更改源状态。</summary>
+    /// <summary>构造穿脱候选，自动收回与目标槽冲突的另一手装备；失败不更改源状态。</summary>
     public DataServerRole Equip(DataServerRole role, long instanceId, EquipmentSlot slot, int? targetBagSlot = null)
     {
         Validate(role);
@@ -119,10 +119,9 @@ public sealed class DataServerBagRules
         var off = equipment.SingleOrDefault(item => item.Slot == EquipmentSlot.OffHand);
         if (main is not null && off is not null && OccupiesBothHands(main.ItemId))
         {
-            if (slot != EquipmentSlot.MainHand)
-                throw new InvalidOperationException("主手武器占用双手，不能装备副手物品");
-            ReturnToBag(role, items, off);
-            equipment.Remove(off);
+            var conflict = slot == EquipmentSlot.MainHand ? off : main;
+            ReturnToBag(role, items, conflict);
+            equipment.Remove(conflict);
         }
         var candidate = role with { Bag = role.Bag with { Revision = checked(role.Bag.Revision + 1),
             EquipmentRevision = checked(role.Bag.EquipmentRevision + 1),
@@ -139,12 +138,12 @@ public sealed class DataServerBagRules
     private bool OccupiesBothHands(int itemId) => Items.TryGetValue(itemId, out var definition) &&
         EquipmentSlotUtil.OccupiesBothHands(definition.Category, definition.SubCategory);
 
-    /// <summary>旧装备或收回盾牌放入首个空格；候选空间不足时整次拒绝。</summary>
+    /// <summary>将旧装备或冲突装备放入首个空格；候选空间不足时整次拒绝。</summary>
     private void ReturnToBag(DataServerRole role, List<DataServerItem> items, DataServerEquipment equipment)
     {
         var destination = Enumerable.Range(0, GetCapacity(role.BagExtraRows))
             .FirstOrDefault(index => items.All(item => item.SlotIndex != index), -1);
-        if (destination < 0) throw new InvalidOperationException("背包空间不足，无法收回副手装备");
+        if (destination < 0) throw new InvalidOperationException("背包空间不足，无法收回冲突装备");
         items.Add(new DataServerItem(equipment.InstanceId, equipment.ItemId, destination, 1));
     }
 

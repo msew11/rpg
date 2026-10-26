@@ -198,6 +198,22 @@ public partial class EquipmentSmoke : Node
             await QuickEquipKatar(grid, thirdKatar.InstanceId, EquipmentSlot.MainHand);
             await QuickEquipKatar(grid, 8, EquipmentSlot.MainHand);
             Check(GameServices.World.RoleTarget == target, "拳套快捷替换触发世界移动");
+            // role-equipment：普通点击与Ctrl穿盾都自动收回双手主手，并同步世界和预览。
+            foreach (var shortcut in new[] { false, true })
+            {
+                var bagShield = GameServices.Session.Bag.Items.Single(item => item.ItemId == 1014);
+                if (shortcut) await Click(grid.GetChild<Control>(bagShield.SlotIndex), ctrl: true);
+                else await Transfer(grid.GetChild<Control>(bagShield.SlotIndex), off);
+                Check(GameServices.Session.Equipment.Items.Count == 1 &&
+                    GameServices.Session.Equipment.Items[0].InstanceId == bagShield.InstanceId &&
+                    GameServices.Session.Bag.Items.Any(item => item.InstanceId == 8), "穿盾未自动收回双手主手");
+                Check(GameServices.World.ActorState is { MainHandId: 0, OffHandId: 1014 } &&
+                    !previewActor.GetNode<Sprite2D>("Facing/RightHand/Weapon").Visible &&
+                    previewActor.GetNode<Sprite2D>("Facing/RightHand/Weapon").Texture is null &&
+                    previewActor.GetNode<Sprite2D>("Facing/LeftHand/Weapon").Visible, "穿盾后世界或预览残留双手主手");
+                await QuickEquipKatar(grid, 8, EquipmentSlot.MainHand);
+            }
+            Check(GameServices.World.RoleTarget == target, "穿盾自动收主手触发世界移动");
             // 恢复剑盾，继续沿用既有持久化与满包卸下验收。
             foreach (var id in new[] { 1012, 1014 })
             {

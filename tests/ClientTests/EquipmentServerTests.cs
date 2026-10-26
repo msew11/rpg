@@ -155,11 +155,9 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.False(Equip(knife, EquipmentSlotPb.MainHand, revision: before.Revision).Success);
         var shield = Grant(1014);
         Assert.False(Equip(shield, EquipmentSlotPb.MainHand).Success);
-        var equipment = _equipment.Clone();
-        Assert.False(Equip(shield, EquipmentSlotPb.OffHand).Success);
-        Assert.Equal(equipment, _equipment);
-        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
-        Assert.Equal(shield, Assert.Single(_bag.Items).InstanceId);
+        Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
+        Assert.Equal(shield, Assert.Single(_equipment.Items).InstanceId);
+        Assert.Equal(knife, Assert.Single(_bag.Items).InstanceId);
     }
 
     /// <summary>role-equipment：剑盾切成对主手时自动收盾，满包失败不改变双版本或实例。</summary>
@@ -232,10 +230,51 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.Contains(_bag.Items, item => item.InstanceId == shield);
         Assert.Equal(beforeBag.Revision + 1, _bag.Revision);
         Assert.Equal(beforeEquipment.Revision + 1, _equipment.Revision);
-        var accepted = _bag.Clone();
-        Assert.False(Equip(shield, EquipmentSlotPb.OffHand).Success);
-        Assert.Equal(accepted, _bag);
-        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
+        Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
+        Assert.Equal(shield, Assert.Single(_equipment.Items).InstanceId);
+        Assert.Contains(_bag.Items, item => item.InstanceId == weapon);
+        Assert.Contains(_bag.Items, item => item.InstanceId == sword);
+    }
+
+    /// <summary>role-equipment：盾牌穿戴收回全部双手武器，满包使用来源格，双版本与重启保持实例。</summary>
+    [Theory]
+    [InlineData(1013, false)]
+    [InlineData(1013, true)]
+    [InlineData(1015, false)]
+    [InlineData(1015, true)]
+    [InlineData(1016, false)]
+    [InlineData(1016, true)]
+    [InlineData(1017, false)]
+    [InlineData(1017, true)]
+    [InlineData(1018, false)]
+    [InlineData(1018, true)]
+    public void ShieldAutomaticallyReturnsTwoHandedMainWeapon(int itemId, bool full)
+    {
+        var weapon = Grant(itemId);
+        Assert.True(Equip(weapon, EquipmentSlotPb.MainHand).Success);
+        if (full) Grant(1012);
+        var shield = Grant(1014);
+        var source = _bag.Items.Single(item => item.InstanceId == shield).SlotIndex;
+        var beforeBag = _bag.Clone();
+        var beforeEquipment = _equipment.Clone();
+        _server.Flush();
+        var beforeNextId = _repo.Load(_roleId).Bag.NextInstanceId;
+        Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
+        Assert.Equal(shield, Assert.Single(_equipment.Items).InstanceId);
+        Assert.Equal(EquipmentSlotPb.OffHand, _equipment.Items[0].Slot);
+        Assert.Equal(weapon, _bag.Items.Single(item => item.SlotIndex == source).InstanceId);
+        Assert.Equal(beforeBag.Items.Count, _bag.Items.Count);
+        Assert.Equal(beforeBag.Revision + 1, _bag.Revision);
+        Assert.Equal(beforeEquipment.Revision + 1, _equipment.Revision);
+        Assert.Single(_messages.OfType<RoleItemsChangedNotice>());
+        var acceptedBag = _bag.Clone();
+        var acceptedEquipment = _equipment.Clone();
+        _server.Flush();
+        Assert.Equal(beforeNextId, _repo.Load(_roleId).Bag.NextInstanceId);
+        _server = CreateServer();
+        Enter(_roleId);
+        Assert.Equal(acceptedBag, _bag);
+        Assert.Equal(acceptedEquipment, _equipment);
     }
 
     /// <summary>role-equipment：旧双拳刃、飞刀和带盾存档选角迁移，满包拒绝且原档不变。</summary>
