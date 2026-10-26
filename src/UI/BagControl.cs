@@ -300,7 +300,21 @@ public partial class BagControl : PanelContainer
         UiSoundPlayer.Play(this, 1001);
     }
 
-    /// <summary>右键卸下到首个空格，不使用乐观修改。</summary>
+    /// <summary>Ctrl 快捷穿戴到既有推荐槽，替换仍由服务器原子处理。</summary>
+    internal void AutoEquip(int slotIndex)
+    {
+        CancelItemDrag();
+        if (!IsVisibleInTree() || !GameServices.Session.HasRole) return;
+        var bag = GameServices.Session.Bag;
+        var item = bag.Items.FirstOrDefault(item => item.SlotIndex == slotIndex);
+        if (item is null) return;
+        var cfg = GameServices.Config.Item.Items[item.ItemId];
+        if (!EquipmentSlotUtil.TryGetSlot(cfg.Category, cfg.SubCategory, out var slot)) return;
+        GameServices.Session.EquipItem(item.InstanceId, slot, bag.Revision);
+        UiSoundPlayer.Play(this, 1010);
+    }
+
+    /// <summary>Ctrl 快捷卸下到首个空格，不使用乐观修改。</summary>
     internal void Unequip(EquipmentSlot slot)
     {
         CancelItemDrag();

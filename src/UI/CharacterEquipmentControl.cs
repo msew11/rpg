@@ -16,9 +16,12 @@ public partial class CharacterEquipmentControl : VBoxContainer
     /// <summary>跨窗口物品操作的背包控件。</summary>
     public BagControl Bag { get; init; } = null!;
     /// <summary>供旋转与外观展示复用的独立预览。</summary>
-    private readonly RolePreviewControl _preview = new() { Name = "EquipmentPreview", CustomMinimumSize = new Vector2(245, 350) };
+    private readonly RolePreviewControl _preview = new() { Name = "EquipmentPreview", ShowPortrait = false,
+        ActorScale = 1, CustomMinimumSize = new Vector2(180, 260) };
     /// <summary>每槽显示图标的固定控件。</summary>
     private readonly Dictionary<EquipmentSlot, TextureRect> _icons = new();
+    /// <summary>空槽内的灰色名称，穿上装备后为图标让位。</summary>
+    private readonly Dictionary<EquipmentSlot, Label> _slotNames = new();
     /// <summary>当前窗口拥有的素材索引。</summary>
     private Dictionary<string, DataItemAsset>? _assets;
     /// <summary>服务器错误在角色窗口内即时可见。</summary>
@@ -47,7 +50,6 @@ public partial class CharacterEquipmentControl : VBoxContainer
         foreach (var entry in new[] { (EquipmentSlot.OffHand, "副手"), (EquipmentSlot.Face, "面"),
             (EquipmentSlot.Necklace, "项链"), (EquipmentSlot.Ring1, "戒指"), (EquipmentSlot.Ring2, "戒指") })
             AddSlot(right, entry.Item1, entry.Item2);
-        AddChild(new Label { Text = "左键拿起或放置装备；右键卸下到背包", MouseFilter = MouseFilterEnum.Ignore });
         AddChild(_status);
         _subscription = GameServices.EventBus.Subscribe<EquipItemRt>(response =>
         {
@@ -58,21 +60,21 @@ public partial class CharacterEquipmentControl : VBoxContainer
         Refresh();
     }
 
-    /// <summary>创建名称与图标独立排列的固定槽位，未开放槽位仍显示占位。</summary>
+    /// <summary>名称与图标共用槽内区域，空槽用灰色文字标明部位。</summary>
     private void AddSlot(VBoxContainer column, EquipmentSlot slot, string title)
     {
-        var cell = new VBoxContainer();
-        cell.AddThemeConstantOverride("separation", 0);
-        column.AddChild(cell);
-        var label = new Label { Text = title, HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore };
-        label.AddThemeFontSizeOverride("font_size", 14);
-        cell.AddChild(label);
         var panel = new EquipmentSlotControl { Name = $"Equipment{slot}", Bag = Bag, Slot = slot,
             CustomMinimumSize = new Vector2(40, 40), MouseFilter = MouseFilterEnum.Stop };
         var style = new StyleBoxFlat { BgColor = new Color(0.10f, 0.13f, 0.17f), BorderColor = new Color(0.35f, 0.40f, 0.48f) };
         style.SetBorderWidthAll(1);
         panel.AddThemeStyleboxOverride("panel", style);
-        cell.AddChild(panel);
+        column.AddChild(panel);
+        var label = new Label { Name = "SlotName", Text = title, HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore };
+        label.AddThemeFontSizeOverride("font_size", 12);
+        label.AddThemeColorOverride("font_color", new Color(0.55f, 0.55f, 0.55f));
+        panel.AddChild(label);
+        _slotNames.Add(slot, label);
         var icon = new TextureRect { Name = "EquipmentIcon", ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
             StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.Nearest,
             MouseFilter = MouseFilterEnum.Ignore };
@@ -99,6 +101,7 @@ public partial class CharacterEquipmentControl : VBoxContainer
             var item = equipment.FirstOrDefault(item => item.Slot == slot);
             var cfg = item is null ? null : GameServices.Config.Item.Items[item.ItemId];
             icon.Texture = cfg is null ? null : ItemAtlasUtil.Resolve(_assets, cfg.IconAssetId);
+            _slotNames[slot].Visible = item is null;
             ((Control)icon.GetParent()).TooltipText = cfg?.Name ?? (slot is EquipmentSlot.MainHand or EquipmentSlot.OffHand ? "空槽" : "暂未开放");
         }
     }

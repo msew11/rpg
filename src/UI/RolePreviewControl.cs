@@ -10,6 +10,10 @@ namespace Rpg.UI;
 /// <summary>选角与创建共用的独立站立预览、八方向旋转及下方操作区。</summary>
 public partial class RolePreviewControl : VBoxContainer
 {
+    /// <summary>装备窗口隐藏独立头像，选角与创角保持默认显示。</summary>
+    public bool ShowPortrait { get; init; } = true;
+    /// <summary>预览人物相对原始地图素材的比例。</summary>
+    public float ActorScale { get; init; } = 2.4f;
     /// <summary>当前预览朝向，屏幕下方为初始方向。</summary>
     public int Direction { get; private set; } = 2;
     /// <summary>供页面记录当前草稿朝向。</summary>
@@ -21,7 +25,7 @@ public partial class RolePreviewControl : VBoxContainer
     /// <summary>角色独立绘制区域。</summary>
     private readonly Control _stage = new() { Name = "Stage", SizeFlagsVertical = SizeFlags.ExpandFill, ClipContents = true };
     /// <summary>复用分层角色表现，不持有 ECS 世界。</summary>
-    private readonly ActorView _actor = new() { Name = "PreviewActor", Scale = new Vector2(2.4f, 2.4f) };
+    private readonly ActorView _actor = new() { Name = "PreviewActor" };
     /// <summary>与游戏 HUD 同素材的无等级圆形头像。</summary>
     private readonly AvatarControl _portrait = new() { Name = "PreviewPortrait", ShowLevel = false,
         CustomMinimumSize = new Vector2(72, 72), Scale = new Vector2(0.9f, 0.9f),
@@ -34,11 +38,12 @@ public partial class RolePreviewControl : VBoxContainer
     {
         AddChild(_title);
         AddChild(_stage);
+        _actor.Scale = Vector2.One * ActorScale;
         _stage.AddChild(_actor);
         _stage.AddChild(_portrait);
         var rotation = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-        rotation.AddChild(ActionButton("逆时针旋转", "RotateCounterclockwise", () => Rotate(-1)));
-        rotation.AddChild(ActionButton("顺时针旋转", "RotateClockwise", () => Rotate(1)));
+        rotation.AddChild(RotationButton("counterclockwise", "RotateCounterclockwise", () => Rotate(-1)));
+        rotation.AddChild(RotationButton("clockwise", "RotateClockwise", () => Rotate(1)));
         AddChild(rotation);
         AddChild(Actions);
         _stage.Resized += Present;
@@ -53,8 +58,8 @@ public partial class RolePreviewControl : VBoxContainer
         _state = new DataActorState(roleId, gender, Vector2.Zero, RoleMotion.Stand, Vector2.Zero, 0, headId, mainHandId, offHandId);
         _title.Text = title;
         _actor.Visible = true;
-        _portrait.Portrait = AvatarControl.LoadPortrait(gender, headId);
-        _portrait.Visible = true;
+        _portrait.Portrait = ShowPortrait ? AvatarControl.LoadPortrait(gender, headId) : null;
+        _portrait.Visible = ShowPortrait;
         _portrait.QueueRedraw();
         Present();
     }
@@ -94,6 +99,15 @@ public partial class RolePreviewControl : VBoxContainer
     {
         var button = new Button { Name = name, Text = text, CustomMinimumSize = new Vector2(0, 40) };
         button.Pressed += action;
+        return button;
+    }
+
+    /// <summary>所有预览共用方向明确的箭头图标，保留原按钮标识及音效入口。</summary>
+    private static Button RotationButton(string icon, string name, Action action)
+    {
+        var button = ActionButton("", name, action);
+        button.Icon = GD.Load<Texture2D>($"res://assets/ui/rotate-{icon}.svg");
+        button.CustomMinimumSize = new Vector2(40, 40);
         return button;
     }
 }

@@ -53,6 +53,12 @@ public partial class RoleManagementSmoke : Node
             var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
             var head = actor.GetNode<Sprite2D>("Facing/Head");
             var preview = (RolePreviewControl)page.FindChild("RolePreview", true, false);
+            Check(actor.Scale == Vector2.One * 2.4f, "装备预览比例影响了创角预览");
+            foreach (var buttonName in new[] { "RotateClockwise", "RotateCounterclockwise" })
+            {
+                var button = (Button)preview.FindChild(buttonName, true, false);
+                Check(button.Text.Length == 0 && button.Icon is not null, "创角旋转按钮仍使用文字");
+            }
             var portrait = (AvatarControl)page.FindChild("PreviewPortrait", true, false);
             Check(ReferenceEquals(head.Texture, GameServices.Animation.GetHead(RoleGender.Male, 9).Frames[4]),
                 "首次预览没有使用首个可选头型");

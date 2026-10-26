@@ -49,6 +49,24 @@ public partial class EquipmentSmoke : Node
                 "角色窗口没有十一种独立槽位");
             var preview = (RolePreviewControl)character.FindChild("EquipmentPreview", true, false);
             var previewActor = (ActorView)preview.FindChild("PreviewActor", true, false);
+            Check(previewActor.Scale == Vector2.One &&
+                preview.FindChild("PreviewPortrait", true, false) is AvatarControl { Visible: false },
+                "装备预览未使用地图原始比例或仍显示头像");
+            foreach (var slotControl in character.FindChildren("Equipment*", "PanelContainer", true, false).OfType<EquipmentSlotControl>())
+            {
+                var name = slotControl.GetNode<Label>("SlotName");
+                var color = name.GetThemeColor("font_color");
+                Check(name.Visible && slotControl.GetGlobalRect().Encloses(name.GetGlobalRect()) &&
+                    Mathf.IsEqualApprox(color.R, color.G) && Mathf.IsEqualApprox(color.G, color.B) && color.R < 0.7f,
+                    "空槽名称未在槽内以灰色展示");
+            }
+            foreach (var buttonName in new[] { "RotateCounterclockwise", "RotateClockwise" })
+            {
+                var button = (Button)preview.FindChild(buttonName, true, false);
+                Check(button.Text.Length == 0 && button.Icon is not null, "旋转按钮未统一为图标");
+            }
+            Check(!character.FindChildren("*", "Label", true, false).OfType<Label>().Any(label => label.Text.Contains("右键卸下")),
+                "仍显示穿脱操作说明");
             Check(!previewActor.GetNode<Sprite2D>("Facing/RightHand/Weapon").Visible && GameServices.World.ActorState!.MainHandId == 0,
                 "初始空手仍显示长剑");
             var grid = (GridContainer)bag.FindChild("BagGrid", true, false);
@@ -78,8 +96,11 @@ public partial class EquipmentSmoke : Node
             Check(GameServices.World.ActorState!.MainHandId == 0 && !previewActor.GetNode<Sprite2D>("Facing/RightHand/Weapon").Visible,
                 "卸下主手没有空手");
             await Click(off, MouseButton.Right);
+            Check(GameServices.Session.Bag.Equipment.Count == 1 && bag.FindChild("PickedItemPreview", true, false) is null,
+                "右键仍会卸下或拿起装备");
+            await Click(off, ctrl: true);
             Check(GameServices.Session.Bag.Equipment.Count == 0 && GameServices.World.ActorState!.OffHandId == 0,
-                "右键卸下副手失败");
+                "Ctrl＋左键卸下副手失败");
             // 飞刀错误放主手仍由服务器拒绝，界面展示原因且保留物品。
             var knife = GameServices.Session.Bag.Items.Single(item => item.ItemId == 1018);
             var revision = GameServices.Session.Bag.Revision;
@@ -87,12 +108,24 @@ public partial class EquipmentSmoke : Node
             Check(GameServices.Session.Bag.Revision == revision && character.FindChild("EquipmentStatus", true, false) is Label { Visible: true },
                 "错误槽位未反馈或修改了物品");
             Check(GameServices.World.RoleTarget == target, "装备输入穿透到世界移动");
-            // 保留一剑一盾用于可选的真实渲染检查。
-            foreach (var id in new[] { 1012, 1014 })
+            // Ctrl 快捷穿戴覆盖主副手推荐、拳刃默认槽及替换回来源格。
+            foreach (var id in new[] { 1013, 1017, 1012, 1014 })
             {
-                var item = GameServices.Session.Bag.Items.Single(item => item.ItemId == id);
-                await Transfer(grid.GetChild<Control>(item.SlotIndex), (Control)character.FindChild(id == 1012 ? "EquipmentMainHand" : "EquipmentOffHand", true, false));
+                var item = GameServices.Session.Bag.Items.Single(item => item.ItemId == id && item.InstanceId != 8);
+                var slot = id == 1014 ? EquipmentSlot.OffHand : EquipmentSlot.MainHand;
+                var oldItem = GameServices.Session.Bag.Equipment.FirstOrDefault(entry => entry.Slot == slot);
+                var before = GameServices.Session.Bag;
+                await Click(grid.GetChild<Control>(item.SlotIndex), ctrl: true, checkBeforeFrames: () =>
+                    Check(ReferenceEquals(before, GameServices.Session.Bag), "Ctrl 穿戴在确认前改写快照"));
+                Check(GameServices.Session.Bag.Equipment.Any(entry => entry.InstanceId == item.InstanceId && entry.Slot == slot),
+                    "Ctrl 自动穿戴选槽错误");
+                if (oldItem is not null)
+                    Check(GameServices.Session.Bag.Items.Any(entry => entry.InstanceId == oldItem.InstanceId && entry.SlotIndex == item.SlotIndex),
+                        "Ctrl 替换没有回来源格");
+                Check(((Control)character.FindChild($"Equipment{slot}", true, false)).GetNode<Label>("SlotName").Visible == false &&
+                    bag.FindChild("PickedItemPreview", true, false) is null, "快捷穿戴残留占位文字或拿起预览");
             }
+            Check(GameServices.World.RoleTarget == target, "Ctrl 装备输入穿透到世界移动");
             if (OS.GetCmdlineUserArgs().Contains("--capture-equipment"))
             {
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
@@ -100,6 +133,15 @@ public partial class EquipmentSmoke : Node
             }
             GameServices.Net.FlushServerWrites();
             Check(repo.Load(1001).Bag.Equipment.Count == 2, "装备未持久化");
+            var capacity = GameServices.Config.Basic.Value.BagColumns * GameServices.Config.Basic.Value.BagRows;
+            GameServices.Session.SendGm($"item 1012 {capacity - GameServices.Session.Bag.Items.Count}");
+            await Frames();
+            Check(GameServices.Session.Bag.Items.Count == capacity, "满包卸下验收未填满背包");
+            var fullBag = GameServices.Session.Bag;
+            await Click(mainSlot, ctrl: true);
+            Check(ReferenceEquals(fullBag, GameServices.Session.Bag) &&
+                character.FindChild("EquipmentStatus", true, false) is Label { Visible: true },
+                "满包 Ctrl 卸下没有保留装备并反馈错误");
             GetWindow().Size = new Vector2I(480, 270);
             GetWindow().ContentScaleSize = new Vector2I(480, 270);
             await Frames();
@@ -109,7 +151,7 @@ public partial class EquipmentSmoke : Node
             scroll.EnsureControlVisible((Control)character.FindChild("EquipmentFeet", true, false));
             await Frames();
             Check(scroll.ScrollVertical > 0, "小窗口不能滚动至鞋子槽");
-            GD.Print("Equipment smoke passed: 7 items, swap, dual katars, empty hands, rotation, invalid slot, persistence, real input and small viewport.");
+            GD.Print("Equipment smoke passed: compact preview, slot labels, icons, Ctrl equip/swap/unequip, full bag rejection, inert right click, 7 items, persistence and small viewport.");
             main.QueueFree();
             await Frames();
             main = null;
@@ -147,21 +189,22 @@ public partial class EquipmentSmoke : Node
     }
 
     /// <summary>实际注入移动、按下及松开以覆盖 GUI 路由。</summary>
-    private async Task Click(Control control, MouseButton button = MouseButton.Left)
+    private async Task Click(Control control, MouseButton button = MouseButton.Left, bool ctrl = false, Action? checkBeforeFrames = null)
     {
         var point = control.GetGlobalRect().GetCenter();
         using var motion = new InputEventMouseMotion { Position = point, GlobalPosition = point };
         GetViewport().PushInput(motion, true);
-        Mouse(point, button, true);
-        Mouse(point, button, false);
+        Mouse(point, button, true, ctrl);
+        Mouse(point, button, false, ctrl);
+        checkBeforeFrames?.Invoke();
         await Frames();
     }
 
     /// <summary>构造独立鼠标事件，不直接调用业务回调。</summary>
-    private void Mouse(Vector2 position, MouseButton button, bool pressed)
+    private void Mouse(Vector2 position, MouseButton button, bool pressed, bool ctrl = false)
     {
         using var input = new InputEventMouseButton { Position = position, GlobalPosition = position, ButtonIndex = button,
-            Pressed = pressed, ButtonMask = pressed ? button == MouseButton.Left ? MouseButtonMask.Left : MouseButtonMask.Right : 0 };
+            Pressed = pressed, CtrlPressed = ctrl, ButtonMask = pressed ? button == MouseButton.Left ? MouseButtonMask.Left : MouseButtonMask.Right : 0 };
         GetViewport().PushInput(input, true);
     }
 

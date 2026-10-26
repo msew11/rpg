@@ -17,12 +17,16 @@ public partial class BagSlotControl : PanelContainer
         MouseExited += Bag.HideItemName;
     }
 
-    /// <summary>左键按下立即拿起或放置，释放不结束拿起状态。</summary>
+    /// <summary>Ctrl＋左键自动穿戴；普通左键按下拿起或放置，松开保留拿起状态。</summary>
     public override void _GuiInput(InputEvent input)
     {
         if (input is InputEventMouseMotion) { Bag.ShowItemName(SlotIndex); return; }
         if (input is not InputEventMouseButton { ButtonIndex: MouseButton.Left } click) return;
-        if (click.Pressed) Bag.ClickItem(SlotIndex);
+        if (click.Pressed)
+        {
+            if (click.CtrlPressed) Bag.AutoEquip(SlotIndex);
+            else Bag.ClickItem(SlotIndex);
+        }
         AcceptEvent();
     }
 }
