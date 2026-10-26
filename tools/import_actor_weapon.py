@@ -155,7 +155,7 @@ def main():
                 records.append(record)
         evidence = {'itemId': item_id, 'binding': f'{hand}{series:02}',
                     'bindingNote': '按物品图标核对持握系列；大剑weaponr41、拳刃weaponr51。副手拳刃复用右手原画。',
-                    'rearLayer': '按握点沿像素主轴无损分层，较厚端为前段，后段由身体遮挡' if item_id in (1015, 1016) else None,
+                    'rearLayer': '按握点沿像素主轴无损分层，较厚端为前段，后段随方向和动作切换身体前后关系' if item_id in (1015, 1016) else None,
                     'motionReuse': {'die': 'sit', 'attack2': 'attack1', 'attack3': 'attack1',
                                     'prepare2': 'prepare1', 'prepare3': 'prepare1', 'ride': 'stand'},
                     'layerSource': layer_file.relative_to(args.raw).as_posix(),

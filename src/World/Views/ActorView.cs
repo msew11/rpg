@@ -24,7 +24,7 @@ public partial class ActorView : Node2D
     /// <summary>副手装备层，与主手共享身体时钟。</summary>
     private readonly Sprite2D _offWeapon = new()
         { Name = "Weapon", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
-    /// <summary>主手长柄后段在身体后方绘制，共用握点和身体帧。</summary>
+    /// <summary>主手长柄后段与前段分处身体两侧，共用握点和身体帧。</summary>
     private readonly Sprite2D _weaponRear = new()
         { Name = "RightWeaponRear", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
     /// <summary>副手长柄后段，卸下或切换普通装备时清空。</summary>
@@ -149,5 +149,11 @@ public partial class ActorView : Node2D
         // 只在角色内部排列，保持整个角色与其他实体的坐标排序。
         var childIndex = behind ? 0 : _facingRoot.GetChildCount() - 1;
         if (hand.GetIndex() != childIndex) _facingRoot.MoveChild(hand, childIndex);
+        if (rear.Visible)
+        {
+            // 背面后段盖住身体，正面后段被身体遮挡；侧面沿用前段的手别和动作变化。
+            var rearIndex = behind ? _facingRoot.GetChildCount() - 1 : 0;
+            if (rear.GetIndex() != rearIndex) _facingRoot.MoveChild(rear, rearIndex);
+        }
     }
 }

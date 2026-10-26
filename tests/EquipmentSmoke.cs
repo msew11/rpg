@@ -49,8 +49,8 @@ public partial class EquipmentSmoke : Node
                 "角色窗口没有十一种独立槽位");
             var preview = (RolePreviewControl)character.FindChild("EquipmentPreview", true, false);
             var previewActor = (ActorView)preview.FindChild("PreviewActor", true, false);
-            Check(preview.Direction == 0 && previewActor.GetNode<AnimatedSprite2D>("Facing/Body").Animation == "dir1" &&
-                previewActor.GetNode<Node2D>("Facing").Scale.X == -1, "装备展示默认未向右侧身");
+            Check(preview.Direction == 1 && previewActor.GetNode<AnimatedSprite2D>("Facing/Body").Animation == "dir0" &&
+                previewActor.GetNode<Node2D>("Facing").Scale.X == -1, "装备展示默认未朝右下方");
             Check(previewActor.Scale == Vector2.One &&
                 preview.FindChild("PreviewPortrait", true, false) is AvatarControl { Visible: false },
                 "装备预览未使用地图原始比例或仍显示头像");

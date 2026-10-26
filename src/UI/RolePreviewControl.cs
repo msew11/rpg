@@ -14,8 +14,8 @@ public partial class RolePreviewControl : VBoxContainer
     public bool ShowPortrait { get; init; } = true;
     /// <summary>预览人物相对原始地图素材的比例。</summary>
     public float ActorScale { get; init; } = 2.4f;
-    /// <summary>所有人物展示统一使用参考图的朝右侧身方向。</summary>
-    public const int DefaultDirection = 0;
+    /// <summary>所有人物展示默认朝屏幕右下方（↘）。</summary>
+    public const int DefaultDirection = 1;
     /// <summary>当前预览朝向，用户旋转后保留展示状态。</summary>
     public int Direction { get; private set; } = DefaultDirection;
     /// <summary>供页面记录当前草稿朝向。</summary>

@@ -2,7 +2,7 @@
   "itemId": 1016,
   "binding": "weaponr31",
   "bindingNote": "按物品图标核对持握系列；大剑weaponr41、拳刃weaponr51。副手拳刃复用右手原画。",
-  "rearLayer": "按握点沿像素主轴无损分层，较厚端为前段，后段由身体遮挡",
+  "rearLayer": "按握点沿像素主轴无损分层，较厚端为前段，后段随方向和动作切换身体前后关系",
   "motionReuse": {
     "die": "sit",
     "attack2": "attack1",

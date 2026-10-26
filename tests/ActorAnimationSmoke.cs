@@ -224,7 +224,8 @@ public partial class ActorAnimationSmoke : Node
                 Check(rear.Visible == (id is 1015 or 1016), "普通装备残留长柄后段或长柄后段缺失");
                 if (rear.Visible)
                     Check(ReferenceEquals(rear.Texture, weapon.RearFrames[textureIndex]) &&
-                        rear.GlobalPosition == sprite.GlobalPosition && rear.GetIndex() < body.GetIndex(),
+                        rear.GlobalPosition == sprite.GlobalPosition &&
+                        (rear.GetIndex() < body.GetIndex()) != (hand.GetIndex() < body.GetIndex()),
                         "长柄后段未同步方向、帧或握点");
                 actor.Present(state with { MainHandId = 0, OffHandId = 0 });
                 Check(!sprite.Visible && sprite.Texture is null && !rear.Visible && rear.Texture is null, "空手残留武器前后段");
@@ -404,7 +405,7 @@ public partial class ActorAnimationSmoke : Node
         AddChild(viewport);
         viewport.AddChild(new ColorRect { Size = viewport.Size, Color = new Color("24303d") });
         var actors = new System.Collections.Generic.List<ActorView>();
-        var totals = new int[8];
+        var totals = new int[16];
         for (var row = 0; row < 8; row++)
         for (var direction = 0; direction < 8; direction++)
         {
@@ -427,13 +428,25 @@ public partial class ActorAnimationSmoke : Node
                 var rear = actor.GetNode<Sprite2D>("Facing/RightWeaponRear");
                 var front = actor.GetNode<Sprite2D>("Facing/RightHand/Weapon");
                 Check(rear.Visible && rear.Texture is not null && rear.GlobalPosition == front.GlobalPosition &&
-                    rear.GetIndex() < body.GetIndex() && rear.ZIndex == 0, "长柄分层未随握点和身体帧同步");
+                    (rear.GetIndex() < body.GetIndex()) != (front.GetParent().GetIndex() < body.GetIndex()) &&
+                    rear.ZIndex == 0, "长柄分层未随握点和身体帧同步或前后段未分处身体两侧");
             }
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             using var rendered = viewport.GetTexture().GetImage();
             for (var index = 0; index < actors.Count; index++)
-                totals[index / 8] += CheckRearOverlap(rendered, actors[index]);
+            {
+                var actor = actors[index];
+                var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+                // 正背面预期独立于后段实现；其他方向须与已有前段的身体层次相反。
+                var inFront = (index % 8) switch
+                {
+                    0 => false,
+                    4 => true,
+                    _ => actor.GetNode<Node2D>("Facing/RightHand").GetIndex() < body.GetIndex()
+                };
+                totals[index / 8 * 2 + (inFront ? 1 : 0)] += CheckRearOverlap(rendered, actor, inFront);
+            }
             if (frame == 0) rendered.SavePng(ProjectSettings.GlobalizePath("res://build/long-weapon-preview.png"));
         }
         Check(totals.All(total => total > 0), $"男女站立或跑步缺少枪杖后段交叠验收：{string.Join(',', totals)}");
@@ -441,8 +454,8 @@ public partial class ActorAnimationSmoke : Node
         viewport.Free();
     }
 
-    /// <summary>跳过头部覆盖区域，直接核对后段重叠处的 GPU 输出来自身体。</summary>
-    private static int CheckRearOverlap(Image rendered, ActorView actor)
+    /// <summary>跳过头部覆盖区域，核对正面交叠来自身体、背面交叠来自后段。</summary>
+    private static int CheckRearOverlap(Image rendered, ActorView actor, bool inFront)
     {
         var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
         var rear = actor.GetNode<Sprite2D>("Facing/RightWeaponRear");
@@ -461,9 +474,9 @@ public partial class ActorAnimationSmoke : Node
             var headPoint = (Vector2I)head.ToLocal(world).Floor();
             if (headImage.GetUsedRect().HasPoint(headPoint) && headImage.GetPixelv(headPoint).A > 0) continue;
             var actual = rendered.GetPixelv((Vector2I)world.Floor());
-            var expected = bodyImage.GetPixelv(point);
+            var expected = inFront ? rearImage.GetPixel(x, y) : bodyImage.GetPixelv(point);
             Check(Mathf.Abs(actual.R - expected.R) < 0.02f && Mathf.Abs(actual.G - expected.G) < 0.02f &&
-                Mathf.Abs(actual.B - expected.B) < 0.02f, $"长柄后段覆盖身体：{world}");
+                Mathf.Abs(actual.B - expected.B) < 0.02f, $"长柄后段遮挡关系错误：前置={inFront}/{world}");
             count++;
         }
         return count;
