@@ -7,7 +7,7 @@ using Rpg.World.Views;
 
 namespace Rpg.UI;
 
-/// <summary>选角与创建共用的独立站立预览、八方向旋转及下方操作区。</summary>
+/// <summary>选角、创建与装备窗口共用的独立站立预览、八方向旋转及下方操作区。</summary>
 public partial class RolePreviewControl : VBoxContainer
 {
     /// <summary>装备窗口隐藏独立头像，选角与创角保持默认显示。</summary>
@@ -41,7 +41,7 @@ public partial class RolePreviewControl : VBoxContainer
         _actor.Scale = Vector2.One * ActorScale;
         _stage.AddChild(_actor);
         _stage.AddChild(_portrait);
-        var rotation = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+        var rotation = new HBoxContainer { Name = "PreviewRotation", Alignment = BoxContainer.AlignmentMode.Center };
         rotation.AddChild(RotationButton("counterclockwise", "RotateCounterclockwise", () => Rotate(-1)));
         rotation.AddChild(RotationButton("clockwise", "RotateClockwise", () => Rotate(1)));
         AddChild(rotation);
@@ -107,7 +107,8 @@ public partial class RolePreviewControl : VBoxContainer
     {
         var button = ActionButton("", name, action);
         button.Icon = GD.Load<Texture2D>($"res://assets/ui/rotate-{icon}.svg");
-        button.CustomMinimumSize = new Vector2(40, 40);
+        button.CustomMinimumSize = new Vector2(28, 28);
+        button.IconAlignment = HorizontalAlignment.Center;
         return button;
     }
 }

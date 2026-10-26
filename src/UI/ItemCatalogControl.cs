@@ -80,9 +80,7 @@ public partial class ItemCatalogControl : PanelContainer
         margin.AddChild(box);
         var header = new HBoxContainer();
         box.AddChild(header);
-        var title = new Label { Text = "道具图鉴", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        title.AddThemeFontSizeOverride("font_size", 24);
-        header.AddChild(title);
+        header.AddChild(PopupPanelStyle.CreateTitle("道具图鉴"));
         _mode = new OptionButton { Name = "CatalogMode" };
         _mode.AddItem("道具清单");
         _mode.AddItem("素材预览");

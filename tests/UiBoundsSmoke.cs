@@ -23,6 +23,11 @@ public partial class UiBoundsSmoke : Node
             RoleTestData.Seed(Path.Combine(directory, "server"));
             main = await StartMain(directory);
             var hud = main.FindChildren("*", "Control", true, false).OfType<GameHud>().Single();
+            // client-ui：所有普通窗口标题与背包字号相同，包括未打开的图鉴和 HUD 调整窗。
+            var bagTitle = (Label)hud.GetNode<BagControl>("背包").FindChild("PanelTitle", true, false);
+            var titles = hud.FindChildren("PanelTitle", "Label", true, false).OfType<Label>().ToArray();
+            Check(titles.Length >= 8 && titles.All(title => title.GetThemeFontSize("font_size") == bagTitle.GetThemeFontSize("font_size")),
+                "角色、图鉴或其他窗口标题没有与背包统一字号");
             // client-ui：头像展示当前角色，等级只在头像角标，状态条采用明确的百分比色阶。
             var portraitPanel = hud.GetNode<PanelContainer>("portrait");
             var avatar = portraitPanel.FindChildren("Avatar", "Control", true, false).OfType<AvatarControl>().Single();

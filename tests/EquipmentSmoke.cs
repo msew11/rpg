@@ -13,7 +13,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>role-equipment：通过真实角色窗口和鼠标输入验收七件装备、替换、卸下与旋转。</summary>
+/// <summary>role-equipment 与 client-ui：验收五行槽位、背包等大图标、紧凑旋转及真实穿脱。</summary>
 public partial class EquipmentSmoke : Node
 {
     /// <summary>隔离存档并通过正式节点走完整穿脱流程。</summary>
@@ -43,7 +43,7 @@ public partial class EquipmentSmoke : Node
             var character = hud.GetNode<ViewportPanelControl>("角色");
             var bag = hud.GetNode<BagControl>("背包");
             // 通过真实标题拖动分开两个窗口，避免测试直接覆写布局状态。
-            await MoveWindow(character, new Vector2(20, 20));
+            await MoveWindow(character, new Vector2(280, 80));
             await MoveWindow(bag, new Vector2(650, 80));
             Check(character.FindChildren("Equipment*", "PanelContainer", true, false).OfType<EquipmentSlotControl>().Count() == 11,
                 "角色窗口没有十一种独立槽位");
@@ -52,6 +52,21 @@ public partial class EquipmentSmoke : Node
             Check(previewActor.Scale == Vector2.One &&
                 preview.FindChild("PreviewPortrait", true, false) is AvatarControl { Visible: false },
                 "装备预览未使用地图原始比例或仍显示头像");
+            var grid = (GridContainer)bag.FindChild("BagGrid", true, false);
+            var bagSlotSize = grid.GetChild<Control>(0).Size;
+            var feet = (Control)character.FindChild("EquipmentFeet", true, false);
+            var mainHand = (Control)character.FindChild("EquipmentMainHand", true, false);
+            var offHand = (Control)character.FindChild("EquipmentOffHand", true, false);
+            Check(bagSlotSize == new Vector2(48, 48), "背包格子基准尺寸改变");
+            foreach (var hand in new[] { mainHand, offHand })
+                Check(Mathf.IsEqualApprox(hand.GlobalPosition.Y, feet.GlobalPosition.Y) &&
+                    Mathf.IsEqualApprox(hand.GetGlobalRect().End.Y, feet.GetGlobalRect().End.Y) &&
+                    hand.GlobalPosition.Y >= preview.GetGlobalRect().End.Y,
+                    "主副手未在人物下方与鞋子同行");
+            var leftInset = feet.GlobalPosition.X - character.GlobalPosition.X;
+            var rightSlot = (Control)character.FindChild("EquipmentFace", true, false);
+            var rightInset = character.GetGlobalRect().End.X - rightSlot.GetGlobalRect().End.X;
+            Check(rightInset <= leftInset + 5 && character.Size.X < 340, "角色窗口右侧仍有多余固定留白");
             foreach (var slotControl in character.FindChildren("Equipment*", "PanelContainer", true, false).OfType<EquipmentSlotControl>())
             {
                 var name = slotControl.GetNode<Label>("SlotName");
@@ -59,24 +74,37 @@ public partial class EquipmentSmoke : Node
                 Check(name.Visible && slotControl.GetGlobalRect().Encloses(name.GetGlobalRect()) &&
                     Mathf.IsEqualApprox(color.R, color.G) && Mathf.IsEqualApprox(color.G, color.B) && color.R < 0.7f,
                     "空槽名称未在槽内以灰色展示");
+                Check(slotControl.Size == bagSlotSize && slotControl.FindChild("ItemCount", true, false) is null,
+                    "装备槽与背包不等大或带有数量");
             }
             foreach (var buttonName in new[] { "RotateCounterclockwise", "RotateClockwise" })
             {
                 var button = (Button)preview.FindChild(buttonName, true, false);
-                Check(button.Text.Length == 0 && button.Icon is not null, "旋转按钮未统一为图标");
+                Check(button.Text.Length == 0 && button.Icon is not null && button.Size == new Vector2(28, 28) &&
+                    button.Icon.GetSize() == new Vector2(18, 18) && button.IconAlignment == HorizontalAlignment.Center &&
+                    button.GetGlobalRect().End.Y < mainHand.GlobalPosition.Y,
+                    "旋转按钮未缩小居中或未上移到手部槽上方");
             }
             Check(!character.FindChildren("*", "Label", true, false).OfType<Label>().Any(label => label.Text.Contains("右键卸下")),
                 "仍显示穿脱操作说明");
             Check(!previewActor.GetNode<Sprite2D>("Facing/RightHand/Weapon").Visible && GameServices.World.ActorState!.MainHandId == 0,
                 "初始空手仍显示长剑");
-            var grid = (GridContainer)bag.FindChild("BagGrid", true, false);
             var target = GameServices.World.RoleTarget;
             foreach (var id in Enumerable.Range(1012, 7))
             {
                 var item = GameServices.Session.Bag.Items.Single(item => item.ItemId == id && item.InstanceId != 8);
                 var slot = id is 1014 or 1018 ? EquipmentSlot.OffHand : EquipmentSlot.MainHand;
                 var control = (Control)character.FindChild($"Equipment{slot}", true, false);
+                var bagIcon = (TextureRect)grid.GetChild<Control>(item.SlotIndex).FindChild("ItemIcon", true, false);
+                var iconSize = bagIcon.Size;
+                var sourceSize = bagIcon.Texture.GetSize();
+                var iconStretch = bagIcon.StretchMode;
+                var iconFilter = bagIcon.TextureFilter;
                 await Transfer(grid.GetChild<Control>(item.SlotIndex), control);
+                var equippedIcon = (TextureRect)control.FindChild("EquipmentIcon", true, false);
+                Check(equippedIcon.Size == iconSize && equippedIcon.Texture.GetSize() == sourceSize &&
+                    equippedIcon.StretchMode == iconStretch && equippedIcon.TextureFilter == iconFilter,
+                    "装备图标与背包的实际显示尺寸或采样方式不同");
                 Check(GameServices.Session.Bag.Equipment.Any(item => item.ItemId == id && item.Slot == slot), $"装备失败：{id}");
                 var state = GameServices.World.ActorState!;
                 Check((slot == EquipmentSlot.MainHand ? state.MainHandId : state.OffHandId) == id, "权威装备未同步世界");
@@ -151,6 +179,17 @@ public partial class EquipmentSmoke : Node
             scroll.EnsureControlVisible((Control)character.FindChild("EquipmentFeet", true, false));
             await Frames();
             Check(scroll.ScrollVertical > 0, "小窗口不能滚动至鞋子槽");
+            foreach (var hand in new[] { mainHand, offHand })
+                Check(scroll.GetGlobalRect().Encloses(hand.GetGlobalRect()) && hand.Size == bagSlotSize,
+                    "小窗口手部槽无法与鞋子同时显示或尺寸改变");
+            if (OS.GetCmdlineUserArgs().Contains("--capture-equipment"))
+            {
+                bag.Hide();
+                hud.MoveChild(character, hud.GetChildCount() - 1);
+                await Frames();
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                GetViewport().GetTexture().GetImage().SavePng(ProjectSettings.GlobalizePath("res://build/equipment-window-small.png"));
+            }
             GD.Print("Equipment smoke passed: compact preview, slot labels, icons, Ctrl equip/swap/unequip, full bag rejection, inert right click, 7 items, persistence and small viewport.");
             main.QueueFree();
             await Frames();

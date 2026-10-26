@@ -67,7 +67,7 @@ public partial class BagControl : PanelContainer
         AddChild(_column);
         _header = new HBoxContainer { Name = "PanelHeader" };
         _column.AddChild(_header);
-        _header.AddChild(new Label { Text = "背包", SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
+        _header.AddChild(PopupPanelStyle.CreateTitle("背包"));
         var close = new Button { Text = "关闭" };
         close.Pressed += Hide;
         _header.AddChild(close);
@@ -77,6 +77,8 @@ public partial class BagControl : PanelContainer
         _scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _column.AddChild(_scroll);
         _grid = new GridContainer { Name = "BagGrid" };
+        _grid.AddThemeConstantOverride("h_separation", ItemSlotStyle.Spacing);
+        _grid.AddThemeConstantOverride("v_separation", ItemSlotStyle.Spacing);
         _scroll.AddChild(_grid);
         _itemLayer = new CanvasLayer { Name = "ItemPointerLayer", Layer = 100 };
         AddChild(_itemLayer);
@@ -149,10 +151,8 @@ public partial class BagControl : PanelContainer
             for (var index = 0; index < capacity; index++)
             {
                 var slot = new BagSlotControl { Bag = this, SlotIndex = index,
-                    Name = $"Slot{index}", CustomMinimumSize = new Vector2(48, 48), MouseFilter = MouseFilterEnum.Stop };
-                var style = new StyleBoxFlat { BgColor = new Color(0.10f, 0.13f, 0.17f), BorderColor = new Color(0.35f, 0.40f, 0.48f) };
-                style.SetBorderWidthAll(1);
-                slot.AddThemeStyleboxOverride("panel", style);
+                    Name = $"Slot{index}", MouseFilter = MouseFilterEnum.Stop };
+                ItemSlotStyle.Apply(slot);
                 _grid.AddChild(slot);
                 _slots.Add(slot);
             }
@@ -166,13 +166,13 @@ public partial class BagControl : PanelContainer
         {
             var definition = config.Item.Items[item.ItemId];
             var slot = _slots[item.SlotIndex];
-            var content = new Control { CustomMinimumSize = new Vector2(46, 46), MouseFilter = MouseFilterEnum.Ignore };
+            var content = ItemSlotStyle.CreateContent();
             slot.AddChild(content);
             var texture = ResolveTexture(definition.IconAssetId);
             Control icon = texture is null
                 ? new Label { Name = "MissingIcon", Text = "?", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
-                : new TextureRect { Name = "ItemIcon", Texture = texture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-                    StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.Nearest };
+                : ItemSlotStyle.CreateIcon("ItemIcon");
+            if (icon is TextureRect image) image.Texture = texture;
             content.AddChild(icon);
             icon.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
             icon.MouseFilter = MouseFilterEnum.Ignore;

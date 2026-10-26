@@ -429,7 +429,7 @@ public partial class GameHud : Control
     /// <summary>创建业务窗口及独立的系统、角色设置页签。</summary>
     private void BuildPanels()
     {
-        var character = CreatePanel("角色", new Vector2(430, 0));
+        var character = CreatePanel("角色", Vector2.Zero);
         _characterText = Text("", 14);
 
         _bag = new BagControl { Name = "背包", Visible = false };

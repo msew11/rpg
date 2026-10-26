@@ -35,9 +35,7 @@ public partial class ViewportPanelControl : PanelContainer
         AddChild(_column);
         _header = new HBoxContainer { Name = "PanelHeader" };
         _column.AddChild(_header);
-        var title = new Label { Text = Title, SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
-        title.AddThemeFontSizeOverride("font_size", 20);
-        _header.AddChild(title);
+        _header.AddChild(PopupPanelStyle.CreateTitle(Title));
         var close = new Button { Name = "ClosePanel", Text = "关闭" };
         close.Pressed += Hide;
         _header.AddChild(close);
