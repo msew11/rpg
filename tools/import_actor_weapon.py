@@ -79,7 +79,7 @@ def split_long_weapon(image, anchor):
 
 
 def restore_grip(image, anchor):
-    """以原柄部颜色连接握点附近分离的护手和柄尾，只补短透明缺口，供跨手时由身体遮住。"""
+    """以柄尾中心确定握柄轴向，恢复原手形留下的短缺口，跨手时由目标手掌遮住。"""
     pending = {(x, y) for y in range(image.height) for x in range(image.width) if image.getpixel((x, y))[3]}
     components = []
     while pending:
@@ -98,7 +98,7 @@ def restore_grip(image, anchor):
     result = Image.new('RGBA', image.size)
     if len(components) < 2:
         return result
-    components.sort(key=len, reverse=True)
+    components.sort(key=lambda part: (-len(part), min(part)))
     distance = lambda p: (p[0] - anchor[0]) ** 2 + (p[1] - anchor[1]) ** 2
     blade = min(components[0], key=lambda p: (distance(p), p))
     candidates = [part for part in components[1:] if min(map(distance, part)) <= 64]
@@ -112,7 +112,22 @@ def restore_grip(image, anchor):
     if not colors:
         return result
     color = min(colors, key=lambda c: (sum(c[:3]), c))
-    ImageDraw.Draw(result).line([blade, anchor, pommel], fill=color, width=2)
+    draw = ImageDraw.Draw(result)
+    draw.line([blade, anchor, pommel], fill=color, width=2)
+    # 最近点可能落在护手尖端；沿柄尾中心穿过握点寻找护手，补足手掌上侧的柄芯。
+    tails = [part for part in candidates if len(part) >= 3]
+    if tails:
+        tail = min(tails, key=lambda part: (min(map(distance, part)), -len(part), min(part)))
+        center = tuple(sum(point[i] for point in tail) / len(tail) for i in (0, 1))
+        axis = (anchor[0] - center[0], anchor[1] - center[1])
+        length = math.hypot(*axis)
+        if 1 <= length <= 12:
+            axis = tuple(value / length for value in axis)
+            for step in range(1, 21):
+                guard = tuple(round(anchor[i] + axis[i] * step / 2) for i in (0, 1))
+                if guard in components[0]:
+                    draw.line([guard, anchor, tuple(round(value) for value in center)], fill=color, width=4)
+                    break
     for y in range(image.height):
         for x in range(image.width):
             if image.getpixel((x, y))[3]:
@@ -230,7 +245,7 @@ def main():
         records, layer_file = import_hand(args.raw, target, hand, series, item_id, actions, variant)
         evidence = {'itemId': item_id, 'binding': f'{hand}{series:02}',
                     'nativeHand': 'right' if hand == 'weaponr' else 'left',
-                    'gripRestoration': '握点附近护手与柄尾的短透明缺口以原柄色连接，独立层仅跨手回退时置于身体下方，原画像素不变' if item_id in (1012, 1013) else None,
+                    'gripRestoration': '沿柄尾中心到握点的轴向寻找护手，以原柄色补充有限宽度柄芯及短连接，独立层仅跨手回退时置于身体下方，原画像素不变' if item_id in (1012, 1013) else None,
                     'bindingNote': '按物品图标核对持握系列；同系列另一手有男女原画时完整导入，镜像按源手别选择；不存在时明确沿用基础素材。',
                     'oppositeHandAvailable': variant is not None,
                     'rearLayer': '按握点沿像素主轴无损分层，较厚端为前段，后段随方向和动作切换身体前后关系' if item_id in (1015, 1016) else None,

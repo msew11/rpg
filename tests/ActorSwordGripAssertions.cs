@@ -35,8 +35,10 @@ internal static class ActorSwordGripAssertions
         var palms = new int[2];
         var legs = new int[2];
         var contacts = new int[2];
-        for (var frame = 0; frame < 8; frame++)
+        for (var step = 0; step < 8; step++)
         {
+            // 先验收用户明确指出的第6帧，再逐帧检查其余姿态，不能用整组接触数代替。
+            var frame = (step + 6) % 8;
             foreach (var actor in actors)
             {
                 var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
@@ -52,6 +54,7 @@ internal static class ActorSwordGripAssertions
                 var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
                 var sword = actor.GetNode<Sprite2D>("Facing/RightHand/Weapon");
                 var grip = actor.GetNode<Sprite2D>("Facing/RightWeaponGrip");
+                if (row == 2 && direction == 5) VerifyPalmSeam(actor, rendered, frame);
                 using var bodyImage = body.SpriteFrames.GetFrameTexture(body.Animation, body.Frame).GetImage();
                 using var swordImage = sword.Texture.GetImage();
                 using var gripImage = grip.Texture.GetImage();
@@ -97,6 +100,26 @@ internal static class ActorSwordGripAssertions
             Require(contacts[gender] > 0 && legs[gender] > 0 && (gender != 0 || bridges[gender] > 0 && palms[gender] > 0),
                 $"缺少有效交叠样本：{gender}/握柄{bridges[gender]}/手掌{palms[gender]}/腿{legs[gender]}");
         GD.Print($"Sword grip GPU passed: visible bridges {string.Join(',', bridges)}, body masks {string.Join(',', palms)}, native grip contacts {string.Join(',', contacts)}, blade/leg overlaps {string.Join(',', legs)}.");
+    }
+
+    /// <summary>按人工审查的八帧上侧接缝坐标独立验收，任何一帧露背景均失败。</summary>
+    private static void VerifyPalmSeam(ActorView actor, Image rendered, int frame)
+    {
+        var hand = actor.GetNode<Node2D>("Facing/RightHand");
+        // 坐标取自手掌外缘到护手的接缝，使用镜像前局部坐标；不由连接层反推期望值。
+        var seams = new[] { new Vector2(-4, -1), new Vector2(-4, 0), new Vector2(-3, -2),
+            new Vector2(-3, -2), new Vector2(-2, -4), new Vector2(-4, -1), new Vector2(-3, -3), new Vector2(-3, -2) };
+        var world = hand.ToGlobal(seams[frame] + new Vector2(0.5f, 0.5f));
+        var actual = rendered.GetPixelv((Vector2I)world.Floor());
+        Require(actual.ToHtml() != new Color("24303d").ToHtml(), $"男性右上跑步第{frame}帧手掌与护手之间仍露背景");
+        // 第6帧上侧有连续两列接缝，必须全部连接，单个角点接触不足以视为握住。
+        if (frame != 6) return;
+        foreach (var pixel in new[] { new Vector2(-2, -3), new Vector2(-4, -2), new Vector2(-3, -2), new Vector2(-4, -1) })
+        {
+            world = hand.ToGlobal(pixel + new Vector2(0.5f, 0.5f));
+            Require(rendered.GetPixelv((Vector2I)world.Floor()).ToHtml() != new Color("24303d").ToHtml(),
+                $"男性右上跑步第6帧上侧接缝不完整：{pixel}");
+        }
     }
 
     /// <summary>实际像素不符合遮挡契约时终止GPU冒烟并报告位置。</summary>
