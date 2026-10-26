@@ -4,7 +4,7 @@
 
 客户端共享业务枚举放在 `src/Const/`，使用 `Rpg.Const` 命名空间，例如 `RoleGender` 和 `RoleMotion`。
 
-`IService` 位于 `src/Services/`，统一约定释放与只读 `IsDisposed` 状态。九个服务继承薄基类 `Service`，共用释放状态和受保护的 `ThrowIfDisposed()`；具体 `Dispose()` 仍由各服务实现，保持自己的标记时机、资源清理和异常处理，不增加释放钩子或统一清理模板。缓存、传输与注册句柄保留自身生命周期。`GameServices` 是主线程的固定服务集合，提供只读 `Env`、`Log`、`Config`、`Setting`、`EventBus`、`Net`、`Session`、`World`、`Animation` 入口。参考 Dalamud 的服务契约、构造依赖与逆依赖卸载原则；当前服务数量固定，通过显式组合表达依赖。服务之间只能借用构造参数传入的同次启动实例，禁止在任何服务及其内部类型中访问 GameServices，禁止循环依赖、属性回填、延迟解析与工厂委托绕过构造顺序；依赖字段保持只读。Godot 节点通过全局入口调用业务，不缓存服务、账号缓存或世界管理器。节点只拥有 Godot 节点、订阅句柄、界面布局和上次呈现的不可变快照。
+`IService` 位于 `src/Services/`，统一约定释放与只读 `IsDisposed` 状态。十个服务继承薄基类 `Service`，共用释放状态和受保护的 `ThrowIfDisposed()`；具体 `Dispose()` 仍由各服务实现，保持自己的标记时机、资源清理和异常处理，不增加释放钩子或统一清理模板。缓存、传输与注册句柄保留自身生命周期。`GameServices` 是主线程的固定服务集合，提供只读 `Env`、`Log`、`Config`、`Setting`、`EventBus`、`Net`、`Session`、`World`、`Animation`、`Items` 入口。参考 Dalamud 的服务契约、构造依赖与逆依赖卸载原则；当前服务数量固定，通过显式组合表达依赖。服务之间只能借用构造参数传入的同次启动实例，禁止在任何服务及其内部类型中访问 GameServices，禁止循环依赖、属性回填、延迟解析与工厂委托绕过构造顺序；依赖字段保持只读。Godot 节点通过全局入口调用业务，不缓存服务、账号缓存或世界管理器。节点只拥有 Godot 节点、订阅句柄、界面布局和上次呈现的不可变快照。
 
 | 服务 | 拥有的状态和行为 | 内部依赖 |
 | --- | --- | --- |
@@ -17,16 +17,17 @@
 | `SessionService Session` | 持有登录尝试的摘要与角色缓存，提交登录、选角和角色管理请求并提供快照 | `NetService`、内部 `LoginCache`、`RoleCache` 与 `MapCache` |
 | `WorldService World` | 地图、ECS、输入转换、角色初始化与权威同步 | Env、Config、Setting、Session；内部只读地图组件、`MapUtils`、`WorldManager` |
 | `AnimationService Animation` | 分别缓存身体动作与独立头部资源并解析朝向 | Godot 原生资源 |
+| `ItemAssetService Items` | 共享物品素材目录与键索引、按需图集和裁剪纹理，选角预热当前物品 | Godot 原生资源 |
 
 `ConfigService` 显式持有 `MapCfgCache Map`、`ItemCfgCache Item`、`BasicCfgCache Basic` 和 `EquipmentCfgCache Equipment`，构造时按缓存类的文件标注读取平铺于 `res://config` 根目录的全部 JSON，拒绝子目录与未注册文件。单例通过 `Basic.Value` 读取，多例通过各缓存的 `Items` 读取。配置缓存统一使用 `res://schemas` 中同名的 Draft 2020-12 JSON Schema 校验；原始加载只走 Godot `DirAccess` 与 `FileAccess`。每表完整读取后调用 `CfgCache.BuildIndexes()`，全部表及索引就绪后由统一入口调用 `CfgCache.Validate(ConfigService)` 整表重载检查关联；泛型缓存已有的 `Validate(TCfg)` 保留逐行检查。不增加策略目录或检测策略类，不通过全局服务取得其他缓存。缺失、重复、未注册、无效配置、Schema、索引构建或关联错误均导致启动抛异常，保留文件与原因诊断并清理已创建缓存。配置与程序同包发布，释放后服务与已取得缓存都拒绝继续读取。配置及整组服务验收在 Godot headless 执行；普通 .NET 地图用例直接提供 `MapCfg` 纯数据。
 
-主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config 的公开构造只接收 Env，Setting 接收 Env、Log，Net 接收 Env、EventBus、Config、Log，Session 接收 Net，World 接收 Env、Config、Setting、Session，EventBus 和 Animation 无构造依赖。`Initialize()` 在同一方法体内按 Env、Log、EventBus、Config、Setting、Net、Session、World、Animation 顺序显式创建全部九个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Animation、World、Session、Net、Setting、Config、EventBus、Log、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
+主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config 的公开构造只接收 Env，Setting 接收 Env、Log，Net 接收 Env、EventBus、Config、Log，Session 接收 Net，World 接收 Env、Config、Setting、Session，EventBus、Animation 和 Items 无构造依赖。`Initialize()` 在同一方法体内按 Env、Log、EventBus、Config、Setting、Net、Session、World、Animation、Items 顺序显式创建全部十个服务；不使用容器、反射或自动依赖排序。`NetService` 自行建立当前阶段的模拟传输，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Items、Animation、World、Session、Net、Setting、Config、EventBus、Log、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
 
 `MainController` 只协调页面与表现：登录和选角按钮调用 Session 服务，成功后创建相应页面或世界表现；固定帧先推进 Net 再推进 World，再更新角色与摄像机。输入由节点完成视口逆投影，再交给 World 服务限制边界、分配移动序号并同时提交 ECS Action 与网络请求。控制器不再保存目录或网络工厂；`InitializeServices()` 只调用无参启动，场景测试替身覆盖整组初始化以使用独立环境和传输。启动失败和退出共用清理，先撤销 UI 监听、提交拖动设置，再释放服务句柄；未获得句柄的控制器不会释放其他启动流程的服务。
 
 `SessionService.Login` 在请求前清空旧账号、隔离网络代次并创建空的 `LoginCache` 与 `RoleCache`。`LoginCache` 自身在缓存阶段处理首份及后续 `LoginRt`，完整校验摘要后才标记已认证；服务不订阅响应，也不重置正在分发的成功响应。非法摘要不留下有效账号状态或部分数据，并阻止 UI 成功回调；当前尝试的空缓存保留托管订阅，重试、退出或服务释放时回收。UI 只读取 `GameServices.Session.Roles`、`RoleId`、`Role` 和状态标记；缓存容器与已有响应构造均为内部接口。服务绑定创建时的网络及账号代次，旧实例不能操作后来注册的网络或账号。
 
-选角复用账号会话，发送请求前清空角色缓存并隔离旧代次。`RoleCache` 成功初始化后，`MainController` 的选角回调显式调用 `WorldService.InitializeRole()`，先建立地图实体，再建立角色实体，并选择对应角色设置；随后 UI 创建表现。`MainController` 监听移动响应与主动推送，调用 `WorldService.SyncRole()`，由服务将当前缓存快照转为同步 Action，不允许节点直接写 ECS；同步不依赖 HUD 是否存在。选角失败保留账号摘要并恢复角色列表。返回选角清理世界、角色数据和当前角色设置，保留同一个账号；返回登录由 Session 服务释放账号缓存并清空账号状态，各服务仍常驻到场景结束。背包由 `RoleCache` 独立持有 `BagPbData`，不设置 `DataCache` 或独立 `BagCache`；选角原子初始化角色与背包，切角同时清空。
+选角复用账号会话，发送请求前清空角色缓存并隔离旧代次。`RoleCache` 成功初始化后，`MainController` 的选角回调显式调用 `WorldService.InitializeRole()`，调用世界初始化前由 `ItemAssetService` 预热当前背包与装备图标，随后先建立地图实体，再建立角色实体，并选择对应角色设置；随后 UI 创建表现。`MainController` 监听移动响应与主动推送，调用 `WorldService.SyncRole()`，由服务将当前缓存快照转为同步 Action，不允许节点直接写 ECS；同步不依赖 HUD 是否存在。选角失败保留账号摘要并恢复角色列表。返回选角清理世界、角色数据和当前角色设置，保留同一个账号；返回登录由 Session 服务释放账号缓存并清空账号状态，各服务仍常驻到场景结束。背包由 `RoleCache` 独立持有 `BagPbData`，不设置 `DataCache` 或独立 `BagCache`；选角原子初始化角色与背包，切角同时清空。
 
 所有功能缓存位于 `src/Session/Cache/`，继承 `CacheBase`，通过受保护的 `Subscribe<T>()` 注册缓存阶段监听，由基类私有集合托管句柄。释放幂等取消自身订阅并执行一次 `OnDispose()`，释放后禁止新增订阅。所有 `PbData` 类位于 `src/Session/Data/`，通过自身 `FromPb` 与 `ToPb` 校验、复制数据，不共享可变协议对象。`RoleCache` 分别持有不可变的世界资料、生命魔力状态、位置与当前玩家私有 `RolePbData`，各按最后接纳的版本过滤；本地组合为 `RoleWorldStatePbData` 供 World 与 UI 读取，但其 `ToPb()` 仅生成可见世界状态，私有数据须通过 `ToRolePb()` 单独转换。世界分别过滤资料和位置版本，位置推送在确认序号不变时仍可纠偏。
 
@@ -143,7 +144,7 @@ Godot 输入 -> 等轴逆投影 -> GameServices.World -> 移动 Action / 会话�
 
 GM 面板并排平铺“打开用户数据目录”和“查看道具图鉴”两个同级按钮，不再展示系统与角色设置文件路径。用户数据目录是 Godot `user://` 对应的应用可写数据根目录，存放本地设置和模拟服务端存档；点击时通过 `ProjectSettings.GlobalizePath("user://")` 动态解析，并由系统文件管理器打开目录内的内容，失败显示错误。
 
-GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 面板互斥。控件首次打开读取 `res://assets/items/catalog.json` 图片索引及 `definitions.json` 具名道具快照；默认道具清单模式按照参考导出页的 `display_category` 分为武器、防具／饰品、其他装备、宠物、收集品、消耗品，再按父类型内的 `type_code/type_name` 筛选子类型，支持名称、ID和说明搜索。素材预览模式保留四个图片来源分类与来源编号搜索。两种模式每页至多创建48个条目，按需加载图集，详情独立滚动；切换父类型重置子类型，切换模式、分类或查询重置分页和详情。不增加业务服务、配置种类或会话状态。正式运行及 Windows 导出只依赖项目内资源，导出预设包含素材及道具目录 JSON。
+GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 面板互斥。控件首次打开从 `GameServices.Items` 取得共享素材目录和索引，并读取 `definitions.json` 具名道具快照；默认道具清单模式按照参考导出页的 `display_category` 分为武器、防具／饰品、其他装备、宠物、收集品、消耗品，再按父类型内的 `type_code/type_name` 筛选子类型，支持名称、ID和说明搜索。素材预览模式保留四个图片来源分类与来源编号搜索。两种模式每页至多创建48个条目，通过共享服务按需加载图集，详情独立滚动；切换父类型重置子类型，切换模式、分类或查询重置分页和详情。图鉴不持有独立图片索引或会话状态。正式运行及 Windows 导出只依赖项目内资源，导出预设包含素材及道具目录 JSON。
 
 `python tools/import_item_catalog.py --source <art_export目录>` 使用 Pillow 将四个源目录的全部 PNG 无损打包为28张2048×2048图集，保留来源相对路径、原始编号、SHA256、尺寸和透明裁剪偏移。素材目录共22,872条：道具小图标6,612、道具大图6,097、左手武器部件1,451、右手武器部件8,712。来源为 `item/item`、`item/itempic`、`avatar/weaponl`、`avatar/weaponr`；大小图分别保留，武器包含动作与方向变体且仅展示已解码首帧，不代表独立武器数量。
 
@@ -279,3 +280,5 @@ DropItem 的 destroy 字段默认 false；Session 仅发送意图。MockServer �
 角色窗口不再使用固定最小宽度，外框按槽位与资料的自然宽度收紧。ItemSlotStyle 统一背包和装备的 48×48 外框、46×46 内容区、4 像素行距及图标等比居中/最近邻规则；装备不创建数量标签。PopupPanelStyle.CreateTitle 为背包、角色、大地图、GM、系统与角色设置、HUD 调整和图鉴统一创建 16 字号标题。
 
 装备和背包拿起图像统一由 `ItemSlotStyle.CreateContent` 和 `BagControl.BeginPickup` 生成，46×46 内容区、最近邻、0.85 透明度及数量展示保持背包规则。装备槽与背包槽共用 `BagControl.ShowItemInfo` 和 `ItemNamePopup` 即时信息入口，目前只显示配置名称，为后续分类信息保留统一扩展位置；不使用引擎延迟 Tooltip。装备悬停不要求背包打开；所属窗口隐藏、空槽、移出、拿起、刷新和切角清理信息。
+
+物品素材由 `GameServices.Items` 在主线程惰性读取 `assets/items/catalog.json` 并建立只读索引。背包、装备窗口、地面物品和图鉴共同访问该服务，不各自解析目录；图集按路径、裁剪纹理按素材键缓存并强引用。选角成功后、世界与 HUD 创建前仅预热当前背包和装备的图标；空包不加载无关图集，切角继续复用静态资源，新增物品按需补充。完整服务释放时清空缓存，仍由节点持有的纹理由 Godot 管理。首次目录解析和所需图集加载仍在进入阶段同步执行。

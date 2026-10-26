@@ -515,7 +515,7 @@ public sealed class GameServicesTests
     {
         using var lifetime = Register(new DoubleNetTransport());
         IService[] services = [GameServices.Env, GameServices.Log, GameServices.Config, GameServices.Setting, GameServices.EventBus,
-            GameServices.Net, GameServices.Session, GameServices.World, GameServices.Animation];
+            GameServices.Net, GameServices.Session, GameServices.World, GameServices.Animation, GameServices.Items];
         Assert.All(services, service => Assert.False(service.IsDisposed));
         lifetime.Dispose();
         Assert.All(services, service => Assert.True(service.IsDisposed));

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using Rpg.Const;
 using Rpg.Net;
@@ -276,6 +277,10 @@ public partial class MainController : Control
             return;
         }
         if (!GameServices.Session.HasRole) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
+        var bag = GameServices.Session.Bag;
+        GameServices.Items.Preload(bag.Items.Select(item => item.ItemId)
+            .Concat(bag.Equipment.Select(item => item.ItemId))
+            .Select(id => GameServices.Config.Item.Items[id].IconAssetId));
         UiSoundPlayer.Play(this, 1005);
         GameServices.World.InitializeRole();
         BuildRoleWorld();

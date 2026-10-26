@@ -22,8 +22,6 @@ public partial class BagControl : PanelContainer
     private HBoxContainer _header = null!;
     /// <summary>在视口不足时承载完整网格的滚动区。</summary>
     private ScrollContainer _scroll = null!;
-    /// <summary>首次显示时加载的素材索引，不依赖 GM 图鉴窗口。</summary>
-    private Dictionary<string, DataItemAsset>? _icons;
     /// <summary>已创建的固定格子，刷新只替换内容。</summary>
     private readonly List<PanelContainer> _slots = [];
     /// <summary>展示移动响应错误，不覆盖角色或背包缓存。</summary>
@@ -469,10 +467,6 @@ public partial class BagControl : PanelContainer
     /// <summary>离树时幂等回收订阅与拖动上下文。</summary>
     public override void _ExitTree() => ReleaseSubscription();
 
-    /// <summary>背包独立持有素材索引，调用无状态图集裁剪工具。</summary>
-    private AtlasTexture? ResolveTexture(string id)
-    {
-        _icons ??= ItemAtlasUtil.Index(ItemAtlasUtil.LoadCatalog());
-        return ItemAtlasUtil.Resolve(_icons, id);
-    }
+    /// <summary>复用选角时准备的共享物品纹理。</summary>
+    private static AtlasTexture? ResolveTexture(string id) => GameServices.Items.Resolve(id);
 }

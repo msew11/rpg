@@ -22,8 +22,6 @@ public partial class CharacterEquipmentControl : VBoxContainer
     private readonly Dictionary<EquipmentSlot, TextureRect> _icons = new();
     /// <summary>空槽内的灰色名称，穿上装备后为图标让位。</summary>
     private readonly Dictionary<EquipmentSlot, Label> _slotNames = new();
-    /// <summary>当前窗口拥有的素材索引。</summary>
-    private Dictionary<string, DataItemAsset>? _assets;
     /// <summary>服务器错误在角色窗口内即时可见。</summary>
     private readonly Label _status = new() { Name = "EquipmentStatus", Visible = false,
         AutowrapMode = TextServer.AutowrapMode.WordSmart };
@@ -108,12 +106,11 @@ public partial class CharacterEquipmentControl : VBoxContainer
         _preview.ShowRole(role.Gender, role.HeadId, role.RoleId, role.Name,
             mainHandId: equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
             offHandId: equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0);
-        _assets ??= ItemAtlasUtil.Index(ItemAtlasUtil.LoadCatalog());
         foreach (var (slot, icon) in _icons)
         {
             var item = equipment.FirstOrDefault(item => item.Slot == slot);
             var cfg = item is null ? null : GameServices.Config.Item.Items[item.ItemId];
-            icon.Texture = cfg is null ? null : ItemAtlasUtil.Resolve(_assets, cfg.IconAssetId);
+            icon.Texture = cfg is null ? null : GameServices.Items.Resolve(cfg.IconAssetId);
             _slotNames[slot].Visible = item is null;
         }
     }

@@ -7,6 +7,7 @@ using Rpg.Session;
 using Rpg.Settings;
 using Rpg.World;
 using Rpg.World.Views;
+using Rpg.Utils;
 
 namespace Rpg.Services;
 
@@ -44,6 +45,8 @@ public static class GameServices
     public static WorldService World => Current.World;
     /// <summary>跨表现节点共享的动画资源缓存。</summary>
     public static AnimationService Animation => Current.Animation;
+    /// <summary>跨背包、装备、地面和图鉴共享的物品资源。</summary>
+    public static ItemAssetService Items => Current.Items;
 
     /// <summary>在同一方法内按固定依赖顺序创建全部服务，失败时逆序回收。</summary>
     public static IDisposable Initialize()
@@ -70,7 +73,9 @@ public static class GameServices
             created.Add(world);
             var animation = new AnimationService();
             created.Add(animation);
-            return Register(env, log, eventBus, config, setting, net, session, world, animation);
+            var items = new ItemAssetService();
+            created.Add(items);
+            return Register(env, log, eventBus, config, setting, net, session, world, animation, items);
         }
         catch (Exception error)
         {
@@ -87,15 +92,15 @@ public static class GameServices
 
     /// <summary>验证并接管完整服务组，仅注册现成实例，不创建服务。</summary>
     internal static IDisposable Register(EnvService env, LogService log, EventBusService eventBus, ConfigService config,
-        SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation)
+        SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation, ItemAssetService items)
     {
-        foreach (var service in new IService[] { env, log, eventBus, config, setting, net, session, world, animation })
+        foreach (var service in new IService[] { env, log, eventBus, config, setting, net, session, world, animation, items })
         {
             ArgumentNullException.ThrowIfNull(service);
             ObjectDisposedException.ThrowIf(service.IsDisposed, service);
         }
         if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
-        return _current = new Registration(env, log, eventBus, config, setting, net, session, world, animation);
+        return _current = new Registration(env, log, eventBus, config, setting, net, session, world, animation, items);
     }
 
     /// <summary>一次启动的所有权句柄，只保存服务实例并负责释放。</summary>
@@ -119,12 +124,14 @@ public static class GameServices
         public WorldService World { get; }
         /// <summary>与账号无关的表现资源服务。</summary>
         public AnimationService Animation { get; }
+        /// <summary>本注册拥有的物品目录和图集缓存。</summary>
+        public ItemAssetService Items { get; }
         /// <summary>防止旧句柄重复释放后续注册。</summary>
         private bool _disposed;
 
         /// <summary>保存已按依赖顺序创建的完整服务组。</summary>
         public Registration(EnvService env, LogService log, EventBusService eventBus, ConfigService config,
-            SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation)
+            SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation, ItemAssetService items)
         {
             Env = env;
             Log = log;
@@ -135,6 +142,7 @@ public static class GameServices
             Session = session;
             World = world;
             Animation = animation;
+            Items = items;
         }
 
         /// <summary>先撤销全部入口，再严格逆构造顺序清理；单个服务失败不阻止其余清理。</summary>
@@ -144,7 +152,7 @@ public static class GameServices
             _disposed = true;
             if (ReferenceEquals(_current, this)) _current = null;
             var errors = new List<Exception>();
-            foreach (var service in new IService[] { Animation, World, Session, Net, Setting, Config, EventBus, Log, Env })
+            foreach (var service in new IService[] { Items, Animation, World, Session, Net, Setting, Config, EventBus, Log, Env })
             {
                 try { service.Dispose(); }
                 catch (Exception error) { errors.Add(error); }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using Godot;
+using Rpg.Services;
 
 namespace Rpg.UI;
 
@@ -12,8 +13,8 @@ public partial class ItemCatalogControl : PanelContainer
 {
     /// <summary>限制每次创建的素材按钮数量。</summary>
     internal const int PageSize = 48;
-    /// <summary>首次打开后持有的静态目录快照。</summary>
-    private DataItemAsset[] _entries = [];
+    /// <summary>共享资源服务提供的只读目录，窗口只保留浏览引用。</summary>
+    private IReadOnlyList<DataItemAsset> _entries = Array.Empty<DataItemAsset>();
     /// <summary>当前分类与搜索共同筛选后的条目。</summary>
     private DataItemAsset[] _filtered = [];
     /// <summary>与参考页面一致的父类型顺序。</summary>
@@ -22,8 +23,8 @@ public partial class ItemCatalogControl : PanelContainer
     private DataItemDefinition[] _definitions = [];
     /// <summary>当前父子类型及文字共同筛选的道具记录。</summary>
     private DataItemDefinition[] _filteredDefinitions = [];
-    /// <summary>按素材唯一键查找精确关联的候选图标。</summary>
-    private Dictionary<string, DataItemAsset> _assetById = new();
+    /// <summary>共享的只读素材键索引，用于候选图标关联。</summary>
+    private IReadOnlyDictionary<string, DataItemAsset> _assetById = new Dictionary<string, DataItemAsset>();
     /// <summary>在默认道具清单与原始素材预览间切换。</summary>
     private OptionButton _mode = null!;
     /// <summary>当前父类型内的子类型选项。</summary>
@@ -173,11 +174,11 @@ public partial class ItemCatalogControl : PanelContainer
     /// <summary>首次读取项目内图片与道具清单，默认按参考页面分类。</summary>
     public void Open()
     {
-        if (_entries.Length == 0)
+        if (_entries.Count == 0)
         {
-            _entries = ItemAtlasUtil.LoadCatalog();
-            if (_entries.Length == 0) throw new InvalidOperationException("道具素材目录为空");
-            _assetById = ItemAtlasUtil.Index(_entries);
+            _entries = GameServices.Items.Catalog;
+            if (_entries.Count == 0) throw new InvalidOperationException("道具素材目录为空");
+            _assetById = GameServices.Items.Index;
             _definitions = JsonSerializer.Deserialize<DataItemDefinition[]>(FileAccess.GetFileAsString("res://assets/items/definitions.json"))
                 ?? throw new InvalidOperationException("具名道具清单为空");
             RebuildCategories();
@@ -329,7 +330,7 @@ public partial class ItemCatalogControl : PanelContainer
     }
 
     /// <summary>按需加载图集并引用条目的原始像素区域。</summary>
-    private static AtlasTexture? Texture(DataItemAsset entry) => ItemAtlasUtil.Texture(entry);
+    private static AtlasTexture? Texture(DataItemAsset entry) => GameServices.Items.Resolve(entry.Id);
 
     /// <summary>保持图鉴在视口内，按可用宽度调整网格列数。</summary>
     private void UpdateLayout()

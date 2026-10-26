@@ -7,6 +7,7 @@ using Rpg.Session;
 using Rpg.Settings;
 using Rpg.World;
 using Rpg.World.Views;
+using Rpg.Utils;
 
 namespace Rpg.Tests;
 
@@ -62,7 +63,9 @@ internal static class GameServicesTestFactory
             created.Add(world);
             var animation = new AnimationService();
             created.Add(animation);
-            return GameServices.Register(env, net.Log, eventBus, config, setting, net, session, world, animation);
+            var items = new ItemAssetService();
+            created.Add(items);
+            return GameServices.Register(env, net.Log, eventBus, config, setting, net, session, world, animation, items);
         }
         catch
         {

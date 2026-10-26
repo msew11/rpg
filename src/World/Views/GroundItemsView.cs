@@ -13,8 +13,6 @@ public partial class GroundItemsView : Node2D
 {
     /// <summary>服务器对象身份到世界表现节点的映射。</summary>
     private readonly Dictionary<Guid, Node2D> _views = new();
-    /// <summary>当前世界视图使用的素材目录。</summary>
-    private Dictionary<string, DataItemAsset>? _assets;
     /// <summary>按素材键复用地面轮廓与图标。</summary>
     private readonly Dictionary<string, DataItemOutline> _resources = new();
     /// <summary>最后呈现的 ECS 对象读模型。</summary>
@@ -78,9 +76,8 @@ public partial class GroundItemsView : Node2D
             foreach (var child in view.GetChildren()) { view.RemoveChild(child); child.QueueFree(); }
             var visualOffset = new Vector2(0, offset * 48);
             var config = GameServices.Config.Item.Items[value.ItemId];
-            _assets ??= ItemAtlasUtil.Index(ItemAtlasUtil.LoadCatalog());
             if (!_resources.TryGetValue(config.GroundAssetId, out var resource))
-                _resources[config.GroundAssetId] = resource = new DataItemOutline(ItemAtlasUtil.Resolve(_assets, config.GroundAssetId));
+                _resources[config.GroundAssetId] = resource = new DataItemOutline(GameServices.Items.Resolve(config.GroundAssetId));
             view.AddChild(new TextureRect { Name = "GroundItemOutline", Texture = resource.Outline,
                 Position = new Vector2(-18, -26) + visualOffset, Size = new Vector2(36, 36), Visible = false,
                 MouseFilter = Control.MouseFilterEnum.Ignore, TextureFilter = TextureFilterEnum.Nearest });
