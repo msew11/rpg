@@ -192,7 +192,8 @@ public partial class ActorAnimationSmoke : Node
         var directions = new[] { Vector2.Down, new Vector2(-1, 1), Vector2.Left,
             new Vector2(-1, -1), Vector2.Up, new Vector2(1, -1), Vector2.Right, new Vector2(1, 1) };
         var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
-        var weaponNode = actor.GetNode<Sprite2D>("Facing/Weapon");
+        var weaponNode = actor.GetNode<Sprite2D>("Facing/RightHand/Weapon");
+        var handNode = actor.GetNode<Node2D>("Facing/RightHand");
         var head = actor.GetNode<Sprite2D>("Facing/Head");
         foreach (var gender in Enum.GetValues<RoleGender>())
         foreach (var motion in Enum.GetValues<RoleMotion>())
@@ -200,7 +201,8 @@ public partial class ActorAnimationSmoke : Node
             var resource = animations.Get(gender, motion);
             var weapon = animations.GetDefaultWeapon(gender, motion);
             Check(ReferenceEquals(weapon, animations.GetDefaultWeapon(gender, motion)), "武器没有复用缓存");
-            Check(resource.WeaponAttachments.Length == resource.HeadAttachments.Length, "身体缺少逐帧手部连接点");
+            Check(resource.RightHandAttachments.Length == resource.HeadAttachments.Length &&
+                resource.LeftHandAttachments.Length == resource.HeadAttachments.Length, "身体缺少逐帧双手连接点");
             for (var direction = 0; direction < directions.Length; direction++)
             {
                 var state = new DataActorState(1, gender, Vector2.Zero, motion,
@@ -216,9 +218,14 @@ public partial class ActorAnimationSmoke : Node
                     var source = Array.IndexOf(weapon.Frames, weaponNode.Texture);
                     Check(source / (weapon.Frames.Length / 5) == int.Parse(body.Animation.ToString()[3..]),
                         "武器和身体朝向不同步");
-                    Check(weaponNode.ZIndex == 0, "武器层级影响其他实体坐标遮挡");
-                    Check(weapon.Layers[source] < 0 ? weaponNode.GetIndex() < body.GetIndex() :
-                        weaponNode.GetIndex() > body.GetIndex(), "武器前后遮挡不同步");
+                    Check(weaponNode.ZIndex == 0 && handNode.ZIndex == 0, "武器层级影响其他实体坐标遮挡");
+                    if (direction == 0) Check(handNode.GetIndex() > body.GetIndex(), "正面剑身没有遮挡身体");
+                    if (direction == 4) Check(handNode.GetIndex() < body.GetIndex(), "背面身体没有遮挡剑身");
+                    var mirrored = direction >= 5;
+                    var points = mirrored ? resource.LeftHandAttachments : resource.RightHandAttachments;
+                    Check(handNode.Position == points[int.Parse(body.Animation.ToString()[3..]) * count + frame] - resource.Anchor,
+                        "右手挂点未随身体帧更新");
+                    Check(weaponNode.Position + weapon.Anchors[source] == Vector2.Zero, "剑柄没有对齐右手挂点原点");
                     actor.Present(state with { Position = Vector2.One });
                     Check(body.Frame == frame && Math.Abs(body.FrameProgress - 0.4f) < 0.001f,
                         "武器更新重启身体时钟");
@@ -226,32 +233,47 @@ public partial class ActorAnimationSmoke : Node
                 }
             }
         }
-        // 原始身体/武器文件独立提取的黄金坐标；防止手部编号、裁剪偏移或剑柄连接点取错。
+        // 从源画布和正背面身体辨认实际右手，独立记录八方向世界坐标，避免重复错误的挂接公式。
+        var standingHands = new[]
+        {
+            new[] { new Vector2(-18, -42), new Vector2(-10, -48), new Vector2(4, -49), new Vector2(15, -45),
+                new Vector2(17, -38), new Vector2(14, -31), new Vector2(-1, -28), new Vector2(-14, -32) },
+            new[] { new Vector2(-15, -43), new Vector2(-8, -48), new Vector2(5, -49), new Vector2(15, -45),
+                new Vector2(16, -39), new Vector2(12, -34), new Vector2(0, -31), new Vector2(-13, -34) }
+        };
+        for (var gender = 0; gender < 2; gender++)
+        for (var direction = 0; direction < directions.Length; direction++)
+        {
+            actor.Present(new DataActorState(1, (RoleGender)gender, Vector2.Zero, RoleMotion.Stand,
+                IsometricProjection.ToLogical(directions[direction]), 0));
+            Check(handNode.GlobalPosition == standingHands[gender][direction], $"八方向换到左手：{gender}/{direction}");
+        }
+        // 跑步摆臂的黄金挂点和前后层次，防止只修复站立首帧。
         var samples = new[]
         {
-            (RoleGender.Male, RoleMotion.Stand, new Vector2(-1, 1), 0, new Vector2(-25, -40), false),
-            (RoleGender.Male, RoleMotion.Run, new Vector2(-1, 1), 0, new Vector2(-39, -92), true),
-            (RoleGender.Male, RoleMotion.Run, new Vector2(-1, 1), 3, new Vector2(-20, -96), false),
-            (RoleGender.Female, RoleMotion.Stand, Vector2.Down, 0, new Vector2(-20, -51), true),
-            (RoleGender.Female, RoleMotion.Run, new Vector2(-1, 1), 3, new Vector2(-80, -73), false)
+            (RoleGender.Male, RoleMotion.Stand, new Vector2(-1, 1), 0, new Vector2(-10, -48), true),
+            (RoleGender.Male, RoleMotion.Run, new Vector2(-1, 1), 0, new Vector2(-22, -41), false),
+            (RoleGender.Male, RoleMotion.Run, new Vector2(-1, 1), 3, new Vector2(-27, -41), true),
+            (RoleGender.Female, RoleMotion.Stand, Vector2.Down, 0, new Vector2(-15, -43), false),
+            (RoleGender.Female, RoleMotion.Run, new Vector2(-1, 1), 3, new Vector2(-5, -62), true)
         };
         foreach (var (gender, motion, screenDirection, frame, position, behind) in samples)
         {
             actor.Present(new DataActorState(1, gender, Vector2.Zero, motion,
                 IsometricProjection.ToLogical(screenDirection), 0));
             body.SetFrameAndProgress(frame, 0);
-            Check(weaponNode.Position == position, $"原始剑柄坐标漂移：{gender}/{motion}/{frame}");
-            Check((weaponNode.GetIndex() < body.GetIndex()) == behind, "原始逐帧遮挡回归");
+            Check(handNode.Position == position, $"右手挂点坐标漂移：{gender}/{motion}/{frame}");
+            Check((handNode.GetIndex() < body.GetIndex()) == behind, "右手逐帧遮挡回归");
         }
         var run = new DataActorState(1, RoleGender.Male, Vector2.Zero, RoleMotion.Run,
             IsometricProjection.ToLogical(new Vector2(-1, 1)), 0);
         actor.Present(run);
         body.SetFrameAndProgress(3, 0.4f);
         actor.Present(run with { Facing = IsometricProjection.ToLogical(new Vector2(1, 1)) });
-        Check(body.Frame == 3 && weaponNode.Position == new Vector2(-20, -96) &&
+        Check(body.Frame == 3 && handNode.GlobalPosition == new Vector2(-15, -32) &&
             actor.GetNode<Node2D>("Facing").Scale.X == -1, "镜像改向丢失武器帧或握点");
         actor.Present(run with { Motion = RoleMotion.Stand });
-        Check(body.Frame == 0 && weaponNode.Position == new Vector2(-25, -40), "停止未恢复站立持握");
+        Check(body.Frame == 0 && handNode.GlobalPosition == new Vector2(-10, -48), "停止未恢复右手站立持握");
     }
 
     /// <summary>可选渲染男女八方向示例，供人工核对透明度、方向和身体定位。</summary>
@@ -262,6 +284,8 @@ public partial class ActorAnimationSmoke : Node
         AddChild(viewport);
         viewport.AddChild(new ColorRect { Size = viewport.Size, Color = new Color("24303d") });
         var runners = new System.Collections.Generic.List<AnimatedSprite2D>();
+        var actors = new System.Collections.Generic.List<ActorView>();
+        var overlapCounts = new int[8];
         for (var row = 0; row < 4; row++)
         for (var direction = 0; direction < directions.Length; direction++)
         {
@@ -270,6 +294,7 @@ public partial class ActorAnimationSmoke : Node
                 Color = new Color("75b7cf") });
             var preview = new ActorView();
             viewport.AddChild(preview);
+            actors.Add(preview);
             preview.Present(new DataActorState(1, (RoleGender)(row % 2), IsometricProjection.ToLogical(position),
                 row < 2 ? RoleMotion.Stand : RoleMotion.Run, IsometricProjection.ToLogical(directions[direction]), 0));
             var sprite = preview.GetNode<AnimatedSprite2D>("Facing/Body");
@@ -284,10 +309,48 @@ public partial class ActorAnimationSmoke : Node
         {
             foreach (var runner in runners) runner.SetFrameAndProgress(frame, 0);
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-            var error = viewport.GetTexture().GetImage().SavePng(System.IO.Path.Combine(folder, $"weapon-preview-{frame}.png"));
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            using var rendered = viewport.GetTexture().GetImage();
+            for (var row = 0; row < 4; row++)
+            for (var view = 0; view < 2; view++)
+                overlapCounts[row * 2 + view] += CheckWeaponOverlap(rendered, actors[row * 8 + view * 4], view == 0);
+            var error = rendered.SavePng(System.IO.Path.Combine(folder, $"weapon-preview-{frame}.png"));
             Check(error == Error.Ok, "持剑预览图保存失败");
         }
+        Check(overlapCounts.All(count => count > 0), $"正背面没有实际交叠像素：{string.Join(',', overlapCounts)}");
+        GD.Print($"Weapon rendered occlusion pixels passed: {string.Join(',', overlapCounts)}.");
         viewport.Free();
+    }
+
+    /// <summary>验证 client-actor-presentation 正背面遮挡：直接比较 GPU 渲染的交叠像素与应在前的原图颜色。</summary>
+    private static int CheckWeaponOverlap(Image rendered, ActorView actor, bool front)
+    {
+        var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+        var weapon = actor.GetNode<Sprite2D>("Facing/RightHand/Weapon");
+        var head = actor.GetNode<Sprite2D>("Facing/Head");
+        using var bodyImage = body.SpriteFrames.GetFrameTexture(body.Animation, body.Frame).GetImage();
+        using var weaponImage = weapon.Texture.GetImage();
+        using var headImage = head.Texture.GetImage();
+        var checkedPixels = 0;
+        for (var y = 0; y < weaponImage.GetHeight(); y++)
+        for (var x = 0; x < weaponImage.GetWidth(); x++)
+        {
+            var weaponColor = weaponImage.GetPixel(x, y);
+            if (weaponColor.A < 1) continue;
+            var world = weapon.ToGlobal(new Vector2(x + 0.5f, y + 0.5f));
+            var bodyPoint = (Vector2I)body.ToLocal(world).Floor();
+            if (!bodyImage.GetUsedRect().HasPoint(bodyPoint)) continue;
+            var bodyColor = bodyImage.GetPixelv(bodyPoint);
+            if (bodyColor.A < 1 || bodyColor.IsEqualApprox(weaponColor)) continue;
+            var headPoint = (Vector2I)head.ToLocal(world).Floor();
+            if (headImage.GetUsedRect().HasPoint(headPoint) && headImage.GetPixelv(headPoint).A > 0) continue;
+            var pixel = rendered.GetPixelv((Vector2I)world.Floor());
+            var expected = front ? weaponColor : bodyColor;
+            Check(Mathf.Abs(pixel.R - expected.R) < 0.02f && Mathf.Abs(pixel.G - expected.G) < 0.02f &&
+                Mathf.Abs(pixel.B - expected.B) < 0.02f, $"实际渲染遮挡错误：{(front ? "正面" : "背面")}/{body.Frame}/{world}");
+            checkedPixels++;
+        }
+        return checkedPixels;
     }
 
     /// <summary>以退出码可见的异常报告场景验收失败。</summary>

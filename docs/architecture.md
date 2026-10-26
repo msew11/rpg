@@ -103,11 +103,13 @@ internal sealed class DataPositionComponent
 
 `ActorView.Present` 读取快照并投影位置和朝向，表现层 `AnimationService` 按性别和动作缓存 `DataActorAnimation`，按性别和头型编号缓存 `DataActorHead`。男女共用各自身体动作集，148 套头部与身体分别存储，换头不复制身体图集，不生成头身组合资源。每个身体动作包含五方向 `SpriteFrames`、原始世界定位点和方向/帧顺序的 `HeadAttachments`；每个头型包含五方向纹理与各自脖颈连接点。`ActorView` 在同一个镜像容器下放置身体 `AnimatedSprite2D` 与头部 `Sprite2D`，身体帧变化时按“身体挂接点 − 身体世界锚点 − 头部连接点”更新头部位置。两层共用朝向、镜像和身体时钟，改向保持帧进度，动作播放不改变世界逻辑。
 
-`tools/import_actor_animations.ps1 -SourcePath <解码帧目录> -RawPath <原始目录>` 调用 `import_actor_layers.py` 重建全部 26 个身体动作、605 帧头部及右手挂接点与 148 套独立头部，再调用 `import_actor_weapon.py` 导入默认长剑；`decode_actor_heads.py` 只解码原始像素及定位点。稳定编号按原始数字文件名排序，男女各 74，来源及哈希记录在 `assets/characters/head_composition.json`。创角只提供编号 9–72，对应原始 `head1101` 至 `head8801` 及配套 DT 头像；旧角色的 1–8、73–74 仍可加载并以头部正面帧作头像。运行与导出只依赖项目资源。当前头部包含配套头发，未拆分染色或独立发型；后续衣服及正式装备规则待定。
+`tools/import_actor_animations.ps1 -SourcePath <解码帧目录> -RawPath <原始目录>` 调用 `import_actor_layers.py` 重建全部 26 个身体动作、605 帧头部及双手挂接点与 148 套独立头部，再调用 `import_actor_weapon.py` 导入默认长剑；`decode_actor_heads.py` 只解码原始像素及定位点。稳定编号按原始数字文件名排序，男女各 74，来源及哈希记录在 `assets/characters/head_composition.json`。创角只提供编号 9–72，对应原始 `head1101` 至 `head8801` 及配套 DT 头像；旧角色的 1–8、73–74 仍可加载并以头部正面帧作头像。运行与导出只依赖项目资源。当前头部包含配套头发，未拆分染色或独立发型；后续衣服及正式装备规则待定。
 
 默认武器 1012（测试长剑）是表现层的固定外观，项目显式绑定基础右手剑 `weaponr01` 系列，不由物品 ID 猜测文件名，也不要求背包持有。`assets/characters/weapons/1012/` 保存男女七类动作共 320 帧，`source.json` 记录原始装备表第 12 行、素材及遮挡表的 SHA256。原始素材没有独立死亡、骑乘、攻击2/3和准备2/3武器动作；分别复用坐下、站立、攻击1和准备1，按身体动作进度映射帧，不宣称有独立原画。
 
-`AnimationService.GetDefaultWeapon` 缓存独立 `DataActorWeapon`。`ActorView` 的 `Facing/Weapon` 与身体、头部共用镜像容器，身体是唯一时钟；每帧位置为“身体右手连接点 − 身体世界锚点 − 武器剑柄连接点”。`Weaponr.ini` 每方向首值 50 表示其后 50 个逐帧层级槽；负值在身体后、非负值在前，仅调整角色内部节点绘制顺序，不提高实体 Z 值，保留角色和地面物品的坐标遮挡。场景测试覆盖男女全部动作/帧、八方向、原始黄金坐标、遮挡、改向进度和停止；图形模式附加 `-- --capture-actors` 输出四排男女站立/跑步预览帧到 `build/weapon-preview-0.png` 至 `7.png`。
+`AnimationService.GetDefaultWeapon` 缓存独立 `DataActorWeapon`。身体 `LeftHandAttachments` / `RightHandAttachments` 分别读取源像素块尾 +28 / +36 的原画双手坐标。`ActorView` 的 `Facing/RightHand` 是实际右手挂点，持有 `Weapon` 子节点，与身体、头部共用镜像容器和身体时钟。未镜像使用源右手，镜像时使用源左手，再经 Facing 镜像成为实际右手，避免转向换手。挂点位置为“选定手部连接点 − 身体世界锚点”，剑的局部位置为“−剑柄连接点”，与头部采用同样的逐帧挂接公式。
+
+正面剑在身体前，背面身体在剑前；侧面默认远手在后、近手在前，`Weaponr.ini` 的非零逐帧偏置在切换原画持握手时反转。遮挡只调整 RightHand 与身体的兄弟节点顺序，不提高实体 Z 值，保留角色和地面物品的坐标遮挡。场景测试覆盖男女全部动作/帧、八方向实际右手黄金坐标、剑柄与挂点对齐、改向进度和停止；图形模式附加 `-- --capture-actors` 还验证真实渲染的正背面交叠像素，并输出四排男女站立/跑步预览帧到 `build/weapon-preview-0.png` 至 `7.png`。
 
 选角与创建页面复用 `RoleScreenControl` 的全屏布局和 `RolePreviewControl` 的独立角色预览。选角页右侧为滚动列表，点击条目只更新中央角色，预览下方独立进入按钮才请求选角；创建按钮在列表下方，返回登录在屏幕右下角。创建页右侧顶部为男女互斥按钮，下方滚动平铺当前性别编号 9–72 的 64 套 DT 头像缩略图，不使用下拉菜单。`RoleCreateControl` 分别保存男女的头型、朝向与命名草稿，切换恢复对应状态且互不覆盖。中央预览下方提供旋转及创建按钮；点击创建打开角色名确认窗口，确认才提交请求，取消不提交，失败保留窗口与草稿。预览复用独立 `ActorView`，不创建 ECS 世界；右侧网格在较小逻辑视口减少列数。创建/删除等待期间禁用操作，失败恢复可操作状态。两类成功响应均包含完整摘要列表，`LoginCache` 在 Cache 阶段完整校验后原子替换，UI 在 Normal 阶段只读 `Session.Roles` 刷新；允许删空和重启保持空列表，删除不清理角色本地设置文件。
 

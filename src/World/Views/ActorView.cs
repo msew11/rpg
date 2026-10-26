@@ -14,6 +14,8 @@ public partial class ActorView : Node2D
     /// <summary>独立头部图层，由身体帧变化更新挂接位置。</summary>
     private readonly Sprite2D _head = new()
         { Name = "Head", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
+    /// <summary>角色实际右手的逐帧挂点，独立承载武器并参与角色内部遮挡。</summary>
+    private readonly Node2D _rightHand = new() { Name = "RightHand" };
     /// <summary>默认测试长剑的独立持握图层，共用身体帧而不启动另一动画时钟。</summary>
     private readonly Sprite2D _weapon = new()
         { Name = "Weapon", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
@@ -28,7 +30,8 @@ public partial class ActorView : Node2D
         AddChild(_facingRoot);
         _facingRoot.AddChild(_body);
         _facingRoot.AddChild(_head);
-        _facingRoot.AddChild(_weapon);
+        _facingRoot.AddChild(_rightHand);
+        _rightHand.AddChild(_weapon);
         AddChild(_anchor);
         _body.FrameChanged += UpdateAttachments;
         _body.AnimationChanged += UpdateAttachments;
@@ -85,7 +88,7 @@ public partial class ActorView : Node2D
         var body = GameServices.Animation.Get(state.Gender, state.Motion);
         // 换动作时属性信号可能先于新快照更新，等 Present 结束后统一同步。
         if (!ReferenceEquals(body.Frames, _body.SpriteFrames)) return;
-        var (direction, _) = AnimationService.ResolveDirection(state.Facing);
+        var (direction, mirrored) = AnimationService.ResolveDirection(state.Facing);
         if (_body.Animation != $"dir{direction}") return;
         var head = GameServices.Animation.GetHead(state.Gender, state.HeadId);
         var count = body.Frames.GetFrameCount(_body.Animation);
@@ -97,10 +100,21 @@ public partial class ActorView : Node2D
         var weaponFrame = count <= 1 ? 0 : Mathf.RoundToInt((float)_body.Frame * (weaponCount - 1) / (count - 1));
         var index = direction * weaponCount + weaponFrame;
         _weapon.Texture = weapon.Frames[index];
-        _weapon.Position = -body.Anchor + body.WeaponAttachments[direction * count + _body.Frame] - weapon.Anchors[index];
+        // 镜像会互换左右手，先选原画的另一只手，再统一镜像为角色实际右手。
+        var handPoints = mirrored ? body.LeftHandAttachments : body.RightHandAttachments;
+        _rightHand.Position = -body.Anchor + handPoints[direction * count + _body.Frame];
+        _weapon.Position = -weapon.Anchors[index];
         // 只调整角色内部绘制顺序，避免武器 Z 值跨过按实体坐标排序的其他角色和物品。
-        var childIndex = weapon.Layers[index] < 0 ? 0 : _facingRoot.GetChildCount() - 1;
-        if (_weapon.GetIndex() != childIndex) _facingRoot.MoveChild(_weapon, childIndex);
+        var layer = weapon.Layers[index];
+        var behind = direction switch
+        {
+            3 => true,  // 背面身体遮挡剑身。
+            4 => false, // 正面剑身遮挡身体。
+            // 侧面默认远手在后；非零动作偏置在改用原画另一只手时反转。
+            _ => layer == 0 ? !mirrored : mirrored ? layer < 0 : layer > 0
+        };
+        var childIndex = behind ? 0 : _facingRoot.GetChildCount() - 1;
+        if (_rightHand.GetIndex() != childIndex) _facingRoot.MoveChild(_rightHand, childIndex);
     }
 
 }

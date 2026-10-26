@@ -12,6 +12,8 @@ public partial class DataActorAnimation : Resource
     [Export] public Vector2 Anchor { get; set; }
     /// <summary>按方向、帧顺序排列的身体画布头部挂接点。</summary>
     [Export] public Vector2[] HeadAttachments { get; set; } = [];
-    /// <summary>按方向、帧顺序排列的身体画布右手武器连接点。</summary>
-    [Export] public Vector2[] WeaponAttachments { get; set; } = [];
+    /// <summary>按方向、帧顺序排列的源画布左手连接点；镜像后成为角色右手。</summary>
+    [Export] public Vector2[] LeftHandAttachments { get; set; } = [];
+    /// <summary>按方向、帧顺序排列的源画布右手连接点；未镜像时直接使用。</summary>
+    [Export] public Vector2[] RightHandAttachments { get; set; } = [];
 }
