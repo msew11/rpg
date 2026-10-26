@@ -15,7 +15,7 @@ namespace Rpg.Tests;
 /// <summary>client-actor-presentation：以独立原始数据核验全部装备，防止镜像时错用另一只手的原画。</summary>
 internal static class ActorWeaponHandAssertions
 {
-    /// <summary>验证七件装备及双手变体的全部源帧，并覆盖飞刀男女八方向跑步每帧。</summary>
+    /// <summary>验证全部完整源帧和挂点，覆盖飞刀固定源左手整体镜像的男女八方向跑步。</summary>
     public static void Verify(AnimationService animations, ActorView actor)
     {
         using var golden = JsonDocument.Parse(FileAccess.GetFileAsString("res://tests/fixtures/actor_weapon_sources.json"));
@@ -29,44 +29,23 @@ internal static class ActorWeaponHandAssertions
             Require(weapon.SourceRightHand == entry.GetProperty("source").GetString()!.StartsWith("avatar/weaponr/", StringComparison.Ordinal),
                 $"原画源手别不符：{path}");
             Require(weapon.Frames.Length == entry.GetProperty("frames").GetInt32(), $"原画帧数改变：{path}");
+            Require(weapon.SourceAction == entry.GetProperty("sourceAction").GetInt32(), $"来源动作编号改变：{path}");
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             for (var frame = 0; frame < weapon.Frames.Length; frame++)
             {
                 using var image = weapon.Frames[frame].GetImage();
                 image.Convert(Image.Format.Rgba8);
                 var pixels = image.GetData();
-                if (weapon.GripFrames.Length != 0)
-                {
-                    using var grip = weapon.GripFrames[frame].GetImage();
-                    grip.Convert(Image.Format.Rgba8);
-                    var gripPixels = grip.GetData();
-                    Require(gripPixels.Length == pixels.Length, "握柄层尺寸不符");
-                    for (var offset = 3; offset < pixels.Length; offset += 4)
-                        Require(pixels[offset] < 255 || gripPixels[offset] == 0, "补充握柄覆盖了实心原画像素");
-                }
-                if (weapon.RearFrames.Length != 0)
-                {
-                    using var rear = weapon.RearFrames[frame].GetImage();
-                    rear.Convert(Image.Format.Rgba8);
-                    var rearPixels = rear.GetData();
-                    for (var offset = 0; offset < pixels.Length; offset += 4)
-                    {
-                        Require(pixels[offset + 3] == 0 || rearPixels[offset + 3] == 0, "长柄两段像素重复");
-                        if (rearPixels[offset + 3] != 0) Array.Copy(rearPixels, offset, pixels, offset, 4);
-                    }
-                }
-                for (var offset = 0; offset < pixels.Length; offset += 4)
-                    if (pixels[offset + 3] < 255) Array.Clear(pixels, offset, 3);
                 hash.AppendData(pixels);
-                var metadata = new byte[20];
+                var metadata = new byte[16];
                 var values = new[] { (int)weapon.Anchors[frame].X, (int)weapon.Anchors[frame].Y,
-                    weapon.Layers[frame], image.GetWidth(), image.GetHeight() };
+                    image.GetWidth(), image.GetHeight() };
                 for (var index = 0; index < values.Length; index++)
                     BinaryPrimitives.WriteInt32LittleEndian(metadata.AsSpan(index * 4, 4), values[index]);
                 hash.AppendData(metadata);
             }
             Require(Convert.ToHexString(hash.GetHashAndReset()) == entry.GetProperty("sha256").GetString(),
-                $"原始像素、连接点或层次不符：{path}");
+                $"原始像素、连接点或尺寸不符：{path}");
             total += weapon.Frames.Length;
         }
         var used = new HashSet<string>();
@@ -88,7 +67,7 @@ internal static class ActorWeaponHandAssertions
             var sprite = actor.GetNode<Sprite2D>("Facing/LeftHand/Weapon");
             // 独立写出三个镜像方向，避免调用生产映射生成期望值。
             var sourceDirection = new[] { 4, 0, 1, 2, 3, 2, 1, 0 }[direction];
-            var folder = direction >= 5 ? "right/" : "";
+            var folder = "";
             var expected = GD.Load<DataActorWeapon>($"res://assets/characters/weapons/1018/{folder}{gender.ToString().ToLowerInvariant()}/run.tres");
             Require(expected.Frames.Length == 40, "飞刀跑步原画不是五方向各八帧");
             for (var frame = 0; frame < 8; frame++)
@@ -99,7 +78,7 @@ internal static class ActorWeaponHandAssertions
                     $"飞刀镜像持握错手：{gender}/{direction}/{frame}");
             }
         }
-        GD.Print($"Weapon source goldens passed: {paths.Count} resources / {total} frames, pixels/anchors/layers; throwing blade run both genders, all 8 directions/frames.");
+        GD.Print($"Weapon source goldens passed: {paths.Count} resources / {total} frames, pixels/anchors/dimensions; throwing blade run both genders, all 8 directions/frames.");
     }
 
     /// <summary>出现回归时报告明确失败原因，交由冒烟宿主输出非零退出码。</summary>

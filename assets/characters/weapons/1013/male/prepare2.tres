@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=8 format=3]
+[ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]
+[ext_resource type="Texture2D" path="res://assets/characters/weapons/1013/male/stand.png" id="2"]
+[sub_resource type="AtlasTexture" id="Frame0"]
+atlas = ExtResource("2")
+region = Rect2(0, 0, 100, 75)
+filter_clip = false
+[sub_resource type="AtlasTexture" id="Frame1"]
+atlas = ExtResource("2")
+region = Rect2(0, 75, 100, 75)
+filter_clip = false
+[sub_resource type="AtlasTexture" id="Frame2"]
+atlas = ExtResource("2")
+region = Rect2(0, 150, 100, 75)
+filter_clip = false
+[sub_resource type="AtlasTexture" id="Frame3"]
+atlas = ExtResource("2")
+region = Rect2(0, 225, 100, 75)
+filter_clip = false
+[sub_resource type="AtlasTexture" id="Frame4"]
+atlas = ExtResource("2")
+region = Rect2(0, 300, 100, 75)
+filter_clip = false
+[resource]
+script = ExtResource("1")
+SourceRightHand = true
+SourceAction = 1
+AttackMotion = 4
+Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
+Anchors = PackedVector2Array(59, 6, 73, 5, 84, 9, 86, 16, 51, 12)

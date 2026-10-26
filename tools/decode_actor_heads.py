@@ -1,8 +1,23 @@
 """解码角色原素材的五方向头部、身体像素块边界及挂接坐标。"""
 
 import struct
+import re
 
 from PIL import Image
+
+
+def preserve_source_pixels(texture):
+    """最近邻角色贴图保留全部来源颜色，禁止Godot自动改写低alpha边缘。"""
+    descriptor = texture.with_suffix(texture.suffix + '.import')
+    if descriptor.exists():
+        text = descriptor.read_text(encoding='utf-8')
+        if 'process/fix_alpha_border=' in text:
+            text = re.sub(r'process/fix_alpha_border=(?:true|false)', 'process/fix_alpha_border=false', text)
+        else:
+            text = text.replace('[params]', '[params]\nprocess/fix_alpha_border=false')
+    else:
+        text = '[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\nprocess/fix_alpha_border=false\n'
+    descriptor.write_text(text, encoding='utf-8')
 
 
 def read_header(data):

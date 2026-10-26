@@ -4,23 +4,23 @@
 [sub_resource type="AtlasTexture" id="Frame_0_0"]
 atlas = ExtResource("2")
 region = Rect2(0, 0, 74, 81)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_1_0"]
 atlas = ExtResource("2")
 region = Rect2(0, 81, 74, 81)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_2_0"]
 atlas = ExtResource("2")
 region = Rect2(0, 162, 74, 81)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_3_0"]
 atlas = ExtResource("2")
 region = Rect2(0, 243, 74, 81)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_4_0"]
 atlas = ExtResource("2")
 region = Rect2(0, 324, 74, 81)
-filter_clip = true
+filter_clip = false
 [sub_resource type="SpriteFrames" id="Animations"]
 animations = [
 {"frames": [{"duration": 1.0, "texture": SubResource("Frame_0_0")}], "loop": false, "name": &"dir0", "speed": 10.0},

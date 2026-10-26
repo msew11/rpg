@@ -4,26 +4,27 @@
 [sub_resource type="AtlasTexture" id="Frame0"]
 atlas = ExtResource("2")
 region = Rect2(0, 0, 83, 39)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame1"]
 atlas = ExtResource("2")
 region = Rect2(0, 39, 83, 39)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame2"]
 atlas = ExtResource("2")
 region = Rect2(0, 78, 83, 39)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame3"]
 atlas = ExtResource("2")
 region = Rect2(0, 117, 83, 39)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame4"]
 atlas = ExtResource("2")
 region = Rect2(0, 156, 83, 39)
-filter_clip = true
+filter_clip = false
 [resource]
 script = ExtResource("1")
-Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
 SourceRightHand = false
+SourceAction = 3
+AttackMotion = 6
+Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
 Anchors = PackedVector2Array(30, 9, 22, 3, 26, -5, 39, -9, 46, 11)
-Layers = PackedInt32Array(0, 0, 0, 0, 0)

@@ -1,16 +1,15 @@
-"""从只读 DIMG 导入七件测试装备的男女帧、持握连接点和逐帧遮挡。"""
+"""从只读DIMG导入完整武器、原生动作类别及男女完整角色合成表。"""
 
 import argparse
 import hashlib
 import json
-import math
 from pathlib import Path
 import re
 import struct
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 
-from decode_actor_heads import frame_end, read_header
+from decode_actor_heads import frame_end, read_header, preserve_source_pixels
 
 
 def decode_weapon(path):
@@ -57,223 +56,117 @@ def read_layers(path):
     return layers
 
 
-def split_long_weapon(image, anchor):
-    """沿握点的主轴切开长柄，较厚的杖头或枪尖为前段，像素无损且不重复。"""
-    pixels = [(x, y) for y in range(image.height) for x in range(image.width) if image.getpixel((x, y))[3]]
-    mean_x = sum(x for x, _ in pixels) / len(pixels)
-    mean_y = sum(y for _, y in pixels) / len(pixels)
-    xx = sum((x - mean_x) ** 2 for x, _ in pixels)
-    yy = sum((y - mean_y) ** 2 for _, y in pixels)
-    xy = sum((x - mean_x) * (y - mean_y) for x, y in pixels)
-    angle = math.atan2(2 * xy, xx - yy) / 2
-    axis = (math.cos(angle), math.sin(angle))
-    projections = [(x, y, (x - anchor[0]) * axis[0] + (y - anchor[1]) * axis[1]) for x, y in pixels]
-    sign = 1 if sum(value > 3 for _, _, value in projections) > sum(value < -3 for _, _, value in projections) else -1
-    front = Image.new('RGBA', image.size)
-    rear = Image.new('RGBA', image.size)
-    for x, y, value in projections:
-        (front if value * sign >= 0 else rear).putpixel((x, y), image.getpixel((x, y)))
-    if not front.getbbox() or not rear.getbbox() or Image.alpha_composite(rear, front).tobytes() != image.tobytes():
-        raise ValueError('长柄分层无法无损还原原图')
-    return front, rear
+# 动作顺序与RoleMotion一致；值为原客户端资源动作编号。
+ACTIONS = dict(zip(('stand', 'run', 'sit', 'die', 'attack1', 'attack2', 'attack3',
+                    'magic', 'prepare1', 'prepare2', 'prepare3', 'hurt', 'ride'), range(1, 14)))
+# 经源图标和客户端动作类别核对的测试装备系列。
+BINDINGS = {1012: ('weaponr', 1, 4), 1013: ('weaponr', 41, 4), 1014: ('weaponl', 11, 0),
+            1015: ('weaponr', 21, 5), 1016: ('weaponr', 31, 5),
+            1017: ('weaponr', 51, 6), 1018: ('weaponl', 105, 6)}
 
 
-def restore_grip(image, anchor):
-    """以柄尾中心确定握柄轴向，恢复原手形留下的短缺口，跨手时由目标手掌遮住。"""
-    pending = {(x, y) for y in range(image.height) for x in range(image.width) if image.getpixel((x, y))[3]}
-    components = []
-    while pending:
-        component = {pending.pop()}
-        stack = list(component)
-        while stack:
-            x, y = stack.pop()
-            for dx in (-1, 0, 1):
-                for dy in (-1, 0, 1):
-                    point = (x + dx, y + dy)
-                    if point in pending:
-                        pending.remove(point)
-                        component.add(point)
-                        stack.append(point)
-        components.append(component)
-    result = Image.new('RGBA', image.size)
-    if len(components) < 2:
-        return result
-    components.sort(key=lambda part: (-len(part), min(part)))
-    distance = lambda p: (p[0] - anchor[0]) ** 2 + (p[1] - anchor[1]) ** 2
-    blade = min(components[0], key=lambda p: (distance(p), p))
-    candidates = [part for part in components[1:] if min(map(distance, part)) <= 64]
-    if distance(blade) > 64 or not candidates:
-        return result
-    pommel = min(set().union(*candidates), key=lambda p: (distance(p), p))
-    if (blade[0] - pommel[0]) ** 2 + (blade[1] - pommel[1]) ** 2 > 144:
-        return result
-    colors = [image.getpixel(p) for part in components for p in part
-              if (p[0] - pommel[0]) ** 2 + (p[1] - pommel[1]) ** 2 <= 4 and image.getpixel(p)[3] == 255]
-    if not colors:
-        return result
-    color = min(colors, key=lambda c: (sum(c[:3]), c))
-    draw = ImageDraw.Draw(result)
-    draw.line([blade, anchor, pommel], fill=color, width=2)
-    # 最近点可能落在护手尖端；沿柄尾中心穿过握点寻找护手，补足手掌上侧的柄芯。
-    tails = [part for part in candidates if len(part) >= 3]
-    if tails:
-        tail = min(tails, key=lambda part: (min(map(distance, part)), -len(part), min(part)))
-        center = tuple(sum(point[i] for point in tail) / len(tail) for i in (0, 1))
-        axis = (anchor[0] - center[0], anchor[1] - center[1])
-        length = math.hypot(*axis)
-        if 1 <= length <= 12:
-            axis = tuple(value / length for value in axis)
-            for step in range(1, 21):
-                guard = tuple(round(anchor[i] + axis[i] * step / 2) for i in (0, 1))
-                if guard in components[0] and image.getpixel(guard)[3] == 255:
-                    draw.line([guard, anchor, tuple(round(value) for value in center)], fill=color, width=4)
-                    break
-    # 原手形切口带有半透明边缘，局部闭合整段轮廓并下衬，避免非零alpha仍透出背景。
-    core = image.getchannel('A').point(lambda value: 255 if value >= 204 else 0)
-    closed = core.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.MinFilter(9))
-    for y in range(image.height):
-        for x in range(image.width):
-            if image.getpixel((x, y))[3] == 255:
-                result.putpixel((x, y), (0, 0, 0, 0))
-            elif distance((x, y)) <= 64 and closed.getpixel((x, y)):
-                result.putpixel((x, y), color)
-    return result
-
-
-def write_weapon(gender, motion, action, raw, target, layers, item_id=1012, hand="weaponr", series=1, variant=None):
-    """按来源动作导入一次武器图集，并保留每帧独立连接点及层级。"""
-    number = series * 100 + action + (50 if gender == 'female' else 0)
-    source = raw / 'avatar' / hand / f'{hand}{number:04}.gsn'
-    frames = decode_weapon(source)
-    count = len(frames) // 5
-    width, height = frames[0][0].size
-    atlas = Image.new('RGBA', (width * count, height * 5))
-    rear_atlas = Image.new('RGBA', atlas.size) if item_id in (1015, 1016) else None
-    grip_atlas = Image.new('RGBA', atlas.size) if item_id in (1012, 1013) else None
-    variant_id = '4' if rear_atlas is not None else '3'
-    resource_folder = target.relative_to(Path(__file__).resolve().parents[1] / 'assets/characters/weapons').as_posix()
-    load_steps = len(frames) + 3 + (len(frames) + 1 if rear_atlas is not None else 0) + int(variant is not None) + (len(frames) + 1 if grip_atlas is not None else 0)
-    lines = [f'[gd_resource type="Resource" script_class="DataActorWeapon" load_steps={load_steps} format=3]',
-             '[ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]',
-             f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{resource_folder}/{gender}/{motion}.png" id="2"]']
-    if variant:
-        lines += [f'[ext_resource type="Resource" path="res://assets/characters/weapons/{item_id}/{variant}/{gender}/{motion}.tres" id="{variant_id}"]']
-    if rear_atlas is not None:
-        lines += [f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{resource_folder}/{gender}/{motion}.rear.png" id="3"]']
-    if grip_atlas is not None:
-        lines += [f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{resource_folder}/{gender}/{motion}.grip.png" id="5"]']
-    for index, (image, anchor) in enumerate(frames):
-        direction, frame = divmod(index, count)
-        if grip_atlas is not None:
-            grip_atlas.paste(restore_grip(image, anchor), (frame * width, direction * height))
-        if rear_atlas is not None:
-            image, rear = split_long_weapon(image, anchor)
-            rear_atlas.paste(rear, (frame * width, direction * height))
-        atlas.paste(image, (frame * width, direction * height))
-        lines += [f'[sub_resource type="AtlasTexture" id="Frame{index}"]', 'atlas = ExtResource("2")',
-                  f'region = Rect2({frame * width}, {direction * height}, {width}, {height})', 'filter_clip = true']
-        if rear_atlas is not None:
-            lines += [f'[sub_resource type="AtlasTexture" id="Rear{index}"]', 'atlas = ExtResource("3")',
-                      f'region = Rect2({frame * width}, {direction * height}, {width}, {height})', 'filter_clip = true']
-        if grip_atlas is not None:
-            lines += [f'[sub_resource type="AtlasTexture" id="Grip{index}"]', 'atlas = ExtResource("5")',
-                      f'region = Rect2({frame * width}, {direction * height}, {width}, {height})', 'filter_clip = true']
-    folder = target / gender
-    folder.mkdir(parents=True, exist_ok=True)
-    atlas.save(folder / f'{motion}.png')
-    if rear_atlas is not None:
-        rear_atlas.save(folder / f'{motion}.rear.png')
-    if grip_atlas is not None:
-        grip_atlas.save(folder / f'{motion}.grip.png')
-    textures = ', '.join(f'SubResource("Frame{index}")' for index in range(len(frames)))
-    anchors = ', '.join(str(value) for _, anchor in frames for value in anchor)
-    z_indices = ', '.join(str(layers[motion][direction][frame]) for direction in range(5) for frame in range(count))
-    lines += ['[resource]', 'script = ExtResource("1")', f'Frames = Array[Texture2D]([{textures}])',
-              f'SourceRightHand = {str(hand == "weaponr").lower()}',
-              f'Anchors = PackedVector2Array({anchors})', f'Layers = PackedInt32Array({z_indices})']
-    if variant:
-        lines += [f'{variant.capitalize()}HandVariant = ExtResource("{variant_id}")']
-    if rear_atlas is not None:
-        lines += ['RearFrames = Array[Texture2D]([' + ', '.join(f'SubResource("Rear{index}")' for index in range(len(frames))) + '])']
-    if grip_atlas is not None:
-        lines += ['GripFrames = Array[Texture2D]([' + ', '.join(f'SubResource("Grip{index}")' for index in range(len(frames))) + '])']
-    (folder / f'{motion}.tres').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-    return {'gender': gender, 'motion': motion, 'source': source.relative_to(raw).as_posix(),
-            'sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'framesPerDirection': count}
-
-
-def import_hand(raw, target, hand, series, item_id, actions, variant=None):
-    """保留每只源手独立的动作编号、连接点和遮挡表，不把右手平移到左手。"""
-    layer_file = raw / 'avatar' / hand / (hand.capitalize() + '.ini')
-    layers = read_layers(layer_file)
+def import_hand(raw, root, item_id, hand, series, attack, variant=None, subfolder=''):
+    """导入完整原生纹理；缺失动作入口共享站立纹理，保留实际来源编号。"""
     records = []
-    for gender in ['male', 'female']:
-        for motion, action in actions.items():
+    for gender in ('male', 'female'):
+        folder = root / str(item_id) / subfolder / gender
+        folder.mkdir(parents=True, exist_ok=True)
+        for motion, action in ACTIONS.items():
             number = series * 100 + action + (50 if gender == 'female' else 0)
             source = raw / 'avatar' / hand / f'{hand}{number:04}.gsn'
-            selected = action
             if not source.exists():
-                selected = {'attack1': 7, 'prepare1': 11}.get(motion, 1) if hand == 'weaponl' or item_id == 1018 else 1
-            if not (raw / 'avatar' / hand / f'{hand}{series * 100 + selected + (50 if gender == 'female' else 0):04}.gsn').exists():
-                selected = 1
-            record = write_weapon(gender, motion, selected, raw, target, layers, item_id, hand, series, variant)
-            record['sourceAction'] = selected
-            records.append(record)
-    return records, layer_file
+                action = 1
+                source = raw / 'avatar' / hand / f'{hand}{series * 100 + action + (50 if gender == "female" else 0):04}.gsn'
+            frames = decode_weapon(source)
+            count = len(frames) // 5
+            width, height = frames[0][0].size
+            texture_motion = motion if action != 1 else 'stand'
+            if texture_motion == motion:
+                atlas = Image.new('RGBA', (width * count, height * 5))
+                for index, (image, _) in enumerate(frames):
+                    direction, frame = divmod(index, count)
+                    atlas.paste(image, (frame * width, direction * height))
+                atlas.save(folder / f'{motion}.png')
+                preserve_source_pixels(folder / f'{motion}.png')
+            resource_folder = folder.relative_to(root).as_posix()
+            lines = [f'[gd_resource type="Resource" script_class="DataActorWeapon" load_steps={len(frames)+3+int(variant is not None)} format=3]',
+                     '[ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]',
+                     f'[ext_resource type="Texture2D" path="res://assets/characters/weapons/{resource_folder}/{texture_motion}.png" id="2"]']
+            if variant:
+                lines += [f'[ext_resource type="Resource" path="res://assets/characters/weapons/{item_id}/{variant}/{gender}/{motion}.tres" id="3"]']
+            for index in range(len(frames)):
+                direction, frame = divmod(index, count)
+                lines += [f'[sub_resource type="AtlasTexture" id="Frame{index}"]', 'atlas = ExtResource("2")',
+                          f'region = Rect2({frame*width}, {direction*height}, {width}, {height})', 'filter_clip = false']
+            textures = ', '.join(f'SubResource("Frame{index}")' for index in range(len(frames)))
+            anchors = ', '.join(str(value) for _, point in frames for value in point)
+            lines += ['[resource]', 'script = ExtResource("1")', f'SourceRightHand = {str(hand == "weaponr").lower()}',
+                      f'SourceAction = {action}', f'AttackMotion = {attack}', f'Frames = Array[Texture2D]([{textures}])',
+                      f'Anchors = PackedVector2Array({anchors})']
+            if variant:
+                lines += [f'{variant.capitalize()}HandVariant = ExtResource("3")']
+            (folder / f'{motion}.tres').write_text('\n'.join(lines)+'\n', encoding='utf-8')
+            records.append(dict(gender=gender, motion=motion, source=source.relative_to(raw).as_posix(),
+                                sha256=hashlib.sha256(source.read_bytes()).hexdigest(), sourceAction=action,
+                                framesPerDirection=count))
+    return records
+
+
+def write_composition(raw, target):
+    """导入完整男女身体动作层次，不随武器缺失动作的站立回退而改变。"""
+    parts = [('npc', 'Npc.ini'), ('head', 'Head.ini'), ('weaponl', 'Weaponl.ini'), ('weaponr', 'Weaponr.ini')]
+    tables = [read_layers(raw / 'avatar' / part / filename) for part, filename in parts]
+    layers = [value for suffix in ('', 'g') for motion in ACTIONS for table in tables
+              for row in table[motion + suffix] for value in row]
+    # 原客户端0x5FFD60，原方向顺序为SW/W/NW/N/NE/E/SE/S，过滤到身体、头、副手、主手。
+    orders = [[3, 0, 1, 2]]*3 + [[3, 2, 0, 1]] + [[3, 0, 1, 2]]*3 + [[0, 1, 3, 2]]
+    text = ['[gd_resource type="Resource" script_class="DataActorComposition" load_steps=2 format=3]',
+            '[ext_resource type="Script" path="res://src/World/Views/DataActorComposition.cs" id="1"]',
+            '[resource]', 'script = ExtResource("1")',
+            'BaseOrder = PackedInt32Array('+', '.join(str(v) for row in orders for v in row)+')',
+            'Layers = PackedInt32Array('+', '.join(map(str, layers))+')']
+    target.write_text('\n'.join(text)+'\n', encoding='utf-8')
+    evidence = {str(Path('avatar') / part / name): hashlib.sha256((raw / 'avatar' / part / name).read_bytes()).hexdigest()
+                for part, name in parts}
+    target.with_suffix('.json').write_text(json.dumps(dict(layerSources=evidence, orderingEvidence='docs/source-actor-composition.md'), ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
 
 
 def main():
-    """按明确系列绑定重建七件装备，缺失源动作复用站立并记录证据。"""
+    """从只读来源重建七件装备与原客户端完整角色合成表。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--raw', type=Path, required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1] / 'assets/characters/weapons'
-    # 对照物品图标核对基础剑、宽刃大剑、盾、木杖、枪、红柄拳刃、飞刀。
-    bindings = {1012: ('weaponr', 1), 1013: ('weaponr', 41), 1014: ('weaponl', 11),
-                1015: ('weaponr', 21), 1016: ('weaponr', 31), 1017: ('weaponr', 51),
-                1018: ('weaponl', 105)}
-    actions = {'stand': 1, 'run': 2, 'sit': 3, 'attack1': 5, 'magic': 8, 'prepare1': 9, 'hurt': 12}
     item_data = (args.raw / 'zipbin/ov_arm.bin').read_bytes()
     _, _, row_size, row_count = struct.unpack_from('<4I', item_data)
     if len(item_data) != 16 + row_size * row_count:
         raise ValueError('原始装备表长度不符')
-    for item_id, (hand, series) in bindings.items():
-        target = root / str(item_id)
-        other_hand = 'weaponl' if hand == 'weaponr' else 'weaponr'
-        variant = 'left' if hand == 'weaponr' else 'right'
-        # 逐项检查同系列另一手；存在时必须导入，防止增加新绑定后漏掉镜像持握。
-        paired = [(args.raw / 'avatar' / other_hand / f'{other_hand}{series * 100 + action:04}.gsn').exists()
-                  for action in (1, 51)]
-        if any(paired) and not all(paired):
-            raise ValueError(f'{item_id} 另一手素材缺少一个性别')
-        variant = variant if all(paired) else None
-        records, layer_file = import_hand(args.raw, target, hand, series, item_id, actions, variant)
-        evidence = {'itemId': item_id, 'binding': f'{hand}{series:02}',
-                    'nativeHand': 'right' if hand == 'weaponr' else 'left',
-                    'gripRestoration': '沿柄尾中心到握点寻找实心护手，局部闭合原手形切口并下衬半透明缝，独立层仅跨手回退时置于身体下方，原始纹理不变' if item_id in (1012, 1013) else None,
-                    'bindingNote': '按物品图标核对持握系列；同系列另一手有男女原画时完整导入，镜像按源手别选择；不存在时明确沿用基础素材。',
-                    'oppositeHandAvailable': variant is not None,
-                    'rearLayer': '按握点沿像素主轴无损分层，较厚端为前段，后段随方向和动作切换身体前后关系' if item_id in (1015, 1016) else None,
-                    'motionReuse': {'die': 'sit', 'attack2': 'attack1', 'attack3': 'attack1',
-                                    'prepare2': 'prepare1', 'prepare3': 'prepare1', 'ride': 'stand'},
-                    'layerSource': layer_file.relative_to(args.raw).as_posix(),
-                    'layerSha256': hashlib.sha256(layer_file.read_bytes()).hexdigest(), 'animations': records}
-        variant_records = []
+    for item_id, (hand, series, attack) in BINDINGS.items():
+        other = 'weaponl' if hand == 'weaponr' else 'weaponr'
+        variant = ('left' if hand == 'weaponr' else 'right') if (args.raw / 'avatar' / other / f'{other}{series*100+1:04}.gsn').exists() else None
+        records = import_hand(args.raw, root, item_id, hand, series, attack, variant)
+        evidence = dict(itemId=item_id, binding=f'{hand}{series:02}', nativeHand='right' if hand=='weaponr' else 'left',
+                        attackMotion=list(ACTIONS)[attack] if attack else None, animations=records,
+                        bindingNote='完整原生像素及挂点，整体镜像不换源手；缺少动作回退站立', oppositeHandAvailable=variant is not None)
         if variant:
-            variant_records, variant_layers = import_hand(args.raw, target / variant, other_hand, series, item_id, actions)
-            evidence[f'{variant}HandVariant'] = {
-                'nativeHand': variant,
-                'binding': f'{other_hand}{series:02}', 'layerSource': variant_layers.relative_to(args.raw).as_posix(),
-                'layerSha256': hashlib.sha256(variant_layers.read_bytes()).hexdigest(), 'animations': variant_records}
-        matches = [(index + 1, item_data[16 + index * row_size:16 + (index + 1) * row_size])
-                   for index in range(row_count) if struct.unpack_from('<I', item_data, 16 + index * row_size)[0] == item_id]
-        if len(matches) != 1:
+            evidence[f'{variant}HandVariant'] = dict(nativeHand=variant, binding=f'{other}{series:02}',
+                animations=import_hand(args.raw, root, item_id, other, series, attack, subfolder=variant))
+        rows = [(index + 1, item_data[16 + index*row_size:16 + (index+1)*row_size])
+                for index in range(row_count) if struct.unpack_from('<I', item_data, 16 + index*row_size)[0] == item_id]
+        if len(rows) != 1:
             raise ValueError(f'原始装备表记录不唯一：{item_id}')
-        evidence.update({'itemSource': 'zipbin/ov_arm.bin', 'itemSourceRow': matches[0][0],
-                         'itemSourceSha256': hashlib.sha256(item_data).hexdigest(), 'itemRowHex': matches[0][1].hex()})
-        (target / 'source.json').write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-        all_records = records + variant_records
-        print(f'{item_id}: {len(all_records)} sets, {sum(r["framesPerDirection"] * 5 for r in all_records)} frames')
+        evidence.update(itemSource='zipbin/ov_arm.bin', itemSourceRow=rows[0][0], itemRowHex=rows[0][1].hex(),
+                        itemSourceSha256=hashlib.sha256(item_data).hexdigest())
+        (root / str(item_id) / 'source.json').write_text(json.dumps(evidence, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+        print(f'{item_id}: native attack={attack}, {len(records)} motion entrypoints')
+    write_composition(args.raw, root.parent / 'composition.tres')
+    # 仅清理该生成目录内已不再被资源引用的派生图集和导入描述，不接触来源目录。
+    referenced = {match for resource in root.rglob('*.tres') for match in re.findall(r'path="res://([^"\n]+\.png)"', resource.read_text(encoding='utf-8'))}
+    project = root.parents[2]
+    for texture in root.rglob('*.png'):
+        if texture.relative_to(project).as_posix() not in referenced:
+            texture.unlink()
+            texture.with_suffix('.png.import').unlink(missing_ok=True)
 
 
 if __name__ == '__main__':

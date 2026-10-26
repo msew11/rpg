@@ -16,9 +16,9 @@ public sealed class EquipmentCfgCache : MultiCfgCache<int, EquipmentCfg>
     protected override void Validate(EquipmentCfg cfg)
     {
         foreach (var gender in new[] { "male", "female" })
-        foreach (var motion in new[] { "stand", "run", "sit", "attack1", "magic", "prepare1", "hurt" })
+        foreach (var motion in System.Enum.GetValues<RoleMotion>())
         {
-            var path = $"res://assets/characters/weapons/{cfg.AppearanceId}/{gender}/{motion}.tres";
+            var path = $"res://assets/characters/weapons/{cfg.AppearanceId}/{gender}/{motion.ToString().ToLowerInvariant()}.tres";
             if (!ResourceLoader.Exists(path)) throw new InvalidDataException($"equipment.json id={cfg.Id} 外观资源不存在：{path}");
         }
     }

@@ -8,7 +8,7 @@ import struct
 
 from PIL import Image
 
-from decode_actor_heads import frame_end, read_heads, read_header
+from decode_actor_heads import frame_end, read_heads, read_header, preserve_source_pixels
 
 
 def write_body(animation, source, raw, target):
@@ -42,16 +42,17 @@ def write_body(animation, source, raw, target):
         crop = struct.unpack_from("<2i", data, frame["sourceOffset"])
         attach = struct.unpack_from("<2i", data, end + 12)
         attachments[direction * count + index] = (crop[0] + attach[0], crop[1] + attach[1])
-        # 源画布中两组手部连接点依次为左、右手；镜像后的语义由表现层交换。
+        # 源画布中两组手部连接点依次为左、右手；与源手原画一同整体镜像，不交换手别。
         for points, offset in [(left_hands, 28), (right_hands, 36)]:
             hand = struct.unpack_from("<2i", data, end + offset)
             points[direction * count + index] = (crop[0] + hand[0], crop[1] + hand[1])
         lines += [f'[sub_resource type="AtlasTexture" id="Frame_{direction}_{index}"]',
                   'atlas = ExtResource("2")', f'region = Rect2({index * width}, {direction * height}, {width}, {height})',
-                  'filter_clip = true']
+                  'filter_clip = false']
     if any(point is None for point in attachments):
         raise ValueError("身体挂接点不完整")
     atlas.save(folder / f"{motion}.png")
+    preserve_source_pixels(folder / f"{motion}.png")
     lines += ['[sub_resource type="SpriteFrames" id="Animations"]', 'animations = [']
     for direction in range(5):
         frames = ', '.join('{"duration": 1.0, "texture": SubResource("Frame_' + f'{direction}_{index}' + '")}' for index in range(count))
@@ -91,8 +92,9 @@ def write_heads(raw, target):
             for direction, (image, anchor) in enumerate(frames):
                 atlas.paste(image, (0, height * direction))
                 lines += [f'[sub_resource type="AtlasTexture" id="Dir{direction}"]', 'atlas = ExtResource("2")',
-                          f'region = Rect2(0, {height * direction}, {width}, {height})', 'filter_clip = true']
+                          f'region = Rect2(0, {height * direction}, {width}, {height})', 'filter_clip = false']
             atlas.save(folder / f'{index}.png')
+            preserve_source_pixels(folder / f'{index}.png')
             anchors = ', '.join(str(value) for _, anchor in frames for value in anchor)
             textures = ', '.join(f'SubResource("Dir{direction}")' for direction in range(5))
             lines += ['[resource]', 'script = ExtResource("1")', f'Frames = Array[Texture2D]([{textures}])',

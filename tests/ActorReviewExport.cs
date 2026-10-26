@@ -72,7 +72,7 @@ public partial class ActorReviewExport : Node
             }
             var manifest = new
             {
-                schemaVersion = 1, generatedAt = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).ToString("O"),
+                schemaVersion = 2, alphaEncoding = "straight", generatedAt = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).ToString("O"),
                 revision, renderer = RenderingServer.GetCurrentRenderingMethod(), headId = 1,
                 cell = new { width = cell.X, height = cell.Y, anchorX = origin.X, anchorY = origin.Y, padding },
                 directions = DirectionKeys.Select((key, index) => new { key, index,
@@ -125,7 +125,9 @@ public partial class ActorReviewExport : Node
     private async Task<(object Entry, int Count)> CaptureGroup(string output, int main, int off, RoleGender gender,
         RoleMotion motion, Vector2I cell, Vector2 origin)
     {
-        var resource = GameServices.Animation.Get(gender, motion);
+        int Appearance(int id) => id == 0 ? 0 : GameServices.Config.Equipment.Items[GameServices.Config.Item.Items[id].RelatedId].AppearanceId;
+        var actualMotion = GameServices.Animation.ResolveMotion(gender, motion, Appearance(main), Appearance(off));
+        var resource = GameServices.Animation.Get(gender, actualMotion);
         var count = resource.Frames.GetFrameCount("dir0");
         if (Enumerable.Range(0, 5).Any(index => resource.Frames.GetFrameCount($"dir{index}") != count))
             throw new InvalidOperationException($"身体方向帧数不一致：{gender}/{motion}");
@@ -149,14 +151,25 @@ public partial class ActorReviewExport : Node
                 var slot = new Rect2(new Vector2(frame * cell.X + 1, direction * cell.Y + 1), (Vector2)cell - Vector2.One * 2);
                 if (!slot.Encloses(visible)) throw new InvalidOperationException($"帧超出画布：{gender}/{motion}/{direction}/{frame}/{visible}");
                 handSamples.Add(new { frame, duration = resource.Frames.GetFrameDuration(body.Animation, frame),
-                    main = WeaponSample(actor, main, true, gender, motion, direction),
-                    off = WeaponSample(actor, off, false, gender, motion, direction) });
+                    main = WeaponSample(actor, main, true, gender, actualMotion, direction),
+                    off = WeaponSample(actor, off, false, gender, actualMotion, direction) });
             }
             samples.Add(new { direction, frames = handSamples });
         }
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         using var image = viewport.GetTexture().GetImage();
+        // 透明视口读回的是预乘颜色；PNG浏览器按直通alpha读取，须还原以免边缘重复变暗。
+        image.Convert(Image.Format.Rgba8);
+        var pixels = image.GetData();
+        for (var offset = 0; offset < pixels.Length; offset += 4)
+        {
+            var alpha = pixels[offset + 3];
+            if (alpha is 0 or 255) continue;
+            for (var channel = 0; channel < 3; channel++)
+                pixels[offset + channel] = (byte)Math.Min(255, (pixels[offset + channel] * 255 + alpha / 2) / alpha);
+        }
+        image.SetData(image.GetWidth(), image.GetHeight(), false, Image.Format.Rgba8, pixels);
         var key = $"{gender.ToString().ToLowerInvariant()}/{EquipmentKey(main, off)}/{motion.ToString().ToLowerInvariant()}";
         var relative = $"sheets/{key}.png";
         var path = Path.Combine(output, relative);
@@ -165,7 +178,7 @@ public partial class ActorReviewExport : Node
             throw new InvalidOperationException($"透明联系表保存失败：{path}");
         viewport.Free();
         return (new { key, gender = gender.ToString().ToLowerInvariant(), equipment = EquipmentKey(main, off),
-            main, off, motion = motion.ToString().ToLowerInvariant(), count, fps = resource.Frames.GetAnimationSpeed("dir0"),
+            main, off, motion = motion.ToString().ToLowerInvariant(), actualMotion = actualMotion.ToString().ToLowerInvariant(), count, fps = resource.Frames.GetAnimationSpeed("dir0"),
             loop = resource.Frames.GetAnimationLoopMode("dir0").ToString(), sheet = relative, samples }, count * 8);
     }
 
@@ -176,12 +189,12 @@ public partial class ActorReviewExport : Node
         var item = GameServices.Config.Item.Items[itemId];
         var appearance = GameServices.Config.Equipment.Items[item.RelatedId].AppearanceId;
         var (_, mirrored) = AnimationService.ResolveDirection(IsometricProjection.ToLogical(Directions[direction]));
-        var weapon = GameServices.Animation.GetWeapon(appearance, gender, motion, main != mirrored);
+        var weapon = GameServices.Animation.GetWeapon(appearance, gender, motion, main);
         var sprite = actor.GetNode<Sprite2D>(main ? "Facing/RightHand/Weapon" : "Facing/LeftHand/Weapon");
         var index = Array.IndexOf(weapon.Frames, sprite.Texture);
         if (index < 0) throw new InvalidOperationException("实绘武器未使用清单所记录的资源");
-        return new { itemId, appearance, resource = weapon.ResourcePath, sourceRightHand = main != mirrored,
-            nativeRightHand = weapon.SourceRightHand, crossHandFallback = (main != mirrored) != weapon.SourceRightHand,
+        return new { itemId, appearance, resource = weapon.ResourcePath, sourceRightHand = main,
+            nativeRightHand = weapon.SourceRightHand, sourceAction = weapon.SourceAction, mirrored,
             sourceIndex = index, sourceFrame = index % (weapon.Frames.Length / 5), framesPerDirection = weapon.Frames.Length / 5 };
     }
 

@@ -1,29 +1,30 @@
 [gd_resource type="Resource" script_class="DataActorWeapon" load_steps=8 format=3]
 [ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]
-[ext_resource type="Texture2D" path="res://assets/characters/weapons/1014/male/prepare1.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/characters/weapons/1014/male/stand.png" id="2"]
 [sub_resource type="AtlasTexture" id="Frame0"]
 atlas = ExtResource("2")
 region = Rect2(0, 0, 63, 42)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame1"]
 atlas = ExtResource("2")
 region = Rect2(0, 42, 63, 42)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame2"]
 atlas = ExtResource("2")
 region = Rect2(0, 84, 63, 42)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame3"]
 atlas = ExtResource("2")
 region = Rect2(0, 126, 63, 42)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame4"]
 atlas = ExtResource("2")
 region = Rect2(0, 168, 63, 42)
-filter_clip = true
+filter_clip = false
 [resource]
 script = ExtResource("1")
-Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
 SourceRightHand = false
+SourceAction = 1
+AttackMotion = 0
+Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
 Anchors = PackedVector2Array(44, 22, 31, 26, 16, 23, 10, 16, 49, 15)
-Layers = PackedInt32Array(0, 0, 0, 0, 0)

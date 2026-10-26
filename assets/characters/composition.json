@@ -1,0 +1,9 @@
+{
+  "layerSources": {
+    "avatar\\npc\\Npc.ini": "cd381c1cf3b101e62a9df1fbd54bea01aeacd8b2034503ab00911d68cb897493",
+    "avatar\\head\\Head.ini": "62cb65db056dfa5d16b5ecd3565aee3a3fb414501c452fa20f71099dd2fda440",
+    "avatar\\weaponl\\Weaponl.ini": "08b9930ca44333207eb52eb8ac3de5b6f799c2608e182b1507a538b5e8cf2776",
+    "avatar\\weaponr\\Weaponr.ini": "7c4ce5448e89a70846d1c72427028b100748f8521e910feec6678267bad4e832"
+  },
+  "orderingEvidence": "docs/source-actor-composition.md"
+}

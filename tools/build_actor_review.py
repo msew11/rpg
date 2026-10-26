@@ -49,7 +49,7 @@ def build(root, replace_archive=False):
         (root / labelled_path).parent.mkdir(parents=True, exist_ok=True)
         labelled = Image.new('RGB', (88 + width * count, 76 + height * 8), '#202b36')
         draw = ImageDraw.Draw(labelled)
-        title = f'{genders[group["gender"]]} / {motions[group["motion"]]} / {equipment[group["equipment"]]} / {count}帧'
+        title = f'{genders[group["gender"]]} / {motions[group["motion"]] + "→" + motions[group["actualMotion"]]} / {equipment[group["equipment"]]} / {count}帧'
         fitted_title = title_font
         while draw.textlength(title, font=fitted_title) > labelled.width - 28 and fitted_title.size > 10:
             fitted_title = title_font.font_variant(size=fitted_title.size - 1)
@@ -80,9 +80,9 @@ def build(root, replace_archive=False):
                 total += 1
         labelled.save(root / labelled_path, compress_level=3)
         group['labelled'] = labelled_path.as_posix()
-        coverage.append([group['gender'], group['equipment'], group['main'], group['off'], group['motion'], count, 8, count * 8, group['fps'], group['sheet'], group['labelled']])
+        coverage.append([group['gender'], group['equipment'], group['main'], group['off'], group['motion'], group['actualMotion'], count, 8, count * 8, group['fps'], group['sheet'], group['labelled']])
         # 浏览页只保留每方向资源和逐帧采样号；完整源证据仍留在manifest.json。
-        light = {key: group[key] for key in ['key', 'gender', 'equipment', 'main', 'off', 'motion', 'count', 'fps', 'loop', 'sheet', 'labelled']}
+        light = {key: group[key] for key in ['key', 'gender', 'equipment', 'main', 'off', 'motion', 'actualMotion', 'count', 'fps', 'loop', 'sheet', 'labelled']}
         light['durations'] = [entry['duration'] for entry in group['samples'][0]['frames']]
         light['sources'] = []
         for direction in group['samples']:
@@ -90,7 +90,7 @@ def build(root, replace_archive=False):
             for hand in ['main', 'off']:
                 entries = [entry[hand] for entry in direction['frames']]
                 hands[hand] = None if entries[0] is None else {
-                    'resource': entries[0]['resource'], 'count': entries[0]['framesPerDirection'],
+                    'sourceAction': entries[0]['sourceAction'], 'sourceRightHand': entries[0]['sourceRightHand'], 'resource': entries[0]['resource'], 'count': entries[0]['framesPerDirection'],
                     'frames': [entry['sourceFrame'] for entry in entries]}
             light['sources'].append(hands)
         browser_groups.append(light)
@@ -108,7 +108,7 @@ def build(root, replace_archive=False):
     (root / 'index.html').write_text((Path(__file__).parent / 'actor_review.html').read_text(encoding='utf-8'), encoding='utf-8')
     with (root / 'coverage.csv').open('w', encoding='utf-8-sig', newline='') as stream:
         writer = csv.writer(stream)
-        writer.writerow(['性别', '装备组合', '主手ID', '副手ID', '动作', '身体帧数', '方向数', '单帧图数', 'FPS', '原始联系表', '中文联系表'])
+        writer.writerow(['性别', '装备组合', '主手ID', '副手ID', '请求动作', '实际身体动作', '身体帧数', '方向数', '单帧图数', 'FPS', '原始联系表', '中文联系表'])
         writer.writerows(coverage)
     (root / '使用说明.txt').write_text(
         f'角色完整逐帧审查包\n\n双击index.html，可离线筛选性别、装备及动作，逐帧查看8方向并播放、放大。\n'
@@ -119,7 +119,7 @@ def build(root, replace_archive=False):
         'labelled/：带中文方向与帧号的总览图，列为帧，行为方向。\n'
         'sheets/：透明原始1倍实绘联系表。coverage.csv：完整覆盖表。\n'
         'manifest.json：版本、画布定位点、帧时长、实际左右手资源与采样帧。\n'
-        '复用说明：盾牌等部分武器缺少独立动作，当前会随身体挂点复用已有武器帧；'
+        '复用说明：盾牌等部分武器缺少独立动作，按原客户端回退站立；攻击和准备按装备类别解析身体姿态；'
         '浏览页显示实际资源和采样帧，保留游戏当前结果供审查。\n'
         '当前槽位规则未限定双手武器占用副手，因此包中也保留这些当前允许的组合。\n'
         f'来源版本：{manifest["revision"]}\n生成时间：{manifest["generatedAt"]}\n', encoding='utf-8')

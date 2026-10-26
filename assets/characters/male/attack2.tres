@@ -4,163 +4,163 @@
 [sub_resource type="AtlasTexture" id="Frame_0_0"]
 atlas = ExtResource("2")
 region = Rect2(0, 0, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_0_1"]
 atlas = ExtResource("2")
 region = Rect2(96, 0, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_0_2"]
 atlas = ExtResource("2")
 region = Rect2(192, 0, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_0_3"]
 atlas = ExtResource("2")
 region = Rect2(288, 0, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_0_4"]
 atlas = ExtResource("2")
 region = Rect2(384, 0, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_0_5"]
 atlas = ExtResource("2")
 region = Rect2(480, 0, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_0_6"]
 atlas = ExtResource("2")
 region = Rect2(576, 0, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_0_7"]
 atlas = ExtResource("2")
 region = Rect2(672, 0, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_1_0"]
 atlas = ExtResource("2")
 region = Rect2(0, 95, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_1_1"]
 atlas = ExtResource("2")
 region = Rect2(96, 95, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_1_2"]
 atlas = ExtResource("2")
 region = Rect2(192, 95, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_1_3"]
 atlas = ExtResource("2")
 region = Rect2(288, 95, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_1_4"]
 atlas = ExtResource("2")
 region = Rect2(384, 95, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_1_5"]
 atlas = ExtResource("2")
 region = Rect2(480, 95, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_1_6"]
 atlas = ExtResource("2")
 region = Rect2(576, 95, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_1_7"]
 atlas = ExtResource("2")
 region = Rect2(672, 95, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_2_0"]
 atlas = ExtResource("2")
 region = Rect2(0, 190, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_2_1"]
 atlas = ExtResource("2")
 region = Rect2(96, 190, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_2_2"]
 atlas = ExtResource("2")
 region = Rect2(192, 190, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_2_3"]
 atlas = ExtResource("2")
 region = Rect2(288, 190, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_2_4"]
 atlas = ExtResource("2")
 region = Rect2(384, 190, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_2_5"]
 atlas = ExtResource("2")
 region = Rect2(480, 190, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_2_6"]
 atlas = ExtResource("2")
 region = Rect2(576, 190, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_2_7"]
 atlas = ExtResource("2")
 region = Rect2(672, 190, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_3_0"]
 atlas = ExtResource("2")
 region = Rect2(0, 285, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_3_1"]
 atlas = ExtResource("2")
 region = Rect2(96, 285, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_3_2"]
 atlas = ExtResource("2")
 region = Rect2(192, 285, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_3_3"]
 atlas = ExtResource("2")
 region = Rect2(288, 285, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_3_4"]
 atlas = ExtResource("2")
 region = Rect2(384, 285, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_3_5"]
 atlas = ExtResource("2")
 region = Rect2(480, 285, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_3_6"]
 atlas = ExtResource("2")
 region = Rect2(576, 285, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_3_7"]
 atlas = ExtResource("2")
 region = Rect2(672, 285, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_4_0"]
 atlas = ExtResource("2")
 region = Rect2(0, 380, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_4_1"]
 atlas = ExtResource("2")
 region = Rect2(96, 380, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_4_2"]
 atlas = ExtResource("2")
 region = Rect2(192, 380, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_4_3"]
 atlas = ExtResource("2")
 region = Rect2(288, 380, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_4_4"]
 atlas = ExtResource("2")
 region = Rect2(384, 380, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_4_5"]
 atlas = ExtResource("2")
 region = Rect2(480, 380, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_4_6"]
 atlas = ExtResource("2")
 region = Rect2(576, 380, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame_4_7"]
 atlas = ExtResource("2")
 region = Rect2(672, 380, 96, 95)
-filter_clip = true
+filter_clip = false
 [sub_resource type="SpriteFrames" id="Animations"]
 animations = [
 {"frames": [{"duration": 1.0, "texture": SubResource("Frame_0_0")}, {"duration": 1.0, "texture": SubResource("Frame_0_1")}, {"duration": 1.0, "texture": SubResource("Frame_0_2")}, {"duration": 1.0, "texture": SubResource("Frame_0_3")}, {"duration": 1.0, "texture": SubResource("Frame_0_4")}, {"duration": 1.0, "texture": SubResource("Frame_0_5")}, {"duration": 1.0, "texture": SubResource("Frame_0_6")}, {"duration": 1.0, "texture": SubResource("Frame_0_7")}], "loop": false, "name": &"dir0", "speed": 10.0},

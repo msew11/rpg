@@ -1,51 +1,30 @@
-[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=14 format=3]
+[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=8 format=3]
 [ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]
 [ext_resource type="Texture2D" path="res://assets/characters/weapons/1012/female/hurt.png" id="2"]
-[ext_resource type="Texture2D" path="res://assets/characters/weapons/1012/female/hurt.grip.png" id="5"]
 [sub_resource type="AtlasTexture" id="Frame0"]
 atlas = ExtResource("2")
 region = Rect2(0, 0, 70, 63)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Grip0"]
-atlas = ExtResource("5")
-region = Rect2(0, 0, 70, 63)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame1"]
 atlas = ExtResource("2")
 region = Rect2(0, 63, 70, 63)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Grip1"]
-atlas = ExtResource("5")
-region = Rect2(0, 63, 70, 63)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame2"]
 atlas = ExtResource("2")
 region = Rect2(0, 126, 70, 63)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Grip2"]
-atlas = ExtResource("5")
-region = Rect2(0, 126, 70, 63)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame3"]
 atlas = ExtResource("2")
 region = Rect2(0, 189, 70, 63)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Grip3"]
-atlas = ExtResource("5")
-region = Rect2(0, 189, 70, 63)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Frame4"]
 atlas = ExtResource("2")
 region = Rect2(0, 252, 70, 63)
-filter_clip = true
-[sub_resource type="AtlasTexture" id="Grip4"]
-atlas = ExtResource("5")
-region = Rect2(0, 252, 70, 63)
-filter_clip = true
+filter_clip = false
 [resource]
 script = ExtResource("1")
-Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
 SourceRightHand = true
+SourceAction = 12
+AttackMotion = 4
+Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
 Anchors = PackedVector2Array(33, 6, 56, 12, 62, 24, 50, 35, 9, 9)
-Layers = PackedInt32Array(0, 0, 0, 0, 0)
-GripFrames = Array[Texture2D]([SubResource("Grip0"), SubResource("Grip1"), SubResource("Grip2"), SubResource("Grip3"), SubResource("Grip4")])

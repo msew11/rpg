@@ -4,23 +4,23 @@
 [sub_resource type="AtlasTexture" id="Dir0"]
 atlas = ExtResource("2")
 region = Rect2(0, 0, 22, 24)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Dir1"]
 atlas = ExtResource("2")
 region = Rect2(0, 24, 22, 24)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Dir2"]
 atlas = ExtResource("2")
 region = Rect2(0, 48, 22, 24)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Dir3"]
 atlas = ExtResource("2")
 region = Rect2(0, 72, 22, 24)
-filter_clip = true
+filter_clip = false
 [sub_resource type="AtlasTexture" id="Dir4"]
 atlas = ExtResource("2")
 region = Rect2(0, 96, 22, 24)
-filter_clip = true
+filter_clip = false
 [resource]
 script = ExtResource("1")
 Frames = Array[Texture2D]([SubResource("Dir0"), SubResource("Dir1"), SubResource("Dir2"), SubResource("Dir3"), SubResource("Dir4")])

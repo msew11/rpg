@@ -1,761 +1,1996 @@
 {
-  "description": "client-actor-presentation：从只读原始GSN逐帧提取RGBA、连接点、原始层次及尺寸的SHA256；半透明RGB清零以兼容Godot导入。",
+  "description": "独立原始DIMG像素、连接点、尺寸黄金；层次取男女完整身体动作，不取武器回退动作。",
   "resources": [
     {
       "path": "res://assets/characters/weapons/1012/male/stand.tres",
-      "sha256": "C2557F2CEAB83B7B0F2FFB9974DFFDACF06AA6968B1AAD2C39103585EBF5D3EF",
+      "source": "avatar/weaponr/weaponr0101.gsn",
+      "sourceSha256": "90a9b3db62d3f197a5252d85615f742afaf998e29b772488d310c6309cb8a0a7",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr0101.gsn"
+      "sha256": "8927C6A1A69AAA48269EECE05DE2890969F19F130C2BCCC57D2703E97339BDCE"
     },
     {
       "path": "res://assets/characters/weapons/1012/male/run.tres",
-      "sha256": "664E3F2C305A00CCF38799FDCB6279FDFE0D22EE3CD8784F7B29F8A582794C43",
+      "source": "avatar/weaponr/weaponr0102.gsn",
+      "sourceSha256": "258491ab148e5b3d56cd7b4eb9bb3cd1c5c3ca9654828cd8b98d60e636197b39",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr0102.gsn"
+      "sha256": "BA40793CF8F1EA08FCB3175C2B9CC2BA5FD5CF01AF6D40088DA43384E2841755"
     },
     {
       "path": "res://assets/characters/weapons/1012/male/sit.tres",
-      "sha256": "0C7B93B06C818BFB4A5FEAC95A5A98A7FEDD52DE291BFEE6D1B9DF0114DB35E4",
+      "source": "avatar/weaponr/weaponr0103.gsn",
+      "sourceSha256": "38bb57cabc23b8652b65258001e8aa93206dd4cb4d102127c60108cea0f22ac1",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr0103.gsn"
+      "sha256": "0C1A9D7253EF2EB26ADE625AEE2670C27950CA21397BB358B43C1C03A03A38C6"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/male/die.tres",
+      "source": "avatar/weaponr/weaponr0101.gsn",
+      "sourceSha256": "90a9b3db62d3f197a5252d85615f742afaf998e29b772488d310c6309cb8a0a7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "8927C6A1A69AAA48269EECE05DE2890969F19F130C2BCCC57D2703E97339BDCE"
     },
     {
       "path": "res://assets/characters/weapons/1012/male/attack1.tres",
-      "sha256": "E1ACA44D396DC4B9691EC231E328D8176F9F514F60A046E8EBA703F649DE93C7",
+      "source": "avatar/weaponr/weaponr0105.gsn",
+      "sourceSha256": "4d99bee95023713279a938db7ff226b89f15d842ad0e09448c8ab70a7e1b1797",
+      "sourceAction": 5,
       "frames": 45,
-      "source": "avatar/weaponr/weaponr0105.gsn"
+      "sha256": "006CC0C9CC06A688C887B1670A2B7BF9F7EBFF42C0157E8C3EE7EBE5CC1443CC"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/male/attack2.tres",
+      "source": "avatar/weaponr/weaponr0101.gsn",
+      "sourceSha256": "90a9b3db62d3f197a5252d85615f742afaf998e29b772488d310c6309cb8a0a7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "8927C6A1A69AAA48269EECE05DE2890969F19F130C2BCCC57D2703E97339BDCE"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/male/attack3.tres",
+      "source": "avatar/weaponr/weaponr0101.gsn",
+      "sourceSha256": "90a9b3db62d3f197a5252d85615f742afaf998e29b772488d310c6309cb8a0a7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "8927C6A1A69AAA48269EECE05DE2890969F19F130C2BCCC57D2703E97339BDCE"
     },
     {
       "path": "res://assets/characters/weapons/1012/male/magic.tres",
-      "sha256": "C9F2770E504F6223BAF9C94D345C1D15F669EE425537A047528B7902D46FED3C",
+      "source": "avatar/weaponr/weaponr0108.gsn",
+      "sourceSha256": "53a9ad240632790dad1435e34848c2025fbe77da433c52a0d6cb31de70680ac9",
+      "sourceAction": 8,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr0108.gsn"
+      "sha256": "1DA4DDF30E15D484716372AE87DA49C3A533D59003BCEC4114B682B64FD571A3"
     },
     {
       "path": "res://assets/characters/weapons/1012/male/prepare1.tres",
-      "sha256": "5ACDD49A4438B14D852B8EA639CAAE7554CFAFDC16A954156FCD17F4F9617F21",
+      "source": "avatar/weaponr/weaponr0109.gsn",
+      "sourceSha256": "ef5f08d5abb63cee91eb462c46f3e3785efdcc56a6d75f673a1ffdafd0d718f6",
+      "sourceAction": 9,
       "frames": 20,
-      "source": "avatar/weaponr/weaponr0109.gsn"
+      "sha256": "A6E1D7D73B06F34E385E2B7A669F15B8CCB62858E6913670CE037C1812A204A3"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/male/prepare2.tres",
+      "source": "avatar/weaponr/weaponr0101.gsn",
+      "sourceSha256": "90a9b3db62d3f197a5252d85615f742afaf998e29b772488d310c6309cb8a0a7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "8927C6A1A69AAA48269EECE05DE2890969F19F130C2BCCC57D2703E97339BDCE"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/male/prepare3.tres",
+      "source": "avatar/weaponr/weaponr0101.gsn",
+      "sourceSha256": "90a9b3db62d3f197a5252d85615f742afaf998e29b772488d310c6309cb8a0a7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "8927C6A1A69AAA48269EECE05DE2890969F19F130C2BCCC57D2703E97339BDCE"
     },
     {
       "path": "res://assets/characters/weapons/1012/male/hurt.tres",
-      "sha256": "7C03546DB66AE54C64A436FC2384802EF9C26CAE616CA001CDE4000F7C21FE90",
+      "source": "avatar/weaponr/weaponr0112.gsn",
+      "sourceSha256": "57488037b98f20e5381a375533c114e2ced6e3ff3e77d25b7960e06011189297",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr0112.gsn"
+      "sha256": "3834B8755B7F86A7C07942FFB843F88767AF4E381309F9F0E4225A2BC97EB341"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/male/ride.tres",
+      "source": "avatar/weaponr/weaponr0101.gsn",
+      "sourceSha256": "90a9b3db62d3f197a5252d85615f742afaf998e29b772488d310c6309cb8a0a7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "8927C6A1A69AAA48269EECE05DE2890969F19F130C2BCCC57D2703E97339BDCE"
     },
     {
       "path": "res://assets/characters/weapons/1012/female/stand.tres",
-      "sha256": "41A7CE0396F9703564684F422896CC7C9F367C4296E27255B2A93A88FB891402",
+      "source": "avatar/weaponr/weaponr0151.gsn",
+      "sourceSha256": "d45a5d59569222469cce9ae6aed012cd5197cf855c267fb2dac76a3cc49a9f9b",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr0151.gsn"
+      "sha256": "12B78D2E9830F7E02FDCCFCABE660C842931F6B49102F0CCC6F69CE305DD48E0"
     },
     {
       "path": "res://assets/characters/weapons/1012/female/run.tres",
-      "sha256": "A0A33942430DF1110B99EDDC981D8006D82B437E25E90F530BF30D3A92717266",
+      "source": "avatar/weaponr/weaponr0152.gsn",
+      "sourceSha256": "0e30fb6ffbd4e9070fa2c97caf9a896446ba62e089c3a8ea3e2534d8887c7382",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr0152.gsn"
+      "sha256": "32CFFF4FE0FB8EAAD44042992FEB12F72C908A178E0E93D56788349A18F715A2"
     },
     {
       "path": "res://assets/characters/weapons/1012/female/sit.tres",
-      "sha256": "50FC53B7000CA0929BDCAE8DF712EC4A75975E2B692A65620AAAC179582871B2",
+      "source": "avatar/weaponr/weaponr0153.gsn",
+      "sourceSha256": "c93aeea344580e8003c472b1b0ac9a943818a8190494662d5ed307029775bf17",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr0153.gsn"
+      "sha256": "79114AE6F3B519F94D3A3D888C00EB21116D8660F996165319648C2ABFCE0C03"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/female/die.tres",
+      "source": "avatar/weaponr/weaponr0151.gsn",
+      "sourceSha256": "d45a5d59569222469cce9ae6aed012cd5197cf855c267fb2dac76a3cc49a9f9b",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "12B78D2E9830F7E02FDCCFCABE660C842931F6B49102F0CCC6F69CE305DD48E0"
     },
     {
       "path": "res://assets/characters/weapons/1012/female/attack1.tres",
-      "sha256": "533C5315DF29C909F82B0B00F7B72885642C03CE6F848B9B5087535486CB6C86",
+      "source": "avatar/weaponr/weaponr0155.gsn",
+      "sourceSha256": "0e6da87e1ae242a3a33eef625921bc41603e569e96c0f89a90587c0f3afa5b50",
+      "sourceAction": 5,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr0155.gsn"
+      "sha256": "BCDF70468FEAA0FFC274679029A1D65194A708C7030F9742D0A09A01FAF9FB12"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/female/attack2.tres",
+      "source": "avatar/weaponr/weaponr0151.gsn",
+      "sourceSha256": "d45a5d59569222469cce9ae6aed012cd5197cf855c267fb2dac76a3cc49a9f9b",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "12B78D2E9830F7E02FDCCFCABE660C842931F6B49102F0CCC6F69CE305DD48E0"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/female/attack3.tres",
+      "source": "avatar/weaponr/weaponr0151.gsn",
+      "sourceSha256": "d45a5d59569222469cce9ae6aed012cd5197cf855c267fb2dac76a3cc49a9f9b",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "12B78D2E9830F7E02FDCCFCABE660C842931F6B49102F0CCC6F69CE305DD48E0"
     },
     {
       "path": "res://assets/characters/weapons/1012/female/magic.tres",
-      "sha256": "5C3771B9248053DEFDB7CD80C53D3C2D594330559927C22338D5E787169F2220",
+      "source": "avatar/weaponr/weaponr0158.gsn",
+      "sourceSha256": "f475fec385abc8aa1044584f7bbc77b998f93acc445816a1844972013a78f58e",
+      "sourceAction": 8,
       "frames": 45,
-      "source": "avatar/weaponr/weaponr0158.gsn"
+      "sha256": "46A017EF34A7D0F715B8B8A4162FBB5ABF492B0BAA629C6B7B1DC8882B7A016D"
     },
     {
       "path": "res://assets/characters/weapons/1012/female/prepare1.tres",
-      "sha256": "7ABDF6534864BE67AF1C419630CFB263BC340F03850F513636E18E1C6AB21B00",
+      "source": "avatar/weaponr/weaponr0159.gsn",
+      "sourceSha256": "fe57d8ab74b48c71b1291bbcf5ea502b3fb96befc8c184458c12e150351164cd",
+      "sourceAction": 9,
       "frames": 20,
-      "source": "avatar/weaponr/weaponr0159.gsn"
+      "sha256": "DF90BD6FFB772C77401DB4837B9C04AB9852FFD5AFD5D9858F031AB235D7145A"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/female/prepare2.tres",
+      "source": "avatar/weaponr/weaponr0151.gsn",
+      "sourceSha256": "d45a5d59569222469cce9ae6aed012cd5197cf855c267fb2dac76a3cc49a9f9b",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "12B78D2E9830F7E02FDCCFCABE660C842931F6B49102F0CCC6F69CE305DD48E0"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/female/prepare3.tres",
+      "source": "avatar/weaponr/weaponr0151.gsn",
+      "sourceSha256": "d45a5d59569222469cce9ae6aed012cd5197cf855c267fb2dac76a3cc49a9f9b",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "12B78D2E9830F7E02FDCCFCABE660C842931F6B49102F0CCC6F69CE305DD48E0"
     },
     {
       "path": "res://assets/characters/weapons/1012/female/hurt.tres",
-      "sha256": "6CF507D1D1FD8287D08C68B605F0A696DC3BEFB9F5E1BF2BD89E6F4883B46777",
+      "source": "avatar/weaponr/weaponr0162.gsn",
+      "sourceSha256": "26dde31ac6176fd733f8574524548b91bb8dbaf149a8c92ad75000a17333bc15",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr0162.gsn"
+      "sha256": "1A56C4C7509AA980A39BB8C7AFB99F9D24CD52A7C2F9DB38A33188231B42587F"
+    },
+    {
+      "path": "res://assets/characters/weapons/1012/female/ride.tres",
+      "source": "avatar/weaponr/weaponr0151.gsn",
+      "sourceSha256": "d45a5d59569222469cce9ae6aed012cd5197cf855c267fb2dac76a3cc49a9f9b",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "12B78D2E9830F7E02FDCCFCABE660C842931F6B49102F0CCC6F69CE305DD48E0"
     },
     {
       "path": "res://assets/characters/weapons/1013/male/stand.tres",
-      "sha256": "DE73F91614754FF6F1A4BF3DEF6754559BEBCFC5C18B497EB3000E3153B11F18",
+      "source": "avatar/weaponr/weaponr4101.gsn",
+      "sourceSha256": "88387fcbbf41e86e753402726dac14e0e4cbe582e0f5c4b0e3fe8748cebaa413",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr4101.gsn"
+      "sha256": "80B21677A366676C4A8F64AA8776D44918578E68B5E629CF12A56CBBB7F113A8"
     },
     {
       "path": "res://assets/characters/weapons/1013/male/run.tres",
-      "sha256": "91874F838B042BB15DEC36ADCB62C19FE6015A13B502E356CA3C264D270A51E4",
+      "source": "avatar/weaponr/weaponr4102.gsn",
+      "sourceSha256": "01e46d4221abb8b9078ec4aaaac3c3d7ceb7b1fe8ecd3ef7411f23e4075594e9",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr4102.gsn"
+      "sha256": "53180EEE854D97411EA867EDAD25DBFDA2F10243B7C3F300E8245A611DE808C6"
     },
     {
       "path": "res://assets/characters/weapons/1013/male/sit.tres",
-      "sha256": "4A42AC781051D60A68D984FBB2D2B3431B6E77799827227780C73380113F0CDC",
+      "source": "avatar/weaponr/weaponr4103.gsn",
+      "sourceSha256": "5d8fd043ccf03eee205f323594e362738ac88948b8b0a0aea33023cb208289d2",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr4103.gsn"
+      "sha256": "3E31D4D5A1C17A4B0D23F657C983E45AD6C5D36A82C2993E3C32FC4E6CD951BD"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/male/die.tres",
+      "source": "avatar/weaponr/weaponr4101.gsn",
+      "sourceSha256": "88387fcbbf41e86e753402726dac14e0e4cbe582e0f5c4b0e3fe8748cebaa413",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "80B21677A366676C4A8F64AA8776D44918578E68B5E629CF12A56CBBB7F113A8"
     },
     {
       "path": "res://assets/characters/weapons/1013/male/attack1.tres",
-      "sha256": "2FE046513F3159651AEE485B5BE0E54757FAE6B843693641223FB40FBCC02C90",
+      "source": "avatar/weaponr/weaponr4105.gsn",
+      "sourceSha256": "f93f330fccdfef6579b2dfeb52aecfeb9ee72845e7f57c8e32db6a9ff82eaccb",
+      "sourceAction": 5,
       "frames": 45,
-      "source": "avatar/weaponr/weaponr4105.gsn"
+      "sha256": "2745487E2AC597D16559F52CB0E8D0ED3CE0541ECA7ED6345E89DD73C9EF3DD8"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/male/attack2.tres",
+      "source": "avatar/weaponr/weaponr4101.gsn",
+      "sourceSha256": "88387fcbbf41e86e753402726dac14e0e4cbe582e0f5c4b0e3fe8748cebaa413",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "80B21677A366676C4A8F64AA8776D44918578E68B5E629CF12A56CBBB7F113A8"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/male/attack3.tres",
+      "source": "avatar/weaponr/weaponr4101.gsn",
+      "sourceSha256": "88387fcbbf41e86e753402726dac14e0e4cbe582e0f5c4b0e3fe8748cebaa413",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "80B21677A366676C4A8F64AA8776D44918578E68B5E629CF12A56CBBB7F113A8"
     },
     {
       "path": "res://assets/characters/weapons/1013/male/magic.tres",
-      "sha256": "0121FE2D9A7B8749533D1588E1FB1D290C6ADBE1BCCFA8104E9B2547B40056A0",
+      "source": "avatar/weaponr/weaponr4108.gsn",
+      "sourceSha256": "b4468c3440a273fa488303891109a44a051d61a1b8a8d61e320e3ba56ea0bf38",
+      "sourceAction": 8,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr4108.gsn"
+      "sha256": "3A1AE19985BD15937E4F3E57D2409EBBCE10D812DEC8798D41C95E86B00434AE"
     },
     {
       "path": "res://assets/characters/weapons/1013/male/prepare1.tres",
-      "sha256": "85C69249BBAB028AB2BB8BCDEC914F51E434F31B5B878738EFB2B14C6044BCBD",
+      "source": "avatar/weaponr/weaponr4109.gsn",
+      "sourceSha256": "95d92a175c41dff2f80ca179378061c6ca32a2bf60af24a5bcc9475b8bf1cc89",
+      "sourceAction": 9,
       "frames": 20,
-      "source": "avatar/weaponr/weaponr4109.gsn"
+      "sha256": "0EF037F27B166249E4F13E4B12FEEA9C8552BF82DB2409C1141F5EA773EC7615"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/male/prepare2.tres",
+      "source": "avatar/weaponr/weaponr4101.gsn",
+      "sourceSha256": "88387fcbbf41e86e753402726dac14e0e4cbe582e0f5c4b0e3fe8748cebaa413",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "80B21677A366676C4A8F64AA8776D44918578E68B5E629CF12A56CBBB7F113A8"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/male/prepare3.tres",
+      "source": "avatar/weaponr/weaponr4101.gsn",
+      "sourceSha256": "88387fcbbf41e86e753402726dac14e0e4cbe582e0f5c4b0e3fe8748cebaa413",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "80B21677A366676C4A8F64AA8776D44918578E68B5E629CF12A56CBBB7F113A8"
     },
     {
       "path": "res://assets/characters/weapons/1013/male/hurt.tres",
-      "sha256": "E174CFC16E9FE2DD58975C645687F216BB1CD0E5866072DE6510E081EC458225",
+      "source": "avatar/weaponr/weaponr4112.gsn",
+      "sourceSha256": "1fd8322cd624f7175f6d9870d5bd906b7136011e907e1786532e318f123df665",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr4112.gsn"
+      "sha256": "E0DF03E53C91CA0ED9B704FFDE99BBF4289F6AD5441A2176C417AEFBBDDFAC00"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/male/ride.tres",
+      "source": "avatar/weaponr/weaponr4101.gsn",
+      "sourceSha256": "88387fcbbf41e86e753402726dac14e0e4cbe582e0f5c4b0e3fe8748cebaa413",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "80B21677A366676C4A8F64AA8776D44918578E68B5E629CF12A56CBBB7F113A8"
     },
     {
       "path": "res://assets/characters/weapons/1013/female/stand.tres",
-      "sha256": "C31D3C3340D3E9D45B2C0808FC7B83A36FF1A6FFEF272C6CCA3635E017E02365",
+      "source": "avatar/weaponr/weaponr4151.gsn",
+      "sourceSha256": "21eac01f33af83e78f3eb505b18992d196f4a55eed56384d54f74354a30139cb",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr4151.gsn"
+      "sha256": "A230DCFC2D4CC869AD7A62995DEEB17A3F7A71B9AC0C40CE1A4F3815A1775C6F"
     },
     {
       "path": "res://assets/characters/weapons/1013/female/run.tres",
-      "sha256": "EB2C1D7D3281822295C8B768E91F8F30ACBDADEB74527B023A32EF755C1B88A1",
+      "source": "avatar/weaponr/weaponr4152.gsn",
+      "sourceSha256": "6b9e51963641d95a9bfd1d7a4edfd4ebf4357386d85e65a5479b7ad2d83eed71",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr4152.gsn"
+      "sha256": "C6BFB68584E2FB044399C1CFB9CE32A63691105D3DCB0FC0CC66EC073D7EE13D"
     },
     {
       "path": "res://assets/characters/weapons/1013/female/sit.tres",
-      "sha256": "8908F037B77CCA1C9F0EF2BD8D389D8F8C183654C029F79A3E95884659DD4430",
+      "source": "avatar/weaponr/weaponr4153.gsn",
+      "sourceSha256": "94fd869414487e4986c77586ed498a03fce9246d62b4aa56ff7a726d13ea71bd",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr4153.gsn"
+      "sha256": "81AEECD39763B1BECFDBB0A2556CB2C06928EE5FE759CAB517C3D3D785B991EA"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/female/die.tres",
+      "source": "avatar/weaponr/weaponr4151.gsn",
+      "sourceSha256": "21eac01f33af83e78f3eb505b18992d196f4a55eed56384d54f74354a30139cb",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "A230DCFC2D4CC869AD7A62995DEEB17A3F7A71B9AC0C40CE1A4F3815A1775C6F"
     },
     {
       "path": "res://assets/characters/weapons/1013/female/attack1.tres",
-      "sha256": "C8803D29D1B0DD3671A309105C00E8A71A55C904D18D06262141114EE0B1FA5F",
+      "source": "avatar/weaponr/weaponr4155.gsn",
+      "sourceSha256": "ea61e187ee04dce24e20f3b673a2eaf60382e0f66b88d716c4138bf5488c454f",
+      "sourceAction": 5,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr4155.gsn"
+      "sha256": "5C1B25E4754ECAF729DB309B0836DD8CEC692316259783C97A0B2F53C3ED6A71"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/female/attack2.tres",
+      "source": "avatar/weaponr/weaponr4151.gsn",
+      "sourceSha256": "21eac01f33af83e78f3eb505b18992d196f4a55eed56384d54f74354a30139cb",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "A230DCFC2D4CC869AD7A62995DEEB17A3F7A71B9AC0C40CE1A4F3815A1775C6F"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/female/attack3.tres",
+      "source": "avatar/weaponr/weaponr4151.gsn",
+      "sourceSha256": "21eac01f33af83e78f3eb505b18992d196f4a55eed56384d54f74354a30139cb",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "A230DCFC2D4CC869AD7A62995DEEB17A3F7A71B9AC0C40CE1A4F3815A1775C6F"
     },
     {
       "path": "res://assets/characters/weapons/1013/female/magic.tres",
-      "sha256": "358B155EF140836194C1FFEB022BEE220C1E580B072581D985B5EBD45EDD3082",
+      "source": "avatar/weaponr/weaponr4158.gsn",
+      "sourceSha256": "95075238a6b03397243ff0a593ec98efd7c57dfad38c3bef02a801c0a13c59f5",
+      "sourceAction": 8,
       "frames": 45,
-      "source": "avatar/weaponr/weaponr4158.gsn"
+      "sha256": "38F3CE564BC946A4FD5488B2D08813DBA9CB97CC8B7C8B44BEBF2D60F55514BD"
     },
     {
       "path": "res://assets/characters/weapons/1013/female/prepare1.tres",
-      "sha256": "596DCE27AD3042DD21DE6F513AA08092D8F870D8FBCD1BD95E53FEFBA7A76A32",
+      "source": "avatar/weaponr/weaponr4159.gsn",
+      "sourceSha256": "c7a4be5d807891bdeb28899d624af71a128345216b46eea0b3721a921970e35c",
+      "sourceAction": 9,
       "frames": 20,
-      "source": "avatar/weaponr/weaponr4159.gsn"
+      "sha256": "4CB3D20862000CC1FD61E8BA705EA02D668D8437F0F938F7C3505F95484B864F"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/female/prepare2.tres",
+      "source": "avatar/weaponr/weaponr4151.gsn",
+      "sourceSha256": "21eac01f33af83e78f3eb505b18992d196f4a55eed56384d54f74354a30139cb",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "A230DCFC2D4CC869AD7A62995DEEB17A3F7A71B9AC0C40CE1A4F3815A1775C6F"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/female/prepare3.tres",
+      "source": "avatar/weaponr/weaponr4151.gsn",
+      "sourceSha256": "21eac01f33af83e78f3eb505b18992d196f4a55eed56384d54f74354a30139cb",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "A230DCFC2D4CC869AD7A62995DEEB17A3F7A71B9AC0C40CE1A4F3815A1775C6F"
     },
     {
       "path": "res://assets/characters/weapons/1013/female/hurt.tres",
-      "sha256": "1E85908E5160C7428E43642DA6326265D88A7ED63272DDBF5F212DA2616EB4CA",
+      "source": "avatar/weaponr/weaponr4162.gsn",
+      "sourceSha256": "9d845aa2227852f4bf63bb8a31d1a8b918d7a7f92dd956d67e8f8f4c552675c1",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr4162.gsn"
+      "sha256": "29A37F1480DD2A53B5DC276566CBE00FA4EA41E102CC3B14EA09C19BD71C5CC7"
+    },
+    {
+      "path": "res://assets/characters/weapons/1013/female/ride.tres",
+      "source": "avatar/weaponr/weaponr4151.gsn",
+      "sourceSha256": "21eac01f33af83e78f3eb505b18992d196f4a55eed56384d54f74354a30139cb",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "A230DCFC2D4CC869AD7A62995DEEB17A3F7A71B9AC0C40CE1A4F3815A1775C6F"
     },
     {
       "path": "res://assets/characters/weapons/1014/male/stand.tres",
-      "sha256": "4323BF7439D85DE8678CF0D52B471DB29F7C789E4225002EAD91EDF5974FF996",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1101.gsn"
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
     },
     {
       "path": "res://assets/characters/weapons/1014/male/run.tres",
-      "sha256": "4323BF7439D85DE8678CF0D52B471DB29F7C789E4225002EAD91EDF5974FF996",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1101.gsn"
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
     },
     {
       "path": "res://assets/characters/weapons/1014/male/sit.tres",
-      "sha256": "4323BF7439D85DE8678CF0D52B471DB29F7C789E4225002EAD91EDF5974FF996",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1101.gsn"
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/male/die.tres",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
     },
     {
       "path": "res://assets/characters/weapons/1014/male/attack1.tres",
-      "sha256": "4323BF7439D85DE8678CF0D52B471DB29F7C789E4225002EAD91EDF5974FF996",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1101.gsn"
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/male/attack2.tres",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/male/attack3.tres",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
     },
     {
       "path": "res://assets/characters/weapons/1014/male/magic.tres",
-      "sha256": "4323BF7439D85DE8678CF0D52B471DB29F7C789E4225002EAD91EDF5974FF996",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1101.gsn"
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
     },
     {
       "path": "res://assets/characters/weapons/1014/male/prepare1.tres",
-      "sha256": "4323BF7439D85DE8678CF0D52B471DB29F7C789E4225002EAD91EDF5974FF996",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1101.gsn"
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/male/prepare2.tres",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/male/prepare3.tres",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
     },
     {
       "path": "res://assets/characters/weapons/1014/male/hurt.tres",
-      "sha256": "4323BF7439D85DE8678CF0D52B471DB29F7C789E4225002EAD91EDF5974FF996",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1101.gsn"
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/male/ride.tres",
+      "source": "avatar/weaponl/weaponl1101.gsn",
+      "sourceSha256": "61473c3cea2f9316cb925a3914e0e804e3a53615aae87e450c478ef88ec98ad2",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "080D4B402C54F1DEEDFEFAE98A741F3EE2E17E8C8D2E125A1C852D477145AD3C"
     },
     {
       "path": "res://assets/characters/weapons/1014/female/stand.tres",
-      "sha256": "2CF8231B03809395B3EE365001D3F7E5D5B57F701A6719AC3505796A18FD67FB",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1151.gsn"
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
     },
     {
       "path": "res://assets/characters/weapons/1014/female/run.tres",
-      "sha256": "2CF8231B03809395B3EE365001D3F7E5D5B57F701A6719AC3505796A18FD67FB",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1151.gsn"
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
     },
     {
       "path": "res://assets/characters/weapons/1014/female/sit.tres",
-      "sha256": "2CF8231B03809395B3EE365001D3F7E5D5B57F701A6719AC3505796A18FD67FB",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1151.gsn"
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/female/die.tres",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
     },
     {
       "path": "res://assets/characters/weapons/1014/female/attack1.tres",
-      "sha256": "2CF8231B03809395B3EE365001D3F7E5D5B57F701A6719AC3505796A18FD67FB",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1151.gsn"
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/female/attack2.tres",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/female/attack3.tres",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
     },
     {
       "path": "res://assets/characters/weapons/1014/female/magic.tres",
-      "sha256": "2CF8231B03809395B3EE365001D3F7E5D5B57F701A6719AC3505796A18FD67FB",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1151.gsn"
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
     },
     {
       "path": "res://assets/characters/weapons/1014/female/prepare1.tres",
-      "sha256": "2CF8231B03809395B3EE365001D3F7E5D5B57F701A6719AC3505796A18FD67FB",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1151.gsn"
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/female/prepare2.tres",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/female/prepare3.tres",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
     },
     {
       "path": "res://assets/characters/weapons/1014/female/hurt.tres",
-      "sha256": "2CF8231B03809395B3EE365001D3F7E5D5B57F701A6719AC3505796A18FD67FB",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl1151.gsn"
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
+    },
+    {
+      "path": "res://assets/characters/weapons/1014/female/ride.tres",
+      "source": "avatar/weaponl/weaponl1151.gsn",
+      "sourceSha256": "5a8b6d053de2e8bbcf3c66beb3492d44a93055158566918783dadf5f86875a51",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1CEDD2442A839DBB36A774A578A421138EC7C30A8E75726739FDE6DBF0711E45"
     },
     {
       "path": "res://assets/characters/weapons/1015/male/stand.tres",
-      "sha256": "689A1B32BD5FBC761A4F1A870FD71194ED9EF662ADB901EC8FE4D0A457939FC3",
+      "source": "avatar/weaponr/weaponr2101.gsn",
+      "sourceSha256": "aaa88cf8516a75e30d779bc896bfeaa72dc6b95bcb9e34f9b9e0ec3772f39ddf",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr2101.gsn"
+      "sha256": "0BEB1B86DDDF676C9B6348334739FC028B82453C7104609298A66F1E939D11E3"
     },
     {
       "path": "res://assets/characters/weapons/1015/male/run.tres",
-      "sha256": "15575034C5F056B5D06C554D6A9D17483345A42B1EF5C4944D9379D33993E057",
+      "source": "avatar/weaponr/weaponr2102.gsn",
+      "sourceSha256": "0fffc25b3b5909af79c85c398a698c42e810b6518ad46cb791e88051183c3561",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr2102.gsn"
+      "sha256": "ADD19B493B34C9C57EBBFF4E82C9DF095737E9785F76F9C0649642FA3F343D1A"
     },
     {
       "path": "res://assets/characters/weapons/1015/male/sit.tres",
-      "sha256": "AB2B1FC79392ECAFA6AA865AB4B7A98B60482F56438626F46CD68EBC218549DA",
+      "source": "avatar/weaponr/weaponr2103.gsn",
+      "sourceSha256": "645c3226457a6b0c597f7268073ce0761b63270e487f83cfdeff1cde3ecbe032",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr2103.gsn"
+      "sha256": "70E78A3FE0B17ED5260272F245B26B7064F4377507CEEC44AA037F3EC7BF284E"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/male/die.tres",
+      "source": "avatar/weaponr/weaponr2101.gsn",
+      "sourceSha256": "aaa88cf8516a75e30d779bc896bfeaa72dc6b95bcb9e34f9b9e0ec3772f39ddf",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "0BEB1B86DDDF676C9B6348334739FC028B82453C7104609298A66F1E939D11E3"
     },
     {
       "path": "res://assets/characters/weapons/1015/male/attack1.tres",
-      "sha256": "4AFD1A425651D6D92839750E708648B809C122964AB2D3E11B397F4953AA16B6",
+      "source": "avatar/weaponr/weaponr2101.gsn",
+      "sourceSha256": "aaa88cf8516a75e30d779bc896bfeaa72dc6b95bcb9e34f9b9e0ec3772f39ddf",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr2101.gsn"
+      "sha256": "0BEB1B86DDDF676C9B6348334739FC028B82453C7104609298A66F1E939D11E3"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/male/attack2.tres",
+      "source": "avatar/weaponr/weaponr2106.gsn",
+      "sourceSha256": "59a652c2a6ac704d41de53182f5e4aa68238461818d9c32145beee23003c3e04",
+      "sourceAction": 6,
+      "frames": 40,
+      "sha256": "657CF514D753581E6DF52E106BDC15ABA4912E3F3E547BF06BBCFE9F2FC0549E"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/male/attack3.tres",
+      "source": "avatar/weaponr/weaponr2101.gsn",
+      "sourceSha256": "aaa88cf8516a75e30d779bc896bfeaa72dc6b95bcb9e34f9b9e0ec3772f39ddf",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "0BEB1B86DDDF676C9B6348334739FC028B82453C7104609298A66F1E939D11E3"
     },
     {
       "path": "res://assets/characters/weapons/1015/male/magic.tres",
-      "sha256": "453079918C22C89CAF4DDEDB49C8C58F767308FC93BB96325FA025E34738AC25",
+      "source": "avatar/weaponr/weaponr2108.gsn",
+      "sourceSha256": "57282847d3472d9e7b6e110b51e701aada7237c70f8591cad6c47401b773cc2a",
+      "sourceAction": 8,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr2108.gsn"
+      "sha256": "BDE070E3C35D3B4BFE62BA5C6BA3956DCCEFEF49D98AD0CFB66BEB030D37FB44"
     },
     {
       "path": "res://assets/characters/weapons/1015/male/prepare1.tres",
-      "sha256": "58F618079A10C5DFFAB4FD20659F63B23426989CA6A66E78EA24B2FEC8D51987",
+      "source": "avatar/weaponr/weaponr2101.gsn",
+      "sourceSha256": "aaa88cf8516a75e30d779bc896bfeaa72dc6b95bcb9e34f9b9e0ec3772f39ddf",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr2101.gsn"
+      "sha256": "0BEB1B86DDDF676C9B6348334739FC028B82453C7104609298A66F1E939D11E3"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/male/prepare2.tres",
+      "source": "avatar/weaponr/weaponr2110.gsn",
+      "sourceSha256": "9bd32acfd1f6f607f8d7c148faca3b67be8e101c1a2ec6bc407059bdb9897f44",
+      "sourceAction": 10,
+      "frames": 20,
+      "sha256": "0A9BA8EB3952021EDA6FC4A3ABA9053CF32E98303B73F6E40437C64E9BA3A6F7"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/male/prepare3.tres",
+      "source": "avatar/weaponr/weaponr2101.gsn",
+      "sourceSha256": "aaa88cf8516a75e30d779bc896bfeaa72dc6b95bcb9e34f9b9e0ec3772f39ddf",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "0BEB1B86DDDF676C9B6348334739FC028B82453C7104609298A66F1E939D11E3"
     },
     {
       "path": "res://assets/characters/weapons/1015/male/hurt.tres",
-      "sha256": "A8801752B85FB38489F27C5E85A288DF1C0D4F1E1F1DD59659CF52E1DCE9E1FF",
+      "source": "avatar/weaponr/weaponr2112.gsn",
+      "sourceSha256": "426619199e51aea39ac5e356f7211e6920f49b51a8bd0a2b950ce904325eb1c5",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr2112.gsn"
+      "sha256": "3D82E334D3693D974DDA7A89458FF3DEFE331C3D9115BF262680C7906FCA070F"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/male/ride.tres",
+      "source": "avatar/weaponr/weaponr2101.gsn",
+      "sourceSha256": "aaa88cf8516a75e30d779bc896bfeaa72dc6b95bcb9e34f9b9e0ec3772f39ddf",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "0BEB1B86DDDF676C9B6348334739FC028B82453C7104609298A66F1E939D11E3"
     },
     {
       "path": "res://assets/characters/weapons/1015/female/stand.tres",
-      "sha256": "1F2D4C6FA6524A382D484F6995F8FD91EBC97A27BCE0E5AF521D9504DB634A2D",
+      "source": "avatar/weaponr/weaponr2151.gsn",
+      "sourceSha256": "2e54f67ab67b3ffe1d7199aabccdecfd866e460c79c667b0ecef3ab81ca022cd",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr2151.gsn"
+      "sha256": "331710A0A5CAF14B910F90151A3647014DCA3C51ACD3887C39F772FEA81496B1"
     },
     {
       "path": "res://assets/characters/weapons/1015/female/run.tres",
-      "sha256": "02B052059DB3ADA0043F78E6EDB9CA441EC8F4D3928BE56E3E83368B91D4935E",
+      "source": "avatar/weaponr/weaponr2152.gsn",
+      "sourceSha256": "1ce39b049a80766ce9f8490ffdca5772df04df7d4b2a63285004a63a5ded48f5",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr2152.gsn"
+      "sha256": "C6052F6F84DAC6480A57DD8F74BDC0E357B595E464A12061318DD8D099F8550C"
     },
     {
       "path": "res://assets/characters/weapons/1015/female/sit.tres",
-      "sha256": "82219CE2DB51790FE453AA20D444A3CCB9BABADCD3B6399334FF8761CA7D1F54",
+      "source": "avatar/weaponr/weaponr2153.gsn",
+      "sourceSha256": "a755af5a9d8cc61e01f8e76420172c43068e33d2c56cc78ddd18f0a956350f29",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr2153.gsn"
+      "sha256": "3B2B1426F7761462D7E29263C60CE87A9F7E72A8E16708EA87E913713FB2EEFC"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/female/die.tres",
+      "source": "avatar/weaponr/weaponr2151.gsn",
+      "sourceSha256": "2e54f67ab67b3ffe1d7199aabccdecfd866e460c79c667b0ecef3ab81ca022cd",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "331710A0A5CAF14B910F90151A3647014DCA3C51ACD3887C39F772FEA81496B1"
     },
     {
       "path": "res://assets/characters/weapons/1015/female/attack1.tres",
-      "sha256": "DDB915C92BF3A6800D10F55205036D21983EA5241EEDAC2BCC56FDE1F2540C9C",
+      "source": "avatar/weaponr/weaponr2151.gsn",
+      "sourceSha256": "2e54f67ab67b3ffe1d7199aabccdecfd866e460c79c667b0ecef3ab81ca022cd",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr2151.gsn"
+      "sha256": "331710A0A5CAF14B910F90151A3647014DCA3C51ACD3887C39F772FEA81496B1"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/female/attack2.tres",
+      "source": "avatar/weaponr/weaponr2156.gsn",
+      "sourceSha256": "d0e338bc07e52993a72a2493b4bb9b93efeba6265e64f7db44a22d13eb56785b",
+      "sourceAction": 6,
+      "frames": 35,
+      "sha256": "BB806B2221E55DE88A5F5044257FEFA0A80606962AC7D57B91D5D6A5CA7EA79A"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/female/attack3.tres",
+      "source": "avatar/weaponr/weaponr2151.gsn",
+      "sourceSha256": "2e54f67ab67b3ffe1d7199aabccdecfd866e460c79c667b0ecef3ab81ca022cd",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "331710A0A5CAF14B910F90151A3647014DCA3C51ACD3887C39F772FEA81496B1"
     },
     {
       "path": "res://assets/characters/weapons/1015/female/magic.tres",
-      "sha256": "F9AEC02B8B391EB86F98024F85D3ED66AFA06C7CCEFD158E337AE070B5450032",
+      "source": "avatar/weaponr/weaponr2158.gsn",
+      "sourceSha256": "a2d0e9c74ef98fbf6a57fdad7cb06f4c55be9e5410fb6d8133d8e440d434fa3a",
+      "sourceAction": 8,
       "frames": 45,
-      "source": "avatar/weaponr/weaponr2158.gsn"
+      "sha256": "BAFDAEEF6C37CD5DE39AD09D6E4EEC6C7AB48659C95D6E5291BDA4C683BCF063"
     },
     {
       "path": "res://assets/characters/weapons/1015/female/prepare1.tres",
-      "sha256": "F84EB3DA4C35FAA30E0997BE29148E58696F74437588A67AA02BD46E145AE1B1",
+      "source": "avatar/weaponr/weaponr2151.gsn",
+      "sourceSha256": "2e54f67ab67b3ffe1d7199aabccdecfd866e460c79c667b0ecef3ab81ca022cd",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr2151.gsn"
+      "sha256": "331710A0A5CAF14B910F90151A3647014DCA3C51ACD3887C39F772FEA81496B1"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/female/prepare2.tres",
+      "source": "avatar/weaponr/weaponr2160.gsn",
+      "sourceSha256": "6c8cbea836f9a6f4e506b6b145087c8245c1bb46526874ef0582964f99799b9f",
+      "sourceAction": 10,
+      "frames": 20,
+      "sha256": "136572C3CF33951237F5510DB8A7CCC74C7D3759819A0D065EAFB516A81BDF64"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/female/prepare3.tres",
+      "source": "avatar/weaponr/weaponr2151.gsn",
+      "sourceSha256": "2e54f67ab67b3ffe1d7199aabccdecfd866e460c79c667b0ecef3ab81ca022cd",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "331710A0A5CAF14B910F90151A3647014DCA3C51ACD3887C39F772FEA81496B1"
     },
     {
       "path": "res://assets/characters/weapons/1015/female/hurt.tres",
-      "sha256": "1A8C3BC3E7EF3B4A46655F9AEF7354A44F366D5E719A242518812A74E364C785",
+      "source": "avatar/weaponr/weaponr2162.gsn",
+      "sourceSha256": "37580e22689a338e3e699eb1d33d363c34c0bc15e306c9454e8985b0e222eb1f",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr2162.gsn"
+      "sha256": "50B6154800226BEF44AADCA9D58F76395BD1DFEF106DB674E9D7EF63E0C295B9"
+    },
+    {
+      "path": "res://assets/characters/weapons/1015/female/ride.tres",
+      "source": "avatar/weaponr/weaponr2151.gsn",
+      "sourceSha256": "2e54f67ab67b3ffe1d7199aabccdecfd866e460c79c667b0ecef3ab81ca022cd",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "331710A0A5CAF14B910F90151A3647014DCA3C51ACD3887C39F772FEA81496B1"
     },
     {
       "path": "res://assets/characters/weapons/1016/male/stand.tres",
-      "sha256": "A3D58D371AD1452ACB1B01AF4CB051BB4399C32C88BF00CE03369B5C843C67A8",
+      "source": "avatar/weaponr/weaponr3101.gsn",
+      "sourceSha256": "c8365e385238b47ebf81b088853574ecea680a0d3bc52c3b66cb4b30c9c0b1c4",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr3101.gsn"
+      "sha256": "613D0C7D5F2A7E78A5575C04321BE7883A423C0B25E7D43A4B6041EA8F935053"
     },
     {
       "path": "res://assets/characters/weapons/1016/male/run.tres",
-      "sha256": "822BE69AD68913C65AED9F1A1181A582E48E9FB117D3E962427AD15B11D092D0",
+      "source": "avatar/weaponr/weaponr3102.gsn",
+      "sourceSha256": "b4bd100e08bc632f418bb75eaea5417ea24ac962430ededf7b9da94006bdf89a",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr3102.gsn"
+      "sha256": "E6392E44FA73F97FD8D57DDC958B8C29D3AE69B9178C64997AEAA4E924524733"
     },
     {
       "path": "res://assets/characters/weapons/1016/male/sit.tres",
-      "sha256": "87D5A16D2BE1E4D4553F84AFB9DBEF6DF9F46EB36E865A54F80C0AD613604F6B",
+      "source": "avatar/weaponr/weaponr3103.gsn",
+      "sourceSha256": "e9597c09cbf378d1857e3ee228f4e035b98d77f541bfe5dc4efac84de7584758",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr3103.gsn"
+      "sha256": "4E8F133E5F011C550ACEC619454D7F2B4DBC99475B448C65D754DFF0CDB6B10D"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/male/die.tres",
+      "source": "avatar/weaponr/weaponr3101.gsn",
+      "sourceSha256": "c8365e385238b47ebf81b088853574ecea680a0d3bc52c3b66cb4b30c9c0b1c4",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "613D0C7D5F2A7E78A5575C04321BE7883A423C0B25E7D43A4B6041EA8F935053"
     },
     {
       "path": "res://assets/characters/weapons/1016/male/attack1.tres",
-      "sha256": "B8C7A86EAF7AADFDE9A5907C07A382DE38C7614B2AEBE4DBEDEE507CB97D8772",
+      "source": "avatar/weaponr/weaponr3101.gsn",
+      "sourceSha256": "c8365e385238b47ebf81b088853574ecea680a0d3bc52c3b66cb4b30c9c0b1c4",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr3101.gsn"
+      "sha256": "613D0C7D5F2A7E78A5575C04321BE7883A423C0B25E7D43A4B6041EA8F935053"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/male/attack2.tres",
+      "source": "avatar/weaponr/weaponr3106.gsn",
+      "sourceSha256": "7537481d79ea3507ffe27c408f3c1172a4798d8831cb074ce60f2be91c9d3730",
+      "sourceAction": 6,
+      "frames": 40,
+      "sha256": "E5947732AB33BE286245963AA84082B68167A5A3352C703778BCCB4F6B9A09F7"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/male/attack3.tres",
+      "source": "avatar/weaponr/weaponr3101.gsn",
+      "sourceSha256": "c8365e385238b47ebf81b088853574ecea680a0d3bc52c3b66cb4b30c9c0b1c4",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "613D0C7D5F2A7E78A5575C04321BE7883A423C0B25E7D43A4B6041EA8F935053"
     },
     {
       "path": "res://assets/characters/weapons/1016/male/magic.tres",
-      "sha256": "81B02226582D2925025668A7D08A65D67EEC3DCB2C1999598C3E9074FC7F900B",
+      "source": "avatar/weaponr/weaponr3108.gsn",
+      "sourceSha256": "decf0919b0429a416e8e34ae88a0cc950c8868cf7d45906aa8a22e694c50383c",
+      "sourceAction": 8,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr3108.gsn"
+      "sha256": "2A7828856EECE8934D621C13DF52DD1908F32506481E492D19DE564620FF0FD7"
     },
     {
       "path": "res://assets/characters/weapons/1016/male/prepare1.tres",
-      "sha256": "61D9F293E7A54A38A6BAEF6F0C3BF107DBF484857392D9076D6982C293BF5349",
+      "source": "avatar/weaponr/weaponr3101.gsn",
+      "sourceSha256": "c8365e385238b47ebf81b088853574ecea680a0d3bc52c3b66cb4b30c9c0b1c4",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr3101.gsn"
+      "sha256": "613D0C7D5F2A7E78A5575C04321BE7883A423C0B25E7D43A4B6041EA8F935053"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/male/prepare2.tres",
+      "source": "avatar/weaponr/weaponr3110.gsn",
+      "sourceSha256": "8d22f30050de006a58461515f217524d58b9f02597fb572c09dd2637ec6e98d2",
+      "sourceAction": 10,
+      "frames": 20,
+      "sha256": "2FED1148A01B9AC859B7B3AD2DC85F3AA352038FD39FDE65D52EDFB345145FE4"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/male/prepare3.tres",
+      "source": "avatar/weaponr/weaponr3101.gsn",
+      "sourceSha256": "c8365e385238b47ebf81b088853574ecea680a0d3bc52c3b66cb4b30c9c0b1c4",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "613D0C7D5F2A7E78A5575C04321BE7883A423C0B25E7D43A4B6041EA8F935053"
     },
     {
       "path": "res://assets/characters/weapons/1016/male/hurt.tres",
-      "sha256": "B138FEF974DC8C2D4C3AA3EFCC93640A7D3651CB2F169A66BA1C4EEBEFAF29F0",
+      "source": "avatar/weaponr/weaponr3112.gsn",
+      "sourceSha256": "79e345e69d325cdb100185ddb7f7ce2080e315e8add9da1a349ec731bdd3bac8",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr3112.gsn"
+      "sha256": "D2D35C775CC3E752EB78B859386E559B445D787C91B816EAF2CD2D105B65FD35"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/male/ride.tres",
+      "source": "avatar/weaponr/weaponr3101.gsn",
+      "sourceSha256": "c8365e385238b47ebf81b088853574ecea680a0d3bc52c3b66cb4b30c9c0b1c4",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "613D0C7D5F2A7E78A5575C04321BE7883A423C0B25E7D43A4B6041EA8F935053"
     },
     {
       "path": "res://assets/characters/weapons/1016/female/stand.tres",
-      "sha256": "647F7A7F6CF6439DBBCD7078F2EDACDAF389832F35B7D4C2D1FEE6967666CDF8",
+      "source": "avatar/weaponr/weaponr3151.gsn",
+      "sourceSha256": "01e66b2ce244b1cde763c2593ad31f2fcff0eae2210120281e10b0b863a570ac",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr3151.gsn"
+      "sha256": "709C0DFE4CE582130370675C6FCDEAC42716728514E648D0B6FBA351374AFD08"
     },
     {
       "path": "res://assets/characters/weapons/1016/female/run.tres",
-      "sha256": "05885DF84DBE801AEDA7748D5EEA64561A7F93F095DDADB40873000519F1CEF0",
+      "source": "avatar/weaponr/weaponr3152.gsn",
+      "sourceSha256": "f17d3fdd76721536459543b9c615be54577bc2f1a8865314d99d18ea16891463",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr3152.gsn"
+      "sha256": "B23B2E11CFC88BCB436A37D34C9891DCC6A817C38AECF86F0CB826FE1B1BDF0F"
     },
     {
       "path": "res://assets/characters/weapons/1016/female/sit.tres",
-      "sha256": "DD8C9A5ED093FC9620A258CAF58E520BD98A57B2AA44A1B58DFDCDC91D7850EF",
+      "source": "avatar/weaponr/weaponr3153.gsn",
+      "sourceSha256": "4aedcf6e80d7567cb6e77a859abd9074947e70e4df7f9fef9f7490f4fe510f1a",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr3153.gsn"
+      "sha256": "5E61D0A04309F530C994C5CDF407F7907830BB967131D1589104ED015BB32661"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/female/die.tres",
+      "source": "avatar/weaponr/weaponr3151.gsn",
+      "sourceSha256": "01e66b2ce244b1cde763c2593ad31f2fcff0eae2210120281e10b0b863a570ac",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "709C0DFE4CE582130370675C6FCDEAC42716728514E648D0B6FBA351374AFD08"
     },
     {
       "path": "res://assets/characters/weapons/1016/female/attack1.tres",
-      "sha256": "D6D3158D4D225C71266D742D9A4BF29540303CD7EE8A76609C377654387BC0CD",
+      "source": "avatar/weaponr/weaponr3151.gsn",
+      "sourceSha256": "01e66b2ce244b1cde763c2593ad31f2fcff0eae2210120281e10b0b863a570ac",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr3151.gsn"
+      "sha256": "709C0DFE4CE582130370675C6FCDEAC42716728514E648D0B6FBA351374AFD08"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/female/attack2.tres",
+      "source": "avatar/weaponr/weaponr3156.gsn",
+      "sourceSha256": "5946adcc1279b18aada6c4f5f9cc7727695c49a540cc2aa51aa3bc31a3a9c244",
+      "sourceAction": 6,
+      "frames": 35,
+      "sha256": "7C7EE7EE17815AEC699815739950A8177189818A085A0BA7C3CEC26CAB754692"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/female/attack3.tres",
+      "source": "avatar/weaponr/weaponr3151.gsn",
+      "sourceSha256": "01e66b2ce244b1cde763c2593ad31f2fcff0eae2210120281e10b0b863a570ac",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "709C0DFE4CE582130370675C6FCDEAC42716728514E648D0B6FBA351374AFD08"
     },
     {
       "path": "res://assets/characters/weapons/1016/female/magic.tres",
-      "sha256": "A103FE5EA844C0057F3E56AB6ACA088307874205FF139C67C8848D2FE9BB8C07",
+      "source": "avatar/weaponr/weaponr3158.gsn",
+      "sourceSha256": "d7d33d28d6c59c0d0579937833b9019e0dcce01c0f1842dd5b9f72a42ea321e6",
+      "sourceAction": 8,
       "frames": 45,
-      "source": "avatar/weaponr/weaponr3158.gsn"
+      "sha256": "AFD35100AB880B6AA375153974C73EE150F777B5EBE7378AC891344B17B35310"
     },
     {
       "path": "res://assets/characters/weapons/1016/female/prepare1.tres",
-      "sha256": "B3502E770FB6A764DA4981781AB823627BF80783F9C31029B1F6E2FC76D9CE6F",
+      "source": "avatar/weaponr/weaponr3151.gsn",
+      "sourceSha256": "01e66b2ce244b1cde763c2593ad31f2fcff0eae2210120281e10b0b863a570ac",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr3151.gsn"
+      "sha256": "709C0DFE4CE582130370675C6FCDEAC42716728514E648D0B6FBA351374AFD08"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/female/prepare2.tres",
+      "source": "avatar/weaponr/weaponr3160.gsn",
+      "sourceSha256": "e2fee878f370ad8b196f09e5cb0489db40136d9e84434ab4943261c9d83ce0de",
+      "sourceAction": 10,
+      "frames": 20,
+      "sha256": "489B7ADC089F736A2C9E3007AA86FC71E568579C08514DBFB279D4C6853C15C6"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/female/prepare3.tres",
+      "source": "avatar/weaponr/weaponr3151.gsn",
+      "sourceSha256": "01e66b2ce244b1cde763c2593ad31f2fcff0eae2210120281e10b0b863a570ac",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "709C0DFE4CE582130370675C6FCDEAC42716728514E648D0B6FBA351374AFD08"
     },
     {
       "path": "res://assets/characters/weapons/1016/female/hurt.tres",
-      "sha256": "A0A72C7DA859AE8E139BB06D7E4CB66BDD4A324E3D480A9AB70494321D753E0B",
+      "source": "avatar/weaponr/weaponr3162.gsn",
+      "sourceSha256": "51a7aa5f847f2841fa6a57be1282420786a83db6cc21bdd9b47b3e54d5d0cabc",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr3162.gsn"
+      "sha256": "E7775D4F0D1E777A89C05779CBBD746541FEB7C31EB5DB140F329E9042A563D7"
+    },
+    {
+      "path": "res://assets/characters/weapons/1016/female/ride.tres",
+      "source": "avatar/weaponr/weaponr3151.gsn",
+      "sourceSha256": "01e66b2ce244b1cde763c2593ad31f2fcff0eae2210120281e10b0b863a570ac",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "709C0DFE4CE582130370675C6FCDEAC42716728514E648D0B6FBA351374AFD08"
     },
     {
       "path": "res://assets/characters/weapons/1017/male/stand.tres",
-      "sha256": "E49D49D7A97669400198F0B238936753F01D1DEB266BFCB7069F35035604D03F",
+      "source": "avatar/weaponr/weaponr5101.gsn",
+      "sourceSha256": "a2a235150f8353bd9593809535ace2287d0a905ffeb0d728abf3f1bfdaf3f596",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr5101.gsn"
+      "sha256": "415F63F88414C74595DF90478F7192FE2D6223F9828BD0F7E47C1F91FC16EEB5"
     },
     {
       "path": "res://assets/characters/weapons/1017/male/run.tres",
-      "sha256": "2CA20B839B33F3FB0D57A7C76DDCD9F55FDB9B2AAF3891081305A4416F74765E",
+      "source": "avatar/weaponr/weaponr5102.gsn",
+      "sourceSha256": "8dbc9b749d3f9a4ead5f51b184f7a3525a607066c3ab1fd27c8afc94f6401f5c",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr5102.gsn"
+      "sha256": "E41A18AD1F11F8DDF58340B6F6CBA2D21A0EB05A0407E0EE5CED6FB5C2E1FC2E"
     },
     {
       "path": "res://assets/characters/weapons/1017/male/sit.tres",
-      "sha256": "066503192390DDB8D7CAABBA0ADF5F2EBA9408C42B1544C3CF484E13398CBE11",
+      "source": "avatar/weaponr/weaponr5103.gsn",
+      "sourceSha256": "687f8953c38954e9507135588f8f64c235eacd9401a41ed6bb17c8644fd24b5b",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr5103.gsn"
+      "sha256": "6E0A2033E53052C410801A0BCD239DABAC41996D5CA33595C108F9C865EFB609"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/male/die.tres",
+      "source": "avatar/weaponr/weaponr5101.gsn",
+      "sourceSha256": "a2a235150f8353bd9593809535ace2287d0a905ffeb0d728abf3f1bfdaf3f596",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "415F63F88414C74595DF90478F7192FE2D6223F9828BD0F7E47C1F91FC16EEB5"
     },
     {
       "path": "res://assets/characters/weapons/1017/male/attack1.tres",
-      "sha256": "4465C3E7886D7E3987D023347CC03A09D14F319AF3C822296EA761E4BEF819A0",
+      "source": "avatar/weaponr/weaponr5101.gsn",
+      "sourceSha256": "a2a235150f8353bd9593809535ace2287d0a905ffeb0d728abf3f1bfdaf3f596",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr5101.gsn"
+      "sha256": "415F63F88414C74595DF90478F7192FE2D6223F9828BD0F7E47C1F91FC16EEB5"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/male/attack2.tres",
+      "source": "avatar/weaponr/weaponr5101.gsn",
+      "sourceSha256": "a2a235150f8353bd9593809535ace2287d0a905ffeb0d728abf3f1bfdaf3f596",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "415F63F88414C74595DF90478F7192FE2D6223F9828BD0F7E47C1F91FC16EEB5"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/male/attack3.tres",
+      "source": "avatar/weaponr/weaponr5107.gsn",
+      "sourceSha256": "b6ef4e3830215d9a8da1bf5e609b4919275a2ea5ae272e0a1881f04fcc989cdb",
+      "sourceAction": 7,
+      "frames": 45,
+      "sha256": "F2593692D7C9D5EC830B18DAB40E73F1BABBF4EB6014CAA53D96F7875B4D77A1"
     },
     {
       "path": "res://assets/characters/weapons/1017/male/magic.tres",
-      "sha256": "620ACFE4B8232F5F375A32E0512FF8A811913460055FF7D4FDE9BF45D5394350",
+      "source": "avatar/weaponr/weaponr5108.gsn",
+      "sourceSha256": "6a7a574ace072ca1afe328f0b462c24ad22dd4f738016947b3230e239009125f",
+      "sourceAction": 8,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr5108.gsn"
+      "sha256": "56B6EBA0176713440F2027B6D1ADD5E2B68F0942DDC07FB08EC2D58F2FD03F00"
     },
     {
       "path": "res://assets/characters/weapons/1017/male/prepare1.tres",
-      "sha256": "EC5A39DF9807E6BC69166840C17F792A3B84609F7C7435E08825DEEA60FB4471",
+      "source": "avatar/weaponr/weaponr5101.gsn",
+      "sourceSha256": "a2a235150f8353bd9593809535ace2287d0a905ffeb0d728abf3f1bfdaf3f596",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr5101.gsn"
+      "sha256": "415F63F88414C74595DF90478F7192FE2D6223F9828BD0F7E47C1F91FC16EEB5"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/male/prepare2.tres",
+      "source": "avatar/weaponr/weaponr5101.gsn",
+      "sourceSha256": "a2a235150f8353bd9593809535ace2287d0a905ffeb0d728abf3f1bfdaf3f596",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "415F63F88414C74595DF90478F7192FE2D6223F9828BD0F7E47C1F91FC16EEB5"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/male/prepare3.tres",
+      "source": "avatar/weaponr/weaponr5111.gsn",
+      "sourceSha256": "74c86cb5ec2911e529351acb444ce99a7fa0941f9a459f7f1e25c80c3309c94e",
+      "sourceAction": 11,
+      "frames": 20,
+      "sha256": "70AB774BECA9AD1398D74B062FCF784B20244452003DBAEDB02F2688134FDF22"
     },
     {
       "path": "res://assets/characters/weapons/1017/male/hurt.tres",
-      "sha256": "E44D11D5D5F4F0BE65F9FDBFB6BAFCEF4710281BDB893748F54DB1DF529B5330",
+      "source": "avatar/weaponr/weaponr5112.gsn",
+      "sourceSha256": "1838f8f5fdc080d0e144bf83a45b680249b4f36bd201d65c275c16c22168ae08",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr5112.gsn"
+      "sha256": "EA7224F1656957B9859A4E752BC2B4DCAD5496CFB85E5A18D604404488D9AD2E"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/male/ride.tres",
+      "source": "avatar/weaponr/weaponr5101.gsn",
+      "sourceSha256": "a2a235150f8353bd9593809535ace2287d0a905ffeb0d728abf3f1bfdaf3f596",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "415F63F88414C74595DF90478F7192FE2D6223F9828BD0F7E47C1F91FC16EEB5"
     },
     {
       "path": "res://assets/characters/weapons/1017/female/stand.tres",
-      "sha256": "68AE62F886170F2EEAC051C6900B10A28DA3D239CDA82FA8A1D69613BFE81530",
+      "source": "avatar/weaponr/weaponr5151.gsn",
+      "sourceSha256": "a7dd8c972b453cc1d4dd0c367c39b254dc39e07d550737bf41fafbb21a8c099e",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr5151.gsn"
+      "sha256": "8520E815FD463F351349BAB88D85C6281ED36AAD6F82B822E7B68E09C809FDFD"
     },
     {
       "path": "res://assets/characters/weapons/1017/female/run.tres",
-      "sha256": "AAC7C88AC59391279BA4CB95CD29C587A455473144F8C1DC038875AD24B20949",
+      "source": "avatar/weaponr/weaponr5152.gsn",
+      "sourceSha256": "6f4842e1684b8696c0824a85974cab5f05f78aae54f42aa86a06f0b61a5ee08d",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr5152.gsn"
+      "sha256": "FB660757E923262594605E5BDA2B197FF801D9EABCBB7AB02272E31E179DA8A6"
     },
     {
       "path": "res://assets/characters/weapons/1017/female/sit.tres",
-      "sha256": "7DCC53D0A7F74EA5304D497640EB26A68C036FB7F1625F9367770B16105E9AAF",
+      "source": "avatar/weaponr/weaponr5153.gsn",
+      "sourceSha256": "141e54862608caf6fcf15f85209bd779e2085e716da52aaf3dbe34a1e86f8a99",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr5153.gsn"
+      "sha256": "1EA1A284AD75B6EC8B7FC84CE2FC3E1C045FB9CF6A4208302211B5ACC801B201"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/female/die.tres",
+      "source": "avatar/weaponr/weaponr5151.gsn",
+      "sourceSha256": "a7dd8c972b453cc1d4dd0c367c39b254dc39e07d550737bf41fafbb21a8c099e",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "8520E815FD463F351349BAB88D85C6281ED36AAD6F82B822E7B68E09C809FDFD"
     },
     {
       "path": "res://assets/characters/weapons/1017/female/attack1.tres",
-      "sha256": "25DEB116DAEB09A671BAEFFBB1F33E7A4EFA449573335FC657DB86DEC9FECA2F",
+      "source": "avatar/weaponr/weaponr5151.gsn",
+      "sourceSha256": "a7dd8c972b453cc1d4dd0c367c39b254dc39e07d550737bf41fafbb21a8c099e",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr5151.gsn"
+      "sha256": "8520E815FD463F351349BAB88D85C6281ED36AAD6F82B822E7B68E09C809FDFD"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/female/attack2.tres",
+      "source": "avatar/weaponr/weaponr5151.gsn",
+      "sourceSha256": "a7dd8c972b453cc1d4dd0c367c39b254dc39e07d550737bf41fafbb21a8c099e",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "8520E815FD463F351349BAB88D85C6281ED36AAD6F82B822E7B68E09C809FDFD"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/female/attack3.tres",
+      "source": "avatar/weaponr/weaponr5157.gsn",
+      "sourceSha256": "319df203f89631a86c935e63b843555bbf312eca6811f8b72a5615956d1075c6",
+      "sourceAction": 7,
+      "frames": 40,
+      "sha256": "86CD1FFED67297A491E71122C21A4365CB7E7C61D175674B99D63131FAD52F18"
     },
     {
       "path": "res://assets/characters/weapons/1017/female/magic.tres",
-      "sha256": "4818BA9A51078402536E2E3B7E2E6D2DF603EEA17C01758F1CD4FB899BD5FDF7",
+      "source": "avatar/weaponr/weaponr5158.gsn",
+      "sourceSha256": "4244096c312316cbc6bef1404be4b60b35f9945a3706cd496b68adaabb62e9bd",
+      "sourceAction": 8,
       "frames": 45,
-      "source": "avatar/weaponr/weaponr5158.gsn"
+      "sha256": "B82A5C32CF8EC63FF8764EF949BF6E4FACB802A1E9CD94D18FC83630C627ECA0"
     },
     {
       "path": "res://assets/characters/weapons/1017/female/prepare1.tres",
-      "sha256": "C475127272421380894F37DEE63351F87F2F3A04834FF8202A056BE5DBD479C8",
+      "source": "avatar/weaponr/weaponr5151.gsn",
+      "sourceSha256": "a7dd8c972b453cc1d4dd0c367c39b254dc39e07d550737bf41fafbb21a8c099e",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr5151.gsn"
+      "sha256": "8520E815FD463F351349BAB88D85C6281ED36AAD6F82B822E7B68E09C809FDFD"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/female/prepare2.tres",
+      "source": "avatar/weaponr/weaponr5151.gsn",
+      "sourceSha256": "a7dd8c972b453cc1d4dd0c367c39b254dc39e07d550737bf41fafbb21a8c099e",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "8520E815FD463F351349BAB88D85C6281ED36AAD6F82B822E7B68E09C809FDFD"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/female/prepare3.tres",
+      "source": "avatar/weaponr/weaponr5161.gsn",
+      "sourceSha256": "e7a3b15e0d842665beb88d56d45fe5daf0b1a01ad5c64fdeaa7b23318fc1af9d",
+      "sourceAction": 11,
+      "frames": 20,
+      "sha256": "71218621CBCC89293DDF6340D01B0F47154F92FB646DF1C2FFDBBEDC727EDA9F"
     },
     {
       "path": "res://assets/characters/weapons/1017/female/hurt.tres",
-      "sha256": "18B355C690BE34E4BFF4649A161FE9D820855AFB1772CB23CEA1C9D2C0AD816D",
+      "source": "avatar/weaponr/weaponr5162.gsn",
+      "sourceSha256": "d203d9d4deff49418b98880dbf5afc5b0b1500223dfd48c3f30bbc2108077de5",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr5162.gsn"
+      "sha256": "324E1A88B9EDC7A901BF42C82D4377663F622051AEE1E54AC053581AD728C64F"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/female/ride.tres",
+      "source": "avatar/weaponr/weaponr5151.gsn",
+      "sourceSha256": "a7dd8c972b453cc1d4dd0c367c39b254dc39e07d550737bf41fafbb21a8c099e",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "8520E815FD463F351349BAB88D85C6281ED36AAD6F82B822E7B68E09C809FDFD"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/male/stand.tres",
-      "sha256": "33618888E1B688DBF640BA47B05DA189ACC87897D1B0C23FE0E16D1624165232",
+      "source": "avatar/weaponl/weaponl5101.gsn",
+      "sourceSha256": "e3029aae5db7d2f631ed3753bf3fd6b1a2028cd8362718449d01a6b6f4b44b44",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl5101.gsn"
+      "sha256": "C7C4C6CBD49D94A6E9B5E6D4C0093B955350DE540CF14F1BD039593421D5D98A"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/male/run.tres",
-      "sha256": "99C5A05FD00B269F68B6D4ED10FDA5039D4E9C80C4439E267F0B57DC56D1E277",
+      "source": "avatar/weaponl/weaponl5102.gsn",
+      "sourceSha256": "5e4e14a8aa8a862b5cb066c0947e5701741fb0b2d9d4b0fe51760a3a72823f14",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponl/weaponl5102.gsn"
+      "sha256": "14EABFB39C6B93D49A717613A6227D3C013F8E82D903B94C569AFC40E8531560"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/male/sit.tres",
-      "sha256": "5B2D2AE59E05196A22FAB36425B5A6F49D808C81CE61CBF0A27DA9F9CD3E4F7B",
+      "source": "avatar/weaponl/weaponl5103.gsn",
+      "sourceSha256": "dff9c612d5c47f35e412b2b21f2e76062258cd9c3bda224fdf3d104a711b17f3",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl5103.gsn"
+      "sha256": "3F367AE2DFF27B26379F3EAA5540DFA2373A64F5FB5AD72D75A2F21F7EC3576F"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/male/die.tres",
+      "source": "avatar/weaponl/weaponl5101.gsn",
+      "sourceSha256": "e3029aae5db7d2f631ed3753bf3fd6b1a2028cd8362718449d01a6b6f4b44b44",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "C7C4C6CBD49D94A6E9B5E6D4C0093B955350DE540CF14F1BD039593421D5D98A"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/male/attack1.tres",
-      "sha256": "9841EE902D9D07490B5C21A7444CB7588D7775187E9FF99956A0677ED430F98D",
+      "source": "avatar/weaponl/weaponl5101.gsn",
+      "sourceSha256": "e3029aae5db7d2f631ed3753bf3fd6b1a2028cd8362718449d01a6b6f4b44b44",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "C7C4C6CBD49D94A6E9B5E6D4C0093B955350DE540CF14F1BD039593421D5D98A"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/male/attack2.tres",
+      "source": "avatar/weaponl/weaponl5101.gsn",
+      "sourceSha256": "e3029aae5db7d2f631ed3753bf3fd6b1a2028cd8362718449d01a6b6f4b44b44",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "C7C4C6CBD49D94A6E9B5E6D4C0093B955350DE540CF14F1BD039593421D5D98A"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/male/attack3.tres",
+      "source": "avatar/weaponl/weaponl5107.gsn",
+      "sourceSha256": "cba1a368d6951bd636322f5123b16974322c2d89948d64a6d23200227285c7b2",
+      "sourceAction": 7,
       "frames": 45,
-      "source": "avatar/weaponl/weaponl5107.gsn"
+      "sha256": "6B099FBA1224E07FF1EF3C0F96A41807AB3541022072526D247B2E59A4D5B318"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/male/magic.tres",
-      "sha256": "DCD33BBE478ABFCE6A94D8E07CA2CEAE8C76D1C6FD849018E152360FA7F55347",
+      "source": "avatar/weaponl/weaponl5108.gsn",
+      "sourceSha256": "4e38f7941aa0f9e0a65733019110715daf01fc86d246ee8401e154a7b05ffb10",
+      "sourceAction": 8,
       "frames": 40,
-      "source": "avatar/weaponl/weaponl5108.gsn"
+      "sha256": "3E66305024B39142420A227B7234E00DF954A0B677255724219B7A038BD13950"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/male/prepare1.tres",
-      "sha256": "6DC4E77DDE44116A4990F4A8048BA3EC4AAAC2E823FA206E45B5B402736801A6",
+      "source": "avatar/weaponl/weaponl5101.gsn",
+      "sourceSha256": "e3029aae5db7d2f631ed3753bf3fd6b1a2028cd8362718449d01a6b6f4b44b44",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "C7C4C6CBD49D94A6E9B5E6D4C0093B955350DE540CF14F1BD039593421D5D98A"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/male/prepare2.tres",
+      "source": "avatar/weaponl/weaponl5101.gsn",
+      "sourceSha256": "e3029aae5db7d2f631ed3753bf3fd6b1a2028cd8362718449d01a6b6f4b44b44",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "C7C4C6CBD49D94A6E9B5E6D4C0093B955350DE540CF14F1BD039593421D5D98A"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/male/prepare3.tres",
+      "source": "avatar/weaponl/weaponl5111.gsn",
+      "sourceSha256": "9edea5c0cc5fdac9ef2d5c344c66319e909f1803fba7f3950e55a3ed78532f4a",
+      "sourceAction": 11,
       "frames": 20,
-      "source": "avatar/weaponl/weaponl5111.gsn"
+      "sha256": "C1D2D3DA3F1276E36C1F849F9DBABA441E88A972A34F12DC8575E832F7DE983B"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/male/hurt.tres",
-      "sha256": "863DDD7CAFFD5F064722EF1A6ADD905DA7D6C3BA55A59B50971B82189489516F",
+      "source": "avatar/weaponl/weaponl5112.gsn",
+      "sourceSha256": "7fa0ee9228f49a14389ed305b468654112e3bac4f96410ca7038f27c7893ca58",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl5112.gsn"
+      "sha256": "BF430F417AD54CB3ABE5C5A6B9F61C0F472198409EB0AA3A6375406C5DA2E022"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/male/ride.tres",
+      "source": "avatar/weaponl/weaponl5101.gsn",
+      "sourceSha256": "e3029aae5db7d2f631ed3753bf3fd6b1a2028cd8362718449d01a6b6f4b44b44",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "C7C4C6CBD49D94A6E9B5E6D4C0093B955350DE540CF14F1BD039593421D5D98A"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/female/stand.tres",
-      "sha256": "BBA6A08B17F0A02AC88F0DC669254A261A365FF13E49CE2146C0AA348C5AAC94",
+      "source": "avatar/weaponl/weaponl5151.gsn",
+      "sourceSha256": "742cb667df2c1459dc9d55e6f828d9258078bfaf48d2c3d7a13ed30841d55177",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl5151.gsn"
+      "sha256": "79CEEE9177C85FD14B82163A6D88A710B156E58A14EBC8642224F35CB2E34248"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/female/run.tres",
-      "sha256": "18074A0FE767EA15D588DE469EC81644611168FCBF55A8CF3A95D7E5BB105EF2",
+      "source": "avatar/weaponl/weaponl5152.gsn",
+      "sourceSha256": "845738db94ffca3afbf9da1e85f3424c9da55d7f965c73cad3d731c6736e82d9",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponl/weaponl5152.gsn"
+      "sha256": "70EA5DDA4F4D0D2A2955CAA34D1D387C01CE86169AB4680D4127103D9FE7A257"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/female/sit.tres",
-      "sha256": "610402DEBBC2BF822657A6ABCE5860154C5457666D0044EC01DF9D2BC52571DB",
+      "source": "avatar/weaponl/weaponl5153.gsn",
+      "sourceSha256": "b96959ccc489f8a1322c57d8114fb59765d02cf0a51932870d1be6eb1a8c6e4b",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl5153.gsn"
+      "sha256": "3B187318305125B5B6A748C218EE4F07B8B933793DDBE68B683E4FF5720CB8BB"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/female/die.tres",
+      "source": "avatar/weaponl/weaponl5151.gsn",
+      "sourceSha256": "742cb667df2c1459dc9d55e6f828d9258078bfaf48d2c3d7a13ed30841d55177",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "79CEEE9177C85FD14B82163A6D88A710B156E58A14EBC8642224F35CB2E34248"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/female/attack1.tres",
-      "sha256": "CEB18A30A46D46D5C4ED8F95926CFC32B94D79C8FD3DE27EECE4192017E8755B",
+      "source": "avatar/weaponl/weaponl5151.gsn",
+      "sourceSha256": "742cb667df2c1459dc9d55e6f828d9258078bfaf48d2c3d7a13ed30841d55177",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "79CEEE9177C85FD14B82163A6D88A710B156E58A14EBC8642224F35CB2E34248"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/female/attack2.tres",
+      "source": "avatar/weaponl/weaponl5151.gsn",
+      "sourceSha256": "742cb667df2c1459dc9d55e6f828d9258078bfaf48d2c3d7a13ed30841d55177",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "79CEEE9177C85FD14B82163A6D88A710B156E58A14EBC8642224F35CB2E34248"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/female/attack3.tres",
+      "source": "avatar/weaponl/weaponl5157.gsn",
+      "sourceSha256": "36f13a042a9547b649386d83178251df29f430f0dd6928b764cd7d5c343ea793",
+      "sourceAction": 7,
       "frames": 40,
-      "source": "avatar/weaponl/weaponl5157.gsn"
+      "sha256": "D6E9FE5B46A2A1AAB7D3169EDD33B1CC6B9717E40C1328225955DBD5F4F0C9DE"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/female/magic.tres",
-      "sha256": "3103664ABCD9A0A1A598A98A1AE217B652C4901B0FCD4CF45F03407119E3988B",
+      "source": "avatar/weaponl/weaponl5158.gsn",
+      "sourceSha256": "643150b25dd64fdd8a6569b0af9f2ba09454d749af39f0a2e5ea0d636cd8cd96",
+      "sourceAction": 8,
       "frames": 45,
-      "source": "avatar/weaponl/weaponl5158.gsn"
+      "sha256": "E358837A960A286D9CF8B5F25E81AF1184CAE809BE708C61B7082D52118F9799"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/female/prepare1.tres",
-      "sha256": "D70183B2EEF11763136189C47ED9FA2691A4FFFA97860FE294C13FD35AF0054A",
+      "source": "avatar/weaponl/weaponl5151.gsn",
+      "sourceSha256": "742cb667df2c1459dc9d55e6f828d9258078bfaf48d2c3d7a13ed30841d55177",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "79CEEE9177C85FD14B82163A6D88A710B156E58A14EBC8642224F35CB2E34248"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/female/prepare2.tres",
+      "source": "avatar/weaponl/weaponl5151.gsn",
+      "sourceSha256": "742cb667df2c1459dc9d55e6f828d9258078bfaf48d2c3d7a13ed30841d55177",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "79CEEE9177C85FD14B82163A6D88A710B156E58A14EBC8642224F35CB2E34248"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/female/prepare3.tres",
+      "source": "avatar/weaponl/weaponl5161.gsn",
+      "sourceSha256": "58d3aa3b6e9d7d37e24c7d33c2616b1a46e41831055db1ede86ad7c343e71afd",
+      "sourceAction": 11,
       "frames": 20,
-      "source": "avatar/weaponl/weaponl5161.gsn"
+      "sha256": "7D0481B9502ABB5487FF3D3CA77E457A786C2782CA757CCBAAE6E5B9103F5B07"
     },
     {
       "path": "res://assets/characters/weapons/1017/left/female/hurt.tres",
-      "sha256": "1AD204C8876DD4183061DD407CEB609C244B15E58F4E14380F0F6F210731B260",
+      "source": "avatar/weaponl/weaponl5162.gsn",
+      "sourceSha256": "e5d775e5a691d0137ca2fd284401a7523914a13d921def2f41d6da78c7063d62",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl5162.gsn"
+      "sha256": "3CC99C152962DDA16FF9A7BEE68689361422028AFDB01A773EF0245A9B9158B9"
+    },
+    {
+      "path": "res://assets/characters/weapons/1017/left/female/ride.tres",
+      "source": "avatar/weaponl/weaponl5151.gsn",
+      "sourceSha256": "742cb667df2c1459dc9d55e6f828d9258078bfaf48d2c3d7a13ed30841d55177",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "79CEEE9177C85FD14B82163A6D88A710B156E58A14EBC8642224F35CB2E34248"
     },
     {
       "path": "res://assets/characters/weapons/1018/male/stand.tres",
-      "sha256": "D667AD163CFA474B449746B7F5DD21E8949311DBA0A712B4D0EECA76218B9AF0",
+      "source": "avatar/weaponl/weaponl10501.gsn",
+      "sourceSha256": "a8adb0d0f0d20888fc8d03c0a43ff4c1e8b10de5a073c9f4704f40d6e1ab0011",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl10501.gsn"
+      "sha256": "1BE44CCED216DA62361552A05FF96B9FFF70A6A96AF23A75C45FC9E58F067D44"
     },
     {
       "path": "res://assets/characters/weapons/1018/male/run.tres",
-      "sha256": "8E305D77E97003DE39DC6BAC592A6213E29538C83B4A3747408DEF126425DADE",
+      "source": "avatar/weaponl/weaponl10502.gsn",
+      "sourceSha256": "a548d9dc0b8c010bfe081ee294879ae97648567c84c1501332c01b10663edfb0",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponl/weaponl10502.gsn"
+      "sha256": "A7B931630D059B2BA52801AF531542EE5A8BFF14673A008D5D4384D72C7651BF"
     },
     {
       "path": "res://assets/characters/weapons/1018/male/sit.tres",
-      "sha256": "832E3C777882A0F5F2D0558F0652D5F984677BF7B1FD76D1F737CB402D3471FB",
+      "source": "avatar/weaponl/weaponl10503.gsn",
+      "sourceSha256": "954edb8e70ee7d997182cbfcb30e699dd241aa51ea3c7afffc2fa5ae35be739c",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl10503.gsn"
+      "sha256": "354F08FC7E8779067CC83C67BFB95BB8A1C0CCA611B9F4A2A7627CA852BC5E90"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/male/die.tres",
+      "source": "avatar/weaponl/weaponl10501.gsn",
+      "sourceSha256": "a8adb0d0f0d20888fc8d03c0a43ff4c1e8b10de5a073c9f4704f40d6e1ab0011",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1BE44CCED216DA62361552A05FF96B9FFF70A6A96AF23A75C45FC9E58F067D44"
     },
     {
       "path": "res://assets/characters/weapons/1018/male/attack1.tres",
-      "sha256": "1E6C3D85B3F3F684A8338B7FF46D1ED4A451058A770C577B6F3FE96DD8422BA3",
+      "source": "avatar/weaponl/weaponl10501.gsn",
+      "sourceSha256": "a8adb0d0f0d20888fc8d03c0a43ff4c1e8b10de5a073c9f4704f40d6e1ab0011",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1BE44CCED216DA62361552A05FF96B9FFF70A6A96AF23A75C45FC9E58F067D44"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/male/attack2.tres",
+      "source": "avatar/weaponl/weaponl10501.gsn",
+      "sourceSha256": "a8adb0d0f0d20888fc8d03c0a43ff4c1e8b10de5a073c9f4704f40d6e1ab0011",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1BE44CCED216DA62361552A05FF96B9FFF70A6A96AF23A75C45FC9E58F067D44"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/male/attack3.tres",
+      "source": "avatar/weaponl/weaponl10507.gsn",
+      "sourceSha256": "530ac314cd5bfc8bc7d8ecd0c0d7cc0f106d17b55aab3fc01bee253de49b9f46",
+      "sourceAction": 7,
       "frames": 45,
-      "source": "avatar/weaponl/weaponl10507.gsn"
+      "sha256": "01B3E98AAA4F2801715A31C13A4971EFCCDD71D92098EED006E4932E0708ECBE"
     },
     {
       "path": "res://assets/characters/weapons/1018/male/magic.tres",
-      "sha256": "4D929E30F53E1A35BA75F01654425A86CE121B24F98BAA5EDB5B2188F2B4A019",
+      "source": "avatar/weaponl/weaponl10508.gsn",
+      "sourceSha256": "1006755f7ef911fab4a1f1a2b9eeba42ccdd4c11edd5c96ab32529c834a56e44",
+      "sourceAction": 8,
       "frames": 40,
-      "source": "avatar/weaponl/weaponl10508.gsn"
+      "sha256": "9FA21AF40C9F4136AE5EDA3D58692CEA0CD88E56D5442175A311BE67EF217C3F"
     },
     {
       "path": "res://assets/characters/weapons/1018/male/prepare1.tres",
-      "sha256": "AE61415F4CCA8F3AFA021649B35BDF4B7D6BB522AD8273A11C76E708E71EB8FB",
+      "source": "avatar/weaponl/weaponl10501.gsn",
+      "sourceSha256": "a8adb0d0f0d20888fc8d03c0a43ff4c1e8b10de5a073c9f4704f40d6e1ab0011",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1BE44CCED216DA62361552A05FF96B9FFF70A6A96AF23A75C45FC9E58F067D44"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/male/prepare2.tres",
+      "source": "avatar/weaponl/weaponl10501.gsn",
+      "sourceSha256": "a8adb0d0f0d20888fc8d03c0a43ff4c1e8b10de5a073c9f4704f40d6e1ab0011",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1BE44CCED216DA62361552A05FF96B9FFF70A6A96AF23A75C45FC9E58F067D44"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/male/prepare3.tres",
+      "source": "avatar/weaponl/weaponl10511.gsn",
+      "sourceSha256": "c7b7d2af2487c6560a5238709861d46321637575ce5a8ffb4ba8dbc6ec1302c5",
+      "sourceAction": 11,
       "frames": 20,
-      "source": "avatar/weaponl/weaponl10511.gsn"
+      "sha256": "D7DABC00FA86CD3A6BA0639FB986B45479C6AF5B05302AFE2E6D979FD1701FE1"
     },
     {
       "path": "res://assets/characters/weapons/1018/male/hurt.tres",
-      "sha256": "B47ADE6F3093A6914C807ABC7FAF3D999F80D68AA42E1F16660529D27AC88723",
+      "source": "avatar/weaponl/weaponl10512.gsn",
+      "sourceSha256": "87c6f1eaae700d90a557c0270af3a426dbd3f2134753f41e70b535da5a191b8c",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl10512.gsn"
+      "sha256": "2954BA12F86CDD48B642A54D79438C4B1BB16FBAA7945ACDA929FF431599A7DF"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/male/ride.tres",
+      "source": "avatar/weaponl/weaponl10501.gsn",
+      "sourceSha256": "a8adb0d0f0d20888fc8d03c0a43ff4c1e8b10de5a073c9f4704f40d6e1ab0011",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "1BE44CCED216DA62361552A05FF96B9FFF70A6A96AF23A75C45FC9E58F067D44"
     },
     {
       "path": "res://assets/characters/weapons/1018/female/stand.tres",
-      "sha256": "D29ED540904DE81C2215A331702A58BD6E67A6D8CDF6FA0199A01D1CB5E6F1B6",
+      "source": "avatar/weaponl/weaponl10551.gsn",
+      "sourceSha256": "785c4bde254b8edfd17c1cd13fceb22e36e61afbc0bf2f445b672c5ba539f793",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl10551.gsn"
+      "sha256": "EEE76241DDEDCE25C55BB867D3B00BE91E5FBCF592228F19B40BC1010EA62613"
     },
     {
       "path": "res://assets/characters/weapons/1018/female/run.tres",
-      "sha256": "C11B234E14152E9FD2A5B76FA34FE2FAC122EBDF09FE5B12D6CA68A2C415A300",
+      "source": "avatar/weaponl/weaponl10552.gsn",
+      "sourceSha256": "43064a03f47da6e6a60d5a3917cbf7c2bf61264d2f3c971b6a91a2e2fbaa6cae",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponl/weaponl10552.gsn"
+      "sha256": "760A200C8750B047A0474437E6AD4AE185F273A058DB4D313DA80B47B1197CC5"
     },
     {
       "path": "res://assets/characters/weapons/1018/female/sit.tres",
-      "sha256": "06A931213F9C00E65D3BB2B9E4DC32CEC6B7C10F37CB67708782642F608BF1E9",
+      "source": "avatar/weaponl/weaponl10553.gsn",
+      "sourceSha256": "f4dd04f67b49f5b1a0dc0cb4485930793618088a91a0cc1bfa0f9c2ed47f6ff5",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl10553.gsn"
+      "sha256": "9D5963463A109AB6234DDB4D014763735DF4103407599946EE6354B802A0130B"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/female/die.tres",
+      "source": "avatar/weaponl/weaponl10551.gsn",
+      "sourceSha256": "785c4bde254b8edfd17c1cd13fceb22e36e61afbc0bf2f445b672c5ba539f793",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "EEE76241DDEDCE25C55BB867D3B00BE91E5FBCF592228F19B40BC1010EA62613"
     },
     {
       "path": "res://assets/characters/weapons/1018/female/attack1.tres",
-      "sha256": "EDF6B9FCE472B127352F1329E84EB497EDCB0C25F4CDA6DC6F943CC6CB90A9FA",
+      "source": "avatar/weaponl/weaponl10551.gsn",
+      "sourceSha256": "785c4bde254b8edfd17c1cd13fceb22e36e61afbc0bf2f445b672c5ba539f793",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "EEE76241DDEDCE25C55BB867D3B00BE91E5FBCF592228F19B40BC1010EA62613"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/female/attack2.tres",
+      "source": "avatar/weaponl/weaponl10551.gsn",
+      "sourceSha256": "785c4bde254b8edfd17c1cd13fceb22e36e61afbc0bf2f445b672c5ba539f793",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "EEE76241DDEDCE25C55BB867D3B00BE91E5FBCF592228F19B40BC1010EA62613"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/female/attack3.tres",
+      "source": "avatar/weaponl/weaponl10557.gsn",
+      "sourceSha256": "2ea7b50ffafb5aae9e1045cd951d013bc1ee0aa415288a021e663a54781a01c3",
+      "sourceAction": 7,
       "frames": 40,
-      "source": "avatar/weaponl/weaponl10557.gsn"
+      "sha256": "7F4BBD6219E98D84FA0FC4D031218CD3E0FCDB4A331A59B1AFDF36A97BA83668"
     },
     {
       "path": "res://assets/characters/weapons/1018/female/magic.tres",
-      "sha256": "ECD405CA69B3A8A0C94A89F6A69CB74CF3E760427735BB6185D3FDB68E4B7868",
+      "source": "avatar/weaponl/weaponl10558.gsn",
+      "sourceSha256": "3c58bd1204510cc4f68fc0039565488f9d14915e77367a1b9fac6743aa7f7c5c",
+      "sourceAction": 8,
       "frames": 45,
-      "source": "avatar/weaponl/weaponl10558.gsn"
+      "sha256": "A0FB6A684649355499DC59863C9C0A511E33E416974C70E4159E0C8A29B85DF0"
     },
     {
       "path": "res://assets/characters/weapons/1018/female/prepare1.tres",
-      "sha256": "E93F7A247F798B0E2080C6E5098C48B5B32DCEE9F805F35E9C1688904FFDB5D3",
+      "source": "avatar/weaponl/weaponl10551.gsn",
+      "sourceSha256": "785c4bde254b8edfd17c1cd13fceb22e36e61afbc0bf2f445b672c5ba539f793",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "EEE76241DDEDCE25C55BB867D3B00BE91E5FBCF592228F19B40BC1010EA62613"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/female/prepare2.tres",
+      "source": "avatar/weaponl/weaponl10551.gsn",
+      "sourceSha256": "785c4bde254b8edfd17c1cd13fceb22e36e61afbc0bf2f445b672c5ba539f793",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "EEE76241DDEDCE25C55BB867D3B00BE91E5FBCF592228F19B40BC1010EA62613"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/female/prepare3.tres",
+      "source": "avatar/weaponl/weaponl10561.gsn",
+      "sourceSha256": "97729cbfd71753cb439b70b9d602c153873fa74f5be676b1b8d64d21bcd6be76",
+      "sourceAction": 11,
       "frames": 20,
-      "source": "avatar/weaponl/weaponl10561.gsn"
+      "sha256": "E8DCB98DB3A3F290EB74251B11B8945BFD82059FB1A73AA35B828A30FB7B6BB9"
     },
     {
       "path": "res://assets/characters/weapons/1018/female/hurt.tres",
-      "sha256": "C5EFAECD844823C39F6C60768D779D70EE01672BD4E049DE2A9F935BB6DAB3C1",
+      "source": "avatar/weaponl/weaponl10562.gsn",
+      "sourceSha256": "fa3987e3de617d9842ba80a7fd92b29504deac6a7b8e925937f37fe0e137f085",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponl/weaponl10562.gsn"
+      "sha256": "908AC1FBD0740CCD97B0FF6E6B3D7C4E9A4A179F1B938FAD4558E0FD372DC128"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/female/ride.tres",
+      "source": "avatar/weaponl/weaponl10551.gsn",
+      "sourceSha256": "785c4bde254b8edfd17c1cd13fceb22e36e61afbc0bf2f445b672c5ba539f793",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "EEE76241DDEDCE25C55BB867D3B00BE91E5FBCF592228F19B40BC1010EA62613"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/male/stand.tres",
-      "sha256": "2531D60EB0C5E2867FB34F4B740AD2BAD7B3C0E1F0A7A499FEA2F083CE70486E",
+      "source": "avatar/weaponr/weaponr10501.gsn",
+      "sourceSha256": "c2e6da93353e2fcb9a6fff70bfbec70b99236260a57238ef711ede2d58e3d6c7",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr10501.gsn"
+      "sha256": "57ADB61FA2CB57D5E2014DC5732A0F8D82A707C94CC296AAD0884E14EE4F7F29"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/male/run.tres",
-      "sha256": "A730C8C8D714E41F796A7F6E7B0664D612D80210218F0CE9A606C690C95B5DC2",
+      "source": "avatar/weaponr/weaponr10502.gsn",
+      "sourceSha256": "106a7f9db07065363f16166a83b94b1717afcaf02a86bc16ad3c7f8e6b34733e",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr10502.gsn"
+      "sha256": "4A070E806D535C47D369530768726C2882FFCDCA8B28F4E9699E2913DEA653A7"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/male/sit.tres",
-      "sha256": "E9DE96E6C4C6BEF0CAEEF5B70C7542C59B320517426D4DE84F03BFAD3F5F39E5",
+      "source": "avatar/weaponr/weaponr10503.gsn",
+      "sourceSha256": "0474633a55a079ab31f160e31cca0c0430c14a3915528490fb8c458d579887d3",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr10503.gsn"
+      "sha256": "46B8A7D2CF48C4AD14F0FF0E9983EC1E2FE623B74DCAECBA1DCBADA3602BFF08"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/male/die.tres",
+      "source": "avatar/weaponr/weaponr10501.gsn",
+      "sourceSha256": "c2e6da93353e2fcb9a6fff70bfbec70b99236260a57238ef711ede2d58e3d6c7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "57ADB61FA2CB57D5E2014DC5732A0F8D82A707C94CC296AAD0884E14EE4F7F29"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/male/attack1.tres",
-      "sha256": "C4B776D8C228143B8B38C747249C1AB5049A7EB288E8FD55F36B085AA2D0A20F",
+      "source": "avatar/weaponr/weaponr10501.gsn",
+      "sourceSha256": "c2e6da93353e2fcb9a6fff70bfbec70b99236260a57238ef711ede2d58e3d6c7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "57ADB61FA2CB57D5E2014DC5732A0F8D82A707C94CC296AAD0884E14EE4F7F29"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/male/attack2.tres",
+      "source": "avatar/weaponr/weaponr10501.gsn",
+      "sourceSha256": "c2e6da93353e2fcb9a6fff70bfbec70b99236260a57238ef711ede2d58e3d6c7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "57ADB61FA2CB57D5E2014DC5732A0F8D82A707C94CC296AAD0884E14EE4F7F29"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/male/attack3.tres",
+      "source": "avatar/weaponr/weaponr10507.gsn",
+      "sourceSha256": "30123326d7eac88e396e574c60aa18c89e9331efaa2e09113de4045b20268197",
+      "sourceAction": 7,
       "frames": 45,
-      "source": "avatar/weaponr/weaponr10507.gsn"
+      "sha256": "0E31A09D012977CF4D5407293AB156CABAFAA09E6BFC5F4A90393C04A4C67FB3"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/male/magic.tres",
-      "sha256": "D63557B0F01287F3B1944459EED0A9B48AF37999B09DFEF24A9A5F1270A12627",
+      "source": "avatar/weaponr/weaponr10508.gsn",
+      "sourceSha256": "f8357f7f2653b06b7884f3b8990c18ea810f3e538d65fc7b2c1e91c7c320dd41",
+      "sourceAction": 8,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr10508.gsn"
+      "sha256": "EDCBC03A47CEADE263FFD25ED518E922D51CC6336A09740A8D7B83E29D02F064"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/male/prepare1.tres",
-      "sha256": "84AE1B5EE09DCC724E462B70D7D69EC5D2C22287A894B9A51F0293D94C533541",
+      "source": "avatar/weaponr/weaponr10501.gsn",
+      "sourceSha256": "c2e6da93353e2fcb9a6fff70bfbec70b99236260a57238ef711ede2d58e3d6c7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "57ADB61FA2CB57D5E2014DC5732A0F8D82A707C94CC296AAD0884E14EE4F7F29"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/male/prepare2.tres",
+      "source": "avatar/weaponr/weaponr10501.gsn",
+      "sourceSha256": "c2e6da93353e2fcb9a6fff70bfbec70b99236260a57238ef711ede2d58e3d6c7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "57ADB61FA2CB57D5E2014DC5732A0F8D82A707C94CC296AAD0884E14EE4F7F29"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/male/prepare3.tres",
+      "source": "avatar/weaponr/weaponr10511.gsn",
+      "sourceSha256": "e908ffaec505288526db15b2613799c3ab3e28292253c94c7706b1ba4f1a6dd6",
+      "sourceAction": 11,
       "frames": 20,
-      "source": "avatar/weaponr/weaponr10511.gsn"
+      "sha256": "61138D7899C8FB8817D8B260BE653C02BFF8FBEB59F604C21F3ECB7A5237A581"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/male/hurt.tres",
-      "sha256": "B37B514E1DF50466EE014133068F829AA13F9A16363E9D992D977BAD97E5B573",
+      "source": "avatar/weaponr/weaponr10512.gsn",
+      "sourceSha256": "32150278d6ba51967178bc6e14225cb8da8c55530da0e7aae4f6c5952d53752b",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr10512.gsn"
+      "sha256": "A8852C8C62CC8D6C28277C53D68EC0A6F0EC301838B433F6036BC5B635A3293B"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/male/ride.tres",
+      "source": "avatar/weaponr/weaponr10501.gsn",
+      "sourceSha256": "c2e6da93353e2fcb9a6fff70bfbec70b99236260a57238ef711ede2d58e3d6c7",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "57ADB61FA2CB57D5E2014DC5732A0F8D82A707C94CC296AAD0884E14EE4F7F29"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/female/stand.tres",
-      "sha256": "B9AD940B21A9DEC78E2B917E886379AB6F4FA23BBFF8A52938AFFCDA225E0FB4",
+      "source": "avatar/weaponr/weaponr10551.gsn",
+      "sourceSha256": "557c14021bc9068975efec850464998c6ee9b83a7ebe699107520fc529767ec1",
+      "sourceAction": 1,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr10551.gsn"
+      "sha256": "9FEF3CB6C5FBF928F892DDB9DFBAA482BD3A86EF0C0C1D45A0676A4F54457605"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/female/run.tres",
-      "sha256": "5FD2866476FC0A493FF9D1748D483394D89B1CED81D46E48FD61C36B58793681",
+      "source": "avatar/weaponr/weaponr10552.gsn",
+      "sourceSha256": "b1070fb77e12916f923ffe9163c423f38af227298a420f25d7aa4536a1f38946",
+      "sourceAction": 2,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr10552.gsn"
+      "sha256": "AD396952202651EBC616AA73EB10808106E3E9F7B2C48BEA6449CF21F9FF9005"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/female/sit.tres",
-      "sha256": "B6992FAE2E3C8C0523D010695DA34A4F0150CFFA03D8738DBBB00F521D64E54C",
+      "source": "avatar/weaponr/weaponr10553.gsn",
+      "sourceSha256": "127a200c24891fbeef75c5a58678e811549335203d1922a7b22dd458ed01297d",
+      "sourceAction": 3,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr10553.gsn"
+      "sha256": "5C4595CE1FA9DD426A73E33EAC86EAAE8228A98B80736F3D02A5A4C655B1E325"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/female/die.tres",
+      "source": "avatar/weaponr/weaponr10551.gsn",
+      "sourceSha256": "557c14021bc9068975efec850464998c6ee9b83a7ebe699107520fc529767ec1",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "9FEF3CB6C5FBF928F892DDB9DFBAA482BD3A86EF0C0C1D45A0676A4F54457605"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/female/attack1.tres",
-      "sha256": "DDD8EEE94B2DC5434E9C78483C79642DB3F1E5EE9F85BD309D2C455BA29C9D96",
+      "source": "avatar/weaponr/weaponr10551.gsn",
+      "sourceSha256": "557c14021bc9068975efec850464998c6ee9b83a7ebe699107520fc529767ec1",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "9FEF3CB6C5FBF928F892DDB9DFBAA482BD3A86EF0C0C1D45A0676A4F54457605"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/female/attack2.tres",
+      "source": "avatar/weaponr/weaponr10551.gsn",
+      "sourceSha256": "557c14021bc9068975efec850464998c6ee9b83a7ebe699107520fc529767ec1",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "9FEF3CB6C5FBF928F892DDB9DFBAA482BD3A86EF0C0C1D45A0676A4F54457605"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/female/attack3.tres",
+      "source": "avatar/weaponr/weaponr10557.gsn",
+      "sourceSha256": "c92d007b6c3a27fa158e99464e7e8c2723c3b369f017964736222f536c5f3372",
+      "sourceAction": 7,
       "frames": 40,
-      "source": "avatar/weaponr/weaponr10557.gsn"
+      "sha256": "807974922C27DCEEADCC23CECE179E58A8B54838F6A770DA78507A03B1BD5E90"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/female/magic.tres",
-      "sha256": "806F0EF81BD1EBB0ED27D2165710AA5887B680AA2BF110EFE69EED42E3167E7D",
+      "source": "avatar/weaponr/weaponr10558.gsn",
+      "sourceSha256": "eedddd12fdd7b6a171d1844e130a4ff785ed546eaf28b58cfcc46942c1945dcf",
+      "sourceAction": 8,
       "frames": 45,
-      "source": "avatar/weaponr/weaponr10558.gsn"
+      "sha256": "FD5AA0E322CAD079AD5FB3DD672342CD53747424EC11E87F61848A0E772CC80F"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/female/prepare1.tres",
-      "sha256": "C43D42AECAA74390144BBF1B89B6632D5F5C6C1A70707ADDF4C2C8BA94D9BC53",
+      "source": "avatar/weaponr/weaponr10551.gsn",
+      "sourceSha256": "557c14021bc9068975efec850464998c6ee9b83a7ebe699107520fc529767ec1",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "9FEF3CB6C5FBF928F892DDB9DFBAA482BD3A86EF0C0C1D45A0676A4F54457605"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/female/prepare2.tres",
+      "source": "avatar/weaponr/weaponr10551.gsn",
+      "sourceSha256": "557c14021bc9068975efec850464998c6ee9b83a7ebe699107520fc529767ec1",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "9FEF3CB6C5FBF928F892DDB9DFBAA482BD3A86EF0C0C1D45A0676A4F54457605"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/female/prepare3.tres",
+      "source": "avatar/weaponr/weaponr10561.gsn",
+      "sourceSha256": "e941353c8c7a266b0b7f7a46c6cd3c7e4b8db7c9fdbfdcfa0ffcf0417d84fd84",
+      "sourceAction": 11,
       "frames": 20,
-      "source": "avatar/weaponr/weaponr10561.gsn"
+      "sha256": "C4B166D2D6A5C1FDF9378E7596FAF829FF54A0A94716E6A9C631E3EF2D5858AA"
     },
     {
       "path": "res://assets/characters/weapons/1018/right/female/hurt.tres",
-      "sha256": "4A4AEACBB4A4A9ACBC700BB6C7F946AB3EE0AE82AC524823E154670EB73844D9",
+      "source": "avatar/weaponr/weaponr10562.gsn",
+      "sourceSha256": "e3e28b51d354a236ab75b25a77a6232d0f048b40928ba57769121138246c600a",
+      "sourceAction": 12,
       "frames": 5,
-      "source": "avatar/weaponr/weaponr10562.gsn"
+      "sha256": "74B139AFEC432BEB69E09E94EF8305A56BA0D04B4D8126389E40E9E6008FBB74"
+    },
+    {
+      "path": "res://assets/characters/weapons/1018/right/female/ride.tres",
+      "source": "avatar/weaponr/weaponr10551.gsn",
+      "sourceSha256": "557c14021bc9068975efec850464998c6ee9b83a7ebe699107520fc529767ec1",
+      "sourceAction": 1,
+      "frames": 5,
+      "sha256": "9FEF3CB6C5FBF928F892DDB9DFBAA482BD3A86EF0C0C1D45A0676A4F54457605"
     }
-  ]
+  ],
+  "layers": {
+    "0/6/2/1/5": -50,
+    "0/6/2/2/6": -50,
+    "1/6/2/0/5": -50,
+    "1/6/2/1/5": -50,
+    "1/6/2/2/5": -50,
+    "1/6/2/2/6": -50,
+    "0/0/3/3/0": 50,
+    "0/0/3/4/0": -50,
+    "0/1/3/0/0": -50,
+    "0/1/3/0/1": 50,
+    "0/1/3/0/2": 50,
+    "0/1/3/0/3": 50,
+    "0/1/3/0/4": 50,
+    "0/1/3/0/5": -50,
+    "0/1/3/0/6": -50,
+    "0/1/3/0/7": -50,
+    "0/4/3/0/0": 50,
+    "0/4/3/0/3": 50,
+    "0/4/3/0/4": 50,
+    "0/4/3/0/5": 50,
+    "0/4/3/0/6": 50,
+    "0/4/3/0/7": 50,
+    "0/4/3/0/8": 50,
+    "0/4/3/1/2": 50,
+    "0/4/3/1/3": 50,
+    "0/4/3/1/4": 50,
+    "0/4/3/3/1": 50,
+    "0/4/3/4/1": 50,
+    "0/4/3/4/3": 50,
+    "0/4/3/4/4": 50,
+    "0/4/3/4/6": 50,
+    "0/7/3/0/2": 50,
+    "0/7/3/0/3": 50,
+    "0/7/3/0/4": 50,
+    "0/7/3/0/5": 50,
+    "0/7/3/0/6": 50,
+    "0/7/3/1/2": 50,
+    "0/7/3/1/3": 50,
+    "0/7/3/1/4": 50,
+    "0/7/3/1/5": 50,
+    "0/7/3/1/6": 50,
+    "0/7/3/1/7": 50,
+    "0/8/3/0/0": -50,
+    "0/8/3/0/1": 50,
+    "0/8/3/0/2": 50,
+    "0/8/3/0/3": 50,
+    "0/8/3/4/0": 50,
+    "0/8/3/4/1": 50,
+    "0/8/3/4/2": 50,
+    "0/8/3/4/3": 50,
+    "0/10/3/0/1": -150,
+    "0/10/3/0/2": -100,
+    "0/10/3/0/3": -100,
+    "0/12/3/3/0": 50,
+    "1/0/3/3/0": 50,
+    "1/0/3/3/1": 50,
+    "1/0/3/3/2": 50,
+    "1/0/3/3/3": 50,
+    "1/0/3/4/0": -150,
+    "1/0/3/4/1": -100,
+    "1/0/3/4/2": -50,
+    "1/0/3/4/3": -150,
+    "1/1/3/0/1": -50,
+    "1/1/3/0/6": -50,
+    "1/1/3/1/0": -50,
+    "1/1/3/1/7": -100,
+    "1/1/3/3/2": 50,
+    "1/1/3/3/3": 50,
+    "1/1/3/3/4": 50,
+    "1/1/3/3/5": 50,
+    "1/1/3/3/6": 50,
+    "1/1/3/4/0": 50,
+    "1/1/3/4/2": -50,
+    "1/1/3/4/3": -50,
+    "1/1/3/4/4": -50,
+    "1/1/3/4/5": -50,
+    "1/1/3/4/6": -50,
+    "1/2/3/4/0": -50,
+    "1/4/3/3/1": 50,
+    "1/4/3/3/2": 50,
+    "1/4/3/4/1": 50,
+    "1/4/3/4/2": -50,
+    "1/5/3/3/0": 50,
+    "1/5/3/3/1": 50,
+    "1/5/3/3/2": 50,
+    "1/5/3/3/3": 50,
+    "1/5/3/4/0": -50,
+    "1/5/3/4/1": -50,
+    "1/5/3/4/2": -50,
+    "1/6/3/0/2": 50,
+    "1/6/3/0/3": 50,
+    "1/6/3/1/2": 50,
+    "1/6/3/1/3": 50,
+    "1/6/3/2/3": 50,
+    "1/7/3/0/0": -50,
+    "1/7/3/0/3": 50,
+    "1/7/3/0/4": 50,
+    "1/7/3/0/5": 50,
+    "1/7/3/0/6": 50,
+    "1/7/3/0/7": 50,
+    "1/7/3/1/3": 50,
+    "1/7/3/1/4": 50,
+    "1/7/3/1/5": 50,
+    "1/7/3/1/6": 50,
+    "1/7/3/3/0": 50,
+    "1/7/3/3/1": 50,
+    "1/7/3/3/8": 50,
+    "1/9/3/3/0": 50,
+    "1/9/3/3/1": 50,
+    "1/9/3/3/2": 50,
+    "1/9/3/3/3": 50,
+    "1/9/3/4/0": -50,
+    "1/9/3/4/1": -50,
+    "1/9/3/4/2": -50,
+    "1/9/3/4/3": -50,
+    "1/12/3/3/0": 50,
+    "1/12/3/4/0": -50
+  }
 }

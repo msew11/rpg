@@ -18,6 +18,38 @@ public sealed class AnimationService : Service
     /// <summary>按外观编号索引的独立装备动作资源，同源动作共享缓存。</summary>
     private readonly Dictionary<(int, RoleGender, RoleMotion), DataActorWeapon> _weapons = new();
 
+    /// <summary>随项目发布的完整来源排序数据。</summary>
+    private DataActorComposition? _composition;
+
+    /// <summary>加载并校验男女13动作的完整合成表。</summary>
+    public DataActorComposition Composition
+    {
+        get
+        {
+            ThrowIfDisposed();
+            if (_composition is not null) return _composition;
+            var data = GD.Load<DataActorComposition>("res://assets/characters/composition.tres")
+                ?? throw new InvalidOperationException("角色合成表缺失");
+            if (data.BaseOrder.Length != 32 || data.Layers.Length != 2 * 13 * 4 * 5 * 50)
+                throw new InvalidOperationException("角色合成表方向或层次不完整");
+            return _composition = data;
+        }
+    }
+
+    /// <summary>主手优先解析原生攻击类别，空手保留请求；只影响表现，不修改逻辑快照。</summary>
+    public RoleMotion ResolveMotion(RoleGender gender, RoleMotion requested, int mainAppearance, int offAppearance)
+    {
+        ThrowIfDisposed();
+        if (requested is not (RoleMotion.Attack1 or RoleMotion.Attack2 or RoleMotion.Attack3 or
+            RoleMotion.Prepare1 or RoleMotion.Prepare2 or RoleMotion.Prepare3)) return requested;
+        var appearance = mainAppearance != 0 ? mainAppearance : offAppearance;
+        if (appearance == 0) return requested;
+        var attack = GetWeapon(appearance, gender, RoleMotion.Stand, mainAppearance != 0).AttackMotion;
+        if (attack == RoleMotion.Stand) return requested;
+        return requested is RoleMotion.Prepare1 or RoleMotion.Prepare2 or RoleMotion.Prepare3
+            ? attack + ((int)RoleMotion.Prepare1 - (int)RoleMotion.Attack1) : attack;
+    }
+
     /// <summary>加载对应动作；资源缺失时给出明确的路径诊断。</summary>
     public DataActorAnimation Get(RoleGender gender, RoleMotion motion)
     {
@@ -64,14 +96,7 @@ public sealed class AnimationService : Service
         ThrowIfDisposed();
         if (appearanceId <= 0) throw new ArgumentOutOfRangeException(nameof(appearanceId));
         if (!Enum.IsDefined(motion)) throw new ArgumentOutOfRangeException(nameof(motion));
-        var sourceMotion = motion switch
-        {
-            RoleMotion.Die => RoleMotion.Sit,
-            RoleMotion.Attack2 or RoleMotion.Attack3 => RoleMotion.Attack1,
-            RoleMotion.Prepare2 or RoleMotion.Prepare3 => RoleMotion.Prepare1,
-            RoleMotion.Ride => RoleMotion.Stand,
-            _ => motion
-        };
+        var sourceMotion = motion;
         if (_weapons.TryGetValue((appearanceId, gender, sourceMotion), out var weapon))
             return rightHand ? weapon.RightHandVariant ?? weapon : weapon.LeftHandVariant ?? weapon;
         var body = gender switch
@@ -90,13 +115,12 @@ public sealed class AnimationService : Service
         return rightHand ? weapon.RightHandVariant ?? weapon : weapon.LeftHandVariant ?? weapon;
     }
 
-    /// <summary>基础原画与独立左右手原画都必须具有完整的五方向帧、连接点和层次。</summary>
+    /// <summary>基础与独立源手原画必须具有完整五方向帧、连接点和有效来源类别。</summary>
     private static void ValidateWeapon(DataActorWeapon weapon, string path)
     {
         if (weapon.Frames.Length == 0 || weapon.Frames.Length % 5 != 0 ||
-            weapon.Anchors.Length != weapon.Frames.Length || weapon.Layers.Length != weapon.Frames.Length ||
-            (weapon.GripFrames.Length != 0 && weapon.GripFrames.Length != weapon.Frames.Length) ||
-            (weapon.RearFrames.Length != 0 && weapon.RearFrames.Length != weapon.Frames.Length))
+            weapon.Anchors.Length != weapon.Frames.Length || weapon.SourceAction is < 1 or > 13 ||
+            weapon.AttackMotion is not (RoleMotion.Stand or RoleMotion.Attack1 or RoleMotion.Attack2 or RoleMotion.Attack3))
             throw new InvalidOperationException($"装备武器方向或连接点不完整：{path}");
     }
 
@@ -118,6 +142,6 @@ public sealed class AnimationService : Service
         };
     }
     /// <summary>撤销资源缓存，原生资源仍由 Godot 引用计数管理。</summary>
-    public override void Dispose() { IsDisposed = true; _animations.Clear(); _heads.Clear(); _weapons.Clear(); }
+    public override void Dispose() { IsDisposed = true; _animations.Clear(); _heads.Clear(); _weapons.Clear(); _composition = null; }
 
 }
