@@ -36,8 +36,8 @@ public sealed class WorldService : Service
     public DataWorldObjectsState? MapObjects => _world?.MapObjects;
     /// <summary>已提交 ECS 的最后一份 AOI 快照引用。</summary>
     private DataMapAoiSnapshotPbData? _lastMapSnapshot;
-    /// <summary>上次同步的完整物品快照，固定帧只在引用变化时提交装备 Action。</summary>
-    private BagPbData? _lastBagSnapshot;
+    /// <summary>上次同步的独立装备快照，固定帧只在引用变化时提交装备 Action。</summary>
+    private RoleWorldEquipmentPbData? _lastEquipmentSnapshot;
     /// <summary>活动角色的 ECS 实例。</summary>
     private WorldManager? _world;
     /// <summary>当前启动内递增的移动意图序号。</summary>
@@ -181,7 +181,7 @@ public sealed class WorldService : Service
         ThrowIfDisposed();
         _world = null;
         _lastMapSnapshot = null;
-        _lastBagSnapshot = null;
+        _lastEquipmentSnapshot = null;
         _map = null;
         _setting.LeaveRole();
     }
@@ -201,7 +201,7 @@ public sealed class WorldService : Service
         world.Enqueue(new InitializeRoleAction(_session.Role));
         _lastMapSnapshot = _session.Map;
         if (_lastMapSnapshot is not null) world.Enqueue(new SyncMapObjectsAction(_lastMapSnapshot));
-        _lastBagSnapshot = null;
+        _lastEquipmentSnapshot = null;
         SyncEquipment(world);
         world.Tick(0);
         _world = world;
@@ -217,12 +217,12 @@ public sealed class WorldService : Service
     /// <summary>从已验证的会话快照生成不可变装备动作，不在服务中订阅协议。</summary>
     private void SyncEquipment(WorldManager world)
     {
-        if (!_session.HasRole || ReferenceEquals(_lastBagSnapshot, _session.Bag)) return;
-        var bag = _session.Bag;
-        _lastBagSnapshot = bag;
-        world.Enqueue(new SyncEquipmentAction(_session.RoleId, bag.Revision,
-            bag.Equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
-            bag.Equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0));
+        if (!_session.HasRole || ReferenceEquals(_lastEquipmentSnapshot, _session.Equipment)) return;
+        var equipment = _session.Equipment;
+        _lastEquipmentSnapshot = equipment;
+        world.Enqueue(new SyncEquipmentAction(_session.RoleId, equipment.Revision,
+            equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
+            equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0));
     }
 
     /// <summary>移除所有角色实体，不拥有协议监听。</summary>
@@ -232,7 +232,7 @@ public sealed class WorldService : Service
         IsDisposed = true;
         _world = null;
         _lastMapSnapshot = null;
-        _lastBagSnapshot = null;
+        _lastEquipmentSnapshot = null;
         _map = null;
     }
 

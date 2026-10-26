@@ -82,14 +82,14 @@ public sealed class GroundItemPickupTests : IDisposable
         var item = Ground();
         var request = Begin(item);
         Assert.True(Assert.Single(_messages.OfType<PickupItemRt>()).Success);
-        var bag = Assert.Single(_messages.OfType<BagChangedNotice>()).Bag;
+        var bag = Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag;
         Assert.Equal(new[] { 10, 3 }, bag.Items.OrderBy(item => item.SlotIndex).Select(item => item.Count));
         Assert.Equal(new long[] { 1, 2 }, bag.Items.OrderBy(item => item.SlotIndex).Select(item => item.InstanceId));
         Assert.Empty(_server.GetMap(1).Objects);
         Assert.Single(Assert.Single(_messages.OfType<MapAoiNotice>()).Delta.RemovedObjectIds);
         _messages.Clear(); Send(request);
         Assert.False(Assert.Single(_messages.OfType<PickupItemRt>()).Success);
-        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         _server.Flush();
         Assert.Equal(13, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
         Assert.Equal(3, _repo.Load(_id).Bag.NextInstanceId);
@@ -122,7 +122,7 @@ public sealed class GroundItemPickupTests : IDisposable
         var item = Ground(2);
         Begin(item);
         Assert.Contains("背包空间不足", Assert.Single(_messages.OfType<PickupItemRt>()).Error);
-        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Equal(item, Assert.Single(_server.GetMap(1).Objects).Value);
         _server.Flush();
         Assert.Equal(39, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
@@ -149,7 +149,7 @@ public sealed class GroundItemPickupTests : IDisposable
             ExpectedBagRevision = kind == "bag" ? 0 : 1, ExpectedObjectRevision = kind == "object" ? 0 : 1,
             MoveActionId = kind == "move" ? 0 : _action });
         Assert.False(Assert.Single(_messages.OfType<PickupItemRt>()).Success);
-        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Equal(8, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
     }
 
@@ -174,7 +174,7 @@ public sealed class GroundItemPickupTests : IDisposable
         }
         _server.Tick(10);
         Assert.DoesNotContain(_messages.OfType<PickupItemRt>(), result => result.Success);
-        Assert.DoesNotContain(_messages.OfType<BagChangedNotice>(), notice => notice.Bag.Items.Sum(item => item.Count) > 9);
+        Assert.DoesNotContain(_messages.OfType<RoleItemsChangedNotice>(), notice => notice.Bag.Items.Sum(item => item.Count) > 9);
     }
 
     /// <summary>反向转移最终提交失败恢复旧地面与旧背包，最新内存可重试，重启仅恢复一次。</summary>

@@ -28,7 +28,7 @@ public partial class CharacterEquipmentControl : VBoxContainer
     /// <summary>窗口拥有的响应监听。</summary>
     private IDisposable? _subscription;
     /// <summary>避免位置推送重复解析装备图标和预览资源。</summary>
-    private BagPbData? _lastBag;
+    private RoleWorldEquipmentPbData? _lastEquipment;
     /// <summary>仅外观相关角色字段变化时刷新站立预览。</summary>
     private (long, RoleGender, int, string)? _lastAppearance;
 
@@ -98,11 +98,11 @@ public partial class CharacterEquipmentControl : VBoxContainer
         if (!IsNodeReady() || !GameServices.Session.HasRole) return;
         var role = GameServices.Session.Role;
         var appearance = (role.RoleId, role.Gender, role.HeadId, role.Name);
-        if (ReferenceEquals(_lastBag, GameServices.Session.Bag) && _lastAppearance == appearance) return;
-        _lastBag = GameServices.Session.Bag;
+        if (ReferenceEquals(_lastEquipment, GameServices.Session.Equipment) && _lastAppearance == appearance) return;
+        _lastEquipment = GameServices.Session.Equipment;
         _lastAppearance = appearance;
         Bag.HideItemName();
-        var equipment = GameServices.Session.Bag.Equipment;
+        var equipment = GameServices.Session.Equipment.Items;
         _preview.ShowRole(role.Gender, role.HeadId, role.RoleId, role.Name,
             mainHandId: equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
             offHandId: equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0);

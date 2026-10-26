@@ -36,6 +36,8 @@ public sealed class SessionService : Service
     public RoleWorldStatePbData Role => IsLoggedIn ? RoleCache.State : throw new InvalidOperationException("尚未登录");
     /// <summary>选角成功后的完整只读背包。</summary>
     public BagPbData Bag => HasRole ? RoleCache.Bag : throw new InvalidOperationException("尚未进入角色");
+    /// <summary>独立于私有背包的当前公开装备。</summary>
+    public RoleWorldEquipmentPbData Equipment => HasRole ? RoleCache.Equipment : throw new InvalidOperationException("尚未进入角色");
     /// <summary>当前地图的不可变对象快照，首次快照到达前为空。</summary>
     public DataMapAoiSnapshotPbData? Map => HasRole ? _map?.Snapshot : null;
     /// <summary>当前地图是否已经收到完整快照。</summary>
@@ -169,12 +171,12 @@ public sealed class SessionService : Service
     }
 
     /// <summary>提交穿戴或卸下，不预先改变背包与装备；实例零表示卸下目标槽位。</summary>
-    public void EquipItem(long instanceId, Rpg.Const.EquipmentSlot slot, long expectedRevision, int? targetBagSlot = null)
+    public void EquipItem(long instanceId, Rpg.Const.EquipmentSlot slot, long expectedBagRevision, long expectedEquipmentRevision, int? targetBagSlot = null)
     {
         EnsureActive();
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
         var request = new EquipItem { RoleId = RoleId, InstanceId = instanceId,
-            Slot = (EquipmentSlotPb)slot, ExpectedRevision = expectedRevision };
+            Slot = (EquipmentSlotPb)slot, ExpectedBagRevision = expectedBagRevision, ExpectedEquipmentRevision = expectedEquipmentRevision };
         if (targetBagSlot is { } index) request.TargetBagSlot = index;
         _net.Send(request);
     }

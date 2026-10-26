@@ -231,6 +231,7 @@ public sealed class RepoServerRole
                 role = JsonSerializer.Deserialize<DataServerRole>(File.ReadAllText(path))
                     ?? throw new InvalidDataException("角色数据为空");
             }
+            role = role with { Bag = RestoreEquipmentRevision(role.Bag, File.ReadAllText(path)) };
             Validate(role);
             if (role.RoleId != roleId) throw new InvalidDataException("角色 ID 与文件名不符");
             return role;
@@ -239,6 +240,16 @@ public sealed class RepoServerRole
         {
             throw new InvalidDataException($"无法读取角色存档：{path}；{error.Message}", error);
         }
+    }
+
+    /// <summary>只在旧存档缺少装备版本时继承原物品版本，读取不触发落地。</summary>
+    private static DataServerBag RestoreEquipmentRevision(DataServerBag bag, string json)
+    {
+        if (bag is null) throw new InvalidDataException("角色背包字段无效");
+        using var document = JsonDocument.Parse(json);
+        if (document.RootElement.TryGetProperty("Bag", out var payload) &&
+            payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("EquipmentRevision", out _)) return bag;
+        return bag with { EquipmentRevision = bag.Revision };
     }
 
     /// <summary>角色领域排除背包字段，保留聚合类型的业务兼容性。</summary>

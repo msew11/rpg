@@ -41,8 +41,9 @@ public sealed class PbDataConversionTests
             Position = new RoleWorldPositionPb { RoleId = 1002, MapId = 2, X = 123.5f, Y = 456.25f,
                 Revision = 9, AcknowledgedAction = 3 }
         };
+        original.Equipment = new RoleWorldEquipmentPb { RoleId = 1002, Revision = 3 };
         var data = RoleWorldStatePbData.FromPb(original, new RolePb { RoleId = 1002,
-            Experience = 16, NextExperience = 250, Revision = 9 });
+            Experience = 16, NextExperience = 250, Revision = 9 }, new Dictionary<int, Rpg.Config.Data.ItemCfg>());
         var result = data.ToPb();
         Assert.Equal(original, result);
         Assert.Equal(16, data.ToRolePb().Experience);

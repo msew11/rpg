@@ -183,7 +183,7 @@ public partial class BagControl : PanelContainer
             {
                 if (!IsCurrentEquipment(data)) { ShowMoveStatus("物品已更新，请重新选择装备"); return; }
                 var equippedPayload = data.AsGodotDictionary();
-                GameServices.Session.EquipItem(0, (EquipmentSlot)equippedPayload["equipment"].AsInt32(), equippedPayload["revision"].AsInt64(), slotIndex);
+                GameServices.Session.EquipItem(0, (EquipmentSlot)equippedPayload["equipment"].AsInt32(), equippedPayload["revision"].AsInt64(), equippedPayload["equipment_revision"].AsInt64(), slotIndex);
                 return;
             }
             DropItem(data, slotIndex);
@@ -262,7 +262,7 @@ public partial class BagControl : PanelContainer
     internal void ShowEquipmentName(EquipmentSlot slot, Control owner)
     {
         if (!GameServices.Session.HasRole) { HideItemName(); return; }
-        var item = GameServices.Session.Bag.Equipment.FirstOrDefault(item => item.Slot == slot);
+        var item = GameServices.Session.Equipment.Items.FirstOrDefault(item => item.Slot == slot);
         if (item is null) { HideItemName(); return; }
         ShowItemInfo(item.ItemId, owner);
     }
@@ -289,18 +289,18 @@ public partial class BagControl : PanelContainer
             if (!CanDropItem(data, 0)) { ShowMoveStatus("物品已更新，请重新选择装备"); return; }
             var payload = data.AsGodotDictionary();
             var instance = payload["instance"].AsInt64();
-            GameServices.Session.EquipItem(instance, slot, payload["revision"].AsInt64());
+            GameServices.Session.EquipItem(instance, slot, payload["revision"].AsInt64(), payload["equipment_revision"].AsInt64());
             UiSoundPlayer.Play(this, 1010);
             return;
         }
-        var item = GameServices.Session.Bag.Equipment.FirstOrDefault(item => item.Slot == slot);
+        var item = GameServices.Session.Equipment.Items.FirstOrDefault(item => item.Slot == slot);
         if (item is null) return;
         Show();
         CancelItemDrag();
         _pickedItem = new Godot.Collections.Dictionary
         {
             ["panel"] = GetInstanceId(), ["epoch"] = _dragEpoch, ["role"] = GameServices.Session.RoleId,
-            ["revision"] = GameServices.Session.Bag.Revision, ["instance"] = item.InstanceId, ["equipment"] = (int)slot
+            ["revision"] = GameServices.Session.Bag.Revision, ["equipment_revision"] = GameServices.Session.Equipment.Revision, ["instance"] = item.InstanceId, ["equipment"] = (int)slot
         };
         BeginPickup(item.ItemId, 1);
         UiSoundPlayer.Play(this, 1001);
@@ -316,14 +316,14 @@ public partial class BagControl : PanelContainer
         if (item is null) return;
         var cfg = GameServices.Config.Item.Items[item.ItemId];
         if (!EquipmentSlotUtil.TryGetSlot(cfg.Category, cfg.SubCategory, out var slot)) return;
-        var mainHand = bag.Equipment.FirstOrDefault(entry => entry.Slot == EquipmentSlot.MainHand);
+        var mainHand = GameServices.Session.Equipment.Items.FirstOrDefault(entry => entry.Slot == EquipmentSlot.MainHand);
         if (cfg.Category == ItemCategory.Weapon && cfg.SubCategory == ItemSubCategory.Katar && mainHand is not null)
         {
             var equippedCfg = GameServices.Config.Item.Items[mainHand.ItemId];
             if (equippedCfg.Category == ItemCategory.Weapon && equippedCfg.SubCategory == ItemSubCategory.Katar)
                 slot = EquipmentSlot.OffHand;
         }
-        GameServices.Session.EquipItem(item.InstanceId, slot, bag.Revision);
+        GameServices.Session.EquipItem(item.InstanceId, slot, bag.Revision, GameServices.Session.Equipment.Revision);
         UiSoundPlayer.Play(this, 1010);
     }
 
@@ -331,8 +331,8 @@ public partial class BagControl : PanelContainer
     internal void Unequip(EquipmentSlot slot)
     {
         CancelItemDrag();
-        if (GameServices.Session.Bag.Equipment.All(item => item.Slot != slot)) return;
-        GameServices.Session.EquipItem(0, slot, GameServices.Session.Bag.Revision);
+        if (GameServices.Session.Equipment.Items.All(item => item.Slot != slot)) return;
+        GameServices.Session.EquipItem(0, slot, GameServices.Session.Bag.Revision, GameServices.Session.Equipment.Revision);
     }
 
     /// <summary>辨认内部创建的装备来源载荷。</summary>
@@ -346,7 +346,8 @@ public partial class BagControl : PanelContainer
         var payload = data.AsGodotDictionary();
         return payload["panel"].AsUInt64() == GetInstanceId() && payload["epoch"].AsInt64() == _dragEpoch &&
             payload["role"].AsInt64() == GameServices.Session.RoleId && payload["revision"].AsInt64() == GameServices.Session.Bag.Revision &&
-            GameServices.Session.Bag.Equipment.Any(item => item.InstanceId == payload["instance"].AsInt64() &&
+            payload["equipment_revision"].AsInt64() == GameServices.Session.Equipment.Revision &&
+            GameServices.Session.Equipment.Items.Any(item => item.InstanceId == payload["instance"].AsInt64() &&
                 (int)item.Slot == payload["equipment"].AsInt32());
     }
 
@@ -363,7 +364,7 @@ public partial class BagControl : PanelContainer
         return new Godot.Collections.Dictionary
         {
             ["panel"] = GetInstanceId(), ["epoch"] = _dragEpoch,
-            ["role"] = GameServices.Session.RoleId, ["revision"] = GameServices.Session.Bag.Revision,
+            ["role"] = GameServices.Session.RoleId, ["revision"] = GameServices.Session.Bag.Revision, ["equipment_revision"] = GameServices.Session.Equipment.Revision,
             ["instance"] = item.InstanceId
         };
     }
@@ -374,7 +375,7 @@ public partial class BagControl : PanelContainer
         if (!IsVisibleInTree() || !GameServices.Session.HasRole || targetSlot < 0 || targetSlot >= _slots.Count ||
             data.VariantType != Variant.Type.Dictionary) return false;
         var payload = data.AsGodotDictionary();
-        foreach (var key in new[] { "panel", "epoch", "role", "revision", "instance" })
+        foreach (var key in new[] { "panel", "epoch", "role", "revision", "equipment_revision", "instance" })
             if (!payload.ContainsKey(key) || payload[key].VariantType != Variant.Type.Int) return false;
         if (payload["panel"].AsUInt64() != GetInstanceId() || payload["role"].AsInt64() != GameServices.Session.RoleId) return false;
         if (payload["epoch"].AsInt64() != _dragEpoch || payload["revision"].AsInt64() != GameServices.Session.Bag.Revision)

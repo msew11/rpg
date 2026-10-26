@@ -11,6 +11,8 @@ public sealed record DataServerBag
 {
     /// <summary>独立于角色移动状态的背包版本。</summary>
     public long Revision { get; init; }
+    /// <summary>仅装备内容变化时递增的公开版本。</summary>
+    public long EquipmentRevision { get; init; }
     /// <summary>下次成功建立实例时使用的编号。</summary>
     public long NextInstanceId { get; init; } = 1;
     /// <summary>由本记录拥有的只读实例副本。</summary>
@@ -24,7 +26,7 @@ public sealed record DataServerBag
 
     /// <summary>穿戴物品的独立只读副本，旧存档缺失时为空。</summary>
     private readonly IReadOnlyList<DataServerEquipment> _equipment = Array.AsReadOnly(Array.Empty<DataServerEquipment>());
-    /// <summary>与背包共用版本及编号的装备列表。</summary>
+    /// <summary>与背包共用提交域及编号、独立版本的装备列表。</summary>
     public IReadOnlyList<DataServerEquipment> Equipment
     {
         get => _equipment;
@@ -33,13 +35,14 @@ public sealed record DataServerBag
 
     /// <summary>按背包内容比较记录，保证存档序列化前后角色值相等。</summary>
     public bool Equals(DataServerBag? other) => other is not null && Revision == other.Revision &&
-        NextInstanceId == other.NextInstanceId && Items.SequenceEqual(other.Items) && Equipment.SequenceEqual(other.Equipment);
+        EquipmentRevision == other.EquipmentRevision && NextInstanceId == other.NextInstanceId && Items.SequenceEqual(other.Items) && Equipment.SequenceEqual(other.Equipment);
 
     /// <summary>使用与内容相等规则一致的字段和实例哈希。</summary>
     public override int GetHashCode()
     {
         var hash = new HashCode();
         hash.Add(Revision);
+        hash.Add(EquipmentRevision);
         hash.Add(NextInstanceId);
         foreach (var item in Items) hash.Add(item);
         foreach (var item in Equipment) hash.Add(item);
@@ -49,7 +52,7 @@ public sealed record DataServerBag
     /// <summary>校验与配置无关的存档完整性，避免重复编号或格子。</summary>
     public void Validate()
     {
-        if (Revision < 0 || NextInstanceId <= 0 || Items is null ||
+        if (Revision < 0 || EquipmentRevision < 0 || NextInstanceId <= 0 || Items is null ||
             Items.Any(item => item is null || item.InstanceId <= 0 || item.InstanceId >= NextInstanceId ||
                 item.ItemId <= 0 || item.SlotIndex < 0 || item.Count <= 0) ||
             Items.Select(item => item.InstanceId).Distinct().Count() != Items.Count ||

@@ -109,7 +109,7 @@ public sealed class BagServerTests : IDisposable
         var original = _repo.Load(_roleId).Bag;
         var sword = original.Items[0];
         Assert.True(MoveInstance(sword.InstanceId, 3).Success);
-        var notice = Assert.Single(_messages.OfType<BagChangedNotice>());
+        var notice = Assert.Single(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Equal(3, notice.Bag.Items.Single(item => item.InstanceId == sword.InstanceId).SlotIndex);
         Assert.True(MoveInstance(sword.InstanceId, 2).Success);
         var saved = _repo.Load(_roleId).Bag;
@@ -166,7 +166,7 @@ public sealed class BagServerTests : IDisposable
         Assert.True(Grant("item 1012 4").Success);
         var bytes = File.ReadAllBytes(_repo.GetBagPath(_roleId));
         Assert.True(MoveInstance(1, 0).Success);
-        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Equal(bytes, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
         Assert.True(MoveInstance(1, 3).Success);
         Assert.Equal(3, _repo.Load(_roleId).Bag.Items.Single(item => item.InstanceId == 1).SlotIndex);
@@ -191,7 +191,7 @@ public sealed class BagServerTests : IDisposable
             kind == "revision" ? 0 : 1, kind == "identity" ? _roleId + 1 : _roleId);
         Assert.False(result.Success);
         Assert.NotEmpty(result.Error);
-        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Equal(before, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
         Assert.True(MoveInstance(1, 2).Success);
         var moved = File.ReadAllBytes(_repo.GetBagPath(_roleId));
@@ -221,7 +221,7 @@ public sealed class BagServerTests : IDisposable
     {
         Enter();
         Assert.True(Grant("item 1012").Success);
-        Assert.Equal(1, Assert.Single(_messages.OfType<BagChangedNotice>()).Bag.Items[0].Count);
+        Assert.Equal(1, Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag.Items[0].Count);
         Assert.True(Grant("item 2000 13").Success);
         var previous = _repo.Load(_roleId).Bag;
         Assert.Equal(new[] { 1, 10, 3 }, previous.Items.Select(item => item.Count));
@@ -249,7 +249,7 @@ public sealed class BagServerTests : IDisposable
         Assert.True(Grant("item 1012 2").Success);
         var before = File.ReadAllBytes(_repo.GetBagPath(_roleId));
         Assert.False(Grant("item 1012 3").Success);
-        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Equal(before, File.ReadAllBytes(_repo.GetBagPath(_roleId)));
         Assert.True(Grant("item 1012 2").Success);
         var bag = _repo.Load(_roleId).Bag;
@@ -264,7 +264,7 @@ public sealed class BagServerTests : IDisposable
         Enter();
         Send(new Gm { RoleId = _roleId, Command = "item 1012" });
         Assert.True(Assert.Single(_messages.OfType<GmRt>()).Success);
-        Assert.Single(_messages.OfType<BagChangedNotice>());
+        Assert.Single(_messages.OfType<RoleItemsChangedNotice>());
         using (var locked = new FileStream(_repo.GetBagPath(_roleId), FileMode.Open, FileAccess.Read, FileShare.Read))
             Assert.Throws<AggregateException>(() => _server.Flush());
         Assert.Empty(_repo.Load(_roleId).Bag.Items);
@@ -325,7 +325,7 @@ public sealed class BagServerTests : IDisposable
             new MoveItemRt { RoleId = 1, InstanceId = 2, TargetSlotIndex = 3, Success = true },
             new Gm { RoleId = 1, Command = "item 1012" },
             new GmRt { RoleId = 1, Success = true, Message = "成功" },
-            new BagChangedNotice { RoleId = 1, Bag = new BagPb { Revision = 1,
+            new RoleItemsChangedNotice { RoleId = 1, Bag = new BagPb { Revision = 1,
                 Items = { new ItemPb { InstanceId = 1, ItemId = 1012, Count = 1, SlotIndex = 0 } } } }];
         foreach (var message in messages)
         {

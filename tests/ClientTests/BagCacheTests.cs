@@ -14,6 +14,13 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
         Items = { new ItemPb { InstanceId = 1, ItemId = 1012, SlotIndex = slot, Count = 1 } }
     };
 
+    /// <summary>创建仅本人的组合通知，普通背包更新带上未变化的空装备。</summary>
+    private static RoleItemsChangedNotice Notice(BagPb? bag, long roleId = 1001,
+        RoleWorldEquipmentPb? equipment = null) => new()
+    {
+        RoleId = roleId, Bag = bag, Equipment = equipment ?? new RoleWorldEquipmentPb { RoleId = roleId }
+    };
+
     /// <summary>完整替换在普通监听前发生，协议变动不污染缓存，旧版本和其他角色被忽略。</summary>
     [Fact]
     public void ReplacesValidatedSnapshotBeforeUiAndClearsOnRoleSwitch()
@@ -23,8 +30,8 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
         var session = fixture.SelectRole(1001);
         var message = Snapshot(1);
         var observed = false;
-        using var ui = EventBus.Subscribe<BagChangedNotice>(_ => observed = session.Bag.Revision == 1);
-        EventBus.Publish(new BagChangedNotice { RoleId = 1001, Bag = message });
+        using var ui = EventBus.Subscribe<RoleItemsChangedNotice>(_ => observed = session.Bag.Revision == 1);
+        EventBus.Publish(Notice(message));
         Assert.True(observed);
         Assert.Equal(1012, Assert.Single(session.Bag.Items).ItemId);
         var previous = session.Bag;
@@ -33,10 +40,10 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
         var output = previous.ToPb();
         output.Items.Clear();
         Assert.Single(previous.Items);
-        EventBus.Publish(new BagChangedNotice { RoleId = 1001, Bag = Snapshot(1, 2) });
-        EventBus.Publish(new BagChangedNotice { RoleId = 1002, Bag = Snapshot(99) });
+        EventBus.Publish(Notice(Snapshot(1, 2)));
+        EventBus.Publish(Notice(Snapshot(99), 1002));
         Assert.Same(previous, session.Bag);
-        EventBus.Publish(new BagChangedNotice { RoleId = 1001, Bag = new BagPb { Revision = 2 } });
+        EventBus.Publish(Notice(new BagPb { Revision = 2 }));
         Assert.Empty(session.Bag.Items);
         session.LeaveRole();
         Assert.Throws<InvalidOperationException>(() => session.Bag);
@@ -44,7 +51,7 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
         fixture.Net.Tick(0);
         Assert.Empty(session.Bag.Items);
         Assert.Equal(0, session.Bag.Revision);
-        EventBus.Publish(new BagChangedNotice { RoleId = 1001, Bag = Snapshot(100) });
+        EventBus.Publish(Notice(Snapshot(100)));
         Assert.Empty(session.Bag.Items);
     }
 
@@ -74,8 +81,8 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
             case "negative": message.Items[0].Count = -1; break;
         }
         var called = false;
-        using var ui = EventBus.Subscribe<BagChangedNotice>(_ => called = true);
-        EventBus.Publish(new BagChangedNotice { RoleId = 1001, Bag = kind == "missing" ? null : message });
+        using var ui = EventBus.Subscribe<RoleItemsChangedNotice>(_ => called = true);
+        EventBus.Publish(Notice(kind == "missing" ? null : message));
         Assert.False(called);
         Assert.Single(fixture.Errors);
         Assert.Same(previous, session.Bag);
@@ -109,13 +116,14 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
         var session = fixture.SelectRole(1001);
         var previous = session.Bag;
         var message = Snapshot(1);
-        message.Equipment.Add(new EquippedItemPb { InstanceId = kind == "sharedInstance" ? 1 : 2,
+        var equipment = new RoleWorldEquipmentPb { RoleId = 1001, Revision = 1 };
+        equipment.Items.Add(new EquippedItemPb { InstanceId = kind == "sharedInstance" ? 1 : 2,
             ItemId = kind == "wrongCategory" ? 1018 : 1012,
             Slot = kind == "unknownSlot" ? (EquipmentSlotPb)999 : EquipmentSlotPb.MainHand });
-        if (kind == "duplicateSlot") message.Equipment.Add(new EquippedItemPb { InstanceId = 3, ItemId = 1017, Slot = EquipmentSlotPb.MainHand });
+        if (kind == "duplicateSlot") equipment.Items.Add(new EquippedItemPb { InstanceId = 3, ItemId = 1017, Slot = EquipmentSlotPb.MainHand });
         var called = false;
-        using var ui = EventBus.Subscribe<BagChangedNotice>(_ => called = true);
-        EventBus.Publish(new BagChangedNotice { RoleId = 1001, Bag = message });
+        using var ui = EventBus.Subscribe<RoleItemsChangedNotice>(_ => called = true);
+        EventBus.Publish(Notice(message, equipment: equipment));
         Assert.False(called);
         Assert.Single(fixture.Errors);
         Assert.Same(previous, session.Bag);
@@ -129,13 +137,14 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
         fixture.Login();
         var session = fixture.SelectRole(1001);
         var message = Snapshot(1);
-        message.Equipment.Add(new EquippedItemPb { InstanceId = 2, ItemId = 1017, Slot = EquipmentSlotPb.OffHand });
+        var equipment = new RoleWorldEquipmentPb { RoleId = 1001, Revision = 1 };
+        equipment.Items.Add(new EquippedItemPb { InstanceId = 2, ItemId = 1017, Slot = EquipmentSlotPb.OffHand });
         var called = false;
-        using var ui = EventBus.Subscribe<BagChangedNotice>(_ => called = session.Bag.Items.Count == 1 && session.Bag.Equipment.Count == 1);
-        EventBus.Publish(new BagChangedNotice { RoleId = 1001, Bag = message });
+        using var ui = EventBus.Subscribe<RoleItemsChangedNotice>(_ => called = session.Bag.Items.Count == 1 && session.Equipment.Items.Count == 1);
+        EventBus.Publish(Notice(message, equipment: equipment));
         Assert.True(called);
-        message.Equipment[0].ItemId = 1014;
-        session.Bag.ToPb().Equipment.Clear();
-        Assert.Equal(1017, Assert.Single(session.Bag.Equipment).ItemId);
+        equipment.Items[0].ItemId = 1014;
+        session.Equipment.ToPb().Items.Clear();
+        Assert.Equal(1017, Assert.Single(session.Equipment.Items).ItemId);
     }
 }

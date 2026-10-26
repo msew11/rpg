@@ -41,8 +41,9 @@ public sealed class GroundDropSelectionTests
                      new Vector2(0, 3199), new Vector2(3199, 3199) })
         {
             var point = Assert.IsType<Vector2>(WorldService.SelectGroundDropPosition(origin, map, objects));
-            Assert.InRange(point.X, 0, 3199);
-            Assert.InRange(point.Y, 0, 3199);
+            // 地面落点采用服务端连续坐标范围 [0, 像素边长)，不能把上界误写成整数像素。
+            Assert.True(point.X >= 0 && point.X < 3200);
+            Assert.True(point.Y >= 0 && point.Y < 3200);
         }
     }
 }

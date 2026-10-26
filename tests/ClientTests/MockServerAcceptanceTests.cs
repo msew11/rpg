@@ -366,7 +366,8 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         EventBus.Publish(new RoleStateNotice { State = new RoleWorldStatePb {
             Profile = new RoleWorldProfilePb { RoleId = 1002, Revision = 3 },
             Status = new RoleWorldStatusPb { RoleId = 1002, Revision = 3 },
-            Position = new RoleWorldPositionPb { RoleId = 1002, Revision = 3 } } });
+            Position = new RoleWorldPositionPb { RoleId = 1002, Revision = 3 },
+            Equipment = new RoleWorldEquipmentPb { RoleId = 1002 } } });
         EventBus.Publish(new MoveRt { RoleId = 1001, Error = "保存失败" });
         Assert.Same(current, session.RoleCache.State);
         var ordinaryCalls = 0;

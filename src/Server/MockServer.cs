@@ -271,6 +271,14 @@ public sealed class MockServer
         if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色状态");
         var previous = _current;
         var candidate = update with { Revision = checked(_current.Revision + 1), AcknowledgedAction = _current.AcknowledgedAction };
+        var itemsChanged = !candidate.Bag.Equals(previous.Bag);
+        if (itemsChanged)
+            candidate = candidate with { Bag = candidate.Bag with
+            {
+                Revision = checked(previous.Bag.Revision + 1),
+                EquipmentRevision = checked(previous.Bag.EquipmentRevision +
+                    (candidate.Bag.Equipment.SequenceEqual(previous.Bag.Equipment) ? 0 : 1))
+            } };
         _bagRules.Validate(candidate);
         if (candidate.MapId != _current.MapId || !GetMap(candidate.MapId).Rules.Contains(candidate.X, candidate.Y))
             throw new InvalidOperationException("角色地图或位置无效，跨地图迁移尚未开放");
@@ -278,6 +286,7 @@ public sealed class MockServer
         _current = candidate;
         _position = _target = new Vector2(candidate.X, candidate.Y);
         Send(new RoleStateNotice { State = ToMessage(candidate) });
+        if (itemsChanged) Send(ToItemsMessage(candidate));
         if (candidate.Experience != previous.Experience || candidate.NextExperience != previous.NextExperience ||
             candidate.BagExtraRows != previous.BagExtraRows)
             Send(new RoleChangedNotice { Role = ToRoleMessage(candidate) });
@@ -489,7 +498,7 @@ public sealed class MockServer
             return;
         }
         _current = candidate;
-        Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+        Send(ToItemsMessage(candidate));
         Send(response);
     }
 
@@ -501,13 +510,14 @@ public sealed class MockServer
         {
             if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
                 throw new InvalidOperationException("请先进入当前角色");
-            if (request.ExpectedRevision != _current.Bag.Revision)
+            if (request.ExpectedBagRevision != _current.Bag.Revision ||
+                request.ExpectedEquipmentRevision != _current.Bag.EquipmentRevision)
                 throw new InvalidOperationException("物品已更新，请重新选择装备");
             var candidate = _bagRules.Equip(_current, request.InstanceId, (Rpg.Const.EquipmentSlot)request.Slot,
                 request.HasTargetBagSlot ? request.TargetBagSlot : null);
             _roles.SaveBag(candidate);
             _current = candidate;
-            Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+            Send(ToItemsMessage(candidate));
             response.Success = true;
         }
         catch (Exception error) { response.Error = error.Message; }
@@ -572,7 +582,7 @@ public sealed class MockServer
             return;
         }
         _current = candidate;
-        Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+        Send(ToItemsMessage(candidate));
         response.Success = true;
         Send(response);
     }
@@ -625,7 +635,7 @@ public sealed class MockServer
         }
         _current = candidate;
         response.Success = true;
-        Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+        Send(ToItemsMessage(candidate));
         if (map is not null && change is not null) PublishMapChange(map, change);
         Send(response);
     }
@@ -734,7 +744,7 @@ public sealed class MockServer
         }
         _pickup = null;
         _current = candidate;
-        Send(new BagChangedNotice { RoleId = candidate.RoleId, Bag = ToBagMessage(candidate.Bag) });
+        Send(ToItemsMessage(candidate));
         PublishMapChange(map, change);
         Send(PickupResponse(request));
     }
@@ -754,12 +764,31 @@ public sealed class MockServer
         {
             InstanceId = item.InstanceId, ItemId = item.ItemId, SlotIndex = item.SlotIndex, Count = item.Count
         }));
-        message.Equipment.AddRange(bag.Equipment.Select(item => new EquippedItemPb
+        return message;
+    }
+
+    /// <summary>显式投影公开装备，不能带出背包格子或私有玩法数据。</summary>
+    internal static RoleWorldEquipmentPb ToEquipmentMessage(DataServerRole role)
+    {
+        var message = new RoleWorldEquipmentPb { RoleId = role.RoleId, Revision = role.Bag.EquipmentRevision };
+        message.Items.AddRange(role.Bag.Equipment.Select(item => new EquippedItemPb
         {
             InstanceId = item.InstanceId, ItemId = item.ItemId, Slot = (EquipmentSlotPb)item.Slot
         }));
         return message;
     }
+
+    /// <summary>为未来观察者渠道构造独立公开载荷，不转发本人的私有通知。</summary>
+    internal static RoleEquipmentNotice CreateEquipmentNotice(DataServerRole role) => new()
+    {
+        Equipment = ToEquipmentMessage(role)
+    };
+
+    /// <summary>本人始终在一条消息中接收同次提交的背包与装备。</summary>
+    private static RoleItemsChangedNotice ToItemsMessage(DataServerRole role) => new()
+    {
+        RoleId = role.RoleId, Bag = ToBagMessage(role.Bag), Equipment = ToEquipmentMessage(role)
+    };
 
     /// <summary>登录只返回选角页所需的角色摘要。</summary>
     private static RoleSummaryPb ToSummary(DataServerRole role) => new()
@@ -771,7 +800,8 @@ public sealed class MockServer
     /// <summary>将完整角色世界状态复制为协议对象，不向客户端共享服务端模型。</summary>
     private static RoleWorldStatePb ToMessage(DataServerRole role) => new()
     {
-        Profile = ToProfileMessage(role), Position = ToPositionMessage(role), Status = ToStatusMessage(role)
+        Profile = ToProfileMessage(role), Position = ToPositionMessage(role), Status = ToStatusMessage(role),
+        Equipment = ToEquipmentMessage(role)
     };
 
     /// <summary>复制角色资料到独立协议对象。</summary>

@@ -116,6 +116,7 @@ public sealed class DataServerBagRules
             items.Add(new DataServerItem(previous.InstanceId, previous.ItemId, destination, 1));
         }
         var candidate = role with { Bag = role.Bag with { Revision = checked(role.Bag.Revision + 1),
+            EquipmentRevision = checked(role.Bag.EquipmentRevision + 1),
             Items = items.OrderBy(item => item.SlotIndex).ToArray(), Equipment = equipment.OrderBy(item => item.Slot).ToArray() } };
         Validate(candidate);
         return candidate;

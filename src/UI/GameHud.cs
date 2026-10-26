@@ -147,7 +147,7 @@ public partial class GameHud : Control
         _subscriptions.Add(GameServices.EventBus.Subscribe<RolePositionNotice>(OnPositionNotice));
         _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStatusNotice>(OnStatusNotice));
         _subscriptions.Add(GameServices.EventBus.Subscribe<RoleChangedNotice>(OnRoleChanged));
-        _subscriptions.Add(GameServices.EventBus.Subscribe<BagChangedNotice>(OnBagNotice));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<RoleItemsChangedNotice>(OnBagNotice));
     }
 
     /// <summary>退出界面时丢弃未确认的调整并释放会话订阅。</summary>
@@ -1139,7 +1139,7 @@ public partial class GameHud : Control
     }
 
     /// <summary>在缓存阶段接纳背包后刷新已打开的格子。</summary>
-    private void OnBagNotice(BagChangedNotice notice)
+    private void OnBagNotice(RoleItemsChangedNotice notice)
     {
         if (notice.RoleId == GameServices.Session.RoleId) { _bag.Refresh(); _equipment.Refresh(); }
     }

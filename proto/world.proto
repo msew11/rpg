@@ -3,6 +3,7 @@ package rpg;
 option csharp_namespace = "Rpg.Net.Message";
 
 import "role.proto";
+import "equipment.proto";
 
 // 提交带序号的移动意图。
 message Move {
@@ -174,4 +175,10 @@ message ResyncMapAoiRt {
   int32 map_id = 4;
   // 成功时的完整快照。
   MapAoiSnapshotPb snapshot = 5;
+}
+
+// 供可见范围内其他观察者独立更新装备，不包含私有物品。
+message RoleEquipmentNotice {
+  // 穿戴者的最新完整装备，缺失载荷非法。
+  RoleWorldEquipmentPb equipment = 1;
 }

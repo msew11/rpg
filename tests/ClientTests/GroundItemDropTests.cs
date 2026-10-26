@@ -74,7 +74,7 @@ public sealed class GroundItemDropTests : IDisposable
     public void PartialThenFullDropPreservesTotalAndIdentity()
     {
         Assert.True(Drop(2, position: new Vector2(1550, 1450)).Success);
-        var bag = Assert.Single(_messages.OfType<BagChangedNotice>()).Bag;
+        var bag = Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag;
         Assert.Equal(3, Assert.Single(bag.Items).Count);
         Assert.Equal(1, bag.Items[0].InstanceId);
         Assert.Single(_messages.OfType<MapAoiNotice>());
@@ -83,7 +83,7 @@ public sealed class GroundItemDropTests : IDisposable
         Assert.Equal(2, ground.Count);
         Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
         Assert.True(Drop(3, 2, position: new Vector2(1450, 1550)).Success);
-        Assert.Empty(Assert.Single(_messages.OfType<BagChangedNotice>()).Bag.Items);
+        Assert.Empty(Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag.Items);
         var dropped = _server.GetMap(1).Objects.Values.ToArray();
         Assert.Equal(5, dropped.Sum(item => item.Count));
         Assert.Contains(dropped, item => item.X == 1550 && item.Y == 1450);
@@ -165,7 +165,7 @@ public sealed class GroundItemDropTests : IDisposable
     public void InvalidRequestDoesNotMutate(int count, long version, bool wrongRole, long instance)
     {
         Assert.False(Drop(count, version, wrongRole ? _id + 1 : _id, instance).Success);
-        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Empty(_messages.OfType<MapAoiNotice>());
         Assert.Empty(_server.GetMap(1).Objects);
         Assert.True(Drop(1).Success);
@@ -180,14 +180,14 @@ public sealed class GroundItemDropTests : IDisposable
         var response = Drop(2, destroy: true);
         Assert.True(response.Success);
         Assert.Empty(response.ObjectId);
-        var bag = Assert.Single(_messages.OfType<BagChangedNotice>()).Bag;
+        var bag = Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag;
         Assert.Equal((1L, 3), (Assert.Single(bag.Items).InstanceId, bag.Items[0].Count));
         Assert.Empty(_messages.OfType<MapAoiNotice>());
         Assert.Empty(_server.GetMap(1).Objects);
         Assert.False(Drop(2, destroy: true).Success);
-        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.True(Drop(3, 2, destroy: true).Success);
-        Assert.Empty(Assert.Single(_messages.OfType<BagChangedNotice>()).Bag.Items);
+        Assert.Empty(Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag.Items);
         Assert.Empty(_messages.OfType<MapAoiNotice>());
         Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
         _server.Flush();
@@ -208,11 +208,11 @@ public sealed class GroundItemDropTests : IDisposable
     public void InvalidDestroyDoesNotMutate(int count, long revision, bool wrongRole, long instance)
     {
         Assert.False(Drop(count, revision, wrongRole ? _id + 1 : _id, instance, true).Success);
-        Assert.Empty(_messages.OfType<BagChangedNotice>());
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Empty(_messages.OfType<MapAoiNotice>());
         Assert.Empty(_server.GetMap(1).Objects);
         Assert.True(Drop(1, destroy: true).Success);
-        Assert.Equal(4, Assert.Single(_messages.OfType<BagChangedNotice>()).Bag.Items[0].Count);
+        Assert.Equal(4, Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag.Items[0].Count);
     }
 
     /// <summary>对应同周期转移与销毁场景：关闭后共同恢复实际地面数量和销毁后的背包。</summary>

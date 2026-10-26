@@ -25,6 +25,8 @@ public sealed class RoleCache : CacheBase
     private BagPbData? _bag;
     /// <summary>选角完成后的只读完整背包。</summary>
     public BagPbData Bag => _bag ?? throw new InvalidOperationException("背包缓存尚未初始化");
+    /// <summary>当前角色独立公开的完整装备。</summary>
+    public RoleWorldEquipmentPbData Equipment => State.Equipment;
     /// <summary>是否已经收到成功选角的初始状态。</summary>
     public bool IsInitialized => _state is not null;
     /// <summary>最新权威快照；选角响应前不可读取。</summary>
@@ -40,7 +42,7 @@ public sealed class RoleCache : CacheBase
         Subscribe<RolePositionNotice>(OnPositionNotice);
         Subscribe<RoleStatusNotice>(OnStatusNotice);
         Subscribe<RoleChangedNotice>(OnRoleChanged);
-        Subscribe<BagChangedNotice>(OnBagChanged);
+        Subscribe<RoleItemsChangedNotice>(OnBagChanged);
     }
 
     /// <summary>切换角色时重置全部角色数据，零表示回到未选角状态。</summary>
@@ -60,10 +62,11 @@ public sealed class RoleCache : CacheBase
     {
         if (RoleId == 0 || !response.Success || response.RoleId != RoleId) return;
         if (response.Role is null) throw new InvalidDataException("选角响应缺少私有角色数据");
-        var state = RoleWorldStatePbData.FromPb(response.State, response.Role);
+        var state = RoleWorldStatePbData.FromPb(response.State, response.Role, GameServices.Config.Item.Items);
         if (state.RoleId != response.RoleId) throw new InvalidDataException("选角响应角色状态不一致");
         if (_state is not null && state.Revision <= _state.Revision) return;
-        var bag = ConvertBag(response.Bag ?? new BagPb(), state.BagExtraRows);
+        var bag = ConvertBag(response.Bag, state.BagExtraRows);
+        state.Equipment.ValidateBag(bag);
         _profile = RoleWorldProfilePbData.FromPb(response.State.Profile);
         _status = RoleWorldStatusPbData.FromPb(response.State.Status);
         _position = RoleWorldPositionPbData.FromPb(response.State.Position);
@@ -117,15 +120,16 @@ public sealed class RoleCache : CacheBase
         if (notice.Role is not null) ApplyRole(notice.Role);
     }
 
-    /// <summary>完整推送先校验两部分，再分别按版本更新。</summary>
+    /// <summary>完整推送校验全部公开领域，本人装备保留原子物品渠道的状态。</summary>
     private void Apply(RoleWorldStatePb message)
     {
         if (_state is null) return;
-        if (message.Profile is null || message.Status is null || message.Position is null)
-            throw new InvalidDataException("完整角色推送缺少资料、状态或位置");
+        if (message.Profile is null || message.Status is null || message.Position is null || message.Equipment is null)
+            throw new InvalidDataException("完整角色推送缺少资料、状态、位置或装备");
         if (message.Profile.RoleId != RoleId && message.Status.RoleId != RoleId && message.Position.RoleId != RoleId) return;
-        if (message.Profile.RoleId != RoleId || message.Status.RoleId != RoleId || message.Position.RoleId != RoleId)
+        if (message.Profile.RoleId != RoleId || message.Status.RoleId != RoleId || message.Position.RoleId != RoleId || message.Equipment.RoleId != RoleId)
             throw new InvalidDataException("完整角色推送身份不一致");
+        _ = RoleWorldEquipmentPbData.FromPb(message.Equipment, GameServices.Config.Item.Items);
         var profile = RoleWorldProfilePbData.FromPb(message.Profile);
         var status = RoleWorldStatusPbData.FromPb(message.Status);
         var position = RoleWorldPositionPbData.FromPb(message.Position);
@@ -175,7 +179,7 @@ public sealed class RoleCache : CacheBase
     private void Accept(RoleWorldProfilePbData profile, RoleWorldStatusPbData status,
         RoleWorldPositionPbData position, RolePbData role)
     {
-        var state = RoleWorldStatePbData.FromParts(profile, status, position, role);
+        var state = RoleWorldStatePbData.FromParts(profile, status, position, role, Equipment);
         if (state.MapId != _state!.MapId) throw new InvalidDataException("跨地图角色更新尚未开放");
         if (_bag is not null) ConvertBag(_bag.ToPb(), state.BagExtraRows);
         else GameServices.Config.Basic.Value.GetBagCapacity(state.BagExtraRows);
@@ -186,14 +190,24 @@ public sealed class RoleCache : CacheBase
         _state = state;
     }
 
-    /// <summary>只接纳当前角色较新且完整有效的背包，校验失败不替换旧快照。</summary>
-    private void OnBagChanged(BagChangedNotice notice)
+    /// <summary>完整校验同次提交的两侧状态后原子接纳，不允许公开消息覆盖本人装备。</summary>
+    private void OnBagChanged(RoleItemsChangedNotice notice)
     {
         if (_state is null || notice.RoleId != RoleId) return;
-        if (notice.Bag is null) throw new InvalidDataException("背包推送缺少快照");
+        if (notice.Bag is null || notice.Equipment is null)
+            throw new InvalidDataException("物品推送缺少背包或装备快照");
         if (_bag is not null && notice.Bag.Revision <= _bag.Revision) return;
         var bag = ConvertBag(notice.Bag, _state.BagExtraRows);
+        var equipment = RoleWorldEquipmentPbData.FromPb(notice.Equipment, GameServices.Config.Item.Items);
+        if (equipment.RoleId != RoleId || equipment.Revision < Equipment.Revision ||
+            (equipment.Revision == Equipment.Revision && !equipment.HasSameItems(Equipment)))
+            throw new InvalidDataException("装备身份不符、版本回退或同版本内容冲突");
+        equipment.ValidateBag(bag);
+        // 未变化的装备沿用原快照，避免背包整理触发世界装备同步。
+        if (equipment.Revision == Equipment.Revision) equipment = Equipment;
+        var state = RoleWorldStatePbData.FromParts(_profile!, _status!, _position!, _role!, equipment);
         _bag = bag;
+        _state = state;
     }
 
     /// <summary>从统一配置读取规则，构造与协议隔离的完整快照。</summary>

@@ -24,46 +24,48 @@ namespace Rpg.Net.Message {
     static RoleReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "Cgpyb2xlLnByb3RvEgNycGcaCWJhZy5wcm90byJxCg1Sb2xlU3VtbWFyeVBi",
-            "Eg8KB3JvbGVfaWQYASABKAMSDAoEbmFtZRgCIAEoCRINCgVsZXZlbBgDIAEo",
-            "BRIhCgZnZW5kZXIYBCABKA4yES5ycGcuUm9sZUdlbmRlclBiEg8KB2hlYWRf",
-            "aWQYBSABKAUiiAEKElJvbGVXb3JsZFByb2ZpbGVQYhIPCgdyb2xlX2lkGAEg",
-            "ASgDEgwKBG5hbWUYAiABKAkSDQoFbGV2ZWwYAyABKAUSIQoGZ2VuZGVyGAQg",
-            "ASgOMhEucnBnLlJvbGVHZW5kZXJQYhIPCgdoZWFkX2lkGAUgASgFEhAKCHJl",
-            "dmlzaW9uGAYgASgDInoKEVJvbGVXb3JsZFN0YXR1c1BiEg8KB3JvbGVfaWQY",
-            "ASABKAMSDgoGaGVhbHRoGAIgASgFEhIKCm1heF9oZWFsdGgYAyABKAUSDAoE",
-            "bWFuYRgEIAEoBRIQCghtYXhfbWFuYRgFIAEoBRIQCghyZXZpc2lvbhgGIAEo",
-            "AyJwCgZSb2xlUGISDwoHcm9sZV9pZBgBIAEoAxISCgpleHBlcmllbmNlGAIg",
-            "ASgFEhcKD25leHRfZXhwZXJpZW5jZRgDIAEoBRIWCg5iYWdfZXh0cmFfcm93",
-            "cxgEIAEoBRIQCghyZXZpc2lvbhgFIAEoAyJ7ChNSb2xlV29ybGRQb3NpdGlv",
-            "blBiEg8KB3JvbGVfaWQYASABKAMSDgoGbWFwX2lkGAIgASgFEgkKAXgYAyAB",
-            "KAISCQoBeRgEIAEoAhIQCghyZXZpc2lvbhgFIAEoAxIbChNhY2tub3dsZWRn",
-            "ZWRfYWN0aW9uGAYgASgDIpABChBSb2xlV29ybGRTdGF0ZVBiEigKB3Byb2Zp",
-            "bGUYASABKAsyFy5ycGcuUm9sZVdvcmxkUHJvZmlsZVBiEioKCHBvc2l0aW9u",
-            "GAIgASgLMhgucnBnLlJvbGVXb3JsZFBvc2l0aW9uUGISJgoGc3RhdHVzGAMg",
-            "ASgLMhYucnBnLlJvbGVXb3JsZFN0YXR1c1BiIh0KClNlbGVjdFJvbGUSDwoH",
-            "cm9sZV9pZBgBIAEoAyKZAQoMU2VsZWN0Um9sZVJ0Eg8KB3N1Y2Nlc3MYASAB",
-            "KAgSDQoFZXJyb3IYAiABKAkSDwoHcm9sZV9pZBgDIAEoAxIkCgVzdGF0ZRgE",
-            "IAEoCzIVLnJwZy5Sb2xlV29ybGRTdGF0ZVBiEhcKA2JhZxgFIAEoCzIKLnJw",
-            "Zy5CYWdQYhIZCgRyb2xlGAYgASgLMgsucnBnLlJvbGVQYiJOCgpDcmVhdGVS",
-            "b2xlEgwKBG5hbWUYASABKAkSIQoGZ2VuZGVyGAIgASgOMhEucnBnLlJvbGVH",
-            "ZW5kZXJQYhIPCgdoZWFkX2lkGAMgASgFIlEKDENyZWF0ZVJvbGVSdBIPCgdz",
-            "dWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJEiEKBXJvbGVzGAMgAygLMhIu",
-            "cnBnLlJvbGVTdW1tYXJ5UGIiHQoKRGVsZXRlUm9sZRIPCgdyb2xlX2lkGAEg",
-            "ASgDIlEKDERlbGV0ZVJvbGVSdBIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9y",
-            "GAIgASgJEiEKBXJvbGVzGAMgAygLMhIucnBnLlJvbGVTdW1tYXJ5UGIqYgoM",
-            "Um9sZUdlbmRlclBiEh4KGlJPTEVfR0VOREVSX1BCX1VOU1BFQ0lGSUVEEAAS",
-            "FwoTUk9MRV9HRU5ERVJfUEJfTUFMRRABEhkKFVJPTEVfR0VOREVSX1BCX0ZF",
-            "TUFMRRACQhKqAg9ScGcuTmV0Lk1lc3NhZ2ViBnByb3RvMw=="));
+            "Cgpyb2xlLnByb3RvEgNycGcaCWJhZy5wcm90bxoPZXF1aXBtZW50LnByb3Rv",
+            "InEKDVJvbGVTdW1tYXJ5UGISDwoHcm9sZV9pZBgBIAEoAxIMCgRuYW1lGAIg",
+            "ASgJEg0KBWxldmVsGAMgASgFEiEKBmdlbmRlchgEIAEoDjIRLnJwZy5Sb2xl",
+            "R2VuZGVyUGISDwoHaGVhZF9pZBgFIAEoBSKIAQoSUm9sZVdvcmxkUHJvZmls",
+            "ZVBiEg8KB3JvbGVfaWQYASABKAMSDAoEbmFtZRgCIAEoCRINCgVsZXZlbBgD",
+            "IAEoBRIhCgZnZW5kZXIYBCABKA4yES5ycGcuUm9sZUdlbmRlclBiEg8KB2hl",
+            "YWRfaWQYBSABKAUSEAoIcmV2aXNpb24YBiABKAMiegoRUm9sZVdvcmxkU3Rh",
+            "dHVzUGISDwoHcm9sZV9pZBgBIAEoAxIOCgZoZWFsdGgYAiABKAUSEgoKbWF4",
+            "X2hlYWx0aBgDIAEoBRIMCgRtYW5hGAQgASgFEhAKCG1heF9tYW5hGAUgASgF",
+            "EhAKCHJldmlzaW9uGAYgASgDInAKBlJvbGVQYhIPCgdyb2xlX2lkGAEgASgD",
+            "EhIKCmV4cGVyaWVuY2UYAiABKAUSFwoPbmV4dF9leHBlcmllbmNlGAMgASgF",
+            "EhYKDmJhZ19leHRyYV9yb3dzGAQgASgFEhAKCHJldmlzaW9uGAUgASgDInsK",
+            "E1JvbGVXb3JsZFBvc2l0aW9uUGISDwoHcm9sZV9pZBgBIAEoAxIOCgZtYXBf",
+            "aWQYAiABKAUSCQoBeBgDIAEoAhIJCgF5GAQgASgCEhAKCHJldmlzaW9uGAUg",
+            "ASgDEhsKE2Fja25vd2xlZGdlZF9hY3Rpb24YBiABKAMivgEKEFJvbGVXb3Js",
+            "ZFN0YXRlUGISKAoHcHJvZmlsZRgBIAEoCzIXLnJwZy5Sb2xlV29ybGRQcm9m",
+            "aWxlUGISKgoIcG9zaXRpb24YAiABKAsyGC5ycGcuUm9sZVdvcmxkUG9zaXRp",
+            "b25QYhImCgZzdGF0dXMYAyABKAsyFi5ycGcuUm9sZVdvcmxkU3RhdHVzUGIS",
+            "LAoJZXF1aXBtZW50GAQgASgLMhkucnBnLlJvbGVXb3JsZEVxdWlwbWVudFBi",
+            "Ih0KClNlbGVjdFJvbGUSDwoHcm9sZV9pZBgBIAEoAyKZAQoMU2VsZWN0Um9s",
+            "ZVJ0Eg8KB3N1Y2Nlc3MYASABKAgSDQoFZXJyb3IYAiABKAkSDwoHcm9sZV9p",
+            "ZBgDIAEoAxIkCgVzdGF0ZRgEIAEoCzIVLnJwZy5Sb2xlV29ybGRTdGF0ZVBi",
+            "EhcKA2JhZxgFIAEoCzIKLnJwZy5CYWdQYhIZCgRyb2xlGAYgASgLMgsucnBn",
+            "LlJvbGVQYiJOCgpDcmVhdGVSb2xlEgwKBG5hbWUYASABKAkSIQoGZ2VuZGVy",
+            "GAIgASgOMhEucnBnLlJvbGVHZW5kZXJQYhIPCgdoZWFkX2lkGAMgASgFIlEK",
+            "DENyZWF0ZVJvbGVSdBIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJ",
+            "EiEKBXJvbGVzGAMgAygLMhIucnBnLlJvbGVTdW1tYXJ5UGIiHQoKRGVsZXRl",
+            "Um9sZRIPCgdyb2xlX2lkGAEgASgDIlEKDERlbGV0ZVJvbGVSdBIPCgdzdWNj",
+            "ZXNzGAEgASgIEg0KBWVycm9yGAIgASgJEiEKBXJvbGVzGAMgAygLMhIucnBn",
+            "LlJvbGVTdW1tYXJ5UGIqYgoMUm9sZUdlbmRlclBiEh4KGlJPTEVfR0VOREVS",
+            "X1BCX1VOU1BFQ0lGSUVEEAASFwoTUk9MRV9HRU5ERVJfUEJfTUFMRRABEhkK",
+            "FVJPTEVfR0VOREVSX1BCX0ZFTUFMRRACQhKqAg9ScGcuTmV0Lk1lc3NhZ2Vi",
+            "BnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { global::Rpg.Net.Message.BagReflection.Descriptor, },
+          new pbr::FileDescriptor[] { global::Rpg.Net.Message.BagReflection.Descriptor, global::Rpg.Net.Message.EquipmentReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rpg.Net.Message.RoleGenderPb), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleSummaryPb), global::Rpg.Net.Message.RoleSummaryPb.Parser, new[]{ "RoleId", "Name", "Level", "Gender", "HeadId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldProfilePb), global::Rpg.Net.Message.RoleWorldProfilePb.Parser, new[]{ "RoleId", "Name", "Level", "Gender", "HeadId", "Revision" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldStatusPb), global::Rpg.Net.Message.RoleWorldStatusPb.Parser, new[]{ "RoleId", "Health", "MaxHealth", "Mana", "MaxMana", "Revision" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RolePb), global::Rpg.Net.Message.RolePb.Parser, new[]{ "RoleId", "Experience", "NextExperience", "BagExtraRows", "Revision" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldPositionPb), global::Rpg.Net.Message.RoleWorldPositionPb.Parser, new[]{ "RoleId", "MapId", "X", "Y", "Revision", "AcknowledgedAction" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldStatePb), global::Rpg.Net.Message.RoleWorldStatePb.Parser, new[]{ "Profile", "Position", "Status" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldStatePb), global::Rpg.Net.Message.RoleWorldStatePb.Parser, new[]{ "Profile", "Position", "Status", "Equipment" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.SelectRole), global::Rpg.Net.Message.SelectRole.Parser, new[]{ "RoleId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.SelectRoleRt), global::Rpg.Net.Message.SelectRoleRt.Parser, new[]{ "Success", "Error", "RoleId", "State", "Bag", "Role" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.CreateRole), global::Rpg.Net.Message.CreateRole.Parser, new[]{ "Name", "Gender", "HeadId" }, null, null, null, null),
@@ -2038,7 +2040,7 @@ namespace Rpg.Net.Message {
   }
 
   /// <summary>
-  /// 角色可见世界状态，由资料、生命魔力和位置构成。
+  /// 角色可见世界状态，由资料、生命魔力、位置和独立装备构成。
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class RoleWorldStatePb : pb::IMessage<RoleWorldStatePb>
@@ -2078,6 +2080,7 @@ namespace Rpg.Net.Message {
       profile_ = other.profile_ != null ? other.profile_.Clone() : null;
       position_ = other.position_ != null ? other.position_.Clone() : null;
       status_ = other.status_ != null ? other.status_.Clone() : null;
+      equipment_ = other.equipment_ != null ? other.equipment_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -2132,6 +2135,21 @@ namespace Rpg.Net.Message {
       }
     }
 
+    /// <summary>Field number for the "equipment" field.</summary>
+    public const int EquipmentFieldNumber = 4;
+    private global::Rpg.Net.Message.RoleWorldEquipmentPb equipment_;
+    /// <summary>
+    /// 可公开且独立版本的完整装备。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.Net.Message.RoleWorldEquipmentPb Equipment {
+      get { return equipment_; }
+      set {
+        equipment_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -2150,6 +2168,7 @@ namespace Rpg.Net.Message {
       if (!object.Equals(Profile, other.Profile)) return false;
       if (!object.Equals(Position, other.Position)) return false;
       if (!object.Equals(Status, other.Status)) return false;
+      if (!object.Equals(Equipment, other.Equipment)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -2160,6 +2179,7 @@ namespace Rpg.Net.Message {
       if (profile_ != null) hash ^= Profile.GetHashCode();
       if (position_ != null) hash ^= Position.GetHashCode();
       if (status_ != null) hash ^= Status.GetHashCode();
+      if (equipment_ != null) hash ^= Equipment.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -2190,6 +2210,10 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(26);
         output.WriteMessage(Status);
       }
+      if (equipment_ != null) {
+        output.WriteRawTag(34);
+        output.WriteMessage(Equipment);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -2212,6 +2236,10 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(26);
         output.WriteMessage(Status);
       }
+      if (equipment_ != null) {
+        output.WriteRawTag(34);
+        output.WriteMessage(Equipment);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -2230,6 +2258,9 @@ namespace Rpg.Net.Message {
       }
       if (status_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(Status);
+      }
+      if (equipment_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Equipment);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -2260,6 +2291,12 @@ namespace Rpg.Net.Message {
           Status = new global::Rpg.Net.Message.RoleWorldStatusPb();
         }
         Status.MergeFrom(other.Status);
+      }
+      if (other.equipment_ != null) {
+        if (equipment_ == null) {
+          Equipment = new global::Rpg.Net.Message.RoleWorldEquipmentPb();
+        }
+        Equipment.MergeFrom(other.Equipment);
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -2301,6 +2338,13 @@ namespace Rpg.Net.Message {
             input.ReadMessage(Status);
             break;
           }
+          case 34: {
+            if (equipment_ == null) {
+              Equipment = new global::Rpg.Net.Message.RoleWorldEquipmentPb();
+            }
+            input.ReadMessage(Equipment);
+            break;
+          }
         }
       }
     #endif
@@ -2339,6 +2383,13 @@ namespace Rpg.Net.Message {
               Status = new global::Rpg.Net.Message.RoleWorldStatusPb();
             }
             input.ReadMessage(Status);
+            break;
+          }
+          case 34: {
+            if (equipment_ == null) {
+              Equipment = new global::Rpg.Net.Message.RoleWorldEquipmentPb();
+            }
+            input.ReadMessage(Equipment);
             break;
           }
         }

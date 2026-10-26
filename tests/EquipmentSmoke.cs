@@ -109,7 +109,7 @@ public partial class EquipmentSmoke : Node
                 Check(equippedIcon.Size == iconSize && equippedIcon.Texture.GetSize() == sourceSize &&
                     equippedIcon.StretchMode == iconStretch && equippedIcon.TextureFilter == iconFilter,
                     "装备图标与背包的实际显示尺寸或采样方式不同");
-                Check(GameServices.Session.Bag.Equipment.Any(item => item.ItemId == id && item.Slot == slot), $"装备失败：{id}");
+                Check(GameServices.Session.Equipment.Items.Any(item => item.ItemId == id && item.Slot == slot), $"装备失败：{id}");
                 var state = GameServices.World.ActorState!;
                 Check((slot == EquipmentSlot.MainHand ? state.MainHandId : state.OffHandId) == id, "权威装备未同步世界");
                 var sprite = previewActor.GetNode<Sprite2D>(slot == EquipmentSlot.MainHand ? "Facing/RightHand/Weapon" : "Facing/LeftHand/Weapon");
@@ -139,7 +139,7 @@ public partial class EquipmentSmoke : Node
             var off = (Control)character.FindChild("EquipmentOffHand", true, false);
             var extra = GameServices.Session.Bag.Items.Single(item => item.InstanceId == 8);
             await Transfer(grid.GetChild<Control>(extra.SlotIndex), off);
-            Check(GameServices.Session.Bag.Equipment.Count(item => item.ItemId == 1017) == 2, "双拳刃未同时显示");
+            Check(GameServices.Session.Equipment.Items.Count(item => item.ItemId == 1017) == 2, "双拳刃未同时显示");
             var direction = preview.Direction;
             await Click((Control)preview.FindChild("RotateClockwise", true, false));
             Check(preview.Direction == (direction + 7) % 8, "右按钮没有使人物顺时针自转");
@@ -151,10 +151,10 @@ public partial class EquipmentSmoke : Node
             Check(GameServices.World.ActorState!.MainHandId == 0 && !previewActor.GetNode<Sprite2D>("Facing/RightHand/Weapon").Visible,
                 "卸下主手没有空手");
             await Click(off, MouseButton.Right);
-            Check(GameServices.Session.Bag.Equipment.Count == 1 && bag.FindChild("PickedItemPreview", true, false) is null,
+            Check(GameServices.Session.Equipment.Items.Count == 1 && bag.FindChild("PickedItemPreview", true, false) is null,
                 "右键仍会卸下或拿起装备");
             await Click(off, ctrl: true);
-            Check(GameServices.Session.Bag.Equipment.Count == 0 && GameServices.World.ActorState!.OffHandId == 0,
+            Check(GameServices.Session.Equipment.Items.Count == 0 && GameServices.World.ActorState!.OffHandId == 0,
                 "Ctrl＋左键卸下副手失败");
             // 飞刀错误放主手仍由服务器拒绝，界面展示原因且保留物品。
             var knife = GameServices.Session.Bag.Items.Single(item => item.ItemId == 1018);
@@ -168,11 +168,11 @@ public partial class EquipmentSmoke : Node
             {
                 var item = GameServices.Session.Bag.Items.Single(item => item.ItemId == id && item.InstanceId != 8);
                 var slot = id == 1014 ? EquipmentSlot.OffHand : EquipmentSlot.MainHand;
-                var oldItem = GameServices.Session.Bag.Equipment.FirstOrDefault(entry => entry.Slot == slot);
+                var oldItem = GameServices.Session.Equipment.Items.FirstOrDefault(entry => entry.Slot == slot);
                 var before = GameServices.Session.Bag;
                 await Click(grid.GetChild<Control>(item.SlotIndex), ctrl: true, checkBeforeFrames: () =>
                     Check(ReferenceEquals(before, GameServices.Session.Bag), "Ctrl 穿戴在确认前改写快照"));
-                Check(GameServices.Session.Bag.Equipment.Any(entry => entry.InstanceId == item.InstanceId && entry.Slot == slot),
+                Check(GameServices.Session.Equipment.Items.Any(entry => entry.InstanceId == item.InstanceId && entry.Slot == slot),
                     "Ctrl 自动穿戴选槽错误");
                 if (oldItem is not null)
                     Check(GameServices.Session.Bag.Items.Any(entry => entry.InstanceId == oldItem.InstanceId && entry.SlotIndex == item.SlotIndex),
@@ -275,14 +275,14 @@ public partial class EquipmentSmoke : Node
     {
         var before = GameServices.Session.Bag;
         var source = before.Items.Single(item => item.InstanceId == instanceId);
-        var replaced = before.Equipment.FirstOrDefault(item => item.Slot == expectedSlot);
-        var mainHand = before.Equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand);
+        var replaced = GameServices.Session.Equipment.Items.FirstOrDefault(item => item.Slot == expectedSlot);
+        var mainHand = GameServices.Session.Equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand);
         await Click(grid.GetChild<Control>(source.SlotIndex), ctrl: true, checkBeforeFrames: () =>
             Check(ReferenceEquals(before, GameServices.Session.Bag), "拳套快捷替换在确认前更改缓存"));
         var after = GameServices.Session.Bag;
-        Check(after.Equipment.Any(item => item.InstanceId == instanceId && item.Slot == expectedSlot), "拳套快捷选槽错误");
+        Check(GameServices.Session.Equipment.Items.Any(item => item.InstanceId == instanceId && item.Slot == expectedSlot), "拳套快捷选槽错误");
         if (expectedSlot == EquipmentSlot.OffHand)
-            Check(after.Equipment.Any(item => item.InstanceId == mainHand!.InstanceId && item.Slot == EquipmentSlot.MainHand),
+            Check(GameServices.Session.Equipment.Items.Any(item => item.InstanceId == mainHand!.InstanceId && item.Slot == EquipmentSlot.MainHand),
                 "快捷替换副手拳套更改了主手");
         if (replaced is not null)
             Check(after.Items.Any(item => item.InstanceId == replaced.InstanceId && item.SlotIndex == source.SlotIndex),

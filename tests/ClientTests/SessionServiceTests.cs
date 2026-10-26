@@ -89,10 +89,11 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
             Status = new RoleWorldStatusPb { RoleId = 1001, Health = 80, MaxHealth = 100, MaxMana = 10 },
             Position = new RoleWorldPositionPb { RoleId = 1001, MapId = 1, X = 100, Y = 200 }
         };
+        state.Equipment = new RoleWorldEquipmentPb { RoleId = 1001 };
         session.SelectRole(1001);
         net.Tick(0);
         var oldGeneration = MessageCodec.ReadEnvelope(transport.Sent[^1]).Generation;
-        transport.Inject(MessageCodec.Encode(new SelectRoleRt { Success = true, RoleId = 1001, State = state,
+        transport.Inject(MessageCodec.Encode(new SelectRoleRt { Success = true, RoleId = 1001, State = state, Bag = new BagPb(),
             Role = new RolePb { RoleId = 1001, NextExperience = 20 } }, oldGeneration, false));
         net.Tick(0);
         session.LeaveRole();
@@ -102,7 +103,7 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
         net.Tick(0);
         var generation = MessageCodec.ReadEnvelope(transport.Sent[^1]).Generation;
         Assert.True(generation > oldGeneration);
-        transport.Inject(MessageCodec.Encode(new SelectRoleRt { Success = true, RoleId = 1001, State = state,
+        transport.Inject(MessageCodec.Encode(new SelectRoleRt { Success = true, RoleId = 1001, State = state, Bag = new BagPb(),
             Role = new RolePb { RoleId = 1001, NextExperience = 20 } }, generation, false));
         var staleState = state.Clone();
         staleState.Profile.Revision = 99;

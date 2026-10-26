@@ -1,4 +1,6 @@
 using System.IO;
+using System.Collections.Generic;
+using Rpg.Config.Data;
 using Godot;
 using Rpg.Const;
 using Rpg.Net.Message;
@@ -10,6 +12,8 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
     int Mana, int MaxMana, int Experience, int NextExperience, Vector2 Position, RoleGender Gender,
     long Revision, long AcknowledgedAction, int HeadId = 0, int BagExtraRows = 0, int MapId = 1)
 {
+    /// <summary>独立公开且只读的当前装备。</summary>
+    public RoleWorldEquipmentPbData Equipment { get; init; } = RoleWorldEquipmentPbData.Empty(RoleId);
     /// <summary>最近接纳的资料版本。</summary>
     public long ProfileRevision { get; init; } = Revision;
     /// <summary>最近接纳的状态版本。</summary>
@@ -20,20 +24,20 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
     public long RoleRevision { get; init; } = Revision;
 
     /// <summary>校验并组合世界状态与独立返回的私有角色领域。</summary>
-    public static RoleWorldStatePbData FromPb(RoleWorldStatePb message, RolePb role)
+    public static RoleWorldStatePbData FromPb(RoleWorldStatePb message, RolePb role, IReadOnlyDictionary<int, ItemCfg> definitions)
     {
-        if (message?.Profile is null || message.Status is null || message.Position is null)
-            throw new InvalidDataException("角色世界状态缺少资料、状态或位置");
+        if (message?.Profile is null || message.Status is null || message.Position is null || message.Equipment is null)
+            throw new InvalidDataException("角色世界状态缺少资料、状态、位置或装备");
         return FromParts(RoleWorldProfilePbData.FromPb(message.Profile),
             RoleWorldStatusPbData.FromPb(message.Status), RoleWorldPositionPbData.FromPb(message.Position),
-            RolePbData.FromPb(role));
+            RolePbData.FromPb(role), RoleWorldEquipmentPbData.FromPb(message.Equipment, definitions));
     }
 
-    /// <summary>把四份已校验数据合成仅供当前玩家读取的快照。</summary>
+    /// <summary>把五份已校验数据合成仅供当前玩家读取的快照。</summary>
     public static RoleWorldStatePbData FromParts(RoleWorldProfilePbData profile, RoleWorldStatusPbData status,
-        RoleWorldPositionPbData position, RolePbData role)
+        RoleWorldPositionPbData position, RolePbData role, RoleWorldEquipmentPbData equipment)
     {
-        if (profile.RoleId != status.RoleId || profile.RoleId != position.RoleId || profile.RoleId != role.RoleId)
+        if (profile.RoleId != status.RoleId || profile.RoleId != position.RoleId || profile.RoleId != role.RoleId || profile.RoleId != equipment.RoleId)
             throw new InvalidDataException("角色领域身份不一致");
         return new RoleWorldStatePbData(profile.RoleId, profile.Name, profile.Level, status.Health,
             status.MaxHealth, status.Mana, status.MaxMana, role.Experience, role.NextExperience,
@@ -42,7 +46,7 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
                 System.Math.Max(position.Revision, role.Revision)),
             position.AcknowledgedAction, profile.HeadId, role.BagExtraRows, position.MapId)
         { ProfileRevision = profile.Revision, StatusRevision = status.Revision,
-            PositionRevision = position.Revision, RoleRevision = role.Revision };
+            PositionRevision = position.Revision, RoleRevision = role.Revision, Equipment = equipment };
     }
 
     /// <summary>仅序列化可见世界状态，绝不包含经验和背包容量。</summary>
@@ -50,7 +54,8 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
     {
         Profile = new RoleWorldProfilePbData(RoleId, Name, Level, Gender, HeadId, ProfileRevision).ToPb(),
         Status = new RoleWorldStatusPbData(RoleId, Health, MaxHealth, Mana, MaxMana, StatusRevision).ToPb(),
-        Position = new RoleWorldPositionPbData(RoleId, MapId, Position, PositionRevision, AcknowledgedAction).ToPb()
+        Position = new RoleWorldPositionPbData(RoleId, MapId, Position, PositionRevision, AcknowledgedAction).ToPb(),
+        Equipment = Equipment.ToPb()
     };
 
     /// <summary>单独序列化当前玩家私有领域。</summary>

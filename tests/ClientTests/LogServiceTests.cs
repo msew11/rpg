@@ -99,13 +99,13 @@ public sealed class LogServiceTests
             text => { lines.Add(text); rich.Add(false); });
         log.Request(new CreateRole { Name = "[color=red]名字[/color]" });
         log.Receive(new LoginRt { Success = true });
-        log.Receive(new BagChangedNotice());
+        log.Receive(new RoleItemsChangedNotice());
         log.ClientIO("system.json", "{\"text\":\"[color=red]内容[/color]\"}");
         log.ServerIO("1001.role.json", "{}");
         Assert.StartsWith("[Client][color=green][Request][/color]CreateRole{", lines[0]);
         Assert.Contains("\\u005Bcolor=red\\u005D名字\\u005B/color\\u005D", lines[0]);
         Assert.StartsWith("[Client][color=#ffa500][Response][/color]LoginRt{", lines[1]);
-        Assert.StartsWith("[Client][color=#ffa500][Notice][/color]BagChangedNotice{", lines[2]);
+        Assert.StartsWith("[Client][color=#ffa500][Notice][/color]RoleItemsChangedNotice{", lines[2]);
         Assert.Equal("[Client][IO][system.json]{\"text\":\"[color=red]内容[/color]\"}", lines[3]);
         Assert.Equal("[Server][IO][1001.role.json]{}", lines[4]);
         Assert.Equal(new[] { true, true, true, false, false }, rich);

@@ -5,7 +5,7 @@
 定义进程内模拟服务端的角色请求处理与数据落地能力，维持现有演示账号及延迟移动校正，并确保服务端拥有独立的数据模型、按角色隔离的存档和可诊断的持久化失败反馈。
 ## Requirements
 ### Requirement: 独立服务端角色状态
-模拟服务端 SHALL 使用独立于客户端缓存和客户端数据类的模型处理登录、选角、移动与角色状态推送，仅共享 protobuf 协议。RoleWorldStatePb 仅由可见资料、生命魔力状态及位置组成；经验、升级经验和背包扩容仅由当前玩家私有的 RolePb 承载。SelectRoleRt 将 RolePb 与 BagPb 并列返回；RoleStateNotice 仅返回可见完整快照，MoveRt 仅返回位置。主动资料、状态、位置或私有 Role 数据提交成功后分别允许发送 RoleProfileNotice、RoleStatusNotice、RolePositionNotice 或 RoleChangedNotice；普通移动不额外给自己发送位置推送。演示账号 SHALL 保留 demo/demo，全新目录从空列表开始，允许显式创建与删除至空列表。
+模拟服务端 SHALL 使用独立于客户端缓存和客户端数据类的模型处理登录、选角、移动与角色状态推送，仅共享 protobuf 协议。RoleWorldStatePb 仅由可见资料、生命魔力状态、位置及独立装备组成；经验、升级经验和背包扩容仅由当前玩家私有的 RolePb 承载。SelectRoleRt 将 RolePb 与 BagPb 并列返回；RoleStateNotice 仅返回可见完整快照，MoveRt 仅返回位置。主动资料、状态、位置或私有 Role 数据提交成功后分别允许发送 RoleProfileNotice、RoleStatusNotice、RolePositionNotice 或 RoleChangedNotice；公开装备变化使用 RoleEquipmentNotice；本人的物品提交使用仅本人接收的 RoleItemsChangedNotice，同时携带背包与装备。普通移动不额外给自己发送位置推送。演示账号 SHALL 保留 demo/demo，全新目录从空列表开始，允许显式创建与删除至空列表。
 
 #### Scenario: 延迟移动确认
 - **WHEN** 选角成功后发送移动请求并推进模拟时间
@@ -22,6 +22,14 @@
 #### Scenario: 完整世界更新同时改变私有数据
 - **WHEN** 完整角色提交同时改变生命魔力和经验
 - **THEN** RoleStateNotice 仅包含可见世界状态，另发 RoleChangedNotice 更新当前玩家私有数据
+
+#### Scenario: 公开和私有投影
+- **WHEN** 从同一服务端角色状态分别生成完整世界状态、独立装备通知及本人物品通知
+- **THEN** 前两种载荷只有公开数据，本人物品通知才包含背包，三者装备内容和装备版本一致
+
+#### Scenario: 穿脱通知与普通背包通知
+- **WHEN** 当前角色成功穿脱，随后成功移动背包物品
+- **THEN** 每次实际物品变更只向本人交付一条完整物品通知；穿脱产生可供观察者消费的独立装备载荷，普通背包移动不产生装备变更载荷
 
 ### Requirement: JSON 角色持久化
 服务端 SHALL 在 user://server 使用 `<角色ID>.role.json` 和 `<角色ID>.bag.json` 分别保存角色及背包领域。角色移动与删除只提交 role，GM 和物品移动只提交 bag；单领域正常提交 SHALL 不读取或重写另一领域。请求校验成功后 SHALL 提交内存并响应或推送，文件由 server-write-back 的检测节点或关闭节点延迟落地。创建、迁移及同时变更两领域 SHALL 在失败时回滚，中断后访问前恢复未提交状态。全新目录保持空列表，删除保留墓碑且编号不复用。旧 `<角色ID>.json` SHALL 可读取，首次保存迁移并保留旧文件；新格式存在时不得回退旧数据，分域缺失、损坏或身份不符 SHALL 明确报错。
@@ -64,3 +72,14 @@
 #### Scenario: 越界移动
 - **WHEN** 请求超出所属地图的移动坐标
 - **THEN** 请求失败，不改变移动目标、角色状态或 AOI
+
+### Requirement: 装备版本存档兼容
+服务端 SHALL 保留背包与装备共同提交、共同落地和现有实例编号语义，同时保存独立装备版本。旧存档缺失装备版本时 SHALL 以原物品版本初始化，已有穿戴列表不变；新角色两个版本为零。读取旧档 SHALL 不立即写盘，下一次正常物品领域落地保存装备版本；失败重试和共同恢复仍适用于背包与装备。
+
+#### Scenario: 旧档保留装备
+- **WHEN** 读取存在穿戴列表、没有独立装备版本的旧存档，正常修改并完成落地后重启
+- **THEN** 装备版本由原物品版本初始化后按实际装备变化递增，背包、穿戴实例与编号完整保留，不因网络结构拆分丢失装备
+
+#### Scenario: 共同落地失败
+- **WHEN** 穿脱已提交内存后，物品领域文件落地失败并重试
+- **THEN** 两侧已确认内存和待写状态保留，重试成功后重启恢复同次物品提交，磁盘不出现只有一侧生效的状态

@@ -3,6 +3,7 @@ package rpg;
 option csharp_namespace = "Rpg.Net.Message";
 
 import "bag.proto";
+import "equipment.proto";
 
 // 角色基础身体性别；未指定值不作为有效角色数据。
 enum RoleGenderPb {
@@ -90,7 +91,7 @@ message RoleWorldPositionPb {
   int64 acknowledged_action = 6;
 }
 
-// 角色可见世界状态，由资料、生命魔力和位置构成。
+// 角色可见世界状态，由资料、生命魔力、位置和独立装备构成。
 message RoleWorldStatePb {
   // 角色资料。
   RoleWorldProfilePb profile = 1;
@@ -98,6 +99,8 @@ message RoleWorldStatePb {
   RoleWorldPositionPb position = 2;
   // 生命与魔力状态。
   RoleWorldStatusPb status = 3;
+  // 可公开且独立版本的完整装备。
+  RoleWorldEquipmentPb equipment = 4;
 }
 
 // 请求进入指定角色会话。
