@@ -146,7 +146,8 @@ def verify_review(raw, body_manifest, client, review):
     """逐组核对正式GPU输出，参考完全由外部原始素材、层次及客户端常量生成。"""
     manifest = json.loads((review/'manifest.json').read_text(encoding='utf-8'))
     expected_groups = {(gender, main, off, motion) for gender in ('male', 'female')
-                       for main in (0, 1012, 1013, 1015, 1016, 1017) for off in (0, 1014, 1017, 1018) for motion in MOTIONS}
+                       for main, off in ((0, 0), (0, 1014), (1012, 0), (1012, 1014), (1013, 0),
+                                         (1015, 0), (1016, 0), (1017, 0), (1018, 0)) for motion in MOTIONS}
     actual_groups = {(group['gender'], group['main'], group['off'], group['motion']) for group in manifest['groups']}
     assert actual_groups == expected_groups and len(manifest['groups']) == len(expected_groups), '来源合成覆盖缺失或重复'
     bodies = {(('male' if entry['gender']=='男性' else 'female'), entry['name']): entry
@@ -184,7 +185,8 @@ def verify_review(raw, body_manifest, client, review):
                 head, head_anchor, _, _ = head_frames[native_direction]
                 parts = {0: (body, (-anchor[0], -anchor[1])),
                          1: (head, (points[0][0]-anchor[0]-head_anchor[0], points[0][1]-anchor[1]-head_anchor[1]))}
-                for item, part, hand_point in ((main, 3, 2), (off, 2, 1)):
+                visual_left = main if main in (1017, 1018) else off
+                for item, part, hand_point in ((main, 3, 2), (visual_left, 2, 1)):
                     if not item: continue
                     source, action = weapon_source(raw, item, gender, motion, part==3)
                     weapon_frames = decode(source)

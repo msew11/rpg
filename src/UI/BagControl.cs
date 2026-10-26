@@ -316,13 +316,6 @@ public partial class BagControl : PanelContainer
         if (item is null) return;
         var cfg = GameServices.Config.Item.Items[item.ItemId];
         if (!EquipmentSlotUtil.TryGetSlot(cfg.Category, cfg.SubCategory, out var slot)) return;
-        var mainHand = GameServices.Session.Equipment.Items.FirstOrDefault(entry => entry.Slot == EquipmentSlot.MainHand);
-        if (cfg.Category == ItemCategory.Weapon && cfg.SubCategory == ItemSubCategory.Katar && mainHand is not null)
-        {
-            var equippedCfg = GameServices.Config.Item.Items[mainHand.ItemId];
-            if (equippedCfg.Category == ItemCategory.Weapon && equippedCfg.SubCategory == ItemSubCategory.Katar)
-                slot = EquipmentSlot.OffHand;
-        }
         GameServices.Session.EquipItem(item.InstanceId, slot, bag.Revision, GameServices.Session.Equipment.Revision);
         UiSoundPlayer.Play(this, 1010);
     }

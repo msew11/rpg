@@ -15,7 +15,7 @@ namespace Rpg.Tests;
 /// <summary>client-actor-presentation：以独立原始数据核验全部装备，防止镜像时错用另一只手的原画。</summary>
 internal static class ActorWeaponHandAssertions
 {
-    /// <summary>验证全部完整源帧和挂点，覆盖飞刀固定源左手整体镜像的男女八方向跑步。</summary>
+    /// <summary>验证全部完整源帧和挂点，覆盖主手飞刀派生源双手的男女八方向跑步。</summary>
     public static void Verify(AnimationService animations, ActorView actor)
     {
         using var golden = JsonDocument.Parse(FileAccess.GetFileAsString("res://tests/fixtures/actor_weapon_sources.json"));
@@ -62,20 +62,23 @@ internal static class ActorWeaponHandAssertions
         for (var direction = 0; direction < directions.Length; direction++)
         {
             actor.Present(new DataActorState(1, gender, Vector2.Zero, RoleMotion.Run,
-                IsometricProjection.ToLogical(directions[direction]), 0, 1, 0, 1018));
+                IsometricProjection.ToLogical(directions[direction]), 0, 1, 1018, 0));
             var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
-            var sprite = actor.GetNode<Sprite2D>("Facing/LeftHand/Weapon");
-            // 独立写出三个镜像方向，避免调用生产映射生成期望值。
-            var sourceDirection = new[] { 4, 0, 1, 2, 3, 2, 1, 0 }[direction];
-            var folder = "";
-            var expected = GD.Load<DataActorWeapon>($"res://assets/characters/weapons/1018/{folder}{gender.ToString().ToLowerInvariant()}/run.tres");
-            Require(expected.Frames.Length == 40, "飞刀跑步原画不是五方向各八帧");
-            for (var frame = 0; frame < 8; frame++)
+            foreach (var right in new[] { false, true })
             {
-                body.SetFrameAndProgress(frame, 0.35f);
-                var index = sourceDirection * 8 + frame;
-                Require(ReferenceEquals(sprite.Texture, expected.Frames[index]) && sprite.Position == -expected.Anchors[index],
-                    $"飞刀镜像持握错手：{gender}/{direction}/{frame}");
+                var sprite = actor.GetNode<Sprite2D>(right ? "Facing/RightHand/Weapon" : "Facing/LeftHand/Weapon");
+                // 独立写出三个镜像方向，避免调用生产映射生成期望值。
+                var sourceDirection = new[] { 4, 0, 1, 2, 3, 2, 1, 0 }[direction];
+                var folder = right ? "right/" : "";
+                var expected = GD.Load<DataActorWeapon>($"res://assets/characters/weapons/1018/{folder}{gender.ToString().ToLowerInvariant()}/run.tres");
+                Require(expected.Frames.Length == 40, "飞刀跑步原画不是五方向各八帧");
+                for (var frame = 0; frame < 8; frame++)
+                {
+                    body.SetFrameAndProgress(frame, 0.35f);
+                    var index = sourceDirection * 8 + frame;
+                    Require(ReferenceEquals(sprite.Texture, expected.Frames[index]) && sprite.Position == -expected.Anchors[index],
+                        $"飞刀镜像持握错手：{gender}/{direction}/{frame}");
+                }
             }
         }
         GD.Print($"Weapon source goldens passed: {paths.Count} resources / {total} frames, pixels/anchors/dimensions; throwing blade run both genders, all 8 directions/frames.");

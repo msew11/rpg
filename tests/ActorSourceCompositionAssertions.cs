@@ -23,8 +23,8 @@ internal static class ActorSourceCompositionAssertions
         var partNames = new[] { "Body", "Head", "LeftHand", "RightHand" };
         var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
         var total = 0;
-        foreach (var main in new[] { 0, 1012, 1013, 1015, 1016, 1017 })
-        foreach (var off in new[] { 0, 1014, 1017, 1018 })
+        foreach (var (main, off) in new[] { (0, 0), (0, 1014), (1012, 0), (1012, 1014),
+                     (1013, 0), (1015, 0), (1016, 0), (1017, 0), (1018, 0) })
         foreach (var gender in Enum.GetValues<RoleGender>())
         foreach (var requested in Enum.GetValues<RoleMotion>())
         for (var direction = 0; direction < 8; direction++)
@@ -62,7 +62,7 @@ internal static class ActorSourceCompositionAssertions
                     $"来源排序不符：{gender}/{main}/{off}/{resolved}/{direction}/{frame}");
                 foreach (var isMain in new[] { true, false })
                 {
-                    var id = isMain ? main : off;
+                    var id = isMain || main is 1017 or 1018 ? main : off;
                     var hand = actor.GetNode<Node2D>(isMain ? "Facing/RightHand" : "Facing/LeftHand");
                     var sprite = hand.GetNode<Sprite2D>("Weapon");
                     Require(sprite.ZIndex == 0 && hand.ZIndex == 0, "角色内层次改变世界排序");
@@ -95,7 +95,14 @@ internal static class ActorSourceCompositionAssertions
         actor.Present(run with { Motion = RoleMotion.Attack1, MainHandId = 1015 });
         Require(body.Frame == 0 && ReferenceEquals(body.SpriteFrames, animations.Get(RoleGender.Male, RoleMotion.Attack2).Frames),
             "更换武器未切换原生攻击身体");
-        GD.Print($"Source composition contracts passed: 24 combinations, 2 genders, 13 requests, 8 directions, {total} frames.");
+        foreach (var next in new[] { 1012, 0 })
+        {
+            actor.Present(run with { MainHandId = 1017 });
+            actor.Present(run with { MainHandId = next });
+            var left = actor.GetNode<Sprite2D>("Facing/LeftHand/Weapon");
+            Require(!left.Visible && left.Texture is null, "成对武器卸下或换剑残留左手图像");
+        }
+        GD.Print($"Source composition contracts passed: 9 combinations, 2 genders, 13 requests, 8 directions, {total} frames.");
     }
 
     /// <summary>报告明确的来源合成回归。</summary>

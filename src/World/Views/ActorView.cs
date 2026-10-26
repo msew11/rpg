@@ -21,7 +21,7 @@ public partial class ActorView : Node2D
         { Name = "Weapon", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
     /// <summary>镜像前源左手的独立挂点，随整个组合镜像。</summary>
     private readonly Node2D _leftHand = new() { Name = "LeftHand" };
-    /// <summary>副手装备层，与主手共享身体时钟。</summary>
+    /// <summary>源左手图层，显示副手盾牌或主手成对武器的左手部分。</summary>
     private readonly Sprite2D _offWeapon = new()
         { Name = "Weapon", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
     /// <summary>当前解析后的身体动作，与逻辑请求独立。</summary>
@@ -110,7 +110,13 @@ public partial class ActorView : Node2D
         _head.Texture = head.Frames[direction];
         _head.Position = -body.Anchor + body.HeadAttachments[direction * count + _body.Frame] - head.Anchors[direction];
         UpdateWeapon(state.MainHandId, true, _rightHand, _weapon, state, body, count, direction);
-        UpdateWeapon(state.OffHandId, false, _leftHand, _offWeapon, state, body, count, direction);
+        var leftItemId = state.OffHandId;
+        if (state.MainHandId != 0)
+        {
+            var cfg = GameServices.Config.Item.Items[state.MainHandId];
+            if (Rpg.Utils.EquipmentSlotUtil.HasPairedAppearance(cfg.Category, cfg.SubCategory)) leftItemId = state.MainHandId;
+        }
+        UpdateWeapon(leftItemId, false, _leftHand, _offWeapon, state, body, count, direction);
         SortParts(state, direction, mirrored);
     }
 

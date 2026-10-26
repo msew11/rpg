@@ -47,7 +47,10 @@ public partial class ActorReviewExport : Node
                 .Select(item => item.Id).Order().Prepend(0).ToArray();
             var offIds = items.Where(item => EquipmentSlotUtil.CanEquip(item.Category, item.SubCategory, EquipmentSlot.OffHand))
                 .Select(item => item.Id).Order().Prepend(0).ToArray();
-            var equipment = (from main in mainIds from off in offIds select (Main: main, Off: off)).ToArray();
+            var equipment = (from main in mainIds from off in offIds
+                where off == 0 || main == 0 || !EquipmentSlotUtil.OccupiesBothHands(
+                    GameServices.Config.Item.Items[main].Category, GameServices.Config.Item.Items[main].SubCategory)
+                select (Main: main, Off: off)).ToArray();
             var probe = new ActorView();
             AddChild(probe);
             var bounds = MeasureAll(probe, equipment);
@@ -72,7 +75,7 @@ public partial class ActorReviewExport : Node
             }
             var manifest = new
             {
-                schemaVersion = 2, alphaEncoding = "straight", generatedAt = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).ToString("O"),
+                schemaVersion = 3, alphaEncoding = "straight", generatedAt = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).ToString("O"),
                 revision, renderer = RenderingServer.GetCurrentRenderingMethod(), headId = 1,
                 cell = new { width = cell.X, height = cell.Y, anchorX = origin.X, anchorY = origin.Y, padding },
                 directions = DirectionKeys.Select((key, index) => new { key, index,
@@ -152,7 +155,7 @@ public partial class ActorReviewExport : Node
                 if (!slot.Encloses(visible)) throw new InvalidOperationException($"帧超出画布：{gender}/{motion}/{direction}/{frame}/{visible}");
                 handSamples.Add(new { frame, duration = resource.Frames.GetFrameDuration(body.Animation, frame),
                     main = WeaponSample(actor, main, true, gender, actualMotion, direction),
-                    off = WeaponSample(actor, off, false, gender, actualMotion, direction) });
+                    off = WeaponSample(actor, LeftAppearanceItem(main, off), false, gender, actualMotion, direction) });
             }
             samples.Add(new { direction, frames = handSamples });
         }
@@ -181,6 +184,10 @@ public partial class ActorReviewExport : Node
             main, off, motion = motion.ToString().ToLowerInvariant(), actualMotion = actualMotion.ToString().ToLowerInvariant(), count, fps = resource.Frames.GetAnimationSpeed("dir0"),
             loop = resource.Frames.GetAnimationLoopMode("dir0").ToString(), sheet = relative, samples }, count * 8);
     }
+
+    /// <summary>将主手成对武器派生为左手图像，实际副手槽仍为空。</summary>
+    private static int LeftAppearanceItem(int main, int off) => main != 0 && EquipmentSlotUtil.HasPairedAppearance(
+        GameServices.Config.Item.Items[main].Category, GameServices.Config.Item.Items[main].SubCategory) ? main : off;
 
     /// <summary>记录实际左右手所选资源与采样帧，明确当前复用及镜像选择，不另行推测持握。</summary>
     private static object? WeaponSample(ActorView actor, int itemId, bool main, RoleGender gender, RoleMotion motion, int direction)

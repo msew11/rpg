@@ -121,7 +121,7 @@ def build(root, replace_archive=False):
         'manifest.json：版本、画布定位点、帧时长、实际左右手资源与采样帧。\n'
         '复用说明：盾牌等部分武器缺少独立动作，按原客户端回退站立；攻击和准备按装备类别解析身体姿态；'
         '浏览页显示实际资源和采样帧，保留游戏当前结果供审查。\n'
-        '当前槽位规则未限定双手武器占用副手，因此包中也保留这些当前允许的组合。\n'
+        '仅普通剑与盾牌可同时装备；其他武器占用双手。拳刃、飞刀由单件主手派生左右手图像，副手槽为空。\n'
         f'来源版本：{manifest["revision"]}\n生成时间：{manifest["generatedAt"]}\n', encoding='utf-8')
     files = sorted(path for path in root.rglob('*') if path.is_file() and not path.name.endswith('.import'))
     temporary = archive.with_suffix('.zip.tmp')

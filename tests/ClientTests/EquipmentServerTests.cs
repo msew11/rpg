@@ -17,6 +17,8 @@ public sealed class EquipmentServerTests : IDisposable
         new(1012, "剑", 1, ItemCategory.Weapon, ItemSubCategory.Sword),
         new(1013, "双手剑", 1, ItemCategory.Weapon, ItemSubCategory.TwoHandedWeapon),
         new(1014, "盾", 1, ItemCategory.Armor, ItemSubCategory.Shield),
+        new(1015, "杖", 1, ItemCategory.Weapon, ItemSubCategory.Staff),
+        new(1016, "枪", 1, ItemCategory.Weapon, ItemSubCategory.Spear),
         new(1017, "拳刃", 1, ItemCategory.Weapon, ItemSubCategory.Katar),
         new(1018, "飞刀", 1, ItemCategory.Weapon, ItemSubCategory.ThrowingWeapon)]);
     /// <summary>读取实际领域文件的仓库。</summary>
@@ -115,16 +117,15 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.Equal(persisted.Revision, _bag.Revision);
     }
 
-    /// <summary>双拳刃可独立穿脱，切到新角色时不带入原角色装备。</summary>
+    /// <summary>role-equipment：一件主手拳刃保持单实例，连续穿戴替换主手，切角互不污染。</summary>
     [Fact]
-    public void IndependentKatarsAndCharacterIsolation()
+    public void PairedWeaponIsOneMainHandInstanceAndCharacterIsolation()
     {
         var first = Grant(1017);
         Assert.True(Equip(first, EquipmentSlotPb.MainHand).Success);
         var second = Grant(1017);
-        Assert.True(Equip(second, EquipmentSlotPb.OffHand).Success);
-        Assert.Equal(2, _equipment.Items.Count);
-        Assert.True(Equip(0, EquipmentSlotPb.MainHand).Success);
+        Assert.False(Equip(second, EquipmentSlotPb.OffHand).Success);
+        Assert.True(Equip(second, EquipmentSlotPb.MainHand).Success);
         Assert.Equal(second, Assert.Single(_equipment.Items).InstanceId);
         Assert.Equal(first, Assert.Single(_bag.Items).InstanceId);
         _server.Flush();
@@ -137,25 +138,148 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.Equal(second, Assert.Single(_equipment.Items).InstanceId);
     }
 
-    /// <summary>错误槽位、旧版本和非法身份不修改状态，飞刀盾牌只接受副手。</summary>
+    /// <summary>role-equipment：飞刀仅主手，旧版本、错槽与角色请求保持原子拒绝。</summary>
     [Fact]
     public void RejectsStaleWrongSlotIdentityAndRepeatedRequests()
     {
         var knife = Grant(1018);
         var before = _bag.Clone();
-        Assert.False(Equip(knife, EquipmentSlotPb.MainHand).Success);
-        Assert.False(Equip(knife, EquipmentSlotPb.OffHand, revision: 0).Success);
-        Assert.False(Equip(knife, EquipmentSlotPb.OffHand, role: _roleId + 1).Success);
+        Assert.False(Equip(knife, EquipmentSlotPb.OffHand).Success);
+        Assert.False(Equip(knife, EquipmentSlotPb.MainHand, revision: 0).Success);
+        Assert.False(Equip(knife, EquipmentSlotPb.MainHand, role: _roleId + 1).Success);
         Assert.False(Equip(knife, (EquipmentSlotPb)999).Success);
         Assert.False(Equip(knife, EquipmentSlotPb.Head).Success);
-        Assert.False(Equip(999, EquipmentSlotPb.OffHand).Success);
+        Assert.False(Equip(999, EquipmentSlotPb.MainHand).Success);
         Assert.Equal(before, _bag);
-        Assert.True(Equip(knife, EquipmentSlotPb.OffHand).Success);
-        Assert.False(Equip(knife, EquipmentSlotPb.OffHand, revision: before.Revision).Success);
+        Assert.True(Equip(knife, EquipmentSlotPb.MainHand).Success);
+        Assert.False(Equip(knife, EquipmentSlotPb.MainHand, revision: before.Revision).Success);
         var shield = Grant(1014);
         Assert.False(Equip(shield, EquipmentSlotPb.MainHand).Success);
+        var equipment = _equipment.Clone();
+        Assert.False(Equip(shield, EquipmentSlotPb.OffHand).Success);
+        Assert.Equal(equipment, _equipment);
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
+        Assert.Equal(shield, Assert.Single(_bag.Items).InstanceId);
+    }
+
+    /// <summary>role-equipment：剑盾切成对主手时自动收盾，满包失败不改变双版本或实例。</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MainHandReplacementReturnsShieldAtomically(bool full)
+    {
+        var sword = Grant(1012);
+        Assert.True(Equip(sword, EquipmentSlotPb.MainHand).Success);
+        var shield = Grant(1014);
         Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
-        Assert.Equal(knife, Assert.Single(_bag.Items).InstanceId);
+        var weapon = Grant(1018);
+        if (full) Grant(1017);
+        var beforeBag = _bag.Clone();
+        var beforeEquipment = _equipment.Clone();
+        Assert.Equal(!full, Equip(weapon, EquipmentSlotPb.MainHand).Success);
+        if (full)
+        {
+            Assert.Equal(beforeBag, _bag);
+            Assert.Equal(beforeEquipment, _equipment);
+            Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
+        }
+        else
+        {
+            Assert.Equal(weapon, Assert.Single(_equipment.Items).InstanceId);
+            Assert.Equal(EquipmentSlotPb.MainHand, _equipment.Items[0].Slot);
+            Assert.Equal(new[] { sword, shield }, _bag.Items.OrderBy(item => item.SlotIndex).Select(item => item.InstanceId));
+            Assert.Equal(beforeBag.Revision + 1, _bag.Revision);
+            Assert.Equal(beforeEquipment.Revision + 1, _equipment.Revision);
+            Assert.Single(_messages.OfType<RoleItemsChangedNotice>());
+            _server.Flush();
+            _server = CreateServer();
+            Enter(_roleId);
+            Assert.Equal(weapon, Assert.Single(_equipment.Items).InstanceId);
+            Assert.Equal(2, _bag.Items.Count);
+        }
+    }
+
+    /// <summary>role-equipment：全部双手分类自动收盾，反向交换也保持空间不足整次回滚。</summary>
+    [Theory]
+    [InlineData(1013, false)]
+    [InlineData(1015, false)]
+    [InlineData(1016, false)]
+    [InlineData(1017, false)]
+    [InlineData(1018, false)]
+    [InlineData(1018, true)]
+    public void ReverseExchangeEnforcesBothHands(int itemId, bool full)
+    {
+        var shield = Grant(1014);
+        Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
+        Assert.Single(_equipment.Items);
+        var sword = Grant(1012);
+        Assert.True(Equip(sword, EquipmentSlotPb.MainHand).Success);
+        var weapon = Grant(itemId);
+        if (full) Grant(1012);
+        var beforeBag = _bag.Clone();
+        var beforeEquipment = _equipment.Clone();
+        var source = _bag.Items.Single(item => item.InstanceId == weapon).SlotIndex;
+        Assert.Equal(!full, Equip(0, EquipmentSlotPb.MainHand, target: source).Success);
+        if (full)
+        {
+            Assert.Equal(beforeBag, _bag);
+            Assert.Equal(beforeEquipment, _equipment);
+            Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
+            return;
+        }
+        Assert.Equal(weapon, Assert.Single(_equipment.Items).InstanceId);
+        Assert.Equal(sword, _bag.Items.Single(item => item.SlotIndex == source).InstanceId);
+        Assert.Contains(_bag.Items, item => item.InstanceId == shield);
+        Assert.Equal(beforeBag.Revision + 1, _bag.Revision);
+        Assert.Equal(beforeEquipment.Revision + 1, _equipment.Revision);
+        var accepted = _bag.Clone();
+        Assert.False(Equip(shield, EquipmentSlotPb.OffHand).Success);
+        Assert.Equal(accepted, _bag);
+        Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
+    }
+
+    /// <summary>role-equipment：旧双拳刃、飞刀和带盾存档选角迁移，满包拒绝且原档不变。</summary>
+    [Theory]
+    [InlineData(0, 1018, false)]
+    [InlineData(1017, 1017, false)]
+    [InlineData(1013, 1014, false)]
+    [InlineData(1017, 1018, true)]
+    public void LegacyHandsMigrateWithoutLosingItems(int mainId, int offId, bool full)
+    {
+        var role = _repo.Load(_roleId);
+        var equipment = new List<DataServerEquipment>();
+        if (mainId != 0) equipment.Add(new(1, mainId, EquipmentSlot.MainHand));
+        equipment.Add(new(2, offId, EquipmentSlot.OffHand));
+        _repo.Save(role with { Bag = role.Bag with { Revision = 4, EquipmentRevision = 2, NextInstanceId = 5,
+            Equipment = equipment, Items = full ? [new(3, 1012, 0, 1), new(4, 1012, 1, 1)] : [] } });
+        var path = _repo.GetBagPath(_roleId);
+        var original = File.ReadAllText(path);
+        _server = CreateServer();
+        if (full)
+        {
+            Send(new Login { Username = "demo", Password = "demo" });
+            Send(new SelectRole { RoleId = _roleId });
+            Assert.False(_messages.OfType<SelectRoleRt>().Last().Success);
+            Assert.Contains("背包空间不足", _messages.OfType<SelectRoleRt>().Last().Error);
+            _server.Flush();
+            Assert.Equal(original, File.ReadAllText(path));
+            return;
+        }
+        Enter(_roleId);
+        Assert.Equal(mainId == 0 ? 2 : 1, Assert.Single(_equipment.Items).InstanceId);
+        Assert.Equal(mainId == 0 ? offId : mainId, _equipment.Items[0].ItemId);
+        Assert.Equal(EquipmentSlotPb.MainHand, _equipment.Items[0].Slot);
+        Assert.Equal(mainId == 0 ? 0 : 1, _bag.Items.Count);
+        if (mainId != 0) Assert.Equal(2, _bag.Items[0].InstanceId);
+        Assert.Equal(5, _bag.Revision);
+        Assert.Equal(3, _equipment.Revision);
+        Assert.Equal(original, File.ReadAllText(path));
+        _server.Flush();
+        Assert.Equal(5, _repo.Load(_roleId).Bag.NextInstanceId);
+        _server = CreateServer();
+        Enter(_roleId);
+        Assert.Equal(5, _bag.Revision);
+        Assert.Equal(3, _equipment.Revision);
     }
 
     /// <summary>GM、背包移动不覆盖已穿装备，旧存档默认空装备。</summary>

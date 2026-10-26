@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Rpg.Config.Data;
+using Rpg.Const;
 using Rpg.Net.Message;
+using Rpg.Utils;
 
 namespace Rpg.Session.Data;
 
@@ -39,6 +41,13 @@ public sealed class RoleWorldEquipmentPbData
         if (items.Select(item => item.InstanceId).Distinct().Count() != items.Count ||
             items.Select(item => item.Slot).Distinct().Count() != items.Count)
             throw new InvalidDataException("装备包含重复实例或槽位");
+        var main = items.SingleOrDefault(item => item.Slot == EquipmentSlot.MainHand);
+        if (main is not null && items.Any(item => item.Slot == EquipmentSlot.OffHand))
+        {
+            var cfg = definitions[main.ItemId];
+            if (EquipmentSlotUtil.OccupiesBothHands(cfg.Category, cfg.SubCategory))
+                throw new InvalidDataException("双手武器不能同时装备副手物品");
+        }
         return new RoleWorldEquipmentPbData(message.RoleId, message.Revision, items);
     }
 

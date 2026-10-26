@@ -23,6 +23,7 @@ public sealed class RoleEquipmentCacheTests : RegisteredServiceTestScope
     [InlineData("missingEquipment")]
     [InlineData("missingBag")]
     [InlineData("sharedInstance")]
+    [InlineData("bothHands")]
     public void InvalidInventoryCommitPreservesBothSnapshots(string kind)
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
@@ -40,6 +41,11 @@ public sealed class RoleEquipmentCacheTests : RegisteredServiceTestScope
             case "missingEquipment": notice.Equipment = null; break;
             case "missingBag": notice.Bag = null; break;
             case "sharedInstance": notice.Bag.Items.Add(new ItemPb { InstanceId = 1, ItemId = 1012, Count = 1 }); break;
+            case "bothHands":
+                notice.Equipment.Revision = 2;
+                notice.Equipment.Items[0].ItemId = 1018;
+                notice.Equipment.Items.Add(new EquippedItemPb { InstanceId = 2, ItemId = 1014, Slot = EquipmentSlotPb.OffHand });
+                break;
         }
         var called = false;
         using var ui = EventBus.Subscribe<RoleItemsChangedNotice>(_ => called = true);

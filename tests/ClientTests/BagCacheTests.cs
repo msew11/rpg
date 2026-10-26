@@ -118,7 +118,7 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
         var message = Snapshot(1);
         var equipment = new RoleWorldEquipmentPb { RoleId = 1001, Revision = 1 };
         equipment.Items.Add(new EquippedItemPb { InstanceId = kind == "sharedInstance" ? 1 : 2,
-            ItemId = kind == "wrongCategory" ? 1018 : 1012,
+            ItemId = kind == "wrongCategory" ? 1014 : 1012,
             Slot = kind == "unknownSlot" ? (EquipmentSlotPb)999 : EquipmentSlotPb.MainHand });
         if (kind == "duplicateSlot") equipment.Items.Add(new EquippedItemPb { InstanceId = 3, ItemId = 1017, Slot = EquipmentSlotPb.MainHand });
         var called = false;
@@ -138,7 +138,7 @@ public sealed class BagCacheTests : RegisteredServiceTestScope
         var session = fixture.SelectRole(1001);
         var message = Snapshot(1);
         var equipment = new RoleWorldEquipmentPb { RoleId = 1001, Revision = 1 };
-        equipment.Items.Add(new EquippedItemPb { InstanceId = 2, ItemId = 1017, Slot = EquipmentSlotPb.OffHand });
+        equipment.Items.Add(new EquippedItemPb { InstanceId = 2, ItemId = 1017, Slot = EquipmentSlotPb.MainHand });
         var called = false;
         using var ui = EventBus.Subscribe<RoleItemsChangedNotice>(_ => called = session.Bag.Items.Count == 1 && session.Equipment.Items.Count == 1);
         EventBus.Publish(Notice(message, equipment: equipment));

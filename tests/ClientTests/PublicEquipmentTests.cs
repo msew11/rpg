@@ -16,7 +16,13 @@ public sealed class PublicEquipmentTests
     private static readonly IReadOnlyDictionary<int, ItemCfg> Definitions = new Dictionary<int, ItemCfg>
     {
         [1012] = new() { Id = 1012, Name = "剑", Category = ItemCategory.Weapon,
-            SubCategory = ItemSubCategory.Sword, RelatedId = 1012, MaxStack = 1 }
+            SubCategory = ItemSubCategory.Sword, RelatedId = 1012, MaxStack = 1 },
+        [1013] = new() { Id = 1013, RelatedId = 1013, Category = ItemCategory.Weapon, SubCategory = ItemSubCategory.TwoHandedWeapon, MaxStack = 1 },
+        [1014] = new() { Id = 1014, RelatedId = 1014, Category = ItemCategory.Armor, SubCategory = ItemSubCategory.Shield, MaxStack = 1 },
+        [1015] = new() { Id = 1015, RelatedId = 1015, Category = ItemCategory.Weapon, SubCategory = ItemSubCategory.Staff, MaxStack = 1 },
+        [1016] = new() { Id = 1016, RelatedId = 1016, Category = ItemCategory.Weapon, SubCategory = ItemSubCategory.Spear, MaxStack = 1 },
+        [1017] = new() { Id = 1017, RelatedId = 1017, Category = ItemCategory.Weapon, SubCategory = ItemSubCategory.Katar, MaxStack = 1 },
+        [1018] = new() { Id = 1018, RelatedId = 1018, Category = ItemCategory.Weapon, SubCategory = ItemSubCategory.ThrowingWeapon, MaxStack = 1 }
     };
 
     /// <summary>公开投影排除背包字段，完整和独立消息都能独立序列化。</summary>
@@ -74,6 +80,28 @@ public sealed class PublicEquipmentTests
         Assert.Empty(empty.Items);
         Assert.Equal(3, empty.Revision);
         Assert.Throws<InvalidDataException>(() => RoleWorldEquipmentPbData.FromPb(null!, Definitions));
+    }
+
+    /// <summary>role-equipment：普通剑盾可共存，全部双手武器只允许单件主手公开实例。</summary>
+    [Theory]
+    [InlineData(1012)]
+    [InlineData(1013)]
+    [InlineData(1015)]
+    [InlineData(1016)]
+    [InlineData(1017)]
+    [InlineData(1018)]
+    public void PublicSnapshotEnforcesCrossSlotRules(int mainId)
+    {
+        var message = new RoleWorldEquipmentPb { RoleId = 1001, Revision = 1,
+            Items = { new EquippedItemPb { InstanceId = 1, ItemId = mainId, Slot = EquipmentSlotPb.MainHand } } };
+        Assert.Single(RoleWorldEquipmentPbData.FromPb(message, Definitions).Items);
+        message.Items.Add(new EquippedItemPb { InstanceId = 2, ItemId = 1014, Slot = EquipmentSlotPb.OffHand });
+        if (mainId == 1012) Assert.Equal(2, RoleWorldEquipmentPbData.FromPb(message, Definitions).Items.Count);
+        else Assert.Throws<InvalidDataException>(() => RoleWorldEquipmentPbData.FromPb(message, Definitions));
+        message.Items.RemoveAt(0);
+        Assert.Single(RoleWorldEquipmentPbData.FromPb(message, Definitions).Items);
+        message.Items[0].ItemId = mainId;
+        Assert.Throws<InvalidDataException>(() => RoleWorldEquipmentPbData.FromPb(message, Definitions));
     }
 
     /// <summary>非法身份、版本、重复实例或槽位均不能形成可消费的公开装备。</summary>

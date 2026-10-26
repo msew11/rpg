@@ -6,7 +6,7 @@ namespace ClientTests;
 /// <summary>验证 equipment-config 的十一槽枚举及已确认主副手规则。</summary>
 public sealed class EquipmentSlotTests
 {
-    /// <summary>全组合验证未知类型不适配，拳刃允许主副手，盾牌和暗器仅副手。</summary>
+    /// <summary>全组合验证未知类型不适配，全部武器仅主手，盾牌仅副手。</summary>
     [Fact]
     public void CategoriesMapToConfirmedHands()
     {
@@ -17,9 +17,8 @@ public sealed class EquipmentSlotTests
         {
             var bound = EquipmentSlotUtil.TryGetSlot(category, subCategory, out var slot);
             var main = category == ItemCategory.Weapon && subCategory is ItemSubCategory.Sword or
-                ItemSubCategory.Spear or ItemSubCategory.TwoHandedWeapon or ItemSubCategory.Staff or ItemSubCategory.Katar;
-            var off = category == ItemCategory.Weapon && subCategory is ItemSubCategory.Katar or ItemSubCategory.ThrowingWeapon ||
-                category == ItemCategory.Armor && subCategory == ItemSubCategory.Shield;
+                ItemSubCategory.Spear or ItemSubCategory.TwoHandedWeapon or ItemSubCategory.Staff or ItemSubCategory.Katar or ItemSubCategory.ThrowingWeapon;
+            var off = category == ItemCategory.Armor && subCategory == ItemSubCategory.Shield;
             Assert.Equal(main || off, bound);
             Assert.Equal(main, EquipmentSlotUtil.CanEquip(category, subCategory, EquipmentSlot.MainHand));
             Assert.Equal(off, EquipmentSlotUtil.CanEquip(category, subCategory, EquipmentSlot.OffHand));
