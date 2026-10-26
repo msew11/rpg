@@ -6,7 +6,7 @@ using Rpg.Services;
 
 namespace Rpg.World.Views;
 
-/// <summary>表现层按性别和动作加载并复用项目内的身体动画。</summary>
+/// <summary>表现层按性别和动作加载并复用项目内的身体、头部和默认武器资源。</summary>
 public sealed class AnimationService : Service
 {
     /// <summary>当前表现生命周期中已使用的动作资源。</summary>
@@ -14,6 +14,9 @@ public sealed class AnimationService : Service
 
     /// <summary>独立头部按性别和编号缓存，不复制身体动作。</summary>
     private readonly Dictionary<(RoleGender, int), DataActorHead> _heads = new();
+
+    /// <summary>默认测试长剑的独立动作资源，同源动作共享缓存。</summary>
+    private readonly Dictionary<(RoleGender, RoleMotion), DataActorWeapon> _weapons = new();
 
     /// <summary>加载对应动作；资源缺失时给出明确的路径诊断。</summary>
     public DataActorAnimation Get(RoleGender gender, RoleMotion motion)
@@ -55,6 +58,36 @@ public sealed class AnimationService : Service
         return head;
     }
 
+    /// <summary>加载默认武器 1012；缺少独立素材的动作显式复用相近姿态。</summary>
+    public DataActorWeapon GetDefaultWeapon(RoleGender gender, RoleMotion motion)
+    {
+        ThrowIfDisposed();
+        if (!Enum.IsDefined(motion)) throw new ArgumentOutOfRangeException(nameof(motion));
+        var sourceMotion = motion switch
+        {
+            RoleMotion.Die => RoleMotion.Sit,
+            RoleMotion.Attack2 or RoleMotion.Attack3 => RoleMotion.Attack1,
+            RoleMotion.Prepare2 or RoleMotion.Prepare3 => RoleMotion.Prepare1,
+            RoleMotion.Ride => RoleMotion.Stand,
+            _ => motion
+        };
+        if (_weapons.TryGetValue((gender, sourceMotion), out var weapon)) return weapon;
+        var body = gender switch
+        {
+            RoleGender.Male => "male",
+            RoleGender.Female => "female",
+            _ => throw new ArgumentOutOfRangeException(nameof(gender))
+        };
+        var path = $"res://assets/characters/weapons/1012/{body}/{sourceMotion.ToString().ToLowerInvariant()}.tres";
+        weapon = GD.Load<DataActorWeapon>(path)
+            ?? throw new InvalidOperationException($"默认武器资源加载失败：{path}");
+        if (weapon.Frames.Length == 0 || weapon.Frames.Length % 5 != 0 ||
+            weapon.Anchors.Length != weapon.Frames.Length || weapon.Layers.Length != weapon.Frames.Length)
+            throw new InvalidOperationException($"默认武器方向或连接点不完整：{path}");
+        _weapons.Add((gender, sourceMotion), weapon);
+        return weapon;
+    }
+
     /// <summary>将逻辑朝向转换为五方向资源索引及水平镜像标记。</summary>
     public static (int Direction, bool Mirrored) ResolveDirection(Vector2 facing)
     {
@@ -73,6 +106,6 @@ public sealed class AnimationService : Service
         };
     }
     /// <summary>撤销资源缓存，原生资源仍由 Godot 引用计数管理。</summary>
-    public override void Dispose() { IsDisposed = true; _animations.Clear(); _heads.Clear(); }
+    public override void Dispose() { IsDisposed = true; _animations.Clear(); _heads.Clear(); _weapons.Clear(); }
 
 }

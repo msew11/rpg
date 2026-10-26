@@ -3,7 +3,7 @@ using Rpg.Services;
 
 namespace Rpg.World.Views;
 
-/// <summary>根据只读玩家快照播放身体动画，不持有或改变 ECS 组件。</summary>
+/// <summary>根据只读玩家快照组合身体、头部和默认武器，不持有或改变 ECS 组件。</summary>
 public partial class ActorView : Node2D
 {
     /// <summary>围绕角色定位点镜像整个身体的容器。</summary>
@@ -14,6 +14,9 @@ public partial class ActorView : Node2D
     /// <summary>独立头部图层，由身体帧变化更新挂接位置。</summary>
     private readonly Sprite2D _head = new()
         { Name = "Head", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
+    /// <summary>默认测试长剑的独立持握图层，共用身体帧而不启动另一动画时钟。</summary>
+    private readonly Sprite2D _weapon = new()
+        { Name = "Weapon", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
     /// <summary>上次读取的快照，用来区分动作变化和普通位置变化。</summary>
     private DataActorState? _previous;
     /// <summary>角色实体原点的 GM 调试标记。</summary>
@@ -25,9 +28,10 @@ public partial class ActorView : Node2D
         AddChild(_facingRoot);
         _facingRoot.AddChild(_body);
         _facingRoot.AddChild(_head);
+        _facingRoot.AddChild(_weapon);
         AddChild(_anchor);
-        _body.FrameChanged += UpdateHead;
-        _body.AnimationChanged += UpdateHead;
+        _body.FrameChanged += UpdateAttachments;
+        _body.AnimationChanged += UpdateAttachments;
         if (_previous is { } state)
         {
             _previous = null;
@@ -71,12 +75,13 @@ public partial class ActorView : Node2D
             if (playing) _body.Play();
         }
         _previous = state;
-        UpdateHead();
+        UpdateAttachments();
     }
-    /// <summary>头部与身体共用方向和时间，只更新纹理及相对世界锚点的挂接位置。</summary>
-    private void UpdateHead()
+    /// <summary>头部、武器与身体共用方向和时间，逐帧更新挂接位置及武器遮挡。</summary>
+    private void UpdateAttachments()
     {
-        if (_previous is not { } state || _body.SpriteFrames is null) return;
+        if (!IsInsideTree() || !GameServices.IsInitialized ||
+            _previous is not { } state || _body.SpriteFrames is null) return;
         var body = GameServices.Animation.Get(state.Gender, state.Motion);
         // 换动作时属性信号可能先于新快照更新，等 Present 结束后统一同步。
         if (!ReferenceEquals(body.Frames, _body.SpriteFrames)) return;
@@ -86,6 +91,16 @@ public partial class ActorView : Node2D
         var count = body.Frames.GetFrameCount(_body.Animation);
         _head.Texture = head.Frames[direction];
         _head.Position = -body.Anchor + body.HeadAttachments[direction * count + _body.Frame] - head.Anchors[direction];
+        var weapon = GameServices.Animation.GetDefaultWeapon(state.Gender, state.Motion);
+        var weaponCount = weapon.Frames.Length / 5;
+        // 同源动作逐帧一致；复用动作按进度映射，短动作末帧也取武器末帧。
+        var weaponFrame = count <= 1 ? 0 : Mathf.RoundToInt((float)_body.Frame * (weaponCount - 1) / (count - 1));
+        var index = direction * weaponCount + weaponFrame;
+        _weapon.Texture = weapon.Frames[index];
+        _weapon.Position = -body.Anchor + body.WeaponAttachments[direction * count + _body.Frame] - weapon.Anchors[index];
+        // 只调整角色内部绘制顺序，避免武器 Z 值跨过按实体坐标排序的其他角色和物品。
+        var childIndex = weapon.Layers[index] < 0 ? 0 : _facingRoot.GetChildCount() - 1;
+        if (_weapon.GetIndex() != childIndex) _facingRoot.MoveChild(_weapon, childIndex);
     }
 
 }

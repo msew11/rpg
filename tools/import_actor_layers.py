@@ -22,6 +22,7 @@ def write_body(animation, source, raw, target):
         raise ValueError("身体清单与原始数据不一致")
     atlas = Image.new("RGBA", (width * count, height * 5))
     attachments = [None] * (count * 5)
+    weapon_attachments = [None] * (count * 5)
     folder = target / gender
     folder.mkdir(parents=True, exist_ok=True)
     lines = [f'[gd_resource type="Resource" script_class="DataActorAnimation" load_steps={count * 5 + 4} format=3]',
@@ -40,6 +41,9 @@ def write_body(animation, source, raw, target):
         crop = struct.unpack_from("<2i", data, frame["sourceOffset"])
         attach = struct.unpack_from("<2i", data, end + 12)
         attachments[direction * count + index] = (crop[0] + attach[0], crop[1] + attach[1])
+        # 头部、面部之后的第一组手部连接点对应右手武器。
+        hand = struct.unpack_from("<2i", data, end + 28)
+        weapon_attachments[direction * count + index] = (crop[0] + hand[0], crop[1] + hand[1])
         lines += [f'[sub_resource type="AtlasTexture" id="Frame_{direction}_{index}"]',
                   'atlas = ExtResource("2")', f'region = Rect2({index * width}, {direction * height}, {width}, {height})',
                   'filter_clip = true']
@@ -52,9 +56,11 @@ def write_body(animation, source, raw, target):
         loop = 'true' if motion in ('stand', 'run') else 'false'
         lines.append('{"frames": [' + frames + '], "loop": ' + loop + f', "name": &"dir{direction}", "speed": 10.0' + '}' + (',' if direction < 4 else ''))
     points = ', '.join(str(value) for point in attachments for value in point)
+    weapon_points = ', '.join(str(value) for point in weapon_attachments for value in point)
     lines += [']', '[resource]', 'script = ExtResource("1")', 'Frames = SubResource("Animations")',
               f'Anchor = Vector2({animation["anchorX"]}, {animation["anchorY"]})',
-              f'HeadAttachments = PackedVector2Array({points})']
+              f'HeadAttachments = PackedVector2Array({points})',
+              f'WeaponAttachments = PackedVector2Array({weapon_points})']
     (folder / f"{motion}.tres").write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 

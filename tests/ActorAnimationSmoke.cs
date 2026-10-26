@@ -108,6 +108,7 @@ public partial class ActorAnimationSmoke : Node
             }
             Check(total == 605, $"动作资源帧不完整：{total}");
             CheckDefaultHeads(repo, actor);
+            CheckDefaultWeapon(repo, actor);
 
             var run = new DataActorState(1001, RoleGender.Male, Vector2.Zero, RoleMotion.Run, Vector2.Right, 0);
             actor.Present(run);
@@ -143,7 +144,7 @@ public partial class ActorAnimationSmoke : Node
             Check(body.Frame == 0 && ReferenceEquals(body.SpriteFrames, repo.Get(RoleGender.Female, RoleMotion.Run).Frames),
                 "性别更新后残留旧资源或帧");
             if (OS.GetCmdlineUserArgs().Contains("--capture-actors")) await CaptureActors(screenDirections);
-            GD.Print("Actor animation smoke passed: 26 motions, 605 frames, 8 directions.");
+            GD.Print("Actor animation smoke passed: 26 motions, 605 body frames, 320 weapon frames, 8 directions.");
             GetTree().Quit();
         }
         catch (Exception error)
@@ -185,30 +186,108 @@ public partial class ActorAnimationSmoke : Node
         }
     }
 
+    /// <summary>验证 client-actor-presentation 默认长剑场景，覆盖真实节点逐帧同步、八方向和角色内部遮挡。</summary>
+    private static void CheckDefaultWeapon(AnimationService animations, ActorView actor)
+    {
+        var directions = new[] { Vector2.Down, new Vector2(-1, 1), Vector2.Left,
+            new Vector2(-1, -1), Vector2.Up, new Vector2(1, -1), Vector2.Right, new Vector2(1, 1) };
+        var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+        var weaponNode = actor.GetNode<Sprite2D>("Facing/Weapon");
+        var head = actor.GetNode<Sprite2D>("Facing/Head");
+        foreach (var gender in Enum.GetValues<RoleGender>())
+        foreach (var motion in Enum.GetValues<RoleMotion>())
+        {
+            var resource = animations.Get(gender, motion);
+            var weapon = animations.GetDefaultWeapon(gender, motion);
+            Check(ReferenceEquals(weapon, animations.GetDefaultWeapon(gender, motion)), "武器没有复用缓存");
+            Check(resource.WeaponAttachments.Length == resource.HeadAttachments.Length, "身体缺少逐帧手部连接点");
+            for (var direction = 0; direction < directions.Length; direction++)
+            {
+                var state = new DataActorState(1, gender, Vector2.Zero, motion,
+                    IsometricProjection.ToLogical(directions[direction]), 0);
+                actor.Present(state);
+                var count = body.SpriteFrames.GetFrameCount(body.Animation);
+                for (var frame = 0; frame < count; frame++)
+                {
+                    body.SetFrameAndProgress(frame, 0.4f);
+                    Check(weapon.Frames.Contains(weaponNode.Texture), "武器残留其他角色或动作纹理");
+                    using var image = weaponNode.Texture.GetImage();
+                    Check(image.GetUsedRect().HasArea(), "武器帧像素为空");
+                    var source = Array.IndexOf(weapon.Frames, weaponNode.Texture);
+                    Check(source / (weapon.Frames.Length / 5) == int.Parse(body.Animation.ToString()[3..]),
+                        "武器和身体朝向不同步");
+                    Check(weaponNode.ZIndex == 0, "武器层级影响其他实体坐标遮挡");
+                    Check(weapon.Layers[source] < 0 ? weaponNode.GetIndex() < body.GetIndex() :
+                        weaponNode.GetIndex() > body.GetIndex(), "武器前后遮挡不同步");
+                    actor.Present(state with { Position = Vector2.One });
+                    Check(body.Frame == frame && Math.Abs(body.FrameProgress - 0.4f) < 0.001f,
+                        "武器更新重启身体时钟");
+                    Check(head.Texture is not null && weaponNode.Visible, "组合图层丢失");
+                }
+            }
+        }
+        // 原始身体/武器文件独立提取的黄金坐标；防止手部编号、裁剪偏移或剑柄连接点取错。
+        var samples = new[]
+        {
+            (RoleGender.Male, RoleMotion.Stand, new Vector2(-1, 1), 0, new Vector2(-25, -40), false),
+            (RoleGender.Male, RoleMotion.Run, new Vector2(-1, 1), 0, new Vector2(-39, -92), true),
+            (RoleGender.Male, RoleMotion.Run, new Vector2(-1, 1), 3, new Vector2(-20, -96), false),
+            (RoleGender.Female, RoleMotion.Stand, Vector2.Down, 0, new Vector2(-20, -51), true),
+            (RoleGender.Female, RoleMotion.Run, new Vector2(-1, 1), 3, new Vector2(-80, -73), false)
+        };
+        foreach (var (gender, motion, screenDirection, frame, position, behind) in samples)
+        {
+            actor.Present(new DataActorState(1, gender, Vector2.Zero, motion,
+                IsometricProjection.ToLogical(screenDirection), 0));
+            body.SetFrameAndProgress(frame, 0);
+            Check(weaponNode.Position == position, $"原始剑柄坐标漂移：{gender}/{motion}/{frame}");
+            Check((weaponNode.GetIndex() < body.GetIndex()) == behind, "原始逐帧遮挡回归");
+        }
+        var run = new DataActorState(1, RoleGender.Male, Vector2.Zero, RoleMotion.Run,
+            IsometricProjection.ToLogical(new Vector2(-1, 1)), 0);
+        actor.Present(run);
+        body.SetFrameAndProgress(3, 0.4f);
+        actor.Present(run with { Facing = IsometricProjection.ToLogical(new Vector2(1, 1)) });
+        Check(body.Frame == 3 && weaponNode.Position == new Vector2(-20, -96) &&
+            actor.GetNode<Node2D>("Facing").Scale.X == -1, "镜像改向丢失武器帧或握点");
+        actor.Present(run with { Motion = RoleMotion.Stand });
+        Check(body.Frame == 0 && weaponNode.Position == new Vector2(-25, -40), "停止未恢复站立持握");
+    }
+
     /// <summary>可选渲染男女八方向示例，供人工核对透明度、方向和身体定位。</summary>
     private async Task CaptureActors(Vector2[] directions)
     {
-        var viewport = new SubViewport { Size = new Vector2I(960, 320), Disable3D = true,
+        var viewport = new SubViewport { Size = new Vector2I(960, 640), Disable3D = true,
             RenderTargetUpdateMode = SubViewport.UpdateMode.Always };
         AddChild(viewport);
         viewport.AddChild(new ColorRect { Size = viewport.Size, Color = new Color("24303d") });
-        for (var gender = 0; gender < 2; gender++)
+        var runners = new System.Collections.Generic.List<AnimatedSprite2D>();
+        for (var row = 0; row < 4; row++)
         for (var direction = 0; direction < directions.Length; direction++)
         {
-            var position = new Vector2(60 + direction * 120, 130 + gender * 150);
+            var position = new Vector2(60 + direction * 120, 135 + row * 155);
             viewport.AddChild(new ColorRect { Position = position - new Vector2(15, 0), Size = new Vector2(30, 1),
                 Color = new Color("75b7cf") });
             var preview = new ActorView();
             viewport.AddChild(preview);
-            preview.Present(new DataActorState(1, (RoleGender)gender, IsometricProjection.ToLogical(position),
-                RoleMotion.Run, IsometricProjection.ToLogical(directions[direction]), 0));
+            preview.Present(new DataActorState(1, (RoleGender)(row % 2), IsometricProjection.ToLogical(position),
+                row < 2 ? RoleMotion.Stand : RoleMotion.Run, IsometricProjection.ToLogical(directions[direction]), 0));
+            var sprite = preview.GetNode<AnimatedSprite2D>("Facing/Body");
+            sprite.Pause();
+            if (row >= 2) runners.Add(sprite);
         }
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         var folder = ProjectSettings.GlobalizePath("res://build");
         System.IO.Directory.CreateDirectory(folder);
-        var error = viewport.GetTexture().GetImage().SavePng(System.IO.Path.Combine(folder, "actor-preview.png"));
-        Check(error == Error.Ok, "角色预览图保存失败");
+        for (var frame = 0; frame < 8; frame++)
+        {
+            foreach (var runner in runners) runner.SetFrameAndProgress(frame, 0);
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            var error = viewport.GetTexture().GetImage().SavePng(System.IO.Path.Combine(folder, $"weapon-preview-{frame}.png"));
+            Check(error == Error.Ok, "持剑预览图保存失败");
+        }
+        viewport.Free();
     }
 
     /// <summary>以退出码可见的异常报告场景验收失败。</summary>
