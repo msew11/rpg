@@ -1,7 +1,7 @@
 {
   "itemId": 1013,
   "binding": "weaponr41",
-  "bindingNote": "按物品图标核对持握系列；大剑weaponr41、拳刃weaponr51。副手拳刃复用右手原画。",
+  "bindingNote": "按物品图标核对持握系列；大剑weaponr41、拳刃weaponr51。拳刃左右手分别使用weaponr51和weaponl51。",
   "rearLayer": null,
   "motionReuse": {
     "die": "sit",

@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=8 format=3]
+[gd_resource type="Resource" script_class="DataActorWeapon" load_steps=9 format=3]
 [ext_resource type="Script" path="res://src/World/Views/DataActorWeapon.cs" id="1"]
 [ext_resource type="Texture2D" path="res://assets/characters/weapons/1017/male/hurt.png" id="2"]
+[ext_resource type="Resource" path="res://assets/characters/weapons/1017/left/male/hurt.tres" id="3"]
 [sub_resource type="AtlasTexture" id="Frame0"]
 atlas = ExtResource("2")
 region = Rect2(0, 0, 89, 53)
@@ -26,3 +27,4 @@ script = ExtResource("1")
 Frames = Array[Texture2D]([SubResource("Frame0"), SubResource("Frame1"), SubResource("Frame2"), SubResource("Frame3"), SubResource("Frame4")])
 Anchors = PackedVector2Array(24, 17, 36, 8, 58, 7, 76, 13, 27, 28)
 Layers = PackedInt32Array(0, 0, 0, 0, 0)
+LeftHandVariant = ExtResource("3")

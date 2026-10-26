@@ -6,6 +6,8 @@ namespace Rpg.World.Views;
 [GlobalClass]
 public partial class DataActorWeapon : Resource
 {
+    /// <summary>独立左手原画及连接点；未提供时沿用本资源的固定持握素材。</summary>
+    [Export] public DataActorWeapon? LeftHandVariant { get; set; }
     /// <summary>按方向、帧顺序排列的纹理，每个方向帧数相同。</summary>
     [Export] public Texture2D[] Frames { get; set; } = [];
     /// <summary>长柄握点后的独立帧，与前段同步并随方向切换身体前后关系；普通装备为空。</summary>

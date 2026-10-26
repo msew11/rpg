@@ -58,8 +58,8 @@ public sealed class AnimationService : Service
         return head;
     }
 
-    /// <summary>加载指定外观编号的武器；缺少独立素材的动作显式复用相近姿态。</summary>
-    public DataActorWeapon GetWeapon(int appearanceId, RoleGender gender, RoleMotion motion)
+    /// <summary>按镜像前的源手别加载武器；独立左手原画和缺失动作分别复用已声明资源。</summary>
+    public DataActorWeapon GetWeapon(int appearanceId, RoleGender gender, RoleMotion motion, bool rightHand = true)
     {
         ThrowIfDisposed();
         if (appearanceId <= 0) throw new ArgumentOutOfRangeException(nameof(appearanceId));
@@ -72,7 +72,8 @@ public sealed class AnimationService : Service
             RoleMotion.Ride => RoleMotion.Stand,
             _ => motion
         };
-        if (_weapons.TryGetValue((appearanceId, gender, sourceMotion), out var weapon)) return weapon;
+        if (_weapons.TryGetValue((appearanceId, gender, sourceMotion), out var weapon))
+            return rightHand ? weapon : weapon.LeftHandVariant ?? weapon;
         var body = gender switch
         {
             RoleGender.Male => "male",
@@ -82,12 +83,19 @@ public sealed class AnimationService : Service
         var path = $"res://assets/characters/weapons/{appearanceId}/{body}/{sourceMotion.ToString().ToLowerInvariant()}.tres";
         weapon = GD.Load<DataActorWeapon>(path)
             ?? throw new InvalidOperationException($"装备武器资源加载失败：{path}");
+        ValidateWeapon(weapon, path);
+        if (weapon.LeftHandVariant is { } left) ValidateWeapon(left, path + " 的左手变体");
+        _weapons.Add((appearanceId, gender, sourceMotion), weapon);
+        return rightHand ? weapon : weapon.LeftHandVariant ?? weapon;
+    }
+
+    /// <summary>基础原画与独立左手原画都必须具有完整的五方向帧、连接点和层次。</summary>
+    private static void ValidateWeapon(DataActorWeapon weapon, string path)
+    {
         if (weapon.Frames.Length == 0 || weapon.Frames.Length % 5 != 0 ||
             weapon.Anchors.Length != weapon.Frames.Length || weapon.Layers.Length != weapon.Frames.Length ||
             (weapon.RearFrames.Length != 0 && weapon.RearFrames.Length != weapon.Frames.Length))
             throw new InvalidOperationException($"装备武器方向或连接点不完整：{path}");
-        _weapons.Add((appearanceId, gender, sourceMotion), weapon);
-        return weapon;
     }
 
     /// <summary>将逻辑朝向转换为五方向资源索引及水平镜像标记。</summary>

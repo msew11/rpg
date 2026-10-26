@@ -1,7 +1,7 @@
 {
   "itemId": 1017,
   "binding": "weaponr51",
-  "bindingNote": "按物品图标核对持握系列；大剑weaponr41、拳刃weaponr51。副手拳刃复用右手原画。",
+  "bindingNote": "按物品图标核对持握系列；大剑weaponr41、拳刃weaponr51。拳刃左右手分别使用weaponr51和weaponl51。",
   "rearLayer": null,
   "motionReuse": {
     "die": "sit",
@@ -127,6 +127,125 @@
       "sourceAction": 12
     }
   ],
+  "leftHandVariant": {
+    "binding": "weaponl51",
+    "layerSource": "avatar/weaponl/Weaponl.ini",
+    "layerSha256": "08b9930ca44333207eb52eb8ac3de5b6f799c2608e182b1507a538b5e8cf2776",
+    "animations": [
+      {
+        "gender": "male",
+        "motion": "stand",
+        "source": "avatar/weaponl/weaponl5101.gsn",
+        "sha256": "e3029aae5db7d2f631ed3753bf3fd6b1a2028cd8362718449d01a6b6f4b44b44",
+        "framesPerDirection": 1,
+        "sourceAction": 1
+      },
+      {
+        "gender": "male",
+        "motion": "run",
+        "source": "avatar/weaponl/weaponl5102.gsn",
+        "sha256": "5e4e14a8aa8a862b5cb066c0947e5701741fb0b2d9d4b0fe51760a3a72823f14",
+        "framesPerDirection": 8,
+        "sourceAction": 2
+      },
+      {
+        "gender": "male",
+        "motion": "sit",
+        "source": "avatar/weaponl/weaponl5103.gsn",
+        "sha256": "dff9c612d5c47f35e412b2b21f2e76062258cd9c3bda224fdf3d104a711b17f3",
+        "framesPerDirection": 1,
+        "sourceAction": 3
+      },
+      {
+        "gender": "male",
+        "motion": "attack1",
+        "source": "avatar/weaponl/weaponl5107.gsn",
+        "sha256": "cba1a368d6951bd636322f5123b16974322c2d89948d64a6d23200227285c7b2",
+        "framesPerDirection": 9,
+        "sourceAction": 7
+      },
+      {
+        "gender": "male",
+        "motion": "magic",
+        "source": "avatar/weaponl/weaponl5108.gsn",
+        "sha256": "4e38f7941aa0f9e0a65733019110715daf01fc86d246ee8401e154a7b05ffb10",
+        "framesPerDirection": 8,
+        "sourceAction": 8
+      },
+      {
+        "gender": "male",
+        "motion": "prepare1",
+        "source": "avatar/weaponl/weaponl5111.gsn",
+        "sha256": "9edea5c0cc5fdac9ef2d5c344c66319e909f1803fba7f3950e55a3ed78532f4a",
+        "framesPerDirection": 4,
+        "sourceAction": 11
+      },
+      {
+        "gender": "male",
+        "motion": "hurt",
+        "source": "avatar/weaponl/weaponl5112.gsn",
+        "sha256": "7fa0ee9228f49a14389ed305b468654112e3bac4f96410ca7038f27c7893ca58",
+        "framesPerDirection": 1,
+        "sourceAction": 12
+      },
+      {
+        "gender": "female",
+        "motion": "stand",
+        "source": "avatar/weaponl/weaponl5151.gsn",
+        "sha256": "742cb667df2c1459dc9d55e6f828d9258078bfaf48d2c3d7a13ed30841d55177",
+        "framesPerDirection": 1,
+        "sourceAction": 1
+      },
+      {
+        "gender": "female",
+        "motion": "run",
+        "source": "avatar/weaponl/weaponl5152.gsn",
+        "sha256": "845738db94ffca3afbf9da1e85f3424c9da55d7f965c73cad3d731c6736e82d9",
+        "framesPerDirection": 8,
+        "sourceAction": 2
+      },
+      {
+        "gender": "female",
+        "motion": "sit",
+        "source": "avatar/weaponl/weaponl5153.gsn",
+        "sha256": "b96959ccc489f8a1322c57d8114fb59765d02cf0a51932870d1be6eb1a8c6e4b",
+        "framesPerDirection": 1,
+        "sourceAction": 3
+      },
+      {
+        "gender": "female",
+        "motion": "attack1",
+        "source": "avatar/weaponl/weaponl5157.gsn",
+        "sha256": "36f13a042a9547b649386d83178251df29f430f0dd6928b764cd7d5c343ea793",
+        "framesPerDirection": 8,
+        "sourceAction": 7
+      },
+      {
+        "gender": "female",
+        "motion": "magic",
+        "source": "avatar/weaponl/weaponl5158.gsn",
+        "sha256": "643150b25dd64fdd8a6569b0af9f2ba09454d749af39f0a2e5ea0d636cd8cd96",
+        "framesPerDirection": 9,
+        "sourceAction": 8
+      },
+      {
+        "gender": "female",
+        "motion": "prepare1",
+        "source": "avatar/weaponl/weaponl5161.gsn",
+        "sha256": "58d3aa3b6e9d7d37e24c7d33c2616b1a46e41831055db1ede86ad7c343e71afd",
+        "framesPerDirection": 4,
+        "sourceAction": 11
+      },
+      {
+        "gender": "female",
+        "motion": "hurt",
+        "source": "avatar/weaponl/weaponl5162.gsn",
+        "sha256": "e5d775e5a691d0137ca2fd284401a7523914a13d921def2f41d6da78c7063d62",
+        "framesPerDirection": 1,
+        "sourceAction": 12
+      }
+    ]
+  },
   "itemSource": "zipbin/ov_arm.bin",
   "itemSourceRow": 17,
   "itemSourceSha256": "408e9e8751a80efbb278a548b505fd4d3362a63b8305140b8107f3cce68243ac",

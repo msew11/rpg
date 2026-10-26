@@ -123,13 +123,15 @@ public partial class ActorView : Node2D
         if (itemId == 0) { sprite.Texture = null; return; }
         var item = GameServices.Config.Item.Items[itemId];
         var appearance = GameServices.Config.Equipment.Items[item.RelatedId].AppearanceId;
-        var weapon = GameServices.Animation.GetWeapon(appearance, state.Gender, state.Motion);
+        // 原画、握点与身体挂点共用同一源手别，随后一起镜像为实际左右手。
+        var sourceRightHand = mainHand != mirrored;
+        var weapon = GameServices.Animation.GetWeapon(appearance, state.Gender, state.Motion, sourceRightHand);
         var weaponCount = weapon.Frames.Length / 5;
         var weaponFrame = count <= 1 ? 0 : Mathf.RoundToInt((float)_body.Frame * (weaponCount - 1) / (count - 1));
         var index = direction * weaponCount + weaponFrame;
         sprite.Texture = weapon.Frames[index];
         // 镜像前先交换原画手别，确保实际左右手语义不变。
-        var handPoints = mainHand != mirrored ? body.RightHandAttachments : body.LeftHandAttachments;
+        var handPoints = sourceRightHand ? body.RightHandAttachments : body.LeftHandAttachments;
         hand.Position = -body.Anchor + handPoints[direction * count + _body.Frame];
         sprite.Position = -weapon.Anchors[index];
         if (weapon.RearFrames.Length != 0)

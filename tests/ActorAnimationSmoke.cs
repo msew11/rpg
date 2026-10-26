@@ -110,6 +110,7 @@ public partial class ActorAnimationSmoke : Node
             CheckDefaultHeads(repo, actor);
             CheckDefaultWeapon(repo, actor);
             CheckEquipmentVariants(repo, actor);
+            CheckKatarHands(repo, actor);
 
             var run = new DataActorState(1001, RoleGender.Male, Vector2.Zero, RoleMotion.Run, Vector2.Right, 0);
             actor.Present(run);
@@ -149,8 +150,10 @@ public partial class ActorAnimationSmoke : Node
             {
                 await CaptureActors(screenDirections);
                 await CaptureLongWeapons(screenDirections);
+                await CaptureKatars(screenDirections);
+                await CaptureOtherEquipment(screenDirections);
             }
-            GD.Print("Actor animation smoke passed: 26 motions, 605 body frames, 320 weapon frames, 8 directions.");
+            GD.Print("Actor animation smoke passed: 26 motions, 605 body frames, 7 equipment types with native katar hands, 8 directions.");
             GetTree().Quit();
         }
         catch (Exception error)
@@ -209,8 +212,8 @@ public partial class ActorAnimationSmoke : Node
             var sprite = hand.GetNode<Sprite2D>("Weapon");
             var rear = actor.GetNode<Sprite2D>(main ? "Facing/RightWeaponRear" : "Facing/LeftWeaponRear");
             var resource = animations.Get(gender, motion);
-            var weapon = animations.GetWeapon(id, gender, motion);
             var (sourceDirection, mirrored) = AnimationService.ResolveDirection(state.Facing);
+            var weapon = animations.GetWeapon(id, gender, motion, main != mirrored);
             var count = body.SpriteFrames.GetFrameCount(body.Animation);
             for (var frame = 0; frame < count; frame++)
             {
@@ -235,6 +238,156 @@ public partial class ActorAnimationSmoke : Node
             }
         }
         GD.Print("Equipment actor variants passed: 7 items, both genders, 13 motions, 8 directions, both katar hands and empty slots.");
+    }
+
+    /// <summary>client-actor-presentation：独立源哈希校验左手五方向，正背面刀尖向外，镜像侧面不复用错手。</summary>
+    private static void CheckKatarHands(AnimationService animations, ActorView actor)
+    {
+        // 从只读 weaponl5101/5151 原画提取，独立于项目导入资源与运行时手别选择。
+        var hashes = new[]
+        {
+            new[] { "ECD6AB537835815006C46D8C42052E21737A5059414204201A814B3E9C1260FB",
+                "8425C44B9ED954E127DA1C6FB5D61B03366E83C05944544FA8D15E3FC0F33313",
+                "C5A6C00FB7B0DA123576142A5B11B88BA5C815A7E6FB0AD3AF87440B26B7F861",
+                "E09FFB3DC2B9B615DF69DBCFD7EEFD146F546C1EAE1A69481994E45C54D4EF8C",
+                "42468B0DB1093F99DBF4A50B6095C80BA2CBF2EBE3631959B832E746B1F3AD93" },
+            new[] { "7515CA747B0A755517E9E44F9390D481A4D2A715D144076EE2ED42F079157B44",
+                "E1D35855834E68185A93F65844C1CC11E0274BDB1BE927E21E4E8320DEB71055",
+                "B5BFED394C0195DD1E43DA2D7F35A9B89245E11FE30AFDC9EC6BFA520873C34D",
+                "05112188147D57A20364EADF04E53B3121E0E22C236CF9732F39EAF3CE384577",
+                "CB1A95326F9D204B2ABCB1FFA1765D8F497361242985D83DEFABCD07BDDF0792" }
+        };
+        var directions = new[] { Vector2.Down, new Vector2(-1, 1), Vector2.Left,
+            new Vector2(-1, -1), Vector2.Up, new Vector2(1, -1), Vector2.Right, new Vector2(1, 1) };
+        foreach (var gender in Enum.GetValues<RoleGender>())
+        {
+            var left = animations.GetWeapon(1017, gender, RoleMotion.Stand, false);
+            var right = animations.GetWeapon(1017, gender, RoleMotion.Stand);
+            Check(!ReferenceEquals(left, right), "拳刃左右手仍共用同一原画");
+            for (var index = 0; index < 5; index++)
+            {
+                using var pixels = left.Frames[index].GetImage();
+                pixels.Convert(Image.Format.Rgba8);
+                var data = pixels.GetData();
+                for (var offset = 0; offset < data.Length; offset += 4)
+                    if (data[offset + 3] < 255) Array.Clear(data, offset, 3);
+                Check(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data)) == hashes[(int)gender][index],
+                    $"左手拳刃原始方向像素不符：{gender}/{index}");
+            }
+            for (var direction = 0; direction < 8; direction++)
+            {
+                actor.Present(new DataActorState(1, gender, Vector2.Zero, RoleMotion.Stand,
+                    IsometricProjection.ToLogical(directions[direction]), 0, 1, 1017, 1017));
+                var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+                foreach (var main in new[] { true, false })
+                {
+                    var hand = actor.GetNode<Node2D>(main ? "Facing/RightHand" : "Facing/LeftHand");
+                    var sprite = hand.GetNode<Sprite2D>("Weapon");
+                    var expected = direction < 5 ? (main ? right : left) : (main ? left : right);
+                    Check(expected.Frames.Contains(sprite.Texture), $"镜像方向拳刃使用错手原画：{gender}/{direction}/{main}");
+                    if (direction is 0 or 4)
+                    {
+                        using var pixels = sprite.Texture.GetImage();
+                        var bottom = pixels.GetUsedRect().End.Y - 1;
+                        var tips = Enumerable.Range(0, pixels.GetWidth()).Where(x => pixels.GetPixel(x, bottom).A > 0).ToArray();
+                        Check(tips.Length > 0, "拳刃底部刀尖缺失");
+                        var tip = sprite.ToGlobal(new Vector2((float)tips.Average() + 0.5f, bottom + 0.5f));
+                        var grip = hand.GlobalPosition;
+                        Check(tip.Y > grip.Y && (grip.X < actor.GlobalPosition.X ? tip.X < grip.X : tip.X > grip.X),
+                            $"正背面拳刃刀尖未向外展开：{gender}/{direction}/{main}");
+                    }
+                    else
+                    {
+                        // 站立左右侧及斜面：原画右手在远侧，镜像后实际远手随之交换。
+                        var expectedBehind = direction < 5 ? main : !main;
+                        Check((hand.GetIndex() < body.GetIndex()) == expectedBehind,
+                            $"侧面拳刃近远手遮挡错误：{gender}/{direction}/{main}");
+                    }
+                }
+            }
+        }
+        GD.Print("Katar hand identity passed: native left art, both genders, 8 directions, outward front/back tips and side depth.");
+    }
+
+    /// <summary>client-actor-presentation：保存双手拳刃男女站立和跑步八方向实绘，核对手部贴合及侧面姿态。</summary>
+    private async Task CaptureKatars(Vector2[] directions)
+    {
+        var viewport = new SubViewport { Size = new Vector2I(1120, 640), Disable3D = true,
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Always };
+        AddChild(viewport);
+        viewport.AddChild(new ColorRect { Size = viewport.Size, Color = new Color("24303d") });
+        var actors = new System.Collections.Generic.List<ActorView>();
+        for (var row = 0; row < 4; row++)
+        for (var direction = 0; direction < 8; direction++)
+        {
+            var position = new Vector2(70 + direction * 140, 145 + row * 155);
+            viewport.AddChild(new Label { Position = position - new Vector2(62, 138),
+                Text = $"{(row % 2 == 0 ? "M" : "F")} {(row < 2 ? "stand" : "run")} {direction}" });
+            var actor = new ActorView();
+            viewport.AddChild(actor);
+            actor.Present(new DataActorState(1, (RoleGender)(row % 2), IsometricProjection.ToLogical(position),
+                row < 2 ? RoleMotion.Stand : RoleMotion.Run, IsometricProjection.ToLogical(directions[direction]), 0, 1, 1017, 1017));
+            actor.GetNode<AnimatedSprite2D>("Facing/Body").Pause();
+            actors.Add(actor);
+        }
+        for (var frame = 0; frame < 8; frame++)
+        {
+            foreach (var actor in actors)
+            {
+                var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+                body.SetFrameAndProgress(frame % body.SpriteFrames.GetFrameCount(body.Animation), 0);
+            }
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            using var rendered = viewport.GetTexture().GetImage();
+            Check(rendered.SavePng(ProjectSettings.GlobalizePath($"res://build/katar-preview-{frame}.png")) == Error.Ok,
+                "双手拳刃渲染图保存失败");
+        }
+        viewport.Free();
+        GD.Print("Katar visual captures passed: both genders, stand/run, 8 directions, 8 body frames.");
+    }
+
+    /// <summary>client-actor-presentation：补齐大剑、盾牌与飞刀的男女八方向实绘，供源手别与持握复查。</summary>
+    private async Task CaptureOtherEquipment(Vector2[] directions)
+    {
+        foreach (var gender in Enum.GetValues<RoleGender>())
+        {
+            var viewport = new SubViewport { Size = new Vector2I(1440, 960), Disable3D = true,
+                RenderTargetUpdateMode = SubViewport.UpdateMode.Always };
+            AddChild(viewport);
+            viewport.AddChild(new ColorRect { Size = viewport.Size, Color = new Color("24303d") });
+            var actors = new System.Collections.Generic.List<ActorView>();
+            for (var row = 0; row < 6; row++)
+            for (var direction = 0; direction < 8; direction++)
+            {
+                var id = new[] { 1013, 1014, 1018 }[row / 2];
+                var position = new Vector2(160 + direction * 160, 150 + row * 160);
+                viewport.AddChild(new Label { Position = position - new Vector2(65, 145),
+                    Text = $"{id} {(row % 2 == 0 ? "stand" : "run")} {direction}" });
+                var actor = new ActorView();
+                viewport.AddChild(actor);
+                actor.Present(new DataActorState(1, gender, IsometricProjection.ToLogical(position),
+                    row % 2 == 0 ? RoleMotion.Stand : RoleMotion.Run, IsometricProjection.ToLogical(directions[direction]),
+                    0, 1, id == 1013 ? id : 0, id == 1013 ? 0 : id));
+                actor.GetNode<AnimatedSprite2D>("Facing/Body").Pause();
+                actors.Add(actor);
+            }
+            for (var frame = 0; frame < 8; frame++)
+            {
+                foreach (var actor in actors)
+                {
+                    var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+                    body.SetFrameAndProgress(frame % body.SpriteFrames.GetFrameCount(body.Animation), 0);
+                }
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                using var rendered = viewport.GetTexture().GetImage();
+                Check(rendered.SavePng(ProjectSettings.GlobalizePath($"res://build/equipment-audit-{gender}-{frame}.png")) == Error.Ok,
+                    "装备复查渲染图保存失败");
+            }
+            viewport.Free();
+        }
+        GD.Print("Other equipment captures passed: greatsword/shield/throwing blade, both genders, stand/run, 8 directions and frames.");
     }
 
     /// <summary>构造明确装备长剑的外观快照，空手默认不再显示武器。</summary>
@@ -377,13 +530,18 @@ public partial class ActorAnimationSmoke : Node
         viewport.Free();
     }
 
-    /// <summary>client-actor-presentation：以原始大剑和拳刃的首帧像素哈希阻止再次绑定错误系列。</summary>
+    /// <summary>client-actor-presentation：以七件装备的原始首帧像素哈希阻止再次绑定错误系列。</summary>
     private static void CheckWeaponIdentity()
     {
         foreach (var (id, expected) in new[]
         {
+            (1012, "666BDB84AFBF133186BC6941915B7CD0289894A27F88C089C945F3D0FD0ED1B6"),
             (1013, "1B74063A55FBE80D892DFCF96E1604DFA8EE80A563F346292854D71025F65F31"),
-            (1017, "5F124D27C4B959A8C1AD997478849B87DA9E3C4F342DD4099A35B18FE603C91B")
+            (1014, "926CE692A5E6387CB849E7DEC9D3D8C8EE9311EAFED1728F1B465CDA7817BAB0"),
+            (1015, "A1A2C0F1267ED809EA9B65A41CA3C90DDD73375E1B1A0E1B129B2E998425FC8D"),
+            (1016, "DD7DDDC8EF4DF8C28E8255A18F9B623815519F3EA352E0AB77CA18558956CF3D"),
+            (1017, "5F124D27C4B959A8C1AD997478849B87DA9E3C4F342DD4099A35B18FE603C91B"),
+            (1018, "55889D97FD2F69B24FF0E13473BA0A74B5BD77E5DF2F91EBABA3CED8D97310FB")
         })
         {
             using var pixels = GameServices.Animation.GetWeapon(id, RoleGender.Male, RoleMotion.Stand).Frames[0].GetImage();
