@@ -5,8 +5,9 @@ namespace Rpg.UI;
 /// <summary>共用角色页面布局：中央预览、右侧内容及右下角返回。</summary>
 public abstract partial class RoleScreenControl : Control
 {
-    /// <summary>中央角色预览和操作区。</summary>
-    protected RolePreviewControl Preview { get; } = new() { Name = "RolePreview" };
+    /// <summary>中央角色使用两倍展示，并预留脚部与下方旋转按钮的间距。</summary>
+    protected RolePreviewControl Preview { get; } = new()
+        { Name = "RolePreview", ActorScale = 2, ActorBottomMargin = 32 };
     /// <summary>右栏中的列表或创建选项。</summary>
     protected VBoxContainer RightContent { get; } = new() { Name = "RightContent" };
     /// <summary>页面统一的右下角返回按钮。</summary>

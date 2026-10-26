@@ -53,7 +53,8 @@ public partial class RoleManagementSmoke : Node
             var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
             var head = actor.GetNode<Sprite2D>("Facing/Head");
             var preview = (RolePreviewControl)page.FindChild("RolePreview", true, false);
-            Check(actor.Scale == Vector2.One * 2.4f, "装备预览比例影响了创角预览");
+            Check(actor.Scale == Vector2.One * 2, "创角人物未适当缩小");
+            await AssertPreviewAtSizes(page, "CancelCreate");
             foreach (var buttonName in new[] { "RotateClockwise", "RotateCounterclockwise" })
             {
                 var button = (Button)preview.FindChild(buttonName, true, false);
@@ -117,6 +118,7 @@ public partial class RoleManagementSmoke : Node
             await Frame();
             Check(preview.Direction == femaleDirection, "女性朝向未恢复");
             Check(((Button)page.FindChild("HeadChoice72", true, false)).ButtonPressed, "女性头型未恢复");
+            await AssertPreviewAtSizes(page, "CancelCreate");
             // 取消命名后切换性别，两个名字草稿也必须独立。
             Press(page, "SubmitCreate");
             var draftDialog = (ConfirmationDialog)page.FindChild("RoleNameDialog", true, false);
@@ -176,6 +178,7 @@ public partial class RoleManagementSmoke : Node
             Check(selectedPortrait.Visible && selectedPortrait.Portrait?.ResourcePath.EndsWith("DThed088_51.png") == true,
                 "选角头像与角色头型不一致");
             Press(selection, "RotateClockwise");
+            await AssertPreviewAtSizes(selection, "ReturnLogin");
             await Capture("role-selection-preview.png");
             Press(main, $"DeleteRole{role.RoleId}");
             await Frame();
@@ -277,6 +280,51 @@ public partial class RoleManagementSmoke : Node
         Check(preview.GetRect().End.X <= right.Position.X, "预览操作与右栏重叠");
         Check(back.Position.Y >= right.GetRect().End.Y && back.GetRect().End.Y <= page.Size.Y, "返回按钮不在右下角");
         Check(preview.GetRect().End.Y <= page.Size.Y, "中央操作超出窗口");
+    }
+
+    /// <summary>role-management「旋转时脚部完整」：多窗口下逐帧核验八方向头身和按钮间距。</summary>
+    private async Task AssertPreviewAtSizes(RoleScreenControl page, string backName)
+    {
+        var originalSize = GetWindow().Size;
+        var preview = page.GetNode<RolePreviewControl>("RolePreview");
+        var stage = preview.GetNode<Control>("Stage");
+        var actor = stage.GetNode<ActorView>("PreviewActor");
+        var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+        var head = actor.GetNode<Sprite2D>("Facing/Head");
+        var rotation = preview.GetNode<HBoxContainer>("PreviewRotation");
+        foreach (var size in new[] { new Vector2I(800, 600), new Vector2I(1280, 720), new Vector2I(1920, 1080) })
+        {
+            GetWindow().Size = size;
+            await Frames();
+            AssertLayout(page, backName);
+            for (var direction = 0; direction < 8; direction++)
+            {
+                for (var frame = 0; frame < body.SpriteFrames.GetFrameCount(body.Animation); frame++)
+                {
+                    body.Frame = frame;
+                    var texture = body.SpriteFrames.GetFrameTexture(body.Animation, frame);
+                    AssertPreviewPixels(body, texture, stage, rotation);
+                    AssertPreviewPixels(head, head.Texture, stage, rotation);
+                }
+                Press(preview, "RotateClockwise");
+            }
+        }
+        GetWindow().Size = originalSize;
+        await Frames();
+    }
+
+    /// <summary>按纹理有效像素转换到视口坐标，避免定位点通过但脚部已被裁剪的误判。</summary>
+    private static void AssertPreviewPixels(Node2D part, Texture2D texture, Control stage, Control rotation)
+    {
+        using var image = texture.GetImage();
+        var pixels = image.GetUsedRect();
+        var bounds = part.GetGlobalTransform() * new Rect2(pixels.Position, pixels.Size);
+        var area = stage.GetGlobalRect();
+        Check(bounds.Position.X >= area.Position.X && bounds.End.X <= area.End.X &&
+            bounds.Position.Y >= area.Position.Y && bounds.End.Y <= area.End.Y,
+            $"角色头身被预览区域裁剪：{part.Name} {bounds}，区域 {area}");
+        Check(rotation.GlobalPosition.Y - bounds.End.Y >= 12,
+            $"角色脚部与旋转按钮间距不足：{part.Name} {rotation.GlobalPosition.Y - bounds.End.Y}");
     }
 
     /// <summary>可选使用实际渲染输出选角、创建与命名页面供目视验收。</summary>

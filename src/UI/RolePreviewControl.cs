@@ -14,6 +14,8 @@ public partial class RolePreviewControl : VBoxContainer
     public bool ShowPortrait { get; init; } = true;
     /// <summary>预览人物相对原始地图素材的比例。</summary>
     public float ActorScale { get; init; } = 2.4f;
+    /// <summary>脚底定位点到预览区底边的距离，为素材脚部预留空间。</summary>
+    public float ActorBottomMargin { get; init; } = 12;
     /// <summary>所有人物展示默认朝屏幕右下方（↘）。</summary>
     public const int DefaultDirection = 1;
     /// <summary>当前预览朝向，用户旋转后保留展示状态。</summary>
@@ -90,7 +92,7 @@ public partial class RolePreviewControl : VBoxContainer
         if (!IsNodeReady() || _state is null) return;
         _actor.Present(_state with
         {
-            Position = IsometricProjection.ToLogical(new Vector2(_stage.Size.X / 2, _stage.Size.Y - 12)),
+            Position = IsometricProjection.ToLogical(new Vector2(_stage.Size.X / 2, _stage.Size.Y - ActorBottomMargin)),
             Facing = IsometricProjection.ToLogical(Vector2.FromAngle(Direction * Mathf.Pi / 4))
         });
         _portrait.Position = new Vector2(Mathf.Max(12, _stage.Size.X / 2 - 120),
