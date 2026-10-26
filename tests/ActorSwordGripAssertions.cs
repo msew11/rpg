@@ -18,7 +18,8 @@ internal static class ActorSwordGripAssertions
         var viewport = new SubViewport { Size = new Vector2I(1440, 800), Disable3D = true,
             RenderTargetUpdateMode = SubViewport.UpdateMode.Always };
         host.AddChild(viewport);
-        viewport.AddChild(new ColorRect { Size = viewport.Size, Color = new Color("24303d") });
+        var background = new ColorRect { Size = viewport.Size, Color = new Color("24303d") };
+        viewport.AddChild(background);
         var actors = new List<ActorView>();
         for (var row = 0; row < 4; row++)
         for (var direction = 0; direction < 8; direction++)
@@ -93,6 +94,15 @@ internal static class ActorSwordGripAssertions
             }
             Require(rendered.SavePng(ProjectSettings.GlobalizePath($"res://build/sword-grip-preview-{frame}.png")) == Error.Ok,
                 "长剑持握实绘保存失败");
+            if (frame == 6)
+            {
+                background.Color = new Color("e2e8f0");
+                await host.ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                await host.ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                using var light = viewport.GetTexture().GetImage();
+                VerifySeamBackground(actors[2 * 8 + 5], rendered, light);
+                background.Color = new Color("24303d");
+            }
         }
         viewport.Free();
         // 男性右上原画存在断柄，女性同方向原柄完整；两性都必须有握柄接触与腿部交叠样本。
@@ -112,14 +122,39 @@ internal static class ActorSwordGripAssertions
         var world = hand.ToGlobal(seams[frame] + new Vector2(0.5f, 0.5f));
         var actual = rendered.GetPixelv((Vector2I)world.Floor());
         Require(actual.ToHtml() != new Color("24303d").ToHtml(), $"男性右上跑步第{frame}帧手掌与护手之间仍露背景");
-        // 第6帧上侧有连续两列接缝，必须全部连接，单个角点接触不足以视为握住。
+        // 第6帧检查整个内部接缝的合成alpha，半透明像素虽非背景色也必须判为透底。
         if (frame != 6) return;
-        foreach (var pixel in new[] { new Vector2(-2, -3), new Vector2(-4, -2), new Vector2(-3, -2), new Vector2(-4, -1) })
+        var body = actor.GetNode<AnimatedSprite2D>("Facing/Body");
+        var sword = actor.GetNode<Sprite2D>("Facing/RightHand/Weapon");
+        var grip = actor.GetNode<Sprite2D>("Facing/RightWeaponGrip");
+        using var bodyImage = body.SpriteFrames.GetFrameTexture(body.Animation, body.Frame).GetImage();
+        using var swordImage = sword.Texture.GetImage();
+        using var gripImage = grip.Texture.GetImage();
+        for (var y = -3; y <= 2; y++)
+        for (var x = -5; x <= -3; x++)
         {
+            var pixel = new Vector2(x, y);
             world = hand.ToGlobal(pixel + new Vector2(0.5f, 0.5f));
-            Require(rendered.GetPixelv((Vector2I)world.Floor()).ToHtml() != new Color("24303d").ToHtml(),
-                $"男性右上跑步第6帧上侧接缝不完整：{pixel}");
+            var bodyAlpha = bodyImage.GetPixelv((Vector2I)body.ToLocal(world).Floor()).A;
+            var swordAlpha = swordImage.GetPixelv((Vector2I)sword.ToLocal(world).Floor()).A;
+            var gripAlpha = gripImage.GetPixelv((Vector2I)grip.ToLocal(world).Floor()).A;
+            var alpha = 1 - (1 - bodyAlpha) * (1 - swordAlpha) * (1 - gripAlpha);
+            Require(Mathf.IsEqualApprox(alpha, 1), $"男性右上跑步第6帧内部接缝透底：{pixel} alpha={alpha}");
         }
+    }
+
+    /// <summary>独立矩形接缝在深浅背景上的18个实绘像素必须一致，防止半透明缝漏判。</summary>
+    private static void VerifySeamBackground(ActorView actor, Image dark, Image light)
+    {
+        var hand = actor.GetNode<Node2D>("Facing/RightHand");
+        for (var y = -3; y <= 2; y++)
+        for (var x = -5; x <= -3; x++)
+        {
+            var pixel = (Vector2I)hand.ToGlobal(new Vector2(x + 0.5f, y + 0.5f)).Floor();
+            Require(dark.GetPixelv(pixel).ToHtml() == light.GetPixelv(pixel).ToHtml(),
+                $"第6帧接缝随背景变色：{x},{y}");
+        }
+        GD.Print("Sword seam opacity passed: all 18 seam pixels opaque and identical on dark/light GPU backgrounds.");
     }
 
     /// <summary>实际像素不符合遮挡契约时终止GPU冒烟并报告位置。</summary>

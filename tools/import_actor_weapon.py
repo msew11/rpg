@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import struct
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 from decode_actor_heads import frame_end, read_header
 
@@ -125,13 +125,18 @@ def restore_grip(image, anchor):
             axis = tuple(value / length for value in axis)
             for step in range(1, 21):
                 guard = tuple(round(anchor[i] + axis[i] * step / 2) for i in (0, 1))
-                if guard in components[0]:
+                if guard in components[0] and image.getpixel(guard)[3] == 255:
                     draw.line([guard, anchor, tuple(round(value) for value in center)], fill=color, width=4)
                     break
+    # 原手形切口带有半透明边缘，局部闭合整段轮廓并下衬，避免非零alpha仍透出背景。
+    core = image.getchannel('A').point(lambda value: 255 if value >= 204 else 0)
+    closed = core.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.MinFilter(9))
     for y in range(image.height):
         for x in range(image.width):
-            if image.getpixel((x, y))[3]:
+            if image.getpixel((x, y))[3] == 255:
                 result.putpixel((x, y), (0, 0, 0, 0))
+            elif distance((x, y)) <= 64 and closed.getpixel((x, y)):
+                result.putpixel((x, y), color)
     return result
 
 
@@ -245,7 +250,7 @@ def main():
         records, layer_file = import_hand(args.raw, target, hand, series, item_id, actions, variant)
         evidence = {'itemId': item_id, 'binding': f'{hand}{series:02}',
                     'nativeHand': 'right' if hand == 'weaponr' else 'left',
-                    'gripRestoration': '沿柄尾中心到握点的轴向寻找护手，以原柄色补充有限宽度柄芯及短连接，独立层仅跨手回退时置于身体下方，原画像素不变' if item_id in (1012, 1013) else None,
+                    'gripRestoration': '沿柄尾中心到握点寻找实心护手，局部闭合原手形切口并下衬半透明缝，独立层仅跨手回退时置于身体下方，原始纹理不变' if item_id in (1012, 1013) else None,
                     'bindingNote': '按物品图标核对持握系列；同系列另一手有男女原画时完整导入，镜像按源手别选择；不存在时明确沿用基础素材。',
                     'oppositeHandAvailable': variant is not None,
                     'rearLayer': '按握点沿像素主轴无损分层，较厚端为前段，后段随方向和动作切换身体前后关系' if item_id in (1015, 1016) else None,

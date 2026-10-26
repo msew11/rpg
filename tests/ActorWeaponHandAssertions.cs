@@ -42,7 +42,7 @@ internal static class ActorWeaponHandAssertions
                     var gripPixels = grip.GetData();
                     Require(gripPixels.Length == pixels.Length, "握柄层尺寸不符");
                     for (var offset = 3; offset < pixels.Length; offset += 4)
-                        Require(pixels[offset] == 0 || gripPixels[offset] == 0, "补充握柄修改了原始像素");
+                        Require(pixels[offset] < 255 || gripPixels[offset] == 0, "补充握柄覆盖了实心原画像素");
                 }
                 if (weapon.RearFrames.Length != 0)
                 {
