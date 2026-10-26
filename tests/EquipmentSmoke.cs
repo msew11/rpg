@@ -181,6 +181,22 @@ public partial class EquipmentSmoke : Node
                     bag.FindChild("PickedItemPreview", true, false) is null, "快捷穿戴残留占位文字或拿起预览");
             }
             Check(GameServices.World.RoleTarget == target, "Ctrl 装备输入穿透到世界移动");
+            // role-equipment：拳套快捷选槽覆盖主手非拳套，以及副手盾牌、拳套、空槽。
+            await QuickEquipKatar(grid, 6, EquipmentSlot.MainHand);
+            await QuickEquipKatar(grid, 8, EquipmentSlot.OffHand);
+            GameServices.Session.SendGm("item 1017");
+            await Frames();
+            var thirdKatar = GameServices.Session.Bag.Items.Single(item => item.ItemId == 1017);
+            await QuickEquipKatar(grid, thirdKatar.InstanceId, EquipmentSlot.OffHand);
+            await Click(off, ctrl: true);
+            await QuickEquipKatar(grid, 8, EquipmentSlot.OffHand);
+            Check(GameServices.World.RoleTarget == target, "拳套快捷替换触发世界移动");
+            // 恢复剑盾，继续沿用既有持久化与满包卸下验收。
+            foreach (var id in new[] { 1012, 1014 })
+            {
+                var item = GameServices.Session.Bag.Items.Single(item => item.ItemId == id);
+                await Click(grid.GetChild<Control>(item.SlotIndex), ctrl: true);
+            }
             if (OS.GetCmdlineUserArgs().Contains("--capture-equipment"))
             {
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
@@ -252,6 +268,25 @@ public partial class EquipmentSmoke : Node
         await Click(source);
         Check(ReferenceEquals(before, GameServices.Session.Bag), "拿起装备提前修改了快照");
         await Click(target);
+    }
+
+    /// <summary>验证拳套真实快捷输入的目标槽、来源格交换、主手保留及服务器确认边界。</summary>
+    private async Task QuickEquipKatar(GridContainer grid, long instanceId, EquipmentSlot expectedSlot)
+    {
+        var before = GameServices.Session.Bag;
+        var source = before.Items.Single(item => item.InstanceId == instanceId);
+        var replaced = before.Equipment.FirstOrDefault(item => item.Slot == expectedSlot);
+        var mainHand = before.Equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand);
+        await Click(grid.GetChild<Control>(source.SlotIndex), ctrl: true, checkBeforeFrames: () =>
+            Check(ReferenceEquals(before, GameServices.Session.Bag), "拳套快捷替换在确认前更改缓存"));
+        var after = GameServices.Session.Bag;
+        Check(after.Equipment.Any(item => item.InstanceId == instanceId && item.Slot == expectedSlot), "拳套快捷选槽错误");
+        if (expectedSlot == EquipmentSlot.OffHand)
+            Check(after.Equipment.Any(item => item.InstanceId == mainHand!.InstanceId && item.Slot == EquipmentSlot.MainHand),
+                "快捷替换副手拳套更改了主手");
+        if (replaced is not null)
+            Check(after.Items.Any(item => item.InstanceId == replaced.InstanceId && item.SlotIndex == source.SlotIndex),
+                "拳套替换后的旧装备没有回到来源格");
     }
 
     /// <summary>比较实际拿起图像的渲染区域、纹理、数量和透明度，而非只比较格子。</summary>

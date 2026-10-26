@@ -308,7 +308,7 @@ public partial class BagControl : PanelContainer
         UiSoundPlayer.Play(this, 1001);
     }
 
-    /// <summary>Ctrl 快捷穿戴到既有推荐槽，替换仍由服务器原子处理。</summary>
+    /// <summary>Ctrl 快捷穿戴拳套时，主手已是拳套则选副手；替换仍由服务器原子处理。</summary>
     internal void AutoEquip(int slotIndex)
     {
         CancelItemDrag();
@@ -318,6 +318,13 @@ public partial class BagControl : PanelContainer
         if (item is null) return;
         var cfg = GameServices.Config.Item.Items[item.ItemId];
         if (!EquipmentSlotUtil.TryGetSlot(cfg.Category, cfg.SubCategory, out var slot)) return;
+        var mainHand = bag.Equipment.FirstOrDefault(entry => entry.Slot == EquipmentSlot.MainHand);
+        if (cfg.Category == ItemCategory.Weapon && cfg.SubCategory == ItemSubCategory.Katar && mainHand is not null)
+        {
+            var equippedCfg = GameServices.Config.Item.Items[mainHand.ItemId];
+            if (equippedCfg.Category == ItemCategory.Weapon && equippedCfg.SubCategory == ItemSubCategory.Katar)
+                slot = EquipmentSlot.OffHand;
+        }
         GameServices.Session.EquipItem(item.InstanceId, slot, bag.Revision);
         UiSoundPlayer.Play(this, 1010);
     }
