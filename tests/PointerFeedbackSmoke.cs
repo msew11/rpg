@@ -48,6 +48,25 @@ public partial class PointerFeedbackSmoke : Node
                 Check(edit.Text == original + "x" && edit.Secret == (edit.PlaceholderText == "密码"), "文本或密码输入行为改变");
                 edit.Text = original;
             }
+            // 两个输入框连续划过场景：双向经过窄缝仍命中文本区域，点击窄缝不提交登录。
+            var fields = (VBoxContainer)main.FindChild("LoginFields", true, false);
+            var edits = fields.GetChildren().OfType<LineEdit>().ToArray();
+            var accountRect = edits[0].GetGlobalRect();
+            var passwordRect = edits[1].GetGlobalRect();
+            var gapPoint = new Vector2(accountRect.GetCenter().X, (accountRect.End.Y + passwordRect.Position.Y) / 2);
+            foreach (var pointInFields in new[] { accountRect.GetCenter(), gapPoint, passwordRect.GetCenter(), gapPoint, accountRect.GetCenter() })
+            {
+                using var motion = new InputEventMouseMotion { Position = pointInFields, GlobalPosition = pointInFields };
+                GetViewport().PushInput(motion, true);
+                var hovered = GetViewport().GuiGetHoveredControl();
+                Check(hovered is not null && (hovered == fields || hovered.GetParent() == fields)
+                    && hovered.GetCursorShape(pointInFields - hovered.GlobalPosition) == Control.CursorShape.Ibeam,
+                    "账号和密码之间短暂切为普通手指");
+            }
+            Click(gapPoint);
+            await Frames();
+            Check(edits.All(edit => edit.Text == "demo") && !main.FindChildren("*", "Button", true, false)
+                .OfType<Button>().Single(button => button.Text == "登录").Disabled, "窄缝点击改变文本或提交了登录");
             using (var motion = new InputEventMouseMotion { Position = new Vector2(10, 10), GlobalPosition = new Vector2(10, 10) })
                 GetViewport().PushInput(motion, true);
             await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);

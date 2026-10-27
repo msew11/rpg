@@ -68,7 +68,7 @@ def main():
     config = args.source / 'raw/res/uires/uiroot.lua'
     manifest = dict(resources=records, cursor_config=dict(source='res/uires/uiroot.lua',
                     sha256=hashlib.sha256(config.read_bytes()).hexdigest(), hotspot=[2, 2], holdframe=1),
-                    circle_fade_seconds=0.5, cursor_display_scale=1.25, click_frame_seconds=0.08,
+                    circle_fade_seconds=0.5, cursor_display_scale=1.25, text_cursor_display_height=32, click_frame_seconds=0.08,
                     note='circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal；Fetch 第一帧悬停，第二帧握住拖动，热点 (6,6)；Edit 首帧用于文本输入 I 形鼠标，热点 (5,8)。')
     (target / 'source.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 

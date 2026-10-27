@@ -155,8 +155,12 @@ public partial class MainController : Control
         box.AddChild(Label("演示账号：demo / demo", 15));
         var username = new LineEdit { PlaceholderText = "用户名", Text = "demo", CustomMinimumSize = new Vector2(280, 36) };
         var password = new LineEdit { PlaceholderText = "密码", Secret = true, Text = "demo" };
-        box.AddChild(username);
-        box.AddChild(password);
+        // 让两个文本框之间的窄缝延续 I 形鼠标，保持原有间距和输入行为。
+        var fields = new VBoxContainer { Name = "LoginFields", MouseDefaultCursorShape = Control.CursorShape.Ibeam };
+        fields.AddThemeConstantOverride("separation", box.GetThemeConstant("separation"));
+        box.AddChild(fields);
+        fields.AddChild(username);
+        fields.AddChild(password);
         _feedback = Label("", 14);
         box.AddChild(_feedback);
         var login = new Button { Text = "登录", CustomMinimumSize = new Vector2(180, 38) };

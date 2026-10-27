@@ -7,8 +7,10 @@ namespace Rpg.UI;
 /// <summary>全页面硬件指针：文本编辑素材、普通点击动画与 HUD、窗口和物品的 Fetch 反馈。</summary>
 public partial class PointerCursor : Node
 {
-    /// <summary>全部指针素材统一放大比例，热点同步缩放。</summary>
+    /// <summary>普通、点击与 Fetch 素材的放大比例，热点同步缩放。</summary>
     private const float DisplayScale = 1.25f;
+    /// <summary>文本素材独立放大至 32 像素高，避免源画布小而难以辨认。</summary>
+    private const float EditDisplayScale = 32f / 15f;
     /// <summary>按下动画每帧秒数，播放一次后保持末帧。</summary>
     private const double FrameSeconds = 0.08;
     /// <summary>一次短按也要完整显示两帧，输入释放不截断视觉反馈。</summary>
@@ -48,7 +50,7 @@ public partial class PointerCursor : Node
         _normal = LoadFrame("normal");
         _pressed = [LoadFrame("click_0"), LoadFrame("click_1")];
         _fetch = [LoadFrame("fetch_0"), LoadFrame("fetch_1")];
-        Input.SetCustomMouseCursor(LoadFrame("edit"), Input.CursorShape.Ibeam, new Vector2(5, 8) * DisplayScale);
+        Input.SetCustomMouseCursor(LoadFrame("edit", EditDisplayScale), Input.CursorShape.Ibeam, new Vector2(5, 8) * EditDisplayScale);
         Present(_normal);
     }
 
@@ -171,10 +173,10 @@ public partial class PointerCursor : Node
     }
 
     /// <summary>按最近邻缩放完整画布，保留现有像素素材边缘。</summary>
-    private static Texture2D LoadFrame(string name)
+    private static Texture2D LoadFrame(string name, float scale = DisplayScale)
     {
         var image = GD.Load<Texture2D>($"res://assets/pointer/{name}.png").GetImage();
-        image.Resize(Mathf.RoundToInt(image.GetWidth() * DisplayScale), Mathf.RoundToInt(image.GetHeight() * DisplayScale), Image.Interpolation.Nearest);
+        image.Resize(Mathf.RoundToInt(image.GetWidth() * scale), Mathf.RoundToInt(image.GetHeight() * scale), Image.Interpolation.Nearest);
         return ImageTexture.CreateFromImage(image);
     }
 }
