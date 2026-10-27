@@ -136,6 +136,8 @@ Godot 输入 -> 等轴逆投影 -> GameServices.World -> 移动 Action / 会话�
 
 ## 鼠标与地面点击反馈
 
+`PointerCursor` 同时将 `assets/pointer/edit.png` 注册到原生 Ibeam 槽位，登录账号、密码和其他文本输入区域自动使用配套 Edit 鼠标。Edit.gsa 为 9×15 单帧，沿用 1.25 倍最近邻缩放至 11×19，原热点 (5,8) 同步缩放至 (6.25,10)。形状切换由 Godot 原生输入区域决定，点击编辑和密码遮蔽行为保持；退出主场景同时清除 Arrow 与 Ibeam 注册。导入工具将 Edit 来源、哈希及热点记录在 source.json，既有指针 smoke 覆盖登录悬停、输入和移出恢复；硬件实际像素仍需图形窗口验收。
+
 `MainController` 启动时创建 `PointerCursor`，将 `assets/pointer/normal.png` 及 `click_0.png`、`click_1.png` 最近邻放大 1.25 倍至 51×44，原配置热点 (2, 2) 同步缩放为 (2.5, 2.5)。左键按下立即播放 Click 两帧（每帧 0.08 秒）；实际按键状态与视觉播放状态分离，同帧短按也播完两帧后恢复 Normal，长按保持末帧至释放后立即恢复，连续点击重播，Fetch 优先且失焦清除反馈。业务输入不等待视觉播放；在 GUI 消费前观察输入，所有页面及物品点击均生效，退出场景时恢复系统鼠标。`tools/import_pointer_feedback.py --source <art_export目录>` 严格解码 IANI v1 图块与帧数；Normal 按原配置 holdframe=1 取首帧，Click 导入全部两帧，circle 拼出完整 68×41 单帧画布，来源和哈希记录在 `assets/pointer/source.json`。运行不依赖外部素材目录。
 
 世界接受地面左键移动后，`MainController` 在逆投影所得世界坐标创建 `GroundClickView`，完整光圈居中显示在地图上方、角色下方；Tween 在 0.5 秒内将光圈从原尺寸的 25% 等比扩散到 125%，同时淡出并释放，连续点击分别完成反馈，退出世界随父节点清理。UI 消费输入、右键和松开均不创建反馈。circle 的原版用途尚未确认，扩散比例与淡出时长为本项目表现参数。`tests/pointer_feedback_smoke.tscn` 纳入完整检查，验证资源完整性、真实视口点击、摄像机移动、连续等比扩散、淡出释放和 UI 输入隔离；硬件鼠标的实际屏幕显示需要 Windows 图形窗口目视验收。

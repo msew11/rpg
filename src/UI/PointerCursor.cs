@@ -4,10 +4,10 @@ using Rpg.World.Views;
 
 namespace Rpg.UI;
 
-/// <summary>全页面硬件指针：普通点击动画与 HUD、窗口和物品的 Fetch 反馈。</summary>
+/// <summary>全页面硬件指针：文本编辑素材、普通点击动画与 HUD、窗口和物品的 Fetch 反馈。</summary>
 public partial class PointerCursor : Node
 {
-    /// <summary>普通与按下帧统一放大比例，热点同步缩放。</summary>
+    /// <summary>全部指针素材统一放大比例，热点同步缩放。</summary>
     private const float DisplayScale = 1.25f;
     /// <summary>按下动画每帧秒数，播放一次后保持末帧。</summary>
     private const double FrameSeconds = 0.08;
@@ -42,12 +42,13 @@ public partial class PointerCursor : Node
     /// <summary>Click 动画是否仍需呈现，与实际按键状态独立。</summary>
     private bool _feedbackActive;
 
-    /// <summary>加载并统一缩放素材，在输入分发开始前启用普通指针。</summary>
+    /// <summary>加载并统一缩放素材，分别注册普通及原生文本区域的硬件指针。</summary>
     public override void _Ready()
     {
         _normal = LoadFrame("normal");
         _pressed = [LoadFrame("click_0"), LoadFrame("click_1")];
         _fetch = [LoadFrame("fetch_0"), LoadFrame("fetch_1")];
+        Input.SetCustomMouseCursor(LoadFrame("edit"), Input.CursorShape.Ibeam, new Vector2(5, 8) * DisplayScale);
         Present(_normal);
     }
 
@@ -152,8 +153,12 @@ public partial class PointerCursor : Node
         return false;
     }
 
-    /// <summary>退出时恢复系统默认指针。</summary>
-    public override void _ExitTree() => Input.SetCustomMouseCursor(null);
+    /// <summary>退出时恢复系统普通及文本指针，避免自定义素材残留。</summary>
+    public override void _ExitTree()
+    {
+        Input.SetCustomMouseCursor(null);
+        Input.SetCustomMouseCursor(null, Input.CursorShape.Ibeam);
+    }
 
     /// <summary>只在帧变化时更新硬件鼠标，指尖热点与画布同比例缩放。</summary>
     private void Present(Texture2D texture, Vector2? hotspot = null)

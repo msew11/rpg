@@ -1,4 +1,4 @@
-"""将指定 IANI 普通指针与地面光圈拼成完整画布，保留原始来源证据。"""
+"""将指定 IANI 鼠标素材与地面光圈拼成完整画布，保留原始来源证据。"""
 
 import argparse
 import hashlib
@@ -51,7 +51,8 @@ def main():
     target.mkdir(parents=True, exist_ok=True)
     records = []
     for source, name in [('res/uires/cursor/Normal.gsa', 'normal'), ('res/effect/circle.gsa', 'circle'),
-                         ('res/uires/cursor/Click.gsa', 'click'), ('res/uires/cursor/Fetch.gsa', 'fetch')]:
+                         ('res/uires/cursor/Click.gsa', 'click'), ('res/uires/cursor/Fetch.gsa', 'fetch'),
+                         ('res/uires/cursor/Edit.gsa', 'edit')]:
         path = args.source / 'raw' / source
         frames = decode_iani(path)
         outputs = [f'{name}_{index}.png' for index in range(len(frames))] if name in ('click', 'fetch') else [f'{name}.png']
@@ -62,11 +63,13 @@ def main():
                             output=outputs if name in ('click', 'fetch') else outputs[0], selected_frame='all' if name in ('click', 'fetch') else 0))
         if name == 'fetch':
             records[-1]['hotspot'] = [6, 6]
+        if name == 'edit':
+            records[-1]['hotspot'] = [5, 8]
     config = args.source / 'raw/res/uires/uiroot.lua'
     manifest = dict(resources=records, cursor_config=dict(source='res/uires/uiroot.lua',
                     sha256=hashlib.sha256(config.read_bytes()).hexdigest(), hotspot=[2, 2], holdframe=1),
                     circle_fade_seconds=0.5, cursor_display_scale=1.25, click_frame_seconds=0.08,
-                    note='circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal；Fetch 第一帧悬停，第二帧握住拖动，热点 (6,6)。')
+                    note='circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal；Fetch 第一帧悬停，第二帧握住拖动，热点 (6,6)；Edit 首帧用于文本输入 I 形鼠标，热点 (5,8)。')
     (target / 'source.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 

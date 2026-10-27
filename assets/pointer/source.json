@@ -45,6 +45,19 @@
         6,
         6
       ]
+    },
+    {
+      "source": "res/uires/cursor/Edit.gsa",
+      "sha256": "2beba9cce6e9203569d48ea17aa6e59e818a4ef9e6f379c69f6801d4dbe7ddf6",
+      "frames": 1,
+      "width": 9,
+      "height": 15,
+      "output": "edit.png",
+      "selected_frame": 0,
+      "hotspot": [
+        5,
+        8
+      ]
     }
   ],
   "cursor_config": {
@@ -59,5 +72,5 @@
   "circle_fade_seconds": 0.5,
   "cursor_display_scale": 1.25,
   "click_frame_seconds": 0.08,
-  "note": "circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal；Fetch 第一帧悬停，第二帧握住拖动，热点 (6,6)。"
+  "note": "circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal；Fetch 第一帧悬停，第二帧握住拖动，热点 (6,6)；Edit 首帧用于文本输入 I 形鼠标，热点 (5,8)。"
 }

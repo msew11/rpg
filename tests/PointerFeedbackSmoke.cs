@@ -9,7 +9,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验收 openspec/specs/client-ui 的 Normal 指针、光圈扩散涟漪、点击隔离及世界生命周期。</summary>
+/// <summary>验收 openspec/specs/client-ui 的 Normal 与文本鼠标、光圈扩散涟漪、点击隔离及世界生命周期。</summary>
 public partial class PointerFeedbackSmoke : Node
 {
     /// <summary>通过真实视口输入和帧推进验证点击反馈，不访问正式用户存档。</summary>
@@ -29,11 +29,35 @@ public partial class PointerFeedbackSmoke : Node
             var cursor = main.GetNode<Rpg.UI.PointerCursor>("PointerCursor");
             var normal = cursor.CurrentTexture;
             Check(normal.GetSize() == new Vector2(51, 44), "指针未放大至约 125%");
+            // 文本输入鼠标素材场景：真实悬停及编辑不得破坏密码或普通指针恢复。
+            Check(GD.Load<Texture2D>("res://assets/pointer/edit.png").GetSize() == new Vector2(9, 15), "Edit 画布不完整");
+            foreach (var edit in main.FindChildren("*", "LineEdit", true, false).OfType<LineEdit>())
+            {
+                var pointInEdit = edit.GetGlobalRect().GetCenter();
+                using (var motion = new InputEventMouseMotion { Position = pointInEdit, GlobalPosition = pointInEdit })
+                    GetViewport().PushInput(motion, true);
+                await Frames();
+                Check(GetViewport().GuiGetHoveredControl() == edit && edit.GetCursorShape(edit.Size / 2) == Control.CursorShape.Ibeam,
+                    "登录文本区未选择自定义 Ibeam 槽位");
+                Click(pointInEdit);
+                Check(edit.HasFocus(), "点击文本区未获得输入焦点");
+                var original = edit.Text;
+                edit.CaretColumn = edit.Text.Length;
+                using (var key = new InputEventKey { Keycode = Key.X, Unicode = 'x', Pressed = true })
+                    GetViewport().PushInput(key, true);
+                Check(edit.Text == original + "x" && edit.Secret == (edit.PlaceholderText == "密码"), "文本或密码输入行为改变");
+                edit.Text = original;
+            }
+            using (var motion = new InputEventMouseMotion { Position = new Vector2(10, 10), GlobalPosition = new Vector2(10, 10) })
+                GetViewport().PushInput(motion, true);
+            await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+            Check(GetViewport().GuiGetHoveredControl() is not LineEdit && cursor.CurrentTexture == normal,
+                "移出文本输入区域未恢复普通鼠标");
             using (var down = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = new Vector2(10, 10) })
                 GetViewport().PushInput(down, true);
             var firstPressed = cursor.CurrentTexture;
             Check(cursor.IsPressed && firstPressed != normal, "按下未立即切换指针");
-            await Frames();
+            await ToSignal(GetTree().CreateTimer(0.1), SceneTreeTimer.SignalName.Timeout);
             Check(cursor.IsPressed && cursor.CurrentTexture != normal && cursor.CurrentTexture != firstPressed &&
                 cursor.CurrentTexture.GetSize() == normal.GetSize(), "按下动画未推进或尺寸跳变");
             await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
@@ -108,7 +132,7 @@ public partial class PointerFeedbackSmoke : Node
             await Frames();
             Check(!GodotObject.IsInstanceValid(pending) && Circles(main).Length == 0 && !GameServices.World.HasWorld,
                 "离开世界后残留点击光圈");
-            GD.Print("Pointer feedback smoke passed: Normal, complete circle, expanding ripple, clicks, camera, fade, UI isolation, cleanup.");
+            GD.Print("Pointer feedback smoke passed: Normal, Edit login input, complete circle, expanding ripple, clicks, camera, fade, UI isolation, cleanup.");
             main.QueueFree();
             await Frames();
             main = null;
