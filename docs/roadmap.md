@@ -74,7 +74,7 @@
 
 - [x] 数值多地图配置与角色 MapId 兼容；服务端唯一地图状态、按 chunk 版本文件及清单原子落地、失败重试和正常关闭补写；九块 AOI 首次快照、跨块差集、对象增量及客户端唯一缓存/缺口重同步。保持九服务拓扑；怪物表现与传送仍待实现，背包丢弃见上项。
 
-- [x] 服务端请求按 proto 目录拆为单入口 Handler：Handle(ServerRequestContext, 请求) 返回响应，直接提交平级实体表；移除 Server/Data 重复模型。加载、消息发送、信封版本、模拟推进和周期/关闭落地保持旁路，覆盖文件锁定时的直接处理、原子拒绝与原有移动/拾取行为。
+- [x] 服务端请求按 Login、Role、World Actor 归属拆为单入口 Handler，由各 Actor 显式声明并复用；处理方法分别接收 LoginContext、RoleContext、WorldContext，各自持有对应 EntityCache，地图消息由 WorldActor 路由，跨 Actor 事务使用独占角色副本。处理返回响应，直接提交平级实体表；移除 Server/Data 重复模型。加载、消息发送、信封版本、模拟推进和周期/关闭落地保持旁路，覆盖文件锁定时的直接处理、原子拒绝与原有移动/拾取行为。
 
 - [x] 服务端按角色单例、物品/装备扩展多例及摘要拆为 `<id>.role.json`、`<id>.item.json`、`<id>.equipment.json`、`<id>.role_summary.json`；登录仅载入摘要，选择后载入对应实体。仅支持当前四表及版本 2 转移记录，删除旧格式读取/迁移结构并清空本地旧角色 JSON；覆盖四表失败回滚、未支持格式拒绝及 IO 隔离。
 

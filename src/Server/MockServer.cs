@@ -10,6 +10,7 @@ using Rpg.Net.Message;
 using Rpg.Server.Actors;
 using Rpg.Server.Entity;
 using Rpg.Server.EntityCache;
+using Rpg.Server.Context;
 using Rpg.Server.Handler;
 using Rpg.Server.Handler.Bag;
 using Rpg.Server.Map;
@@ -36,11 +37,7 @@ public sealed class MockServer : IDisposable
     /// <summary>验收模拟共同提交中断。</summary>
     internal RepoServerItemTransfer Transfers => _transfers;
     /// <summary>不可变业务规则。</summary>
-    private readonly BagRules _rules;
-    /// <summary>全部只读地图规格。</summary>
-    private readonly MapLayout[] _maps;
-    /// <summary>创建角色使用的地图。</summary>
-    private readonly int _initialMapId;
+    private readonly DataServerRules _rules;
     /// <summary>当前检测秒数。</summary>
     private readonly Func<int> _flushInterval;
     /// <summary>当前模拟移动速度。</summary>
@@ -67,15 +64,12 @@ public sealed class MockServer : IDisposable
         Func<int>? flushInterval = null, IEnumerable<MapLayout>? maps = null, int initialMapId = 1,
         Func<int>? movementSpeed = null)
     {
-        _rules = bagRules;
-        _maps = (maps ?? [new MapLayout(1, 1000, 1000, 32, 32)]).ToArray();
-        _ = new ServerRequestContext(bagRules, _maps, initialMapId);
-        _initialMapId = initialMapId;
+        _rules = new DataServerRules(bagRules, maps, initialMapId);
         _transfers = new(directory, writeLog);
         _transfers.Recover();
         _repo = new(directory, writeLog);
         _mapRepo = new(directory, writeLog);
-        _login = new(_repo, _rules, _maps, _initialMapId);
+        _login = new(_repo, _rules);
         _login.Tell(new DataInitialize());
         _flushInterval = flushInterval ?? (() => 5);
         _movementSpeed = movementSpeed ?? (() => EnvService.DefaultMovementSpeed);
@@ -116,17 +110,17 @@ public sealed class MockServer : IDisposable
                     if (request is DeleteRole deletion && _authenticated && _selected is null &&
                         _roles.TryGetValue(deletion.RoleId, out var loaded) && loaded.State == ActorState.RUN)
                     {
-                        var role = (RoleEntityTables)Work(deletion.RoleId, cache => cache.Role.Tables!).Response!;
+                        var role = (RoleEntityTables)Work(deletion.RoleId, cache => cache.EntityCache.Tables!).Response!;
                         if (!role.Role.Value.IsDeleted)
-                            _login.Ask<bool>(new DataLoginWork(cache => { cache.Login.Deletions[deletion.RoleId] = role.Role.Value; return true; })).GetAwaiter().GetResult();
+                            _login.Ask<bool>(new DataLoginWork(cache => { cache.EntityCache.Deletions[deletion.RoleId] = role.Role.Value; return true; })).GetAwaiter().GetResult();
                     }
                     var reply = _login.Ask<IMessage>(new DataLoginRequest(request, _authenticated, _selected.HasValue)).GetAwaiter().GetResult();
                     if (reply is LoginRt login) _authenticated = login.Success;
                     if (request is DeleteRole deleted && reply is DeleteRoleRt { Success: true } &&
                         _roles.TryGetValue(deleted.RoleId, out var existing) && existing.State == ActorState.RUN)
                     {
-                        Work(deleted.RoleId, cache => { cache.Commit(cache.Role.Tables!.WithRole(cache.Role.Tables.Role.Value with { IsDeleted = true }), 1); return true; });
-                        _login.Ask<bool>(new DataLoginWork(cache => { cache.Login.Deletions.Remove(deleted.RoleId); return true; })).GetAwaiter().GetResult();
+                        Work(deleted.RoleId, cache => { cache.Commit(cache.EntityCache.Tables!.WithRole(cache.EntityCache.Tables.Role.Value with { IsDeleted = true }), 1); return true; });
+                        _login.Ask<bool>(new DataLoginWork(cache => { cache.EntityCache.Deletions.Remove(deleted.RoleId); return true; })).GetAwaiter().GetResult();
                     }
                     Send(reply);
                     return;
@@ -149,7 +143,7 @@ public sealed class MockServer : IDisposable
         {
             ThrowIfStopped();
             if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
-            if (_selected is { } id) Deliver(Work(id, cache => { ServerSimulation.Advance(cache, delta, _movementSpeed()); return true; }, true));
+            if (_selected is { } id) Deliver(WorldWork(id, cache => { ServerSimulation.Advance(cache, delta, _movementSpeed()); return true; }));
             var interval = _flushInterval();
             if (interval != _lastFlushInterval) { _lastFlushInterval = interval; _flushElapsed = 0; }
             if (interval == 0) return;
@@ -189,7 +183,7 @@ public sealed class MockServer : IDisposable
                     try { _transfers.Recover(); } catch (Exception recovery) { errors.Add(recovery); }
                     continue;
                 }
-                foreach (var id in ids) Work(id, cache => { cache.Role.Dirty = 0; return true; });
+                foreach (var id in ids) Work(id, cache => { cache.EntityCache.Dirty = 0; return true; });
                 MapAsk<bool>(mapId, cache => { cache.Map.AcceptPending(); cache.Transfers.Clear(); return true; });
                 _transfers.LogCommitted(logs);
                 try { MapAsk<bool>(mapId, cache => { cache.Map.Flush(); return true; }); } catch (Exception error) { errors.Add(error); }
@@ -202,10 +196,10 @@ public sealed class MockServer : IDisposable
                 _login.Ask<bool>(new DataLoginWork(cache =>
                 {
                     var failures = new List<Exception>();
-                    foreach (var (id, tables) in cache.Login.Created.ToArray())
-                        try { _repo.Save(tables); cache.Login.Created.Remove(id); } catch (Exception error) { failures.Add(error); }
-                    foreach (var (id, role) in cache.Login.Deletions.ToArray())
-                        try { _repo.SaveDeletion(role, cache.Login.Summaries[id]); cache.Login.Deletions.Remove(id); } catch (Exception error) { failures.Add(error); }
+                    foreach (var (id, tables) in cache.EntityCache.Created.ToArray())
+                        try { _repo.Save(tables); cache.EntityCache.Created.Remove(id); } catch (Exception error) { failures.Add(error); }
+                    foreach (var (id, role) in cache.EntityCache.Deletions.ToArray())
+                        try { _repo.SaveDeletion(role, cache.EntityCache.Summaries[id]); cache.EntityCache.Deletions.Remove(id); } catch (Exception error) { failures.Add(error); }
                     if (failures.Count != 0) throw new AggregateException(failures);
                     return true;
                 })).GetAwaiter().GetResult();
@@ -220,12 +214,12 @@ public sealed class MockServer : IDisposable
     {
         Work(id, cache =>
         {
-            if (cache.Role.Dirty == 0) return true;
+            if (cache.EntityCache.Dirty == 0) return true;
             var repo = log is null ? _repo : new RepoServerRole(System.IO.Path.GetDirectoryName(_repo.GetRolePath(id))!, log);
-            if (cache.Role.Dirty == 1) repo.SaveRole(cache.Role.Tables!);
-            else if (cache.Role.Dirty == 2) repo.SaveBag(cache.Role.Tables!);
-            else repo.Save(cache.Role.Tables!);
-            if (accept) cache.Role.Dirty = 0;
+            if (cache.EntityCache.Dirty == 1) repo.SaveRole(cache.EntityCache.Tables!);
+            else if (cache.EntityCache.Dirty == 2) repo.SaveBag(cache.EntityCache.Tables!);
+            else repo.Save(cache.EntityCache.Tables!);
+            if (accept) cache.EntityCache.Dirty = 0;
             return true;
         });
     }
@@ -248,7 +242,7 @@ public sealed class MockServer : IDisposable
         {
             ThrowIfStopped();
             var change = MapAsk<MapChange>(mapId, cache => operation(cache.Map));
-            if (_selected is { } id) Deliver(Work(id, cache => { if (cache.Role.Tables!.Role.Value.MapId == mapId) cache.PublishMapChange(cache.GetMap(mapId), change); return true; }, true));
+            if (_selected is { } id) Deliver(WorldWork(id, cache => { if (cache.Role.EntityCache.Tables!.Role.Value.MapId == mapId) cache.PublishMapChange(cache.GetMap(mapId), change); return true; }));
             return change;
         }
     }
@@ -258,25 +252,33 @@ public sealed class MockServer : IDisposable
     {
         if (id <= 0) throw new ArgumentOutOfRangeException(nameof(id));
         if (_roles.TryGetValue(id, out var failed) && failed.State == ActorState.STOP) _roles.TryRemove(id, out _);
-        return _roles.GetOrAdd(id, key => new RoleActor(key, _repo, _login, GetWorldActor, _rules, _maps, _initialMapId));
+        return _roles.GetOrAdd(id, key => new RoleActor(key, _repo, _login, GetWorldActor, _rules));
     }
 
     /// <summary>以地图身份唯一注册世界分片。</summary>
     internal WorldActor GetWorldActor(int id)
     {
-        var layout = _maps.SingleOrDefault(map => map.MapId == id) ?? throw new InvalidOperationException("地图不存在");
+        var layout = _rules.MapLayouts.GetValueOrDefault(id) ?? throw new InvalidOperationException("地图不存在");
         if (_worlds.TryGetValue(id, out var failed) && failed.State == ActorState.STOP) _worlds.TryRemove(id, out _);
-        return _worlds.GetOrAdd(id, _ => new WorldActor(layout, _rules, _mapRepo, _maps, _initialMapId));
+        return _worlds.GetOrAdd(id, _ => new WorldActor(layout, _rules, _mapRepo));
     }
 
     /// <summary>执行带地图身份的 Ask，供协调与内部验收使用。</summary>
     private T MapAsk<T>(int id, Func<ServerWorldCache, object?> work) => GetWorldActor(id).Ask<T>(new DataMapWork(id, work)).GetAwaiter().GetResult();
     /// <summary>执行带角色身份的有序操作。</summary>
-    private DataRoleResult Work(long id, Func<ServerRequestContext, object?> work, bool inWorld = false) => GetRoleActor(id).Ask<DataRoleResult>(new DataRoleWork(id, work, inWorld)).GetAwaiter().GetResult();
+    private DataRoleResult Work(long id, Func<RoleContext, object?> work) => GetRoleActor(id).Ask<DataRoleResult>(new DataRoleWork(id, work)).GetAwaiter().GetResult();
+    /// <summary>显式移交地图事务，由世界 Actor 串行处理。</summary>
+    private DataRoleResult WorldWork(long id, Func<WorldContext, object?> work) => GetRoleActor(id).Ask<DataRoleResult>(new DataRoleWorldWork(id, work)).GetAwaiter().GetResult();
     /// <summary>主动角色操作只允许当前角色，并交付本回合通知。</summary>
-    private void RunCurrent(Func<ServerRequestContext, object?> work)
+    private void RunCurrent(Func<RoleContext, object?> work)
     {
-        lock (_boundary) { ThrowIfStopped(); Deliver(Work(_selected ?? throw new InvalidOperationException("请先进入当前角色"), work, true)); }
+        lock (_boundary) { ThrowIfStopped(); Deliver(Work(_selected ?? throw new InvalidOperationException("请先进入当前角色"), work)); }
+    }
+
+    /// <summary>主动地图事务只允许当前角色，并交付本回合通知。</summary>
+    private void RunCurrentWorld(Func<WorldContext, object?> work)
+    {
+        lock (_boundary) { ThrowIfStopped(); Deliver(WorldWork(_selected ?? throw new InvalidOperationException("请先进入当前角色"), work)); }
     }
 
     /// <summary>外层按既有协议顺序交付本回合通知与响应。</summary>
@@ -341,22 +343,22 @@ public sealed class MockServer : IDisposable
     /// <summary>提交完整实体候选并发送对应领域推送。</summary>
     public void PublishRoleState(RoleEntityTables update)
     {
-        RunCurrent(cache =>
+        RunCurrentWorld(cache =>
         {
-            var previous = cache.RequireRole(update.Role.Value.RoleId);
+            var previous = cache.Role.RequireRole(update.Role.Value.RoleId);
             var before = previous.Role.Value;
             var role = update.Role.Value;
-            cache.BagRules.Validate(update);
+            cache.Role.Rules.BagRules.Validate(update);
             if (role.MapId != before.MapId || !cache.GetMap(role.MapId).Rules.Contains(role.X, role.Y))
                 throw new InvalidOperationException("角色地图或位置无效，跨地图迁移尚未开放");
             var itemsChanged = !previous.Item.Items.OrderBy(row => row.Key).SequenceEqual(update.Item.Items.OrderBy(row => row.Key)) ||
                 !previous.Equipment.Items.OrderBy(row => row.Key).SequenceEqual(update.Equipment.Items.OrderBy(row => row.Key));
-            cache.Commit(update);
-            cache.Session.Position = cache.Session.Target = new Vector2(role.X, role.Y);
-            cache.Notices.Enqueue(new RoleStateNotice { State = RoleMessages.World(update, cache.Session.AcknowledgedAction) });
-            if (itemsChanged) cache.Notices.Enqueue(RoleMessages.Items(update));
+            cache.Role.Commit(update);
+            cache.Role.Session.Position = cache.Role.Session.Target = new Vector2(role.X, role.Y);
+            cache.Role.Notices.Enqueue(new RoleStateNotice { State = RoleMessages.World(update, cache.Role.Session.AcknowledgedAction) });
+            if (itemsChanged) cache.Role.Notices.Enqueue(RoleMessages.Items(update));
             if (role.Experience != before.Experience || role.NextExperience != before.NextExperience || role.BagExtraRows != before.BagExtraRows)
-                cache.Notices.Enqueue(new RoleChangedNotice { Role = RoleMessages.Private(role) });
+                cache.Role.Notices.Enqueue(new RoleChangedNotice { Role = RoleMessages.Private(role) });
             PublishAoiPosition(cache);
             return true;
         });
@@ -393,7 +395,7 @@ public sealed class MockServer : IDisposable
         {
             var tables = cache.RequireRole(update.RoleId);
             var candidate = tables.WithRole(tables.Role.Value with { Experience = update.Experience, NextExperience = update.NextExperience, BagExtraRows = update.BagExtraRows });
-            cache.BagRules.Validate(candidate);
+            cache.Rules.BagRules.Validate(candidate);
             cache.Commit(candidate);
             cache.Notices.Enqueue(new RoleChangedNotice { Role = RoleMessages.Private(candidate.Role.Value) });
             return true;
@@ -402,24 +404,24 @@ public sealed class MockServer : IDisposable
     /// <summary>主动提交当前位置并推送，保留资料与物品。</summary>
     public void PublishRolePosition(float x, float y)
     {
-        RunCurrent(cache =>
+        RunCurrentWorld(cache =>
         {
-            var tables = cache.Current ?? throw new InvalidOperationException("请先进入当前角色");
+            var tables = cache.Role.Current ?? throw new InvalidOperationException("请先进入当前角色");
             if (!cache.GetMap(tables.Role.Value.MapId).Rules.Contains(x, y)) throw new InvalidOperationException("角色位置无效");
             var candidate = tables.WithRole(tables.Role.Value with { X = x, Y = y });
-            cache.Commit(candidate, 1);
-            cache.Session.Position = cache.Session.Target = new Vector2(x, y);
-            cache.Notices.Enqueue(new RolePositionNotice { Position = RoleMessages.Position(candidate.Role.Value, cache.Session.AcknowledgedAction) });
+            cache.Role.Commit(candidate, 1);
+            cache.Role.Session.Position = cache.Role.Session.Target = new Vector2(x, y);
+            cache.Role.Notices.Enqueue(new RolePositionNotice { Position = RoleMessages.Position(candidate.Role.Value, cache.Role.Session.AcknowledgedAction) });
             PublishAoiPosition(cache);
             return true;
         });
     }
     /// <summary>将当前位置引起的 AOI 差集交给传输。</summary>
-    private static void PublishAoiPosition(ServerRequestContext cache)
+    private static void PublishAoiPosition(WorldContext cache)
     {
-        if (cache.Current is not { } tables || cache.Session.Aoi is not { } aoi) return;
-        var notice = aoi.Move(cache.GetMap(tables.Role.Value.MapId), cache.Session.Position.X, cache.Session.Position.Y);
-        if (notice is not null) cache.Notices.Enqueue(notice);
+        if (cache.Role.Current is not { } tables || cache.Role.Session.Aoi is not { } aoi) return;
+        var notice = aoi.Move(cache.GetMap(tables.Role.Value.MapId), cache.Role.Session.Position.X, cache.Role.Session.Position.Y);
+        if (notice is not null) cache.Role.Notices.Enqueue(notice);
     }
     /// <summary>构造独立公开装备载荷。</summary>
     internal static RoleEquipmentNotice CreateEquipmentNotice(RoleEntityTables tables) => new() { Equipment = RoleMessages.Equipment(tables) };

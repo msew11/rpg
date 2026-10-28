@@ -3,11 +3,8 @@ using System.Threading.Tasks;
 using Rpg.Net.Message;
 using Rpg.Server.EntityCache;
 using Rpg.Server.Entity;
-using Rpg.Server.Handler.Bag;
-using Rpg.Server.Handler.Gm;
+using Rpg.Server.Context;
 using Rpg.Server.Handler.Role;
-using Rpg.Server.Handler.World;
-using Rpg.Server.Map;
 
 namespace Rpg.Server.Actors;
 
@@ -23,18 +20,23 @@ internal sealed class RoleActor : BaseActor
     /// <summary>按地图身份获取唯一 WorldActor。</summary>
     private readonly Func<int, WorldActor> _world;
     /// <summary>只读业务规则。</summary>
-    private readonly BagRules _rules;
-    /// <summary>不可变地图规格。</summary>
-    private readonly MapLayout[] _maps;
-    /// <summary>配置初始地图。</summary>
-    private readonly int _initialMapId;
+    private readonly DataServerRules _rules;
     /// <summary>本回合结束后唯一保留的角色缓存。</summary>
     private ServerRoleCache _cache = new();
 
+    /// <summary>本 Actor 复用的Move请求处理器。</summary>
+    private readonly MoveHandler _moveHandler = new();
+    /// <summary>本 Actor 复用的Gm请求处理器。</summary>
+    private readonly GmHandler _gmHandler = new();
+    /// <summary>本 Actor 复用的MoveItem请求处理器。</summary>
+    private readonly MoveItemHandler _moveItemHandler = new();
+    /// <summary>本 Actor 复用的EquipItem请求处理器。</summary>
+    private readonly EquipItemHandler _equipItemHandler = new();
+
     /// <summary>构造固定分片，加载只发生在 INIT。</summary>
     internal RoleActor(long roleId, RepoServerRole repo, LoginActor login, Func<int, WorldActor> world,
-        BagRules rules, MapLayout[] maps, int initialMapId)
-    { RoleId = roleId; _repo = repo; _login = login; _world = world; _rules = rules; _maps = maps; _initialMapId = initialMapId; }
+        DataServerRules rules)
+    { RoleId = roleId; _repo = repo; _login = login; _world = world; _rules = rules; }
 
     /// <summary>领取或加载本角色三表后，按角色 MapId Ask 初始化地图。</summary>
     protected override async ValueTask InitializeAsync()
@@ -43,56 +45,48 @@ internal sealed class RoleActor : BaseActor
         var seed = await _login.Ask<DataRoleSeed>(new DataClaimRole(RoleId)).ConfigureAwait(false);
         _cache.Tables = seed.Tables ?? _repo.Load(RoleId);
         _cache.Dirty = seed.Tables is null ? 0 : 3;
-        _rules.Validate(_cache.Tables);
+        _rules.BagRules.Validate(_cache.Tables);
         await _world(_cache.Tables.Role.Value.MapId).Ask<bool>(new DataMapWork(_cache.Tables.Role.Value.MapId, _ => true)).ConfigureAwait(false);
-        await _login.Ask<bool>(new DataLoginWork(context => { context.Login.Created.Remove(RoleId); return true; })).ConfigureAwait(false);
+        await _login.Ask<bool>(new DataLoginWork(context => { context.EntityCache.Created.Remove(RoleId); return true; })).ConfigureAwait(false);
     }
 
     /// <summary>在自己回合路由角色 Handler，需要地图时只移交独立工作副本。</summary>
     protected override async ValueTask<object?> ReceiveAsync(object message)
     {
-        if (message is DataRoleWork work && work.RoleId == RoleId)
-        {
-            return work.InWorld ? await InWorld(work.Work).ConfigureAwait(false) : InRole(work.Work);
-        }
+        if (message is DataRoleWork work && work.RoleId == RoleId) return InRole(work.Work);
+        if (message is DataRoleWorldWork worldWork && worldWork.RoleId == RoleId)
+            return await InWorld(id => new DataWorldWork(id, _cache.Copy(), worldWork.Work)).ConfigureAwait(false);
         if (message is not DataRoleRequest request || request.RoleId != RoleId) throw new InvalidOperationException("角色分片身份不符");
         if (request.Request is SelectRole) _cache.Session.Authenticated = true;
         if (request.Request is SelectRole or DropItem or PickupItem or ResyncMapAoi)
-            return await InWorld(cache => request.Request switch
-            {
-                SelectRole select => new SelectRoleHandler().Handle(cache, select),
-                DropItem drop => new DropItemHandler().Handle(cache, drop),
-                PickupItem pickup => new PickupItemHandler().Handle(cache, pickup),
-                ResyncMapAoi resync => new ResyncMapAoiHandler().Handle(cache, resync),
-                _ => throw new InvalidOperationException("地图请求类型无效")
-            }).ConfigureAwait(false);
+            return await InWorld(id => new DataWorldRequest(id, _cache.Copy(), request.Request)).ConfigureAwait(false);
         return InRole(cache => request.Request switch
         {
-            Move move => new MoveHandler().Handle(cache, move),
-            Gm gm => new GmHandler().Handle(cache, gm),
-            MoveItem item => new MoveItemHandler().Handle(cache, item),
-            EquipItem equip => new EquipItemHandler().Handle(cache, equip),
+            Move move => _moveHandler.Handle(cache, move),
+            Gm gm => _gmHandler.Handle(cache, gm),
+            MoveItem item => _moveItemHandler.Handle(cache, item),
+            EquipItem equip => _equipItemHandler.Handle(cache, equip),
             _ => throw new InvalidOperationException("角色 Actor 不支持此请求")
         });
     }
 
     /// <summary>纯角色请求在自己的异步回合处理，结果采用副本发布。</summary>
-    private DataRoleResult InRole(Func<ServerRequestContext, object?> work)
+    private DataRoleResult InRole(Func<RoleContext, object?> work)
     {
         var previous = _cache.Tables!;
-        var context = new ServerRequestContext(_rules, _maps, _initialMapId, role: _cache.Copy());
+        var context = new RoleContext(_cache.Copy(), _rules);
         var response = work(context);
-        _cache = context.Role;
+        _cache = context.EntityCache;
         PublishSummary(previous);
         return new(response, _cache, context.Notices.ToArray());
     }
 
     /// <summary>暂停本角色回合，地图串行处理副本后接回全部结果。</summary>
-    private async Task<DataRoleResult> InWorld(Func<ServerRequestContext, object?> work)
+    private async Task<DataRoleResult> InWorld(Func<int, object> message)
     {
         var previous = _cache.Tables!;
         var id = _cache.Tables!.Role.Value.MapId;
-        var result = await _world(id).Ask<DataRoleResult>(new DataWorldWork(id, _cache.Copy(), work)).ConfigureAwait(false);
+        var result = await _world(id).Ask<DataRoleResult>(message(id)).ConfigureAwait(false);
         _cache = result.Role;
         PublishSummary(previous);
         return result;

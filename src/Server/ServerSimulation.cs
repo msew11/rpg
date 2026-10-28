@@ -2,9 +2,9 @@ using System;
 using System.Linq;
 using System.Numerics;
 using Rpg.Net.Message;
-using Rpg.Server.EntityCache;
+using Rpg.Server.Context;
 using Rpg.Server.Handler;
-using Rpg.Server.Handler.Bag;
+using Rpg.Server.Handler.World;
 
 namespace Rpg.Server;
 
@@ -12,20 +12,20 @@ namespace Rpg.Server;
 internal static class ServerSimulation
 {
     /// <summary>按环境速度推进移动，再完成可达拾取和 AOI 差集。</summary>
-    internal static void Advance(ServerRequestContext cache, double delta, int movementSpeed)
+    internal static void Advance(WorldContext cache, double delta, int movementSpeed)
     {
-        AdvanceMovement(cache, delta, movementSpeed);
+        AdvanceMovement(cache.Role, delta, movementSpeed);
         var pickup = PickupOperations.TryComplete(cache);
-        if (pickup is not null) cache.Notices.Enqueue(pickup);
-        if (cache.Current is { } current && cache.Session.Aoi is { } aoi)
+        if (pickup is not null) cache.Role.Notices.Enqueue(pickup);
+        if (cache.Role.Current is { } current && cache.Role.Session.Aoi is { } aoi)
         {
-            var notice = aoi.Move(cache.GetMap(current.Role.Value.MapId), cache.Session.Position.X, cache.Session.Position.Y);
-            if (notice is not null) cache.Notices.Enqueue(notice);
+            var notice = aoi.Move(cache.GetMap(current.Role.Value.MapId), cache.Role.Session.Position.X, cache.Role.Session.Position.Y);
+            if (notice is not null) cache.Role.Notices.Enqueue(notice);
         }
     }
 
     /// <summary>维持 0.45 秒确认和三像素修正，失败终止相关待确认意图。</summary>
-    private static void AdvanceMovement(ServerRequestContext cache, double delta, int speed)
+    private static void AdvanceMovement(RoleContext cache, double delta, int speed)
     {
         if (cache.Current is null) return;
         var session = cache.Session;
@@ -40,7 +40,7 @@ internal static class ServerSimulation
             var role = current.Role.Value;
             try
             {
-                var rules = cache.MapLayouts[role.MapId];
+                var rules = cache.Rules.MapLayouts[role.MapId];
                 var candidate = current.WithRole(role with
                 { X = Math.Clamp(session.Position.X + 3, 0, (long)rules.Width * rules.TileSize - 1), Y = session.Position.Y });
                 cache.Commit(candidate, 1);

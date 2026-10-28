@@ -1,11 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Rpg.Net.Message;
 using Rpg.Server.EntityCache;
 using Rpg.Server.Handler.Login;
-using Rpg.Server.Handler.Role;
-using Rpg.Server.Map;
+using Rpg.Server.Context;
 
 namespace Rpg.Server.Actors;
 
@@ -17,11 +15,18 @@ internal sealed class LoginActor : BaseActor
     /// <summary>本 Actor 独占的登录缓存。</summary>
     private readonly ServerLoginCache _cache = new();
     /// <summary>处理器使用的只读规则。</summary>
-    private readonly DataLoginRules _rules;
+    private readonly DataServerRules _rules;
+
+    /// <summary>本 Actor 复用的Login请求处理器。</summary>
+    private readonly LoginHandler _loginHandler = new();
+    /// <summary>本 Actor 复用的CreateRole请求处理器。</summary>
+    private readonly CreateRoleHandler _createRoleHandler = new();
+    /// <summary>本 Actor 复用的DeleteRole请求处理器。</summary>
+    private readonly DeleteRoleHandler _deleteRoleHandler = new();
 
     /// <summary>绑定存储和配置；初始化由首条消息触发。</summary>
-    internal LoginActor(RepoServerRole repo, Handler.Bag.BagRules rules, IEnumerable<MapLayout> maps, int initialMapId)
-    { _repo = repo; _rules = new(rules, maps, initialMapId); }
+    internal LoginActor(RepoServerRole repo, DataServerRules rules)
+    { _repo = repo; _rules = rules; }
 
     /// <summary>完整加载摘要，不读取任何角色物品表。</summary>
     protected override ValueTask InitializeAsync()
@@ -34,7 +39,7 @@ internal sealed class LoginActor : BaseActor
     /// <summary>只在 RUN 状态管理角色摘要和未落地创建/删除。</summary>
     protected override ValueTask<object?> ReceiveAsync(object message)
     {
-        var context = new ServerRequestContext(_rules.Bag, _rules.Maps, _rules.InitialMapId, login: _cache);
+        var context = new LoginContext(_cache, _rules);
         object? response = message switch
         {
             DataInitialize => true,
@@ -48,10 +53,11 @@ internal sealed class LoginActor : BaseActor
     }
 
     /// <summary>验证列表身份后准备删除单例，再路由到纯内存 Handler。</summary>
-    private object Handle(ServerRequestContext context, DataLoginRequest message)
+    private object Handle(LoginContext context, DataLoginRequest message)
     {
-        context.Session.Authenticated = message.Authenticated;
-        if (message.Request is Login login) return new LoginHandler().Handle(context, login);
+        context.Authenticated = message.Authenticated;
+        context.HasSelectedRole = message.Selected;
+        if (message.Request is Login login) return _loginHandler.Handle(context, login);
         if (message.Selected) throw new InvalidOperationException("请在登录后的角色列表操作");
         if (message.Request is DeleteRole delete && message.Authenticated &&
             !_cache.Created.ContainsKey(delete.RoleId) && !_cache.Deletions.ContainsKey(delete.RoleId) &&
@@ -59,8 +65,8 @@ internal sealed class LoginActor : BaseActor
             _cache.Deletions[delete.RoleId] = _repo.ReadRole(delete.RoleId);
         return message.Request switch
         {
-            CreateRole create => new CreateRoleHandler().Handle(context, create),
-            DeleteRole removal => new DeleteRoleHandler().Handle(context, removal),
+            CreateRole create => _createRoleHandler.Handle(context, create),
+            DeleteRole removal => _deleteRoleHandler.Handle(context, removal),
             _ => throw new InvalidOperationException("登录消息类型无效")
         };
     }
@@ -77,6 +83,4 @@ internal sealed class LoginActor : BaseActor
         return new(created);
     }
 
-    /// <summary>初始化后不变的处理规则。</summary>
-    private sealed record DataLoginRules(Handler.Bag.BagRules Bag, IEnumerable<MapLayout> Maps, int InitialMapId);
 }

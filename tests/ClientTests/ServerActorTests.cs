@@ -131,16 +131,16 @@ public sealed class ServerActorShardTests : IDisposable
         Assert.Equal(ActorState.INIT, one.State);
         one.Tell(new DataRoleWork(first.Role.Value.RoleId, cache =>
         {
-            cache.Commit(cache.Role.Tables!.WithRole(cache.Role.Tables.Role.Value with { Health = 17 }), 1);
+            cache.Commit(cache.EntityCache.Tables!.WithRole(cache.EntityCache.Tables.Role.Value with { Health = 17 }), 1);
             return true;
         }));
-        var reply = await one.Ask<DataRoleResult>(new DataRoleWork(first.Role.Value.RoleId, cache => cache.Role.Tables!.Role.Value.Health));
+        var reply = await one.Ask<DataRoleResult>(new DataRoleWork(first.Role.Value.RoleId, cache => cache.EntityCache.Tables!.Role.Value.Health));
         Assert.Equal(17, reply.Response);
         Assert.Equal(ActorState.RUN, one.State);
         Assert.Equal(ActorState.INIT, two.State);
         Assert.Equal(ActorState.RUN, server.GetWorldActor(1).State);
         Assert.Same(server.GetWorldActor(1), server.GetWorldActor(1));
-        await two.Ask<DataRoleResult>(new DataRoleWork(second.Role.Value.RoleId, cache => cache.Role.Tables!.Role.Value.Health));
+        await two.Ask<DataRoleResult>(new DataRoleWork(second.Role.Value.RoleId, cache => cache.EntityCache.Tables!.Role.Value.Health));
         Assert.Equal(100, disk.Load(first.Role.Value.RoleId).Role.Value.Health);
         server.Flush();
         Assert.Equal(17, disk.Load(first.Role.Value.RoleId).Role.Value.Health);
@@ -239,6 +239,35 @@ public sealed class ServerActorShardTests : IDisposable
         Assert.Equal(ActorState.STOP, actor.State);
         Assert.Equal(ActorState.STOP, world.State);
         await Assert.ThrowsAsync<ObjectDisposedException>(() => actor.Ask<DataRoleResult>(new DataRoleWork(role.Role.Value.RoleId, _ => true)));
+    }
+
+    /// <summary>server-actors、mock-server：地图路由使用角色副本，失败不会污染角色的移动队列或 AOI 序号。</summary>
+    [Fact]
+    public async Task FailedWorldWorkPreservesRoleSessionAndMailboxRouting()
+    {
+        var role = new RepoServerRole(_directory).Create("隔离角色", ServerRoleGender.Male, 1);
+        var id = role.Role.Value.RoleId;
+        using var server = new MockServer(_directory, _rules);
+        var actor = server.GetRoleActor(id);
+        var selected = await actor.Ask<DataRoleResult>(new DataRoleRequest(id, new SelectRole { RoleId = id }));
+        Assert.True(Assert.IsType<SelectRoleRt>(selected.Response).Success);
+        Assert.IsType<MapAoiNotice>(Assert.Single(selected.Notices));
+        var moved = await actor.Ask<DataRoleResult>(new DataRoleRequest(id, new Move { RoleId = id, ActionId = 1, X = 16100, Y = 16100 }));
+        Assert.True(Assert.IsType<MoveRt>(moved.Response).Success);
+        var before = moved.Role.Session;
+        Assert.Single(before.Moves);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => actor.Ask<DataRoleResult>(new DataRoleWorldWork(id, context =>
+        {
+            Assert.NotSame(before, context.Role.Session);
+            context.Role.Session.Moves.Clear();
+            context.Role.Session.Aoi!.Snapshot(context.EntityCache.Map, 0, 0);
+            throw new InvalidOperationException("地图事务拒绝");
+        })));
+        var resynced = await actor.Ask<DataRoleResult>(new DataRoleRequest(id, new ResyncMapAoi { RoleId = id, MapId = 1 }));
+        Assert.True(Assert.IsType<ResyncMapAoiRt>(resynced.Response).Success);
+        Assert.Single(resynced.Role.Session.Moves);
+        Assert.Equal(((MapAoiNotice)selected.Notices[0]).Sequence + 1, ((ResyncMapAoiRt)resynced.Response!).Snapshot.Sequence);
+        Assert.Equal(ActorState.RUN, actor.State);
     }
 
     /// <summary>只清理本测试独占目录。</summary>

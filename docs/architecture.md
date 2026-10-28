@@ -70,7 +70,7 @@ if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
 
 `src/Server` 使用独立于客户端缓存和 Godot 的实体状态。落地实体放在 `Server/Entity`，缓存放在 `Server/EntityCache`：`RoleEntityCache.Value` 只保存一个 `RoleEntity`；`ItemEntityCache.Items` 与 `EquipmentEntityCache.Items` 按共享 InstanceId 索引。`RoleEntityTables` 平级组合三张表，不复制实体字段。ServerRoleCache 按角色持有表组、待写领域和非持久化会话，ServerLoginCache 持有摘要及列表管理结果，ServerWorldCache 按地图独占对象和共同转移身份。实体候选完整校验后一次替换并更新 dirty，展示变化由 Actor 消息同步摘要。
 
-请求业务按协议文件名首字母大写放在 `Server/Handler/Login`、`Role`、`Bag`、`Gm`、`World`。每个请求类对应一个 Handler，只公开 `响应 Handle(ServerRequestContext cache, 请求 request)`。Handle 不接收路径、仓库、发送委托或加载回调，只读配置和已加载内存。Actor 初始化加载所属数据，进入 RUN 后调用 Handler，MockServer 接回内存通知及响应，并在唯一发送边界递增 Envelope revision。移动成功响应由 `ServerSimulation` 延迟 0.45 秒生成；拾取先登记意图，走近后通过同一内存规则提交，重复和取消行为保持一致。计时、网络发送及定时/关闭写回均在 Handle 外。
+请求业务按所属 Actor 放在 `Server/Handler/Login`、`Role`、`World`。每个请求对应一个 Handler，Actor 用只读字段声明并复用自己的处理器。登录处理器接收 `LoginContext`，角色处理器接收 `RoleContext`，世界处理器接收 `WorldContext`；每个 Handle 只公开对应 Context 与请求两个参数并返回响应。Handle 不接收路径、仓库、发送委托或加载回调，只读配置和已加载内存。Actor 初始化加载所属数据，进入 RUN 后调用 Handler，MockServer 接回内存通知及响应，并在唯一发送边界递增 Envelope revision。移动成功响应由 `ServerSimulation` 延迟 0.45 秒生成；拾取先登记意图，走近后通过同一内存规则提交，重复和取消行为保持一致。计时、网络发送及定时/关闭写回均在 Handle 外。
 
 `RepoServerRole` 负责 `<roleId>.role.json` 单例、`<roleId>.item.json` 数组、`<roleId>.equipment.json` 数组与 `<roleId>.role_summary.json` 快照的显式加载和文件提交。删除只需准备角色单例，不加载未选物品表。创建、删除及多表变化保留四表回滚、编号不复用与失败重试。Handler 只更新内存；检测或关闭节点比较最终 JSON，只写实际变化文件，失败保留已接纳实体与待写标记。
 
@@ -204,7 +204,7 @@ NetService 与 SettingService 通过构造绑定；MockServer 与 RepoServerRole
 
 RoleActor 独占 ServerRoleCache，处理移动意图、GM 和背包/装备的纯角色操作。涉及地图的选角、AOI、丢弃、拾取及时间推进，将实体表和深复制瞬态状态作为独占工作副本发往 WorldActor；地图在自己的邮箱串行处理并归还结果，RoleActor 等待期间不处理下一条消息。MapAoiTracker 复制订阅集合和序号，待拾取消息也复制，避免跨 Actor 共享可写状态。展示字段或物品表变化后以 Tell 发布不可变摘要给 LoginActor。
 
-Handler 的 `Handle(ServerRequestContext, 请求)` 只接触当前回合内存；ServerRequestContext 是工作区，不是全局缓存，不读取文件或发送网络。旧 RepoEntityCache、MockServer.Prepare 和仓库延迟缓存结构已经删除。MockServer 仅管理当前单连接认证、分片目录、发送信封版本和落地协调，响应在原客户端调用线程交付，Godot UI 不从后台 Actor 回调。同步传输仍会等待加载和写入，真实异步网络、多客户端连接与跨地图迁移待独立需求确定。
+`LoginContext.EntityCache`、`RoleContext.EntityCache`、`WorldContext.EntityCache` 分别绑定 ServerLoginCache、ServerRoleCache、ServerWorldCache，构造和 Handler 均不执行 IO。登录上下文只持有摘要与列表操作身份；角色上下文持有实体、会话和通知；世界上下文另显式持有当前事务的 RoleContext 副本，用于丢弃、拾取和 AOI 的共同处理。地图客户端请求以消息交给 WorldActor，由它自己的路由调用世界 Handler；角色内部操作与地图事务使用不同的强类型工作消息，规则由一次校验的只读 DataServerRules 共享。通用 ServerRequestContext 已移除。MockServer 仅管理当前单连接认证、分片目录、发送信封版本和落地协调，响应在原客户端调用线程交付，Godot UI 不从后台 Actor 回调。同步传输仍会等待加载和写入，真实异步网络、多客户端连接与跨地图迁移待独立需求确定。
 
 MockTransport 正常关闭先完成落地，成功后排空并停止 Role、World、Login 全部 Actor；落地失败保留运行状态与 dirty，供离角或关闭重试。地图查询返回独立只读快照。角色删除保留仍有共同转移的已加载分片及最新物品，未加载或初始化失败角色的删除只读角色单例，不加载物品表。
 

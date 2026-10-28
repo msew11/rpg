@@ -4,15 +4,15 @@ using System.Numerics;
 using System.Globalization;
 using Rpg.Net.Message;
 using Rpg.Server.Entity;
-using Rpg.Server.EntityCache;
+using Rpg.Server.Context;
 
-namespace Rpg.Server.Handler.Gm;
+namespace Rpg.Server.Handler.Role;
 
 /// <summary>解析道具发放指令并原子提交实体候选。</summary>
 public sealed class GmHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public GmRt Handle(ServerRequestContext cache, global::Rpg.Net.Message.Gm request)
+    public GmRt Handle(RoleContext cache, global::Rpg.Net.Message.Gm request)
     {
         var response = new GmRt { RoleId = request.RoleId, Command = request.Command };
         try
@@ -25,8 +25,8 @@ public sealed class GmHandler
             var count = 1;
             if (args.Length == 3 && (!int.TryParse(args[2], NumberStyles.None, CultureInfo.InvariantCulture, out count) || count <= 0))
                 throw new ArgumentException("道具数量必须是有效的正整数");
-            if (!cache.BagRules.Items.TryGetValue(itemId, out var definition)) throw new ArgumentException($"道具配置不存在：{itemId}");
-            var candidate = cache.BagRules.Add(tables, itemId, count);
+            if (!cache.Rules.BagRules.Items.TryGetValue(itemId, out var definition)) throw new ArgumentException($"道具配置不存在：{itemId}");
+            var candidate = cache.Rules.BagRules.Add(tables, itemId, count);
             var notice = RoleMessages.Items(candidate);
             cache.Commit(candidate, 2);
             cache.Notices.Enqueue(notice);

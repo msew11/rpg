@@ -4,7 +4,7 @@ using System.Numerics;
 using Rpg.Net.Message;
 using Rpg.Server.Map;
 
-namespace Rpg.Server.Handler.Bag;
+namespace Rpg.Server.Handler.World;
 
 /// <summary>丢弃落点的纯几何验证与候选选择。</summary>
 internal static class GroundDrop

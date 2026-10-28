@@ -272,10 +272,10 @@ public sealed class RepoServerRole
     /// <summary>显式准备摘要后复用纯内存创建业务，再在同步模式落地。</summary>
     public RoleEntityTables Create(string name, ServerRoleGender gender, int headId, int mapId = 1, float? spawnX = null, float? spawnY = null)
     {
-        var context = new ServerRequestContext();
-        foreach (var summary in ReadSummaries()) context.Login.Summaries.Add(summary.RoleId, summary);
-        context.Login.Loaded = true;
-        var role = Handler.Role.RoleCreation.Create(context, name, gender, headId, mapId, spawnX, spawnY);
+        var context = new Context.LoginContext(new ServerLoginCache(), new Context.DataServerRules());
+        foreach (var summary in ReadSummaries()) context.EntityCache.Summaries.Add(summary.RoleId, summary);
+        context.EntityCache.Loaded = true;
+        var role = Handler.Login.RoleCreation.Create(context, name, gender, headId, mapId, spawnX, spawnY);
         Save(role);
         return role;
     }
