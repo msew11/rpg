@@ -1,8 +1,12 @@
+using Rpg.Server.Map;
+using Rpg.Server.Entity;
 using Google.Protobuf;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 
 namespace ClientTests;
 
@@ -16,7 +20,7 @@ public sealed class GroundItemPickupTests : IDisposable
     /// <summary>真实字节输出的完整消息。</summary>
     private readonly List<IMessage> _messages = [];
     /// <summary>有限容量及可堆叠道具规则。</summary>
-    private readonly DataServerBagRules _rules = new(2, 2, [new(2000, "测试堆叠", 10)]);
+    private readonly BagRules _rules = new(2, 2, [RoleTestData.Item(2000, "测试堆叠", 10)]);
     /// <summary>文件核对用角色仓库。</summary>
     private readonly RepoServerRole _repo;
     /// <summary>当前角色身份。</summary>
@@ -31,8 +35,8 @@ public sealed class GroundItemPickupTests : IDisposable
     {
         _repo = new(_root);
         var role = _repo.Create("拾取测试", ServerRoleGender.Male, 1, spawnX: 1500, spawnY: 1500);
-        _id = role.RoleId;
-        _repo.SaveBag(role with { Bag = new() { Revision = 1, NextInstanceId = 2, Items = [new(1, 2000, 0, 8)] } });
+        _id = role.Role.Value.RoleId;
+        _repo.SaveBag(role.WithItems([new(1, 2000, 0, 8)], 2));
         _server = Start();
         Enter(_id);
     }
@@ -68,11 +72,11 @@ public sealed class GroundItemPickupTests : IDisposable
     private void Send(IMessage message) => _server.Receive(MessageCodec.Encode(message, 1, true));
 
     /// <summary>创建指定位置的合法地面测试对象。</summary>
-    private DataServerMapObject Ground(int count = 5, float x = 1500, int mapId = 1) =>
+    private MapObjectEntity Ground(int count = 5, float x = 1500, int mapId = 1) =>
         _server.CreateMapObject(mapId, new() { X = x, Y = 1500, ItemId = 2000, Count = count });
 
     /// <summary>对应真实客户端先移动后绑定拾取的顺序。</summary>
-    private PickupItem Begin(DataServerMapObject item, long? version = null, long? role = null)
+    private PickupItem Begin(MapObjectEntity item, long? version = null, long? role = null)
     {
         _messages.Clear();
         var id = role ?? _id;
@@ -99,8 +103,8 @@ public sealed class GroundItemPickupTests : IDisposable
         Assert.False(Assert.Single(_messages.OfType<PickupItemRt>()).Success);
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         _server.Flush();
-        Assert.Equal(13, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
-        Assert.Equal(3, _repo.Load(_id).Bag.NextInstanceId);
+        Assert.Equal(13, _repo.Load(_id).BagItems.Sum(item => item.Count));
+        Assert.Equal(3, _repo.Load(_id).Role.Value.NextInstanceId);
     }
 
     /// <summary>移动中间位置达到一个瓦片距离才拾取，同一在途请求重发仍只有一个最终结果。</summary>
@@ -124,8 +128,7 @@ public sealed class GroundItemPickupTests : IDisposable
     public void FullBagRejectsWholeObjectWithoutPartialMerge()
     {
         var role = _repo.Load(_id);
-        _repo.SaveBag(role with { Bag = new() { Revision = 1, NextInstanceId = 5,
-            Items = [new(1, 2000, 0, 9), new(2, 2000, 1, 10), new(3, 2000, 2, 10), new(4, 2000, 3, 10)] } });
+        _repo.SaveBag(role.WithItems([new(1, 2000, 0, 9), new(2, 2000, 1, 10), new(3, 2000, 2, 10), new(4, 2000, 3, 10)], 5));
         _server = Start(); Enter(_id);
         var item = Ground(2);
         Begin(item);
@@ -133,9 +136,9 @@ public sealed class GroundItemPickupTests : IDisposable
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Equal(item, Assert.Single(_server.GetMap(1).Objects).Value);
         _server.Flush();
-        Assert.Equal(39, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
-        Assert.Equal(0, _repo.Load(_id).Bag.Revision);
-        Assert.Equal(5, _repo.Load(_id).Bag.NextInstanceId);
+        Assert.Equal(39, _repo.Load(_id).BagItems.Sum(item => item.Count));
+
+        Assert.Equal(5, _repo.Load(_id).Role.Value.NextInstanceId);
     }
 
     /// <summary>错误身份、版本、地图或非物品对象均不能绕过校验。</summary>
@@ -158,7 +161,7 @@ public sealed class GroundItemPickupTests : IDisposable
             MoveActionId = kind == "move" ? 0 : _action });
         Assert.False(Assert.Single(_messages.OfType<PickupItemRt>()).Success);
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
-        Assert.Equal(8, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
+        Assert.Equal(8, _repo.Load(_id).BagItems.Sum(item => item.Count));
     }
 
     /// <summary>走近期间对象变化、背包变化或新的移动都取消原意图。</summary>
@@ -193,14 +196,14 @@ public sealed class GroundItemPickupTests : IDisposable
         Begin(item);
         _server.Transfers.BeforeComplete = () => throw new IOException("模拟提交点失败");
         Assert.Throws<AggregateException>(_server.Flush);
-        Assert.Equal(8, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
+        Assert.Equal(8, _repo.Load(_id).BagItems.Sum(item => item.Count));
         Assert.Single(new RepoServerMap(_root).Load(_server.GetMap(1).Rules));
         Assert.Empty(_server.GetMap(1).Objects);
         _server.Transfers.BeforeComplete = null;
         _server.Flush();
         _server = Start(); Enter(_id);
         Assert.Empty(_server.GetMap(1).Objects);
-        Assert.Equal(13, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
+        Assert.Equal(13, _repo.Load(_id).BagItems.Sum(item => item.Count));
     }
 
     /// <summary>没有落地的拾取异常退出时，恢复旧地面物品及旧背包。</summary>
@@ -211,7 +214,7 @@ public sealed class GroundItemPickupTests : IDisposable
         Begin(item);
         _server = Start(); Enter(_id);
         Assert.Single(_server.GetMap(1).Objects);
-        Assert.Equal(8, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
+        Assert.Equal(8, _repo.Load(_id).BagItems.Sum(item => item.Count));
     }
 
     /// <summary>同周期丢弃再拾取仍保持守恒，不留下孤立地图状态。</summary>
@@ -224,7 +227,7 @@ public sealed class GroundItemPickupTests : IDisposable
         _server.Tick(2);
         Assert.True(Assert.Single(_messages.OfType<PickupItemRt>()).Success);
         new MockTransport(_server).Dispose();
-        Assert.Equal(8, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
+        Assert.Equal(8, _repo.Load(_id).BagItems.Sum(item => item.Count));
         _server = Start(); Enter(_id);
         Assert.Empty(_server.GetMap(1).Objects);
     }
@@ -237,15 +240,15 @@ public sealed class GroundItemPickupTests : IDisposable
         _server = Start(); Enter(_id);
         Send(new DropItem { RoleId = _id, InstanceId = 1, Count = 3, ExpectedRevision = _bagRevision });
         var item = Assert.Single(_server.GetMap(1).Objects).Value;
-        Enter(second.RoleId); Begin(item, role: second.RoleId);
+        Enter(second.Role.Value.RoleId); Begin(item, role: second.Role.Value.RoleId);
         _server.Tick(2);
         _server.Transfers.BeforeComplete = () => throw new IOException("模拟跨角色失败");
         Assert.Throws<AggregateException>(_server.Flush);
-        Assert.Equal(8, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
-        Assert.Empty(_repo.Load(second.RoleId).Bag.Items);
+        Assert.Equal(8, _repo.Load(_id).BagItems.Sum(item => item.Count));
+        Assert.Empty(_repo.Load(second.Role.Value.RoleId).BagItems);
         _server.Transfers.BeforeComplete = null; _server.Flush();
-        Assert.Equal(5, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
-        Assert.Equal(3, _repo.Load(second.RoleId).Bag.Items.Sum(item => item.Count));
+        Assert.Equal(5, _repo.Load(_id).BagItems.Sum(item => item.Count));
+        Assert.Equal(3, _repo.Load(second.Role.Value.RoleId).BagItems.Sum(item => item.Count));
     }
 
     /// <summary>只清理独占验收目录。</summary>

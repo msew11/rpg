@@ -2,7 +2,10 @@ using Google.Protobuf;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 
 namespace ClientTests;
 
@@ -16,8 +19,8 @@ public sealed class BagServerTests : IDisposable
     /// <summary>成功提交的目标文件名，用于领域写入隔离验收。</summary>
     private readonly List<string> _writes = [];
     /// <summary>测试使用的独立规则，普通道具不会写入正式配置。</summary>
-    private readonly DataServerBagRules _rules = new(2, 2,
-        [new(1012, "测试剑", 1), new(2000, "临时堆叠道具", 10)]);
+    private readonly BagRules _rules = new(2, 2,
+        [RoleTestData.Item(1012, "测试剑", 1), RoleTestData.Item(2000, "临时堆叠道具", 10)]);
     /// <summary>最近私有快照的信封序号，用作并发条件。</summary>
     private long _bagRevision;
     /// <summary>通过真实 protobuf 信封处理请求的模拟服务端。</summary>
@@ -31,7 +34,7 @@ public sealed class BagServerTests : IDisposable
     public BagServerTests()
     {
         _repo = new RepoServerRole(_directory);
-        _roleId = _repo.Create("背包测试", ServerRoleGender.Male, 1).RoleId;
+        _roleId = _repo.Create("背包测试", ServerRoleGender.Male, 1).Role.Value.RoleId;
         _server = CreateServer();
     }
 
@@ -114,27 +117,27 @@ public sealed class BagServerTests : IDisposable
         Enter();
         Assert.True(Grant("item 1012 2").Success);
         Assert.True(Grant("item 2000 3").Success);
-        var original = _repo.Load(_roleId).Bag;
-        var sword = original.Items[0];
+        var original = _repo.Load(_roleId);
+        var sword = original.BagItems[0];
         Assert.True(MoveInstance(sword.InstanceId, 3).Success);
         var notice = Assert.Single(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Equal(3, notice.Bag.Items.Single(item => item.InstanceId == sword.InstanceId).SlotIndex);
         Assert.True(MoveInstance(sword.InstanceId, 2).Success);
-        var saved = _repo.Load(_roleId).Bag;
-        Assert.Equal(2, saved.Items.Single(item => item.InstanceId == sword.InstanceId).SlotIndex);
-        Assert.Equal(3, saved.Items.Single(item => item.ItemId == 2000).SlotIndex);
-        Assert.Equal(original.NextInstanceId, saved.NextInstanceId);
-        Assert.Equal(0, saved.Revision);
-        Assert.Equal(original.Items.OrderBy(item => item.InstanceId).Select(item => (item.InstanceId, item.ItemId, item.Count)),
-            saved.Items.OrderBy(item => item.InstanceId).Select(item => (item.InstanceId, item.ItemId, item.Count)));
+        var saved = _repo.Load(_roleId);
+        Assert.Equal(2, saved.BagItems.Single(item => item.InstanceId == sword.InstanceId).SlotIndex);
+        Assert.Equal(3, saved.BagItems.Single(item => item.ItemId == 2000).SlotIndex);
+        Assert.Equal(original.Role.Value.NextInstanceId, saved.Role.Value.NextInstanceId);
+
+        Assert.Equal(original.BagItems.OrderBy(item => item.InstanceId).Select(item => (item.InstanceId, item.ItemId, item.Count)),
+            saved.BagItems.OrderBy(item => item.InstanceId).Select(item => (item.InstanceId, item.ItemId, item.Count)));
         Send(new Move { RoleId = _roleId, ActionId = 1, X = 200, Y = 100 });
         _server.Tick(0.5);
         _server.Flush();
-        Assert.Equal(saved, _repo.Load(_roleId).Bag);
+        Assert.Equal(saved.BagItems, _repo.Load(_roleId).BagItems);
         _server = CreateServer();
         Enter();
         Send(new SelectRole { RoleId = _roleId });
-        Assert.Equal(saved.Items.Select(item => item.SlotIndex), _messages.OfType<SelectRoleRt>().Last().Bag.Items.Select(item => item.SlotIndex));
+        Assert.Equal(saved.BagItems.Select(item => item.SlotIndex), _messages.OfType<SelectRoleRt>().Last().Bag.Items.Select(item => item.SlotIndex));
     }
 
     /// <summary>role-bag：部分合并剩余留原格，完全合并只删除源实例，满堆叠执行交换。</summary>
@@ -144,26 +147,25 @@ public sealed class BagServerTests : IDisposable
     [InlineData(3, 10, 10, 3, 2)]
     public void MergesStacksOrSwapsFullTarget(int sourceCount, int targetCount, int expectedSourceCount, int expectedTargetCount, int itemCount)
     {
-        _repo.Save(_repo.Load(_roleId) with { Bag = new DataServerBag { NextInstanceId = 3,
-            Items = [new(1, 2000, 0, sourceCount), new(2, 2000, 1, targetCount)] } });
+        _repo.Save(_repo.Load(_roleId).WithItems([new(1, 2000, 0, sourceCount), new(2, 2000, 1, targetCount)], 3));
         Enter();
         Assert.True(MoveInstance(1, 1).Success);
-        var bag = _repo.Load(_roleId).Bag;
-        Assert.Equal(itemCount, bag.Items.Count);
-        Assert.Equal(expectedSourceCount, bag.Items.FirstOrDefault(item => item.SlotIndex == 0)?.Count ?? 0);
-        Assert.Equal(expectedTargetCount, bag.Items.Single(item => item.SlotIndex == 1).Count);
-        Assert.Equal(sourceCount + targetCount, bag.Items.Sum(item => item.Count));
-        Assert.Equal(3, bag.NextInstanceId);
-        Assert.Equal(0, bag.Revision);
+        var bag = _repo.Load(_roleId);
+        Assert.Equal(itemCount, bag.BagItems.Count);
+        Assert.Equal(expectedSourceCount, bag.BagItems.FirstOrDefault(item => item.SlotIndex == 0)?.Count ?? 0);
+        Assert.Equal(expectedTargetCount, bag.BagItems.Single(item => item.SlotIndex == 1).Count);
+        Assert.Equal(sourceCount + targetCount, bag.BagItems.Sum(item => item.Count));
+        Assert.Equal(3, bag.Role.Value.NextInstanceId);
+
         if (sourceCount <= 10 - targetCount)
         {
-            Assert.Equal(2, Assert.Single(bag.Items).InstanceId);
+            Assert.Equal(2, Assert.Single(bag.BagItems).InstanceId);
             Assert.True(Grant("item 1012").Success);
-            Assert.Equal(3, _repo.Load(_roleId).Bag.Items.Single(item => item.ItemId == 1012).InstanceId);
+            Assert.Equal(3, _repo.Load(_roleId).BagItems.Single(item => item.ItemId == 1012).InstanceId);
         }
         _server = CreateServer();
         Enter();
-        Assert.Equal(sourceCount + targetCount, _repo.Load(_roleId).Bag.Items.Where(item => item.ItemId == 2000).Sum(item => item.Count));
+        Assert.Equal(sourceCount + targetCount, _repo.Load(_roleId).BagItems.Where(item => item.ItemId == 2000).Sum(item => item.Count));
     }
 
     /// <summary>role-bag：满容量仍可移动或交换，同格不写盘、不推送、不递增版本。</summary>
@@ -177,8 +179,8 @@ public sealed class BagServerTests : IDisposable
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Equal(bytes, File.ReadAllBytes(_repo.GetItemPath(_roleId)));
         Assert.True(MoveInstance(1, 3).Success);
-        Assert.Equal(3, _repo.Load(_roleId).Bag.Items.Single(item => item.InstanceId == 1).SlotIndex);
-        Assert.Equal(0, _repo.Load(_roleId).Bag.Items.Single(item => item.InstanceId == 4).SlotIndex);
+        Assert.Equal(3, _repo.Load(_roleId).BagItems.Single(item => item.InstanceId == 1).SlotIndex);
+        Assert.Equal(0, _repo.Load(_roleId).BagItems.Single(item => item.InstanceId == 4).SlotIndex);
     }
 
     /// <summary>role-bag：身份、实例、范围、旧版本与 GM 更新后的旧拖放均被服务端拒绝。</summary>
@@ -217,10 +219,10 @@ public sealed class BagServerTests : IDisposable
         Assert.True(Assert.Single(_messages.OfType<MoveItemRt>()).Success);
         using (var locked = new FileStream(_repo.GetItemPath(_roleId), FileMode.Open, FileAccess.Read, FileShare.Read))
             Assert.Throws<AggregateException>(() => _server.Flush());
-        Assert.Equal(0, Assert.Single(_repo.Load(_roleId).Bag.Items).SlotIndex);
+        Assert.Equal(0, Assert.Single(_repo.Load(_roleId).BagItems).SlotIndex);
         _server.Flush();
-        Assert.Equal(3, Assert.Single(_repo.Load(_roleId).Bag.Items).SlotIndex);
-        Assert.Equal(0, _repo.Load(_roleId).Bag.Revision);
+        Assert.Equal(3, Assert.Single(_repo.Load(_roleId).BagItems).SlotIndex);
+
     }
 
     /// <summary>装备逐件分配、默认数量与跨格堆叠优先补满，并经重启保持实例。</summary>
@@ -231,20 +233,20 @@ public sealed class BagServerTests : IDisposable
         Assert.True(Grant("item 1012").Success);
         Assert.Equal(1, Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag.Items[0].Count);
         Assert.True(Grant("item 2000 13").Success);
-        var previous = _repo.Load(_roleId).Bag;
-        Assert.Equal(new[] { 1, 10, 3 }, previous.Items.Select(item => item.Count));
+        var previous = _repo.Load(_roleId);
+        Assert.Equal(new[] { 1, 10, 3 }, previous.BagItems.Select(item => item.Count));
         Assert.True(Grant("item 2000 8").Success);
-        var saved = _repo.Load(_roleId).Bag;
-        Assert.Equal(new[] { 1, 10, 10, 1 }, saved.Items.Select(item => item.Count));
-        Assert.Equal(previous.Items[2].InstanceId, saved.Items[2].InstanceId);
+        var saved = _repo.Load(_roleId);
+        Assert.Equal(new[] { 1, 10, 10, 1 }, saved.BagItems.Select(item => item.Count));
+        Assert.Equal(previous.BagItems[2].InstanceId, saved.BagItems[2].InstanceId);
         Send(new Move { RoleId = _roleId, ActionId = 1, X = 100, Y = 120 });
         _server.Tick(0.5);
         _server.Flush();
-        Assert.Equal(saved.Items, _repo.Load(_roleId).Bag.Items);
+        Assert.Equal(saved.BagItems, _repo.Load(_roleId).BagItems);
         Assert.Null(MoveRt.Descriptor.FindFieldByName("bag"));
         _server = CreateServer();
         Enter();
-        Assert.Equal(saved.Items, _repo.Load(_roleId).Bag.Items);
+        Assert.Equal(saved.BagItems, _repo.Load(_roleId).BagItems);
         Send(new SelectRole { RoleId = _roleId });
         Assert.True(_messages.OfType<SelectRoleRt>().Last().Bag.GetRevision() > 0);
     }
@@ -260,9 +262,9 @@ public sealed class BagServerTests : IDisposable
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Equal(before, File.ReadAllBytes(_repo.GetItemPath(_roleId)));
         Assert.True(Grant("item 1012 2").Success);
-        var bag = _repo.Load(_roleId).Bag;
-        Assert.Equal(new long[] { 1, 2, 3, 4 }, bag.Items.Select(item => item.InstanceId));
-        Assert.Equal(0, bag.Revision);
+        var bag = _repo.Load(_roleId);
+        Assert.Equal(new long[] { 1, 2, 3, 4 }, bag.BagItems.Select(item => item.InstanceId));
+
     }
 
     /// <summary>server-write-back：发放成功先推送，失败落地重试不重复发放或消耗编号。</summary>
@@ -275,12 +277,12 @@ public sealed class BagServerTests : IDisposable
         Assert.Single(_messages.OfType<RoleItemsChangedNotice>());
         using (var locked = new FileStream(_repo.GetItemPath(_roleId), FileMode.Open, FileAccess.Read, FileShare.Read))
             Assert.Throws<AggregateException>(() => _server.Flush());
-        Assert.Empty(_repo.Load(_roleId).Bag.Items);
+        Assert.Empty(_repo.Load(_roleId).BagItems);
         _server.Flush();
-        var bag = _repo.Load(_roleId).Bag;
-        Assert.Equal(0, bag.Revision);
-        Assert.Equal(1, Assert.Single(bag.Items).InstanceId);
-        Assert.Equal(2, bag.NextInstanceId);
+        var bag = _repo.Load(_roleId);
+
+        Assert.Equal(1, Assert.Single(bag.BagItems).InstanceId);
+        Assert.Equal(2, bag.Role.Value.NextInstanceId);
     }
 
     /// <summary>身份与错误参数均在服务端拒绝，即使绕过客户端输入。</summary>
@@ -310,9 +312,9 @@ public sealed class BagServerTests : IDisposable
     public void ExtraRowsExpandCapacity()
     {
         var role = _repo.Load(_roleId);
-        Assert.Empty(role.Bag.Items);
-        Assert.Equal(0, role.BagExtraRows);
-        _repo.SaveBag(role with { BagExtraRows = 1 });
+        Assert.Empty(role.BagItems);
+        Assert.Equal(0, role.Role.Value.BagExtraRows);
+        _repo.SaveBag(role.WithRole(role.Role.Value with { BagExtraRows = 1 }));
         Enter();
         Assert.True(Grant("item 1012 6").Success);
         Assert.False(Grant("item 1012").Success);
@@ -345,7 +347,7 @@ public sealed class BagServerTests : IDisposable
     [InlineData("duplicate")]
     public void CorruptBagIsRejectedAtSelection(string kind)
     {
-        var item = new DataServerItem(1, kind == "unknown" ? 9999 : 1012,
+        var item = new ItemEntity(1, kind == "unknown" ? 9999 : 1012,
             kind == "slot" ? 4 : 0, kind == "stack" ? 2 : 1);
         var items = kind == "duplicate" ? new[] { item, item with { InstanceId = 2 } } : new[] { item };
         var path = _repo.GetItemPath(_roleId);

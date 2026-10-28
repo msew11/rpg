@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -18,7 +19,7 @@ public sealed class ItemEntityCache
         foreach (var item in values)
         {
             if (item is null || item.InstanceId <= 0 || item.ItemId <= 0 || item.Count <= 0 || item.SlotIndex < 0 ||
-                item.Equipped && (item.SlotIndex != 0 || item.Count != 1 || item.EquipmentSlot is null) ||
+                item.Equipped && (item.SlotIndex != 0 || item.Count != 1 || item.EquipmentSlot is null || !Enum.IsDefined(item.EquipmentSlot.Value)) ||
                 !item.Equipped && item.EquipmentSlot is not null || !items.TryAdd(item.InstanceId, item))
                 throw new InvalidDataException("物品实体包含非法字段或重复 InstanceId");
         }

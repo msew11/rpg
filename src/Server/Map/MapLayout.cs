@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace Rpg.Server.Data;
+namespace Rpg.Server.Map;
 
 /// <summary>服务端独立地图规格；坐标使用未投影的逻辑像素。</summary>
 /// <param name="MapId">数值地图身份。</param>
@@ -10,7 +10,7 @@ namespace Rpg.Server.Data;
 /// <param name="Height">纵向格子数。</param>
 /// <param name="TileSize">单格逻辑像素边长。</param>
 /// <param name="ChunkSizeTiles">AOI 块的单边格子数。</param>
-public sealed record DataServerMapRules(int MapId, int Width, int Height, int TileSize, int ChunkSizeTiles)
+public sealed record MapLayout(int MapId, int Width, int Height, int TileSize, int ChunkSizeTiles)
 {
     /// <summary>检查规格及乘积范围，拒绝无法寻址的地图。</summary>
     public void Validate()

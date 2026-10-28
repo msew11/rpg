@@ -55,7 +55,7 @@ public sealed class LogServiceTests
         using var log = new LogService(lines.Add, env: env);
         using var events = new EventBusService();
         using var net = new NetService(new MockTransport(new MockServer(Path.Combine(root, "server"),
-            new Rpg.Server.Data.DataServerBagRules(8, 5, []), log.ServerIO)), events, log);
+            new Rpg.Server.Handler.Bag.BagRules(8, 5, []), log.ServerIO)), events, log);
         using var settings = new SettingService(env, log);
         var responses = new List<CreateRoleRt>();
         using var subscription = events.Subscribe<CreateRoleRt>(responses.Add);
@@ -184,7 +184,7 @@ public sealed class LogServiceTests
         using var log = new LogService(lines.Add);
         using var events = new EventBusService();
         using var net = new NetService(new MockTransport(new MockServer(root,
-            new Rpg.Server.Data.DataServerBagRules(8, 5, []), log.ServerIO)), events, log);
+            new Rpg.Server.Handler.Bag.BagRules(8, 5, []), log.ServerIO)), events, log);
         try
         {
             net.Send(new Login { Username = "demo", Password = "demo" });
@@ -225,18 +225,18 @@ public sealed class LogServiceTests
             setting.SetHotbarVisible(2, true);
             Assert.Equal("[Client][IO][1.json]" + Compact(File.ReadAllText(setting.RolePath)), lines[1]);
             var repo = new RepoServerRole(Path.Combine(root, "server"), log.ServerIO);
-            var role = repo.Create("测试", Rpg.Server.Data.ServerRoleGender.Male, 1);
-            Assert.Equal("[Server][IO][" + role.RoleId + ".item.json]" +
-                Compact(File.ReadAllText(repo.GetItemPath(role.RoleId))), lines[2]);
-            Assert.Equal("[Server][IO][" + role.RoleId + ".role.json]" +
-                Compact(File.ReadAllText(repo.GetRolePath(role.RoleId))), lines[4]);
+            var role = repo.Create("测试", Rpg.Server.Entity.ServerRoleGender.Male, 1);
+            Assert.Equal("[Server][IO][" + role.Role.Value.RoleId + ".item.json]" +
+                Compact(File.ReadAllText(repo.GetItemPath(role.Role.Value.RoleId))), lines[2]);
+            Assert.Equal("[Server][IO][" + role.Role.Value.RoleId + ".role.json]" +
+                Compact(File.ReadAllText(repo.GetRolePath(role.Role.Value.RoleId))), lines[4]);
             Assert.Contains(".equipment.json]", lines[3]);
             Assert.Contains(".role_summary.json]", lines[5]);
             Assert.All(lines, line => { Assert.DoesNotContain("\n", line); Assert.DoesNotContain("\r", line); });
-            repo.Load(role.RoleId);
+            repo.Load(role.Role.Value.RoleId);
             Assert.Equal(6, lines.Count);
-            using (var locked = new FileStream(repo.GetRolePath(role.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
-                Assert.Throws<IOException>(() => repo.SaveRole(role with { X = role.X + 1 }));
+            using (var locked = new FileStream(repo.GetRolePath(role.Role.Value.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
+                Assert.Throws<IOException>(() => repo.SaveRole(role.WithRole(role.Role.Value with { X = role.Role.Value.X + 1 })));
             Directory.CreateDirectory(setting.SystemPath + ".tmp");
             Assert.Throws<UnauthorizedAccessException>(() => setting.SetMasterVolume(0.4f));
             Assert.Equal(6, lines.Count);
@@ -273,8 +273,8 @@ public sealed class LogServiceTests
             setting.SetMasterVolume(0.2f);
             Assert.True(File.Exists(setting.SystemPath));
             var repo = new RepoServerRole(Path.Combine(root, "server"), log.ServerIO);
-            var role = repo.Create("日志失败", Rpg.Server.Data.ServerRoleGender.Male, 1);
-            Assert.Equal(role, repo.Load(role.RoleId));
+            var role = repo.Create("日志失败", Rpg.Server.Entity.ServerRoleGender.Male, 1);
+            Assert.Equal(role, repo.Load(role.Role.Value.RoleId));
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

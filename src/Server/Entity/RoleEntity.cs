@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using Rpg.Server.Data;
 
 namespace Rpg.Server.Entity;
 

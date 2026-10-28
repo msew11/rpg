@@ -1,8 +1,9 @@
+using Rpg.Server.Map;
+using Rpg.Server.Entity;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Rpg.Net.Message;
-using Rpg.Server.Data;
 
 namespace Rpg.Server;
 
@@ -55,7 +56,7 @@ public sealed class MapAoiTracker
     }
 
     /// <summary>按修改前后所属块决定新增、更新或移除；均不可见时无消息。</summary>
-    public MapAoiNotice? Change(ServerMap map, DataServerMapChange change)
+    public MapAoiNotice? Change(ServerMap map, MapChange change)
     {
         EnsureMap(map);
         var before = change.Before;

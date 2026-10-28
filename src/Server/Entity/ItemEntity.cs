@@ -6,6 +6,24 @@ namespace Rpg.Server.Entity;
 /// <summary>物品多例表的一行，包含未穿与已穿实例。</summary>
 public sealed record ItemEntity
 {
+    /// <summary>供 JSON 和对象初始化建立物品实体。</summary>
+    public ItemEntity() { }
+
+    /// <summary>建立一份未穿戴的背包物品。</summary>
+    public ItemEntity(long instanceId, int itemId, int slotIndex, int count)
+    {
+        InstanceId = instanceId;
+        ItemId = itemId;
+        SlotIndex = slotIndex;
+        Count = count;
+    }
+
+    /// <summary>建立已穿戴的单件物品，背包格子固定为零。</summary>
+    public ItemEntity(long instanceId, int itemId, EquipmentSlot slot) : this(instanceId, itemId, 0, 1)
+    {
+        Equipped = true;
+        EquipmentSlot = slot;
+    }
     /// <summary>角色内主键，同时关联装备扩展表。</summary>
     [JsonRequired]
     public long InstanceId { get; init; }

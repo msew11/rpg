@@ -1,3 +1,5 @@
+using Rpg.Server.Map;
+using Rpg.Server.Entity;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -6,7 +8,6 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Rpg.Server.Data;
 
 namespace Rpg.Server;
 
@@ -39,10 +40,10 @@ public sealed class RepoServerMap
     }
 
     /// <summary>只恢复清单明确引用的块，校验完成前不清理任何原文件。</summary>
-    public IReadOnlyList<DataServerMapObject> Load(DataServerMapRules rules)
+    public IReadOnlyList<MapObjectEntity> Load(MapLayout rules)
     {
         var manifest = ReadManifest(rules);
-        var result = new List<DataServerMapObject>();
+        var result = new List<MapObjectEntity>();
         var ids = new HashSet<Guid>();
         foreach (var entry in manifest.Chunks)
         {
@@ -60,7 +61,7 @@ public sealed class RepoServerMap
     }
 
     /// <summary>仅写变化块，以一次清单替换提交全部变化；失败不覆盖旧提交。</summary>
-    public IReadOnlyList<(string Path, string Text)> Commit(DataServerMapRules rules, IReadOnlyDictionary<(int X, int Y), IReadOnlyList<DataServerMapObject>> changes,
+    public IReadOnlyList<(string Path, string Text)> Commit(MapLayout rules, IReadOnlyDictionary<(int X, int Y), IReadOnlyList<MapObjectEntity>> changes,
         bool cleanup = true, bool log = true)
     {
         var manifest = ReadManifest(rules);
@@ -92,7 +93,7 @@ public sealed class RepoServerMap
     }
 
     /// <summary>缺失清单是空地图，已有清单必须完整匹配版本和布局。</summary>
-    private DataManifest ReadManifest(DataServerMapRules rules)
+    private DataManifest ReadManifest(MapLayout rules)
     {
         rules.Validate();
         var path = ManifestPath(rules.MapId);
@@ -113,7 +114,7 @@ public sealed class RepoServerMap
     }
 
     /// <summary>文件名只从已校验的清单读取，内容必须匹配身份及所属块。</summary>
-    private DataChunkFile ReadChunk(DataServerMapRules rules, DataChunkEntry entry)
+    private DataChunkFile ReadChunk(MapLayout rules, DataChunkEntry entry)
     {
         var path = Path.Combine(Path.GetDirectoryName(ManifestPath(rules.MapId))!, "chunks", entry.File);
         var data = Read<DataChunkFile>(path);
@@ -151,7 +152,7 @@ public sealed class RepoServerMap
     }
 
     /// <summary>清理只触及本地图已不再引用的版本；失败留待下个检测节点。</summary>
-    private void Cleanup(DataServerMapRules rules, DataManifest manifest)
+    private void Cleanup(MapLayout rules, DataManifest manifest)
     {
         var directory = Path.Combine(Path.GetDirectoryName(ManifestPath(rules.MapId))!, "chunks");
         if (!Directory.Exists(directory)) return;
@@ -186,7 +187,7 @@ public sealed class RepoServerMap
     /// <param name="Layout">恢复时校验的地图布局。</param>
     /// <param name="CommitId">本次清单提交标识。</param>
     /// <param name="Chunks">有效非空块的引用集合。</param>
-    private sealed record DataManifest(int FormatVersion, int MapId, DataServerMapRules Layout, string CommitId, DataChunkEntry[] Chunks);
+    private sealed record DataManifest(int FormatVersion, int MapId, MapLayout Layout, string CommitId, DataChunkEntry[] Chunks);
     /// <summary>不可变块版本的文件载荷。</summary>
     /// <param name="FormatVersion">存档格式版本。</param>
     /// <param name="MapId">地图身份。</param>
@@ -194,5 +195,5 @@ public sealed class RepoServerMap
     /// <param name="ChunkY">纵向块坐标。</param>
     /// <param name="CommitId">生成块文件的提交标识。</param>
     /// <param name="Objects">该块完整对象快照。</param>
-    private sealed record DataChunkFile(int FormatVersion, int MapId, int ChunkX, int ChunkY, string CommitId, DataServerMapObject[] Objects);
+    private sealed record DataChunkFile(int FormatVersion, int MapId, int ChunkX, int ChunkY, string CommitId, MapObjectEntity[] Objects);
 }

@@ -1,3 +1,4 @@
+using Rpg.Server.Map;
 using Rpg.Config;
 using System;
 using System.Collections.Generic;
@@ -6,7 +7,7 @@ using System.Linq;
 using Google.Protobuf;
 using Rpg.Services;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Handler.Bag;
 
 namespace Rpg.Net;
 
@@ -38,10 +39,10 @@ public sealed class NetService : Service
     /// <summary>在服务内部初始化当前阶段的进程内传输。</summary>
     public NetService(EnvService env, EventBusService eventBus, ConfigService config, LogService log)
         : this(new MockTransport(new MockServer(env.ServerDirectory,
-            new DataServerBagRules(config.Basic.Value.BagColumns, config.Basic.Value.BagRows,
-                config.Item.Items.Values.Select(item => new DataServerItemDefinition(item.Id, item.Name, item.MaxStack, item.Category, item.SubCategory))),
+            new BagRules(config.Basic.Value.BagColumns, config.Basic.Value.BagRows,
+                config.Item.Items.Values.ToArray()),
             log.ServerIO, () => env.ServerFlushIntervalSeconds,
-            config.Map.Items.Values.Select(map => new DataServerMapRules(map.Id, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles)),
+            config.Map.Items.Values.Select(map => new MapLayout(map.Id, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles)),
             config.Basic.Value.InitialMapId, () => env.MovementSpeed)), eventBus, log) { }
 
     /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>

@@ -3,10 +3,10 @@ using System.IO;
 using System.Text.Json.Serialization;
 using Rpg.Net.Message;
 
-namespace Rpg.Server.Data;
+namespace Rpg.Server.Entity;
 
 /// <summary>地图动态对象的不可变状态；两种载荷仅允许出现一种。</summary>
-public sealed record DataServerMapObject
+public sealed record MapObjectEntity
 {
     /// <summary>服务器分配的稳定 GUID，不随跨块移动变化。</summary>
     [JsonRequired]
@@ -45,8 +45,3 @@ public sealed record DataServerMapObject
         return message;
     }
 }
-
-/// <summary>一次已提交内存修改的前后状态，供观察者计算可见性。</summary>
-/// <param name="Before">修改前状态，新增时为空。</param>
-/// <param name="After">修改后状态，删除时为空。</param>
-public sealed record DataServerMapChange(DataServerMapObject? Before, DataServerMapObject? After);

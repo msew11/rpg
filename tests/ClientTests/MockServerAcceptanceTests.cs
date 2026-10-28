@@ -5,7 +5,10 @@ using Rpg.Session.Data;
 using System.Text.Json;
 using Rpg.Net.Message;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 using Rpg.Session;
 
 namespace ClientTests;
@@ -20,7 +23,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
     {
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         var repo = new RepoServerRole(fixture.DirectoryPath);
-        var updated = repo.Load(1001) with { Health = 42, X = 123, Y = 456, Revision = 7 };
+        var updated = repo.Load(1001).WithRole(repo.Load(1001).Role.Value with { Health = 42, X = 123, Y = 456 });
         repo.Save(updated);
         LoginRt? loginResponse = null;
         using var loginListener = EventBus.Subscribe<LoginRt>(response => loginResponse = response);
@@ -40,15 +43,15 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         using var session = fixture.SelectRole(summary.RoleId);
         Assert.IsType<RoleWorldStatePb>(selectionResponse!.State);
         Assert.IsType<RolePb>(selectionResponse.Role);
-        Assert.Equal(updated.Experience, selectionResponse.Role.Experience);
-        Assert.Equal(updated.NextExperience, selectionResponse.Role.NextExperience);
+        Assert.Equal(updated.Role.Value.Experience, selectionResponse.Role.Experience);
+        Assert.Equal(updated.Role.Value.NextExperience, selectionResponse.Role.NextExperience);
         Assert.Null(RoleWorldStatePb.Descriptor.FindFieldByName("role"));
         var worldJson = Google.Protobuf.JsonFormatter.Default.Format(selectionResponse.State);
         Assert.DoesNotContain("experience", worldJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("bagExtraRows", worldJson, StringComparison.OrdinalIgnoreCase);
         Assert.IsType<RoleWorldStatePbData>(session.RoleCache.State);
-        Assert.Equal(updated.Health, session.Role.Health);
-        Assert.Equal(new Godot.Vector2(updated.X, updated.Y), session.Role.Position);
+        Assert.Equal(updated.Role.Value.Health, session.Role.Health);
+        Assert.Equal(new Godot.Vector2(updated.Role.Value.X, updated.Role.Value.Y), session.Role.Position);
         Assert.Equal(selectionResponse.GetRevision(), session.RoleCache.State.Revision);
         Assert.Equal(summary.Name, session.Role.Name);
         Assert.Equal(summary.Level, session.Role.Level);
@@ -223,23 +226,22 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         using var statusListener = EventBus.Subscribe<RoleStatusNotice>(_ => statuses++);
         using var roleListener = EventBus.Subscribe<RoleChangedNotice>(_ => roles++);
         using var fullListener = EventBus.Subscribe<RoleStateNotice>(_ => full++);
-        fixture.Server.PublishRoleStatus(original with { Health = 50 });
+        fixture.Server.PublishRoleStatus(original.Role.Value with { Health = 50 });
         fixture.Net.Tick(0);
         Assert.Equal(50, session.Role.Health);
-        Assert.Equal(original.Experience, session.Role.Experience);
-        fixture.Server.PublishRole(original with { Experience = original.Experience + 5, BagExtraRows = 1 });
+        Assert.Equal(original.Role.Value.Experience, session.Role.Experience);
+        fixture.Server.PublishRole(original.Role.Value with { Experience = original.Role.Value.Experience + 5, BagExtraRows = 1 });
         fixture.Net.Tick(0);
-        Assert.Equal(original.Experience + 5, session.Role.Experience);
+        Assert.Equal(original.Role.Value.Experience + 5, session.Role.Experience);
         Assert.Equal(1, session.Role.BagExtraRows);
         Assert.Equal(1, statuses);
         Assert.Equal(1, roles);
         Assert.Equal(0, full);
-        Assert.Equal(original.Name, session.Role.Name);
-        fixture.Server.PublishRoleState(original with { Experience = original.Experience + 12,
-            Health = 45, BagExtraRows = 1 });
+        Assert.Equal(original.Role.Value.Name, session.Role.Name);
+        fixture.Server.PublishRoleState(original.WithRole(original.Role.Value with { Experience = original.Role.Value.Experience + 12, Health = 45, BagExtraRows = 1 }));
         fixture.Net.Tick(0);
         Assert.Equal(45, session.Role.Health);
-        Assert.Equal(original.Experience + 12, session.Role.Experience);
+        Assert.Equal(original.Role.Value.Experience + 12, session.Role.Experience);
         Assert.Equal(2, roles);
         Assert.Equal(1, full);
         Assert.Empty(fixture.Errors);
@@ -259,7 +261,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         using var positionListener = EventBus.Subscribe<RolePositionNotice>(_ => positions++);
         using var fullListener = EventBus.Subscribe<RoleStateNotice>(_ => full++);
         var old = session.Role;
-        fixture.Server.PublishRoleProfile(new RepoServerRole(fixture.DirectoryPath).Load(1001) with { Name = "新名字" });
+        fixture.Server.PublishRoleProfile(new RepoServerRole(fixture.DirectoryPath).Load(1001).WithRole(new RepoServerRole(fixture.DirectoryPath).Load(1001).Role.Value with { Name = "新名字" }).Role.Value);
         fixture.Net.Tick(0);
         Assert.Equal("新名字", session.Role.Name);
         Assert.Equal(old.Position, session.Role.Position);
@@ -293,14 +295,14 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
             Assert.True(message.Success, message.Error);
             replies++;
             var persisted = repo.Load(1001);
-            Assert.True(message.Position.GetRevision() > persisted.Revision);
-            Assert.Equal(initial.Position.X, persisted.X);
+
+            Assert.Equal(initial.Position.X, persisted.Role.Value.X);
             Assert.Equal(message.Position.X, session.RoleCache.State.Position.X);
         });
         session.SubmitMove(1, session.Role.Position + new Godot.Vector2(100, 0));
         fixture.Net.Tick(0.2);
         Assert.Equal(0, replies);
-        Assert.Equal(initial.Position.X, repo.Load(1001).X);
+        Assert.Equal(initial.Position.X, repo.Load(1001).Role.Value.X);
         fixture.Net.Tick(0.3);
         Assert.Equal(1, replies);
         var confirmed = session.RoleCache.State;
@@ -313,7 +315,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         using var restored = restarted.SelectRole(1001);
         Assert.Equal(confirmed.Position, restored.Role.Position);
         Assert.True(restored.RoleCache.State.Revision > 0);
-        Assert.Equal(0, repo.Load(1001).Revision);
+
         Assert.Equal(0, restored.RoleCache.State.AcknowledgedAction);
         Assert.Equal(otherRole, repo.Load(1002));
         restored.SubmitMove(1, restored.Role.Position + Godot.Vector2.One);
@@ -335,19 +337,19 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         {
             notices++;
             Assert.Equal(50, session!.RoleCache.State.Health);
-            Assert.Equal(86, repo.Load(1001).Health);
+            Assert.Equal(86, repo.Load(1001).Role.Value.Health);
             Assert.Equal(RoleGender.Female, session.Role.Gender);
             notice.State.Profile.Name = "篡改消息对象";
         });
         using var selected = session = fixture.SelectRole(1001);
-        var update = repo.Load(1001) with { Health = 50, Gender = ServerRoleGender.Female };
+        var update = repo.Load(1001).WithRole(repo.Load(1001).Role.Value with { Health = 50, Gender = ServerRoleGender.Female });
         fixture.Server.PublishRoleState(update);
         Assert.Equal(0, notices);
         fixture.Net.Tick(0);
         Assert.Equal(1, notices);
         Assert.Equal("晨星", session.Role.Name);
         Assert.True(session.RoleCache.State.Revision > 2);
-        Assert.Equal("晨星", repo.Load(1001).Name);
+        Assert.Equal("晨星", repo.Load(1001).Role.Value.Name);
         Assert.Empty(fixture.Errors);
     }
 
@@ -405,7 +407,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         Assert.Same(first, second);
         Assert.NotSame(initial, second.RoleCache.State);
         var repo = new RepoServerRole(fixture.DirectoryPath);
-        fixture.Server.PublishRoleState(repo.Load(1001) with { Health = 20 });
+        fixture.Server.PublishRoleState(repo.Load(1001).WithRole(repo.Load(1001).Role.Value with { Health = 20 }));
         fixture.Net.Tick(0);
         Assert.NotEqual(20, initial.Health);
         Assert.Equal(20, second.Role.Health);
@@ -482,9 +484,9 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         var original = repo.Load(1001);
         var invalid = field switch
         {
-            "identity" => original with { RoleId = 1002 },
-            "health" => original with { Health = -1 },
-            _ => original with { Gender = (ServerRoleGender)99 }
+            "identity" => original.Role.Value with { RoleId = 1002 },
+            "health" => original.Role.Value with { Health = -1 },
+            _ => original.Role.Value with { Gender = (ServerRoleGender)99 }
         };
         var json = JsonSerializer.Serialize(invalid);
         File.WriteAllText(repo.GetRolePath(1001), json);
@@ -519,8 +521,8 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
             Assert.Equal(original, File.ReadAllText(path));
         }
         fixture.Net.Tick(5);
-        Assert.Equal(0, repo.Load(1001).Revision);
-        Assert.Equal(session.Role.Position.X, repo.Load(1001).X);
+
+        Assert.Equal(session.Role.Position.X, repo.Load(1001).Role.Value.X);
     }
 
     /// <summary>server-write-back：主动推送只依赖内存提交，落地失败可重试而不重复增加版本。</summary>
@@ -536,7 +538,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
         using var listener = EventBus.Subscribe<RoleStateNotice>(_ => notices++);
         using (var locked = new FileStream(repo.GetRolePath(1001), FileMode.Open, FileAccess.Read, FileShare.Read))
         {
-            fixture.Server.PublishRoleState(original with { Health = 20 });
+            fixture.Server.PublishRoleState(original.WithRole(original.Role.Value with { Health = 20 }));
             fixture.Net.Tick(5);
             Assert.Equal(1, notices);
             Assert.Equal(20, session.Role.Health);
@@ -544,7 +546,7 @@ public sealed class MockServerAcceptanceTests : RegisteredServiceTestScope
             Assert.Single(fixture.Errors);
         }
         fixture.Net.Tick(5);
-        Assert.Equal(20, repo.Load(1001).Health);
+        Assert.Equal(20, repo.Load(1001).Role.Value.Health);
         Assert.True(session.RoleCache.State.Revision > 2);
         Assert.Equal(1, notices);
     }

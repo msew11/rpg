@@ -1,5 +1,8 @@
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 
 namespace ClientTests;
 
@@ -40,25 +43,25 @@ public sealed class RepoServerRoleTests : IDisposable
     {
         var repo = new RepoServerRole(_directory);
         var created = repo.Create("  首个角色  ", gender, 74);
-        Assert.Equal(1003, created.RoleId);
-        Assert.Equal("首个角色", created.Name);
-        Assert.Equal(gender, created.Gender);
-        Assert.Equal(74, created.HeadId);
-        Assert.Equal(1, created.Level);
-        Assert.Equal(100, created.Health);
-        Assert.Equal(100, created.MaxHealth);
-        Assert.Equal(60, created.Mana);
-        Assert.Equal(60, created.MaxMana);
-        Assert.Equal(0, created.Experience);
-        Assert.Equal(500, created.NextExperience);
-        Assert.Equal(x, created.X);
-        Assert.Equal(y, created.Y);
+        Assert.Equal(1003, created.Role.Value.RoleId);
+        Assert.Equal("首个角色", created.Role.Value.Name);
+        Assert.Equal(gender, created.Role.Value.Gender);
+        Assert.Equal(74, created.Role.Value.HeadId);
+        Assert.Equal(1, created.Role.Value.Level);
+        Assert.Equal(100, created.Role.Value.Health);
+        Assert.Equal(100, created.Role.Value.MaxHealth);
+        Assert.Equal(60, created.Role.Value.Mana);
+        Assert.Equal(60, created.Role.Value.MaxMana);
+        Assert.Equal(0, created.Role.Value.Experience);
+        Assert.Equal(500, created.Role.Value.NextExperience);
+        Assert.Equal(x, created.Role.Value.X);
+        Assert.Equal(y, created.Role.Value.Y);
         var restarted = new RepoServerRole(_directory);
         Assert.Equal(created, Assert.Single(restarted.List()));
-        Assert.Equal(created, restarted.Load(created.RoleId));
-        restarted.Delete(created.RoleId);
+        Assert.Equal(created, restarted.Load(created.Role.Value.RoleId));
+        restarted.Delete(created.Role.Value.RoleId);
         Assert.Empty(new RepoServerRole(_directory).List());
-        Assert.True(new RepoServerRole(_directory).Create("下个角色", gender, 1).RoleId > created.RoleId);
+        Assert.True(new RepoServerRole(_directory).Create("下个角色", gender, 1).Role.Value.RoleId > created.Role.Value.RoleId);
     }
 
     /// <summary>role-management：当前角色与墓碑完整保留，已移除角色不会被补建。</summary>
@@ -70,7 +73,7 @@ public sealed class RepoServerRoleTests : IDisposable
         repo.Delete(1002);
         var existing = File.ReadAllText(repo.GetRolePath(1001));
         var tombstone = File.ReadAllText(repo.GetRolePath(1002));
-        Assert.Equal(1001, Assert.Single(new RepoServerRole(_directory).List()).RoleId);
+        Assert.Equal(1001, Assert.Single(new RepoServerRole(_directory).List()).Role.Value.RoleId);
         Assert.Equal(existing, File.ReadAllText(repo.GetRolePath(1001)));
         Assert.Equal(tombstone, File.ReadAllText(repo.GetRolePath(1002)));
         foreach (var file in new[] { repo.GetRolePath(1001), repo.GetItemPath(1001), repo.GetEquipmentPath(1001), repo.GetSummaryPath(1001) }) File.Delete(file);

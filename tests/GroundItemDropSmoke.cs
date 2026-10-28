@@ -6,7 +6,10 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Godot;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
@@ -35,8 +38,7 @@ public partial class GroundItemDropSmoke : Node
             File.WriteAllText(Path.Combine(config, "item.json"), items.ToJsonString());
             RoleTestData.Seed(server);
             var repo = new RepoServerRole(server);
-            repo.Save(repo.Load(1001) with { Bag = new() { NextInstanceId = 3,
-                Items = [new(1, 2000, 0, 5), new(2, 1012, 1, 1)] } });
+            repo.Save(repo.Load(1001).WithItems([new(1, 2000, 0, 5), new(2, 1012, 1, 1)], 3));
             main = await StartMain(directory, config);
             var bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
             var grid = (GridContainer)bag.FindChild("BagGrid", true, false);
@@ -176,13 +178,13 @@ public partial class GroundItemDropSmoke : Node
             Check(!dialog.Visible, "关闭背包未关闭数量确认");
             Check(GameServices.Session.Bag.Items.Single().Count == 4, "关闭数量窗修改背包");
             GameServices.Net.Tick(5);
-            var saved = repo.Load(1001).Bag;
+            var saved = repo.Load(1001);
             anchorToggle.ButtonPressed = true; await Frames();
             Check(File.ReadAllText(Path.Combine(directory, ".env")).Contains("RPG_SHOW_ENTITY_ANCHORS=true"),
                 "开启锚点未保存 .env");
             main.QueueFree(); await Frames(); main = null;
             main = await StartMain(directory, config);
-            Check(GameServices.Session.Bag.Revision > 0 && saved.Revision == 0 && GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.Count)).SequenceEqual(saved.Items.Select(item => (item.InstanceId, item.Count))), "重启后背包未恢复");
+            Check(GameServices.Session.Bag.Revision > 0 && GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.Count)).SequenceEqual(saved.BagItems.Select(item => (item.InstanceId, item.Count))), "重启后背包未恢复");
             Check(GameServices.Session.Map!.Objects.Count == 2, "重启后地图未恢复");
             view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
             overlay = main.FindChildren("*", "Node", true, false).OfType<GroundItemOverlayControl>().Single();

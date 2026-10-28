@@ -2,7 +2,10 @@ using Google.Protobuf;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 
 namespace ClientTests;
 
@@ -16,20 +19,21 @@ public sealed class MapAoiServerTests : IDisposable
     /// <summary>两个独立地图的真实 MockServer。</summary>
     private readonly MockServer _server;
     /// <summary>当前选中的角色。</summary>
-    private readonly DataServerRole _role;
+    private readonly RoleEntityTables _role;
 
     /// <summary>将角色放在中心块 (2,2)，使完整九块范围可被验收。</summary>
     public MapAoiServerTests()
     {
         var roles = new RepoServerRole(_directory);
-        _role = roles.Create("地图测试", ServerRoleGender.Male, 1) with { X = 800, Y = 800 };
+        var created = roles.Create("地图测试", ServerRoleGender.Male, 1);
+        _role = created.WithRole(created.Role.Value with { X = 800, Y = 800 });
         roles.SaveRole(_role);
         _server = new MockServer(_directory, new(8, 5, []), maps:
             [new(1, 100, 100, 32, 10), new(2, 100, 100, 32, 10)]);
         _server.Outgoing += bytes => _messages.Add(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(bytes), false));
         _server.ResetSession(1);
         Send(new Login { Username = "demo", Password = "demo" });
-        Send(new SelectRole { RoleId = _role.RoleId });
+        Send(new SelectRole { RoleId = _role.Role.Value.RoleId });
     }
 
     /// <summary>所有请求通过已有字节信封。</summary>
@@ -43,7 +47,7 @@ public sealed class MapAoiServerTests : IDisposable
         Assert.Equal(9, initial.Chunks.Count); Assert.Equal(1, initial.Sequence);
         Assert.All(initial.Chunks, chunk => Assert.Empty(chunk.Objects));
         _messages.Clear(); _server.Tick(0); Assert.Empty(_messages);
-        Send(new Move { RoleId = _role.RoleId, ActionId = 1, X = 2000, Y = 800 });
+        Send(new Move { RoleId = _role.Role.Value.RoleId, ActionId = 1, X = 2000, Y = 800 });
         _server.Tick(0.8);
         Assert.Empty(_messages.OfType<MapAoiNotice>());
         _server.Tick(0.1);
@@ -97,15 +101,15 @@ public sealed class MapAoiServerTests : IDisposable
     public void ResyncAndBoundsAreValidated()
     {
         _messages.Clear();
-        Send(new ResyncMapAoi { RoleId = _role.RoleId, MapId = 2 });
+        Send(new ResyncMapAoi { RoleId = _role.Role.Value.RoleId, MapId = 2 });
         Assert.False(Assert.Single(_messages.OfType<ResyncMapAoiRt>()).Success);
-        _messages.Clear(); Send(new ResyncMapAoi { RoleId = _role.RoleId, MapId = 1 });
+        _messages.Clear(); Send(new ResyncMapAoi { RoleId = _role.Role.Value.RoleId, MapId = 1 });
         var result = Assert.Single(_messages.OfType<ResyncMapAoiRt>());
         Assert.True(result.Success); Assert.Equal(2, result.Snapshot.Sequence); Assert.Equal(9, result.Snapshot.Chunks.Count);
-        _messages.Clear(); Send(new Move { RoleId = _role.RoleId, ActionId = 1, X = 99999, Y = 0 });
+        _messages.Clear(); Send(new Move { RoleId = _role.Role.Value.RoleId, ActionId = 1, X = 99999, Y = 0 });
         Assert.False(Assert.Single(_messages.OfType<MoveRt>()).Success);
         _messages.Clear();
-        _server.PublishRoleState(_role with { X = 3199, Y = 3199 });
+        _server.PublishRoleState(_role.WithRole(_role.Role.Value with { X = 3199, Y = 3199 }));
         var delta = Assert.Single(_messages.OfType<MapAoiNotice>()).Delta;
         Assert.Equal(4, delta.EnteredChunks.Count);
         Assert.Equal(9, delta.LeftChunks.Count);

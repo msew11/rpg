@@ -1,137 +1,144 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using Google.Protobuf;
+using Rpg.Config;
 using Rpg.Net;
 using Rpg.Net.Message;
-using Rpg.Config;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler;
+using Rpg.Server.Handler.Bag;
+using Rpg.Server.Handler.Gm;
+using Rpg.Server.Handler.Login;
+using Rpg.Server.Handler.Role;
+using Rpg.Server.Handler.World;
+using Rpg.Server.Map;
 
 namespace Rpg.Server;
 
-/// <summary>处理 protobuf 请求、延迟移动确认及独立服务端持久化。</summary>
+/// <summary>组织显式加载、请求 Handler、模拟推进、网络发送与旁路落地。</summary>
 public sealed class MockServer
 {
-    /// <summary>角色 JSON 存储边界。</summary>
+    /// <summary>角色文件读写边界。</summary>
     private readonly RepoServerRole _roles;
-    /// <summary>按地图身份保存独立规格，不依赖客户端配置服务。</summary>
-    private readonly IReadOnlyDictionary<int, DataServerMapRules> _mapRules;
-    /// <summary>本服务端已经加载的地图，跨玩家会话保留。</summary>
-    private readonly Dictionary<int, ServerMap> _maps = new();
-    /// <summary>独立地图文件仓库。</summary>
+    /// <summary>Handler 共用的纯内存实体入口。</summary>
+    private readonly RepoEntityCache _cache;
+    /// <summary>地图文件读写边界。</summary>
     private readonly RepoServerMap _mapRepo;
-    /// <summary>物品转移的独立文件事务，不拥有业务对象。</summary>
+    /// <summary>地图和物品共同文件事务。</summary>
     private readonly RepoServerItemTransfer _transfers;
-    /// <summary>尚未共同落地的地图到参与角色关系，角色本版不支持跨图。</summary>
-    private readonly Dictionary<int, HashSet<long>> _transferGroups = new();
-    /// <summary>仅验收用于模拟提交点前中断。</summary>
+    /// <summary>验收用于模拟提交点前中断。</summary>
     internal RepoServerItemTransfer Transfers => _transfers;
-    /// <summary>新角色的初始地图身份。</summary>
-    private readonly int _initialMapId;
-    /// <summary>当前角色的范围观察者，重置会话时移除。</summary>
-    private MapAoiTracker? _aoi;
-    /// <summary>由运行环境提供当前检测秒数，隔离测试默认五秒。</summary>
+    /// <summary>当前检测秒数。</summary>
     private readonly Func<int> _flushInterval;
-    /// <summary>当前环境的角色移动速度。</summary>
+    /// <summary>环境移动速度。</summary>
     private readonly Func<int> _movementSpeed;
-    /// <summary>当前使用的检测周期，用于设置变更后重新计时。</summary>
+    /// <summary>最近使用的检测周期。</summary>
     private int _lastFlushInterval = -1;
-    /// <summary>距离上次检测累计的模拟秒数。</summary>
+    /// <summary>累计检测时间。</summary>
     private double _flushElapsed;
-    /// <summary>启动时复制的独立服务端背包规则。</summary>
-    private readonly DataServerBagRules _bagRules;
-    /// <summary>当前会话待确认的移动。</summary>
-    private readonly List<DataPendingMove> _pending = [];
-    /// <summary>已确认的当前角色内存状态。</summary>
-    private DataServerRole? _current;
-    /// <summary>绑定当前移动的拾取请求，只持有身份及预期版本。</summary>
-    private PickupItem? _pickup;
-    /// <summary>当前模拟位置，尚未确认为已保存状态。</summary>
-    private Vector2 _position;
-    /// <summary>最近的移动目标。</summary>
-    private Vector2 _target;
-    /// <summary>当前允许处理的会话代次。</summary>
+    /// <summary>当前连接代次。</summary>
     private long _generation;
-    /// <summary>此发送端每条消息递增的非持久化序号。</summary>
+    /// <summary>本发送端非持久化消息序号。</summary>
     private long _revision;
-    /// <summary>最近发送的私有物品快照信封版本，供并发校验。</summary>
-    private long _itemsRevision;
-    /// <summary>是否已通过演示账号验证。</summary>
-    private bool _authenticated;
-    /// <summary>本会话最近收到的移动序号。</summary>
-    private long _lastAction;
-    /// <summary>服务器发出的独立 protobuf 信封字节。</summary>
+    /// <summary>交给传输的独立信封字节。</summary>
     public event Action<byte[]>? Outgoing;
 
-    /// <summary>绑定独立服务端存储目录。</summary>
-    public MockServer(string directory, DataServerBagRules bagRules, Action<string, string>? writeLog = null,
-        Func<int>? flushInterval = null, IEnumerable<DataServerMapRules>? maps = null, int initialMapId = 1,
+    /// <summary>绑定 IO 仓库并创建内存入口，业务处理不持有路径或仓库。</summary>
+    public MockServer(string directory, BagRules bagRules, Action<string, string>? writeLog = null,
+        Func<int>? flushInterval = null, IEnumerable<MapLayout>? maps = null, int initialMapId = 1,
         Func<int>? movementSpeed = null)
     {
         _transfers = new RepoServerItemTransfer(directory, writeLog);
         _transfers.Recover();
-        _roles = new RepoServerRole(directory, writeLog, deferWrites: true);
+        _cache = new RepoEntityCache(bagRules, maps, initialMapId);
+        _roles = new RepoServerRole(directory, writeLog, deferWrites: true, cache: _cache);
+        _mapRepo = new RepoServerMap(directory, writeLog);
         _flushInterval = flushInterval ?? (() => 5);
         _movementSpeed = movementSpeed ?? (() => EnvService.DefaultMovementSpeed);
-        _bagRules = bagRules;
-        _mapRules = (maps ?? [new DataServerMapRules(1, 1000, 1000, 32, 32)]).ToDictionary(map => map.MapId);
-        foreach (var map in _mapRules.Values) map.Validate();
-        if (!_mapRules.ContainsKey(initialMapId)) throw new ArgumentException("初始地图不存在");
-        _initialMapId = initialMapId;
-        _mapRepo = new RepoServerMap(directory, writeLog);
     }
 
-    /// <summary>结束角色模拟并更新代次；保留账号登录供返回选角使用。</summary>
+    /// <summary>结束角色模拟并更新代次，保留账号和已加载实体。</summary>
     public void ResetSession(long generation)
     {
         _generation = generation;
-        _current = null;
-        _aoi = null;
-        _pending.Clear();
-        _pickup = null;
-        _lastAction = 0;
+        _cache.Session.Reset();
+        _cache.Notices.Clear();
     }
 
-    /// <summary>解析客户端字节并将允许的请求交给处理方法。</summary>
+    /// <summary>显式准备数据后调用对应处理器，集中决定响应发送时机。</summary>
     public void Receive(byte[] packet)
     {
         var envelope = MessageCodec.ReadEnvelope(packet);
         if (envelope.Generation != _generation) return;
-        switch (MessageCodec.ReadPayload(envelope, true))
+        var request = MessageCodec.ReadPayload(envelope, true);
+        try { Prepare(request); }
+        catch (Exception error)
         {
-            case Login login: HandleLogin(login); break;
-            case SelectRole select: HandleSelectRole(select); break;
-            case CreateRole create: HandleCreateRole(create); break;
-            case DeleteRole delete: HandleDeleteRole(delete); break;
-            case Move move: HandleMove(move); break;
-            case Gm gm: HandleGm(gm); break;
-            case MoveItem moveItem: HandleMoveItem(moveItem); break;
-            case EquipItem equip: HandleEquipItem(equip); break;
-            case DropItem dropItem: HandleDropItem(dropItem); break;
-            case PickupItem pickup: HandlePickupItem(pickup); break;
-            case ResyncMapAoi resync: HandleResyncMapAoi(resync); break;
+            Send(request switch
+            {
+                Login => new LoginRt { Error = error.Message },
+                SelectRole select => new SelectRoleRt { RoleId = select.RoleId, Error = error.Message },
+                CreateRole => new CreateRoleRt { Error = error.Message },
+                DeleteRole => new DeleteRoleRt { Error = error.Message },
+                _ => throw new InvalidOperationException("请求加载失败", error)
+            });
+            return;
+        }
+        IMessage? response = request switch
+        {
+            Login login => new LoginHandler().Handle(_cache, login),
+            SelectRole select => new SelectRoleHandler().Handle(_cache, select),
+            CreateRole create => new CreateRoleHandler().Handle(_cache, create),
+            DeleteRole delete => new DeleteRoleHandler().Handle(_cache, delete),
+            Move move => new MoveHandler().Handle(_cache, move),
+            Gm gm => new GmHandler().Handle(_cache, gm),
+            MoveItem item => new MoveItemHandler().Handle(_cache, item),
+            EquipItem equip => new EquipItemHandler().Handle(_cache, equip),
+            DropItem drop => new DropItemHandler().Handle(_cache, drop),
+            PickupItem pickup => new PickupItemHandler().Handle(_cache, pickup),
+            ResyncMapAoi resync => new ResyncMapAoiHandler().Handle(_cache, resync),
+            _ => null
+        };
+        if (response is SelectRoleRt) { Send(response); DrainNotices(); return; }
+        DrainNotices();
+        if (response is MoveRt { Success: true } || response is PickupItemRt { Success: true } && _cache.Session.Pickup is not null) return;
+        if (response is not null) Send(response);
+    }
+
+    /// <summary>请求处理前执行必要 IO；未认证请求不加载角色文件。</summary>
+    private void Prepare(IMessage request)
+    {
+        switch (request)
+        {
+            case Login login:
+                _cache.Session.Authenticated = false;
+                _cache.Session.Reset();
+                if (login.Username == "demo" && login.Password == "demo") _roles.ListSummaries();
+                break;
+            case SelectRole select when _cache.Session.Authenticated:
+                var tables = _roles.Load(select.RoleId);
+                GetMap(tables.Role.Value.MapId);
+                break;
+            case CreateRole when _cache.Session.Authenticated && _cache.Current is null:
+                _roles.ListSummaries();
+                break;
+            case DeleteRole delete when _cache.Session.Authenticated && _cache.Current is null:
+                _roles.PrepareDelete(delete.RoleId);
+                break;
         }
     }
 
-    /// <summary>先推进业务内存，再按周期检测落地；无当前角色时也执行检测。</summary>
+    /// <summary>先推进内存与发送消息，再按周期检测落地。</summary>
     public void Tick(double delta)
     {
         if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
-        AdvanceMovement(delta);
-        AdvancePickup();
-        if (_current is not null && _aoi is not null)
-        {
-            var change = _aoi.Move(GetMap(_current.MapId), _position.X, _position.Y);
-            if (change is not null) Send(change);
-        }
+        ServerSimulation.Advance(_cache, delta, _movementSpeed());
+        DrainNotices();
         var interval = _flushInterval();
-        if (interval != _lastFlushInterval)
-        {
-            _lastFlushInterval = interval;
-            _flushElapsed = 0;
-        }
+        if (interval != _lastFlushInterval) { _lastFlushInterval = interval; _flushElapsed = 0; }
         if (interval == 0) return;
         _flushElapsed += delta;
         if (_flushElapsed < interval) return;
@@ -144,11 +151,11 @@ public sealed class MockServer
     {
         var errors = new List<Exception>();
         _transfers.Recover();
-        var involved = _transferGroups.Values.SelectMany(ids => ids).ToHashSet();
-        var groupedMaps = _transferGroups.Keys.ToHashSet();
-        foreach (var (mapId, ids) in _transferGroups.ToArray())
+        var involved = _cache.TransferGroups.Values.SelectMany(ids => ids).ToHashSet();
+        var groupedMaps = _cache.TransferGroups.Keys.ToHashSet();
+        foreach (var (mapId, ids) in _cache.TransferGroups.ToArray())
         {
-            var map = _maps[mapId];
+            var map = _cache.Maps[mapId];
             var logs = new List<(string Path, string Text)>();
             try
             {
@@ -165,699 +172,130 @@ public sealed class MockServer
             }
             _roles.AcceptPending(ids);
             map.AcceptPending();
-            _transferGroups.Remove(mapId);
+            _cache.TransferGroups.Remove(mapId);
             _transfers.LogCommitted(logs);
             try { map.Flush(); } catch (Exception cleanup) { errors.Add(cleanup); }
         }
         try { _roles.Flush(involved); } catch (Exception error) { errors.Add(error); }
-        foreach (var (mapId, map) in _maps)
+        foreach (var (mapId, map) in _cache.Maps)
             if (!groupedMaps.Contains(mapId))
                 try { map.Flush(); } catch (Exception error) { errors.Add(error); }
         if (errors.Count != 0) throw new AggregateException("服务端落地失败", errors);
     }
 
-    /// <summary>按身份按需加载一张地图，完整校验后才发布到服务端集合。</summary>
+    /// <summary>外层显式加载地图，Handler 只能获取已准备实例。</summary>
     internal ServerMap GetMap(int mapId)
     {
-        if (!_mapRules.TryGetValue(mapId, out var rules)) throw new InvalidOperationException("地图不存在");
-        if (_maps.TryGetValue(mapId, out var existing)) return existing;
-        var map = new ServerMap(rules, _mapRepo, _bagRules.Items.ToDictionary(item => item.Key, item => item.Value.MaxStack));
-        _maps.Add(mapId, map);
+        if (!_cache.MapLayouts.TryGetValue(mapId, out var rules)) throw new InvalidOperationException("地图不存在");
+        if (_cache.Maps.TryGetValue(mapId, out var existing)) return existing;
+        var map = new ServerMap(rules, _mapRepo, _cache.BagRules.Items.ToDictionary(item => item.Key, item => item.Value.MaxStack));
+        _cache.Maps.Add(mapId, map);
         return map;
     }
 
-    /// <summary>创建权威地图对象并交付当前观察者可见的增量。</summary>
-    public DataServerMapObject CreateMapObject(int mapId, DataServerMapObject value)
+    /// <summary>创建权威对象并发送可见增量。</summary>
+    public MapObjectEntity CreateMapObject(int mapId, MapObjectEntity value)
     {
         var map = GetMap(mapId);
         var change = map.Create(value);
-        PublishMapChange(map, change);
+        _cache.PublishMapChange(map, change);
+        DrainNotices();
         return change.After!;
     }
-
-    /// <summary>更新权威对象，地图边界及预期版本由地图校验。</summary>
-    public DataServerMapObject UpdateMapObject(int mapId, DataServerMapObject value)
+    /// <summary>更新权威对象并发送可见增量。</summary>
+    public MapObjectEntity UpdateMapObject(int mapId, MapObjectEntity value)
     {
         var map = GetMap(mapId);
         var change = map.Update(value);
-        PublishMapChange(map, change);
+        _cache.PublishMapChange(map, change);
+        DrainNotices();
         return change.After!;
     }
-
-    /// <summary>删除权威对象，离开 AOI 本身不会调用此接口。</summary>
+    /// <summary>删除对象并发送可见增量。</summary>
     public void RemoveMapObject(int mapId, Guid id)
     {
         var map = GetMap(mapId);
-        PublishMapChange(map, map.Remove(id));
+        _cache.PublishMapChange(map, map.Remove(id));
+        DrainNotices();
     }
 
-    /// <summary>地图通过返回值交付修改，不反向调用通信层。</summary>
-    private void PublishMapChange(ServerMap map, DataServerMapChange change)
+    /// <summary>提交完整实体候选并发送对应领域推送。</summary>
+    public void PublishRoleState(RoleEntityTables update)
     {
-        if (change.Before == change.After || _current?.MapId != map.Rules.MapId || _aoi is null) return;
-        var notice = _aoi.Change(map, change);
-        if (notice is not null) Send(notice);
-    }
-
-    /// <summary>重同步只能读取当前角色的权威范围，不能申请其他地图。</summary>
-    private void HandleResyncMapAoi(ResyncMapAoi request)
-    {
-        var response = new ResyncMapAoiRt { RoleId = request.RoleId, MapId = request.MapId };
-        try
-        {
-            if (_current is null || _aoi is null || request.RoleId != _current.RoleId || request.MapId != _current.MapId)
-                throw new InvalidOperationException("重同步角色或地图身份无效");
-            response.Snapshot = _aoi.Snapshot(GetMap(_current.MapId), _position.X, _position.Y);
-            response.Success = true;
-        }
-        catch (Exception error) { response.Error = error.Message; }
-        Send(response);
-    }
-
-    /// <summary>按当前环境速度推进位置，延迟 0.45 秒后提交内存并返回移动确认。</summary>
-    private void AdvanceMovement(double delta)
-    {
-        if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
-        if (_current is null) return;
-        var distance = Vector2.Distance(_position, _target);
-        var step = (float)(_movementSpeed() * delta);
-        _position = distance <= step || distance == 0 ? _target : _position + (_target - _position) / distance * step;
-        for (var index = 0; index < _pending.Count;)
-        {
-            var pending = _pending[index] with { Remaining = _pending[index].Remaining - delta };
-            if (pending.Remaining > 0) { _pending[index++] = pending; continue; }
-            DataServerRole candidate;
-            try
-            {
-                candidate = _current with { X = Math.Clamp(_position.X + 3, 0, (long)_mapRules[_current.MapId].Width * _mapRules[_current.MapId].TileSize - 1), Y = _position.Y,
-                    Revision = checked(_current.Revision + 1), AcknowledgedAction = pending.ActionId };
-                _roles.SaveRole(candidate);
-            }
-            catch (Exception error)
-            {
-                _position = _target = new Vector2(_current.X, _current.Y);
-                var failed = _pending.ToArray();
-                _pending.Clear();
-                _pickup = null;
-                foreach (var move in failed) Send(new MoveRt { RoleId = _current.RoleId, ActionId = move.ActionId,
-                    Error = $"角色存档保存失败：{error.Message}" });
-                return;
-            }
-            _current = candidate;
-            _pending.RemoveAt(index);
-            Send(new MoveRt { Success = true, RoleId = candidate.RoleId, ActionId = pending.ActionId, Position = ToPositionMessage(candidate) });
-        }
-    }
-
-    /// <summary>主动提交当前角色的新状态，内存提交成功后发推送；失败由调用方观察异常。</summary>
-    public void PublishRoleState(DataServerRole update)
-    {
-        if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色状态");
-        var previous = _current;
-        var candidate = update with { Revision = checked(_current.Revision + 1), AcknowledgedAction = _current.AcknowledgedAction };
-        var itemsChanged = !candidate.Bag.Equals(previous.Bag);
-        if (itemsChanged)
-            candidate = candidate with { Bag = candidate.Bag with
-            {
-                Revision = checked(previous.Bag.Revision + 1),
-                EquipmentRevision = checked(previous.Bag.EquipmentRevision +
-                    (candidate.Bag.Equipment.SequenceEqual(previous.Bag.Equipment) ? 0 : 1))
-            } };
-        _bagRules.Validate(candidate);
-        if (candidate.MapId != _current.MapId || !GetMap(candidate.MapId).Rules.Contains(candidate.X, candidate.Y))
+        var previous = _cache.RequireRole(update.Role.Value.RoleId);
+        var before = previous.Role.Value;
+        var role = update.Role.Value;
+        _cache.BagRules.Validate(update);
+        if (role.MapId != before.MapId || !GetMap(role.MapId).Rules.Contains(role.X, role.Y))
             throw new InvalidOperationException("角色地图或位置无效，跨地图迁移尚未开放");
-        _roles.Save(candidate);
-        _current = candidate;
-        _position = _target = new Vector2(candidate.X, candidate.Y);
-        Send(new RoleStateNotice { State = ToMessage(candidate) });
-        if (itemsChanged) Send(ToItemsMessage(candidate));
-        if (candidate.Experience != previous.Experience || candidate.NextExperience != previous.NextExperience ||
-            candidate.BagExtraRows != previous.BagExtraRows)
-            Send(new RoleChangedNotice { Role = ToRoleMessage(candidate) });
-        var notice = _aoi?.Move(GetMap(candidate.MapId), _position.X, _position.Y);
-        if (notice is not null) Send(notice);
+        var itemsChanged = !previous.Item.Items.OrderBy(row => row.Key).SequenceEqual(update.Item.Items.OrderBy(row => row.Key)) ||
+            !previous.Equipment.Items.OrderBy(row => row.Key).SequenceEqual(update.Equipment.Items.OrderBy(row => row.Key));
+        _cache.Commit(update);
+        _cache.Session.Position = _cache.Session.Target = new Vector2(role.X, role.Y);
+        Send(new RoleStateNotice { State = RoleMessages.World(update, _cache.Session.AcknowledgedAction) });
+        if (itemsChanged) Send(RoleMessages.Items(update));
+        if (role.Experience != before.Experience || role.NextExperience != before.NextExperience || role.BagExtraRows != before.BagExtraRows)
+            Send(new RoleChangedNotice { Role = RoleMessages.Private(role) });
+        PublishAoiPosition();
     }
 
-    /// <summary>单独提交当前角色资料并推送，保留原有位置。</summary>
-    public void PublishRoleProfile(DataServerRole update)
+    /// <summary>只提交角色资料并推送。</summary>
+    public void PublishRoleProfile(RoleEntity update)
     {
-        if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色资料");
-        var candidate = _current with { Name = update.Name, Level = update.Level,
-            Gender = update.Gender, HeadId = update.HeadId, Revision = checked(_current.Revision + 1) };
-        _bagRules.Validate(candidate);
-        _roles.SaveRole(candidate);
-        _current = candidate;
-        Send(new RoleProfileNotice { Profile = ToProfileMessage(candidate) });
+        var tables = _cache.RequireRole(update.RoleId);
+        var candidate = tables.WithRole(tables.Role.Value with { Name = update.Name, Level = update.Level, Gender = update.Gender, HeadId = update.HeadId });
+        _cache.Commit(candidate, 1);
+        Send(new RoleProfileNotice { Profile = RoleMessages.Profile(candidate.Role.Value) });
     }
-
-    /// <summary>单独提交可见生命和魔力状态并推送。</summary>
-    public void PublishRoleStatus(DataServerRole update)
+    /// <summary>只提交可见生命魔力并推送。</summary>
+    public void PublishRoleStatus(RoleEntity update)
     {
-        if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色状态");
-        var candidate = _current with { Health = update.Health, MaxHealth = update.MaxHealth,
-            Mana = update.Mana, MaxMana = update.MaxMana, Revision = checked(_current.Revision + 1) };
-        _bagRules.Validate(candidate);
-        _roles.SaveRole(candidate);
-        _current = candidate;
-        Send(new RoleStatusNotice { Status = ToStatusMessage(candidate) });
+        var tables = _cache.RequireRole(update.RoleId);
+        var candidate = tables.WithRole(tables.Role.Value with { Health = update.Health, MaxHealth = update.MaxHealth, Mana = update.Mana, MaxMana = update.MaxMana });
+        _cache.Commit(candidate, 1);
+        Send(new RoleStatusNotice { Status = RoleMessages.Status(candidate.Role.Value) });
     }
-
-    /// <summary>单独提交当前玩家私有角色数据并推送。</summary>
-    public void PublishRole(DataServerRole update)
+    /// <summary>只提交私有经验和扩容并推送。</summary>
+    public void PublishRole(RoleEntity update)
     {
-        if (_current is null || update.RoleId != _current.RoleId) throw new InvalidOperationException("只能推送当前角色玩法数据");
-        var candidate = _current with { Experience = update.Experience, NextExperience = update.NextExperience,
-            BagExtraRows = update.BagExtraRows, Revision = checked(_current.Revision + 1) };
-        _bagRules.Validate(candidate);
-        _roles.Save(candidate);
-        _current = candidate;
-        Send(new RoleChangedNotice { Role = ToRoleMessage(candidate) });
+        var tables = _cache.RequireRole(update.RoleId);
+        var candidate = tables.WithRole(tables.Role.Value with { Experience = update.Experience, NextExperience = update.NextExperience, BagExtraRows = update.BagExtraRows });
+        _cache.BagRules.Validate(candidate);
+        _cache.Commit(candidate);
+        Send(new RoleChangedNotice { Role = RoleMessages.Private(candidate.Role.Value) });
     }
-
-    /// <summary>单独提交当前角色位置并推送，保留原有资料。</summary>
+    /// <summary>主动提交当前位置并推送，保留资料与物品。</summary>
     public void PublishRolePosition(float x, float y)
     {
-        if (_current is null) throw new InvalidOperationException("请先进入当前角色");
-        if (!GetMap(_current.MapId).Rules.Contains(x, y)) throw new InvalidOperationException("角色位置无效");
-        var candidate = _current with { X = x, Y = y, Revision = checked(_current.Revision + 1) };
-        _roles.SaveRole(candidate);
-        _current = candidate;
-        _position = _target = new Vector2(x, y);
-        Send(new RolePositionNotice { Position = ToPositionMessage(candidate) });
-        var notice = _aoi?.Move(GetMap(candidate.MapId), x, y);
+        var tables = _cache.Current ?? throw new InvalidOperationException("请先进入当前角色");
+        if (!GetMap(tables.Role.Value.MapId).Rules.Contains(x, y)) throw new InvalidOperationException("角色位置无效");
+        var candidate = tables.WithRole(tables.Role.Value with { X = x, Y = y });
+        _cache.Commit(candidate, 1);
+        _cache.Session.Position = _cache.Session.Target = new Vector2(x, y);
+        Send(new RolePositionNotice { Position = RoleMessages.Position(candidate.Role.Value, _cache.Session.AcknowledgedAction) });
+        PublishAoiPosition();
+    }
+    /// <summary>将当前位置引起的 AOI 差集交给传输。</summary>
+    private void PublishAoiPosition()
+    {
+        if (_cache.Current is not { } tables || _cache.Session.Aoi is not { } aoi) return;
+        var notice = aoi.Move(_cache.GetMap(tables.Role.Value.MapId), _cache.Session.Position.X, _cache.Session.Position.Y);
         if (notice is not null) Send(notice);
     }
-
-    /// <summary>验证演示账号并从服务端缓存读取独立角色摘要。</summary>
-    private void HandleLogin(Login request)
+    /// <summary>构造可供未来观察者渠道消费的公开装备载荷。</summary>
+    internal static RoleEquipmentNotice CreateEquipmentNotice(RoleEntityTables tables) => new() { Equipment = RoleMessages.Equipment(tables) };
+    /// <summary>公开装备投影只含配置编号。</summary>
+    internal static RoleWorldEquipmentPb ToEquipmentMessage(RoleEntityTables tables) => RoleMessages.Equipment(tables);
+    /// <summary>将处理器产生的内存消息按顺序发送。</summary>
+    private void DrainNotices()
     {
-        _authenticated = false;
-        _current = null;
-        _aoi = null;
-        _pending.Clear();
-        _pickup = null;
-        if (request.Username != "demo" || request.Password != "demo")
-        {
-            Send(new LoginRt { Error = "用户名或密码错误" });
-            return;
-        }
-        var response = new LoginRt();
-        try
-        {
-            foreach (var role in _roles.ListSummaries()) response.Roles.Add(ToSummary(role));
-            response.Success = _authenticated = true;
-        }
-        catch (Exception error) { response.Error = error.Message; response.Roles.Clear(); }
-        Send(response);
+        while (_cache.Notices.TryDequeue(out var message)) Send(message);
     }
-
-    /// <summary>加载选中角色并重置本次会话的移动序号。</summary>
-    private void HandleSelectRole(SelectRole request)
-    {
-        var response = new SelectRoleRt { RoleId = request.RoleId };
-        MapAoiSnapshotPb? snapshot = null;
-        try
-        {
-            if (!_authenticated) throw new InvalidOperationException("请先登录");
-            var role = _roles.Load(request.RoleId) with { AcknowledgedAction = 0 };
-            _bagRules.Validate(role);
-            var map = GetMap(role.MapId);
-            if (!map.Rules.Contains(role.X, role.Y)) throw new InvalidOperationException("角色位置超出所属地图");
-            var observer = new MapAoiTracker(role.RoleId, role.MapId);
-            snapshot = observer.Snapshot(map, role.X, role.Y);
-            _pending.Clear();
-            _pickup = null;
-            _lastAction = 0;
-            _position = _target = new Vector2(role.X, role.Y);
-            _current = role;
-            _aoi = observer;
-            response.Success = true;
-            response.State = ToMessage(role);
-            response.Role = ToRoleMessage(role);
-            response.Bag = ToBagMessage(role.Bag);
-        }
-        catch (Exception error) { response.Error = error.Message; }
-        Send(response);
-        if (response.Success && snapshot is not null) Send(new MapAoiNotice
-        { RoleId = request.RoleId, MapId = snapshot.MapId, Sequence = snapshot.Sequence, Snapshot = snapshot });
-    }
-
-    /// <summary>认证后在角色列表创建角色，成功列表在写入前完整准备。</summary>
-    private void HandleCreateRole(CreateRole request)
-    {
-        var response = new CreateRoleRt();
-        try
-        {
-            EnsureRoleList();
-            var summaries = new List<RoleSummaryPb>();
-            foreach (var existing in _roles.ListSummaries()) summaries.Add(ToSummary(existing));
-            var gender = request.Gender switch
-            {
-                RoleGenderPb.Male => ServerRoleGender.Male,
-                RoleGenderPb.Female => ServerRoleGender.Female,
-                _ => throw new ArgumentException("角色性别无效")
-            };
-            var rules = _mapRules[_initialMapId];
-            var role = _roles.Create(request.Name, gender, request.HeadId, _initialMapId,
-                Math.Min(gender == ServerRoleGender.Male ? 16016 : 16144, (long)rules.Width * rules.TileSize - 1),
-                Math.Min(gender == ServerRoleGender.Male ? 16016 : 16080, (long)rules.Height * rules.TileSize - 1));
-            summaries.Add(ToSummary(role));
-            response.Roles.AddRange(summaries);
-            response.Success = true;
-        }
-        catch (Exception error) { response.Error = error.Message; }
-        Send(response);
-    }
-
-    /// <summary>缓存墓碑后返回已准备的剩余列表。</summary>
-    private void HandleDeleteRole(DeleteRole request)
-    {
-        var response = new DeleteRoleRt();
-        try
-        {
-            EnsureRoleList();
-            var summaries = new List<RoleSummaryPb>();
-            foreach (var role in _roles.ListSummaries())
-                if (role.RoleId != request.RoleId) summaries.Add(ToSummary(role));
-            _roles.Delete(request.RoleId);
-            response.Roles.AddRange(summaries);
-            response.Success = true;
-        }
-        catch (Exception error) { response.Error = error.Message; }
-        Send(response);
-    }
-
-    /// <summary>服务端独立验证认证及当前角色状态，不信任客户端页面。</summary>
-    private void EnsureRoleList()
-    {
-        if (!_authenticated || _current is not null) throw new InvalidOperationException("请在登录后的角色列表操作");
-    }
-
-    /// <summary>验证角色、坐标及序号后排队，成功确认由时间推进产生。</summary>
-    private void HandleMove(Move request)
-    {
-        if (_current is null || request.RoleId != _current.RoleId || request.ActionId <= _lastAction ||
-            !_mapRules[_current.MapId].Contains(request.X, request.Y))
-        {
-            Send(new MoveRt { RoleId = request.RoleId, ActionId = request.ActionId, Error = "无效的角色、坐标或移动序号" });
-            return;
-        }
-        if (_pickup is { } canceled)
-        {
-            _pickup = null;
-            Send(PickupResponse(canceled, "拾取已取消"));
-        }
-        _lastAction = request.ActionId;
-        _target = new Vector2(request.X, request.Y);
-        _pending.Add(new DataPendingMove(request.ActionId, 0.45));
-    }
-
-    /// <summary>解析 GM 并在候选副本上发放，缓存提交成功后反馈。</summary>
-    private void HandleGm(Gm request)
-    {
-        var response = new GmRt { RoleId = request.RoleId, Command = request.Command };
-        DataServerRole candidate;
-        try
-        {
-            if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
-                throw new InvalidOperationException("请先进入当前角色");
-            var args = request.Command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (args.Length == 0 || args[0] != "item") throw new ArgumentException("未知 GM 指令；用法：/item <道具ID> [数量]");
-            if (args.Length is < 2 or > 3 ||
-                !int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out var itemId) || itemId <= 0)
-                throw new ArgumentException("用法：/item <正整数道具ID> [正整数数量]");
-            var count = 1;
-            if (args.Length == 3 && (!int.TryParse(args[2], NumberStyles.None, CultureInfo.InvariantCulture, out count) || count <= 0))
-                throw new ArgumentException("道具数量必须是有效的正整数");
-            if (!_bagRules.Items.TryGetValue(itemId, out var definition)) throw new ArgumentException($"道具配置不存在：{itemId}");
-            candidate = _bagRules.Add(_current, itemId, count);
-            _roles.SaveBag(candidate);
-            response.Success = true;
-            response.Message = $"已发放 {definition.Name}（{itemId}）× {count}";
-        }
-        catch (Exception error)
-        {
-            response.Message = error.Message;
-            Send(response);
-            return;
-        }
-        _current = candidate;
-        Send(ToItemsMessage(candidate));
-        Send(response);
-    }
-
-    /// <summary>完整校验装备请求，使用同一物品领域提交和推送两侧状态。</summary>
-    private void HandleEquipItem(EquipItem request)
-    {
-        var response = new EquipItemRt { RoleId = request.RoleId, Slot = request.Slot };
-        try
-        {
-            if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
-                throw new InvalidOperationException("请先进入当前角色");
-            if (request.ExpectedBagRevision != _itemsRevision ||
-                request.ExpectedEquipmentRevision != _itemsRevision)
-                throw new InvalidOperationException("物品已更新，请重新选择装备");
-            var candidate = _bagRules.Equip(_current, request.InstanceId, (Rpg.Const.EquipmentSlot)request.Slot,
-                request.HasTargetBagSlot ? request.TargetBagSlot : null);
-            _roles.SaveBag(candidate);
-            _current = candidate;
-            Send(ToItemsMessage(candidate));
-            response.Success = true;
-        }
-        catch (Exception error) { response.Error = error.Message; }
-        Send(response);
-    }
-
-    /// <summary>在独立候选背包内移动、合并或交换，原子保存成功后才发布快照。</summary>
-    private void HandleMoveItem(MoveItem request)
-    {
-        var response = new MoveItemRt { RoleId = request.RoleId, InstanceId = request.InstanceId,
-            TargetSlotIndex = request.TargetSlotIndex };
-        DataServerRole candidate;
-        try
-        {
-            if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
-                throw new InvalidOperationException("请先进入当前角色");
-            if (request.ExpectedRevision != _itemsRevision)
-                throw new InvalidOperationException("背包已更新，请重新拖动物品");
-            _bagRules.Validate(_current);
-            if (request.TargetSlotIndex < 0 || request.TargetSlotIndex >= _bagRules.GetCapacity(_current.BagExtraRows))
-                throw new ArgumentException("目标格子超出背包范围");
-            var source = _current.Bag.Items.FirstOrDefault(item => item.InstanceId == request.InstanceId)
-                ?? throw new ArgumentException("源物品不存在");
-            if (source.SlotIndex == request.TargetSlotIndex)
-            {
-                response.Success = true;
-                Send(response);
-                return;
-            }
-            var target = _current.Bag.Items.FirstOrDefault(item => item.SlotIndex == request.TargetSlotIndex);
-            var items = _current.Bag.Items.ToList();
-            items.Remove(source);
-            if (target is null) items.Add(source with { SlotIndex = request.TargetSlotIndex });
-            else
-            {
-                items.Remove(target);
-                var maxStack = _bagRules.Items[source.ItemId].MaxStack;
-                if (source.ItemId == target.ItemId && target.Count < maxStack)
-                {
-                    var transferred = Math.Min(source.Count, maxStack - target.Count);
-                    items.Add(target with { Count = target.Count + transferred });
-                    if (source.Count > transferred) items.Add(source with { Count = source.Count - transferred });
-                }
-                else
-                {
-                    items.Add(source with { SlotIndex = target.SlotIndex });
-                    items.Add(target with { SlotIndex = source.SlotIndex });
-                }
-            }
-            candidate = _current with { Bag = _current.Bag with
-            {
-                Revision = checked(_current.Bag.Revision + 1),
-                Items = items.OrderBy(item => item.SlotIndex).ToArray()
-            } };
-            _bagRules.Validate(candidate);
-            _roles.SaveBag(candidate);
-        }
-        catch (Exception error)
-        {
-            response.Error = error.Message;
-            Send(response);
-            return;
-        }
-        _current = candidate;
-        Send(ToItemsMessage(candidate));
-        response.Success = true;
-        Send(response);
-    }
-
-    /// <summary>完整校验后丢弃或销毁物品；仅普通丢弃创建地图对象和共同落地关系。</summary>
-    private void HandleDropItem(DropItem request)
-    {
-        var response = new DropItemRt { RoleId = request.RoleId, InstanceId = request.InstanceId };
-        DataServerRole candidate;
-        ServerMap? map = null;
-        DataServerMapChange? change = null;
-        try
-        {
-            if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
-                throw new InvalidOperationException("请先进入当前角色");
-            if (request.ExpectedRevision != _itemsRevision)
-                throw new InvalidOperationException("背包已更新，请重新选择丢弃物品");
-            _bagRules.Validate(_current);
-            var source = _current.Bag.Items.SingleOrDefault(item => item.InstanceId == request.InstanceId)
-                ?? throw new ArgumentException("源物品不存在");
-            if (request.Count <= 0 || request.Count > source.Count) throw new ArgumentException("丢弃数量无效");
-            candidate = _current with { Bag = _current.Bag with
-            {
-                Revision = checked(_current.Bag.Revision + 1),
-                Items = _current.Bag.Items.Where(item => item.InstanceId != source.InstanceId)
-                    .Concat(request.Count == source.Count ? [] : new[] { source with { Count = source.Count - request.Count } })
-                    .OrderBy(item => item.SlotIndex).ToArray()
-            } };
-            _bagRules.Validate(candidate);
-            if (!request.Destroy)
-            {
-                map = GetMap(_current.MapId);
-                if (request.HasDropX != request.HasDropY) throw new ArgumentException("丢弃落点坐标不完整");
-                var point = request.HasDropX && request.HasDropY
-                    ? ValidateGroundDropPosition(request, map.Rules) : GroundDropPosition(map.Rules);
-                var ground = new DataServerMapObject { X = point.X, Y = point.Y, ItemId = source.ItemId, Count = request.Count };
-                // 创建地面物品后绑定共同落地；销毁不产生新的地图变更关系。
-                change = map.Create(ground);
-                if (!_transferGroups.TryGetValue(candidate.MapId, out var ids)) _transferGroups[candidate.MapId] = ids = new();
-                ids.Add(candidate.RoleId);
-                response.ObjectId = ground.ObjectId.ToString("N");
-            }
-            _roles.SaveBag(candidate);
-        }
-        catch (Exception error)
-        {
-            response.Error = error.Message;
-            Send(response);
-            return;
-        }
-        _current = candidate;
-        response.Success = true;
-        Send(ToItemsMessage(candidate));
-        if (map is not null && change is not null) PublishMapChange(map, change);
-        Send(response);
-    }
-
-    /// <summary>只验证客户端落点与权威角色位置、身体避让区及地图的关系。</summary>
-    private Vector2 ValidateGroundDropPosition(DropItem request, DataServerMapRules rules)
-    {
-        var point = new Vector2(request.DropX, request.DropY);
-        if (!rules.Contains(point.X, point.Y)) throw new ArgumentException("丢弃落点超出地图");
-        var delta = point - _position;
-        var screenX = (delta.X - delta.Y) * 0.5f;
-        var screenY = (delta.X + delta.Y) * 0.25f;
-        var radiusSquared = screenX * screenX + screenY * screenY;
-        // 移动确认的 3 逻辑像素修正及一帧同步差容许约 2 屏幕像素误差。
-        if (!float.IsFinite(radiusSquared) || radiusSquared > 58f * 58f ||
-            radiusSquared < 46f * 46f || (MathF.Abs(screenX) < 38f && screenY < 22f))
-            throw new ArgumentException("丢弃落点不在角色周围的有效区域");
-        return point;
-    }
-
-    /// <summary>兼容旧请求，在等轴画面周围选点；狭小地图使用裁剪后最远候选。</summary>
-    private Vector2 GroundDropPosition(DataServerMapRules rules)
-    {
-        var candidates = new List<Vector2>();
-        var farthest = _position;
-        var farthestDistance = -1f;
-        for (var index = 0; index < 64; index++)
-        {
-            var angle = Random.Shared.NextSingle() * MathF.Tau;
-            var radius = 48 + Random.Shared.NextSingle() * 8;
-            var screen = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
-            var point = _position + new Vector2(screen.X + 2 * screen.Y, 2 * screen.Y - screen.X);
-            var clamped = Vector2.Clamp(point, Vector2.Zero,
-                new Vector2((long)rules.Width * rules.TileSize - 1, (long)rules.Height * rules.TileSize - 1));
-            var delta = clamped - _position;
-            var projected = new Vector2((delta.X - delta.Y) * 0.5f, (delta.X + delta.Y) * 0.25f);
-            if (projected.LengthSquared() > farthestDistance)
-            {
-                farthestDistance = projected.LengthSquared();
-                farthest = clamped;
-            }
-            if (rules.Contains(point.X, point.Y) && (MathF.Abs(screen.X) >= 40 || screen.Y >= 24))
-                candidates.Add(point);
-        }
-        return candidates.Count > 0 ? candidates[Random.Shared.Next(candidates.Count)] : farthest;
-    }
-
-    /// <summary>只接纳当前 AOI 对象及匹配的走近目标，远处暂存意图，近处立即尝试。</summary>
-    private void HandlePickupItem(PickupItem request)
-    {
-        try
-        {
-            _ = ValidatePickup(request);
-            if (_pickup is not null)
-            {
-                if (_pickup.Equals(request)) return;
-                throw new InvalidOperationException("已有待完成的拾取");
-            }
-        }
-        catch (Exception error) { Send(PickupResponse(request, error.Message)); return; }
-        _pickup = request.Clone();
-        AdvancePickup();
-    }
-
-    /// <summary>校验身份、对象和背包版本，以及服务端当前位置的九块范围与移动绑定。</summary>
-    private DataServerMapObject ValidatePickup(PickupItem request)
-    {
-        if (!_authenticated || _current is null || request.RoleId != _current.RoleId || request.MoveActionId <= 0 || request.MoveActionId != _lastAction)
-            throw new InvalidOperationException("拾取角色或移动意图无效");
-        if (request.ExpectedBagRevision != _itemsRevision) throw new InvalidOperationException("背包已更新，请重新拾取");
-        var map = GetMap(_current.MapId);
-        if (!Guid.TryParseExact(request.ObjectId, "N", out var id) || !map.Objects.TryGetValue(id, out var item) || item.MonsterTypeId is not null)
-            throw new InvalidOperationException("地面物品已不存在");
-        if (request.ExpectedObjectRevision != item.Revision) throw new InvalidOperationException("地面物品已变化，请重新拾取");
-        var center = map.Rules.ChunkAt(_position.X, _position.Y);
-        if (!map.Rules.Neighborhood(center.X, center.Y).Contains(map.Rules.ChunkAt(item.X, item.Y)) ||
-            Vector2.DistanceSquared(_target, new Vector2(item.X, item.Y)) > 0.01f)
-            throw new InvalidOperationException("物品不在当前范围或走近目标不匹配");
-        return item;
-    }
-
-    /// <summary>移动推进后按权威距离整份入包，复用现有转移关系与文件提交。</summary>
-    private void AdvancePickup()
-    {
-        if (_pickup is not { } request) return;
-        DataServerRole candidate;
-        ServerMap map;
-        DataServerMapChange change;
-        try
-        {
-            var item = ValidatePickup(request);
-            map = GetMap(_current!.MapId);
-            if (Vector2.DistanceSquared(_position, new Vector2(item.X, item.Y)) > (double)map.Rules.TileSize * map.Rules.TileSize) return;
-            candidate = _bagRules.Add(_current, item.ItemId, item.Count);
-            RepoServerRole.Validate(candidate);
-            change = map.Remove(item.ObjectId);
-            _roles.SaveBag(candidate);
-            if (!_transferGroups.TryGetValue(candidate.MapId, out var ids)) _transferGroups[candidate.MapId] = ids = new();
-            ids.Add(candidate.RoleId);
-        }
-        catch (Exception error)
-        {
-            _pickup = null;
-            Send(PickupResponse(request, error.Message));
-            return;
-        }
-        _pickup = null;
-        _current = candidate;
-        Send(ToItemsMessage(candidate));
-        PublishMapChange(map, change);
-        Send(PickupResponse(request));
-    }
-
-    /// <summary>最终结果只携带关联身份，两侧缓存走已有独立通知。</summary>
-    private static PickupItemRt PickupResponse(PickupItem request, string error = "") => new()
-    {
-        RoleId = request.RoleId, ObjectId = request.ObjectId, MoveActionId = request.MoveActionId,
-        Success = error.Length == 0, Error = error
-    };
-
-    /// <summary>复制服务端实例为独立完整背包协议。</summary>
-    private static BagPb ToBagMessage(DataServerBag bag)
-    {
-        var message = new BagPb();
-        message.Items.AddRange(bag.Items.Select(item => new ItemPb
-        {
-            InstanceId = item.InstanceId, ItemId = item.ItemId, SlotIndex = item.SlotIndex,
-            Count = item.Count, Equipment = new EquipmentPb()
-        }));
-        message.Items.AddRange(bag.Equipment.Select(item => new ItemPb
-        {
-            InstanceId = item.InstanceId, ItemId = item.ItemId, SlotIndex = 0,
-            Count = 1, Equipped = true, Equipment = new EquipmentPb()
-        }));
-        return message;
-    }
-
-    /// <summary>公开投影只输出道具配置编号，不携带私有实例和装备槽。</summary>
-    internal static RoleWorldEquipmentPb ToEquipmentMessage(DataServerRole role)
-    {
-        var message = new RoleWorldEquipmentPb { RoleId = role.RoleId };
-        message.EquippedItems.AddRange(role.Bag.Equipment.OrderBy(item => item.Slot).Select(item => item.ItemId));
-        return message;
-    }
-
-    /// <summary>为未来观察者渠道构造独立公开载荷，不转发本人的私有通知。</summary>
-    internal static RoleEquipmentNotice CreateEquipmentNotice(DataServerRole role) => new()
-    {
-        Equipment = ToEquipmentMessage(role)
-    };
-
-    /// <summary>本人始终在一条消息中接收同次提交的背包与装备。</summary>
-    private static RoleItemsChangedNotice ToItemsMessage(DataServerRole role) => new()
-    {
-        RoleId = role.RoleId, Bag = ToBagMessage(role.Bag), Equipment = ToEquipmentMessage(role)
-    };
-
-    /// <summary>登录只返回选角页所需的角色摘要。</summary>
-    private static RoleSummaryPb ToSummary(DataServerRole role) => ToSummary(Entity.RoleSummaryEntity.FromRole(role));
-
-    /// <summary>从独立摘要快照投影选角展示，不读取角色实体表。</summary>
-    private static RoleSummaryPb ToSummary(Entity.RoleSummaryEntity role)
-    {
-        var message = new RoleSummaryPb
-        {
-            RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId,
-            Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female
-        };
-        message.EquippedItems.AddRange(role.EquippedItems);
-        return message;
-    }
-
-    /// <summary>将完整角色世界状态复制为协议对象，不向客户端共享服务端模型。</summary>
-    private static RoleWorldStatePb ToMessage(DataServerRole role) => new()
-    {
-        Profile = ToProfileMessage(role), Position = ToPositionMessage(role), Status = ToStatusMessage(role),
-        Equipment = ToEquipmentMessage(role)
-    };
-
-    /// <summary>复制角色资料到独立协议对象。</summary>
-    private static RoleWorldProfilePb ToProfileMessage(DataServerRole role) => new()
-    {
-        RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId,
-        Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female
-    };
-
-    /// <summary>复制可见的生命和魔力状态。</summary>
-    private static RoleWorldStatusPb ToStatusMessage(DataServerRole role) => new()
-    {
-        RoleId = role.RoleId, Health = role.Health, MaxHealth = role.MaxHealth,
-        Mana = role.Mana, MaxMana = role.MaxMana
-    };
-
-    /// <summary>复制仅当前玩家可见的角色玩法领域。</summary>
-    private static RolePb ToRoleMessage(DataServerRole role) => new()
-    {
-        RoleId = role.RoleId, Experience = role.Experience, NextExperience = role.NextExperience,
-        BagExtraRows = role.BagExtraRows
-    };
-
-    /// <summary>复制角色位置和移动确认到独立协议对象。</summary>
-    private static RoleWorldPositionPb ToPositionMessage(DataServerRole role) => new()
-    {
-        RoleId = role.RoleId, MapId = role.MapId, X = role.X, Y = role.Y,
-        AcknowledgedAction = role.AcknowledgedAction
-    };
-
-    /// <summary>冻结响应为当前代次的字节交给传输层。</summary>
+    /// <summary>在唯一发送边界分配信封版本并编码字节。</summary>
     private void Send(IMessage response)
     {
         var revision = checked(++_revision);
-        if (response is RoleItemsChangedNotice || response is SelectRoleRt { Success: true })
-            _itemsRevision = revision;
+        if (response is RoleItemsChangedNotice || response is SelectRoleRt { Success: true }) _cache.Session.ItemsRevision = revision;
         Outgoing?.Invoke(MessageCodec.Encode(response, _generation, false, revision));
     }
-
-    /// <summary>记录等待延迟确认的移动。</summary>
-    /// <param name="ActionId">客户端提交的意图序号。</param>
-    /// <param name="Remaining">距离确认剩余的模拟秒数。</param>
-    private sealed record DataPendingMove(long ActionId, double Remaining);
 }

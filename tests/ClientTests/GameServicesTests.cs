@@ -125,7 +125,7 @@ public sealed class GameServicesTests
         {
             var serverDirectory = Path.Combine(directory, "server");
             Rpg.Tests.RoleTestData.Seed(serverDirectory);
-            var server = new MockServer(serverDirectory, new Rpg.Server.Data.DataServerBagRules(8, 5, []));
+            var server = new MockServer(serverDirectory, new Rpg.Server.Handler.Bag.BagRules(8, 5, []));
             using var net = new NetService(new MockTransport(server), eventBus, new Rpg.Services.LogService(Console.WriteLine));
             var env = ConfigTestFixture.CreateEnv(Path.Combine(directory, "settings"));
             var setting = new SettingService(env, new Rpg.Services.LogService(Console.WriteLine));
@@ -160,7 +160,7 @@ public sealed class GameServicesTests
             var settingPath = setting.RolePath;
             setting.SetHotbarVisible(2, true);
             setting.SetHudPosition("portrait", 0.4f, 0.2f);
-            var updated = new RepoServerRole(serverDirectory).Load(1001) with { Health = 20 };
+            var updated = new RepoServerRole(serverDirectory).Load(1001).WithRole(new RepoServerRole(serverDirectory).Load(1001).Role.Value with { Health = 20 });
             server.PublishRoleState(updated);
             net.Tick(0);
             Assert.Equal(20, GameServices.Session.Role.Health);

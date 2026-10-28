@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 using Godot;
 using Rpg.Const;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
@@ -26,10 +29,7 @@ public partial class ItemAssetSmoke : Node
             var serverDirectory = Path.Combine(directory, "server");
             RoleTestData.Seed(serverDirectory);
             var repo = new RepoServerRole(serverDirectory);
-            repo.Save(repo.Load(1001) with { Bag = new DataServerBag {
-                NextInstanceId = 8,
-                Items = Enumerable.Range(1013, 6).Select((id, index) => new DataServerItem(index + 1, id, index, 1)).ToArray(),
-                Equipment = [new DataServerEquipment(7, 1012, EquipmentSlot.MainHand)] } });
+            repo.Save(repo.Load(1001).WithItems(Enumerable.Concat<ItemEntity>(Enumerable.Range(1013, 6).Select((id, index) => new ItemEntity(index + 1, id, index, 1)).ToArray(), [new ItemEntity(7, 1012, EquipmentSlot.MainHand)]), 8));
             main = new DoubleMainController { SettingsDirectory = Path.Combine(directory, "settings"),
                 ServerDirectory = serverDirectory, EnvFilePath = Path.Combine(directory, ".env") };
             AddChild(main);

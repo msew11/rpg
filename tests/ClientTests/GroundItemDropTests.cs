@@ -1,9 +1,13 @@
+using Rpg.Server.Map;
+using Rpg.Server.Entity;
 using Google.Protobuf;
 using System.Numerics;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 
 namespace ClientTests;
 
@@ -19,9 +23,9 @@ public sealed class GroundItemDropTests : IDisposable
     /// <summary>完成提交的业务日志。</summary>
     private readonly List<string> _logs = [];
     /// <summary>两张地图使用相同尺寸和相互独立的状态。</summary>
-    private readonly DataServerMapRules[] _maps = [new(1, 100, 100, 32, 32), new(2, 100, 100, 32, 32)];
+    private readonly MapLayout[] _maps = [new(1, 100, 100, 32, 32), new(2, 100, 100, 32, 32)];
     /// <summary>包含可部分丢弃的测试堆叠。</summary>
-    private readonly DataServerBagRules _rules = new(8, 5, [new(2000, "验收道具", 10)]);
+    private readonly BagRules _rules = new(8, 5, [RoleTestData.Item(2000, "验收道具", 10)]);
     /// <summary>便于从文件核对两侧状态的磁盘仓库。</summary>
     private readonly RepoServerRole _repo;
     /// <summary>当前测试角色。</summary>
@@ -34,8 +38,8 @@ public sealed class GroundItemDropTests : IDisposable
     {
         _repo = new RepoServerRole(_root);
         var role = _repo.Create("丢弃测试", ServerRoleGender.Male, 1, spawnX: 1500, spawnY: 1500);
-        _id = role.RoleId;
-        _repo.SaveBag(role with { Bag = new() { Revision = 1, NextInstanceId = 2, Items = [new(1, 2000, 0, 5)] } });
+        _id = role.Role.Value.RoleId;
+        _repo.SaveBag(role.WithItems([new(1, 2000, 0, 5)], 2));
         _server = Start();
         Enter(_id);
         _messages.Clear();
@@ -89,7 +93,7 @@ public sealed class GroundItemDropTests : IDisposable
         var ground = Assert.Single(_server.GetMap(1).Objects).Value;
         AssertDropClearance(ground, 1500, 1500);
         Assert.Equal(2, ground.Count);
-        Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
+        Assert.Equal(5, Assert.Single(_repo.Load(_id).BagItems).Count);
         Assert.True(Drop(3, null, position: new Vector2(1450, 1550)).Success);
         Assert.Empty(Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag.Items);
         var dropped = _server.GetMap(1).Objects.Values.ToArray();
@@ -102,8 +106,8 @@ public sealed class GroundItemDropTests : IDisposable
         var screenDistance = new Vector2((dx - dy) * 0.5f, (dx + dy) * 0.25f).Length();
         Assert.True(screenDistance >= 40f, $"连续丢弃间距过小：{screenDistance}");
         _server.Flush();
-        Assert.Empty(_repo.Load(_id).Bag.Items);
-        Assert.Equal(2, _repo.Load(_id).Bag.NextInstanceId);
+        Assert.Empty(_repo.Load(_id).BagItems);
+        Assert.Equal(2, _repo.Load(_id).Role.Value.NextInstanceId);
         _server = Start(); Enter(_id);
         Assert.Equal(5, _server.GetMap(1).Objects.Values.Sum(item => item.Count));
         Assert.Empty(_server.GetMap(2).Objects);
@@ -119,7 +123,7 @@ public sealed class GroundItemDropTests : IDisposable
     {
         Assert.False(Drop(1, position: new Vector2(x, y)).Success);
         Assert.Empty(_server.GetMap(1).Objects);
-        Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
+        Assert.Equal(5, Assert.Single(_repo.Load(_id).BagItems).Count);
     }
 
     /// <summary>对应 ground-item-drop：不完整坐标不得绕过显式落点校验。</summary>
@@ -144,7 +148,7 @@ public sealed class GroundItemDropTests : IDisposable
     [InlineData(1500, 3199)]
     public void DropAroundMapEdgesAvoidsBody(float x, float y)
     {
-        _server.PublishRoleState(_repo.Load(_id) with { X = x, Y = y });
+        _server.PublishRoleState(_repo.Load(_id).WithRole(_repo.Load(_id).Role.Value with { X = x, Y = y }));
         Assert.True(Drop(1).Success);
         var item = Assert.Single(_server.GetMap(1).Objects).Value;
         AssertDropClearance(item, x, y);
@@ -152,7 +156,7 @@ public sealed class GroundItemDropTests : IDisposable
     }
 
     /// <summary>验证画面距离和身体避让区域，不依赖随机选择的具体方向。</summary>
-    private static void AssertDropClearance(DataServerMapObject item, float x, float y)
+    private static void AssertDropClearance(MapObjectEntity item, float x, float y)
     {
         var dx = item.X - x;
         var dy = item.Y - y;
@@ -199,12 +203,12 @@ public sealed class GroundItemDropTests : IDisposable
         Assert.True(Drop(3, null, destroy: true).Success);
         Assert.Empty(Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag.Items);
         Assert.Empty(_messages.OfType<MapAoiNotice>());
-        Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
+        Assert.Equal(5, Assert.Single(_repo.Load(_id).BagItems).Count);
         _server.Flush();
         _server = Start(); Enter(_id);
         Assert.Empty(_messages.OfType<SelectRoleRt>().Last().Bag.Items);
         Assert.Empty(_server.GetMap(1).Objects);
-        Assert.Equal(2, _repo.Load(_id).Bag.NextInstanceId);
+        Assert.Equal(2, _repo.Load(_id).Role.Value.NextInstanceId);
     }
 
     /// <summary>对应非法销毁场景：数量、身份、实例及版本均必须校验。</summary>
@@ -258,13 +262,13 @@ public sealed class GroundItemDropTests : IDisposable
         var path = new RepoServerMap(_root).ManifestPath(1);
         Directory.CreateDirectory(path); // 用目录阻止清单替换，但回滚原先无清单无需删除目录。
         Assert.Throws<AggregateException>(_server.Flush);
-        Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
+        Assert.Equal(5, Assert.Single(_repo.Load(_id).BagItems).Count);
         Assert.Equal(2, Assert.Single(_server.GetMap(1).Objects).Value.Count);
         Assert.True(File.Exists(new RepoServerMap(_root).ManifestPath(2)));
         Assert.DoesNotContain(_logs, log => log == _repo.GetItemPath(_id));
         Directory.Delete(path);
         _server.Flush();
-        Assert.Equal(3, Assert.Single(_repo.Load(_id).Bag.Items).Count);
+        Assert.Equal(3, Assert.Single(_repo.Load(_id).BagItems).Count);
         _server = Start(); Enter(_id);
         Assert.Equal(2, Assert.Single(_server.GetMap(1).Objects).Value.Count);
         Assert.Equal(independent.ObjectId, Assert.Single(_server.GetMap(2).Objects).Key);
@@ -282,11 +286,11 @@ public sealed class GroundItemDropTests : IDisposable
         Assert.Throws<AggregateException>(_server.Flush);
         var saved = Assert.Single(new RepoServerMap(_root).Load(_maps[0]));
         Assert.Equal(1500, saved.X);
-        Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
+        Assert.Equal(5, Assert.Single(_repo.Load(_id).BagItems).Count);
         _server.Transfers.BeforeComplete = null;
         _server.Flush();
         Assert.Equal(2, new RepoServerMap(_root).Load(_maps[0]).Count);
-        Assert.Equal(3, Assert.Single(_repo.Load(_id).Bag.Items).Count);
+        Assert.Equal(3, Assert.Single(_repo.Load(_id).BagItems).Count);
     }
 
     /// <summary>模拟进程在写完两侧但尚有回滚记录时退出，启动先恢复旧组再读取。</summary>
@@ -296,12 +300,12 @@ public sealed class GroundItemDropTests : IDisposable
         var transfer = new RepoServerItemTransfer(_root);
         transfer.Begin(1, [_id]);
         var original = _repo.Load(_id);
-        _repo.SaveBag(original with { Bag = original.Bag with { Items = [], Revision = 2 } });
+        _repo.SaveBag(original.WithItems(original.EquippedItems));
         var repoMap = new RepoServerMap(_root);
-        repoMap.Commit(_maps[0], new Dictionary<(int, int), IReadOnlyList<DataServerMapObject>>
+        repoMap.Commit(_maps[0], new Dictionary<(int, int), IReadOnlyList<MapObjectEntity>>
         { [(1, 1)] = [new() { X = 1500, Y = 1500, ItemId = 2000, Count = 5 }] }, cleanup: false);
         _server = Start(); Enter(_id);
-        Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
+        Assert.Equal(5, Assert.Single(_repo.Load(_id).BagItems).Count);
         Assert.Empty(_server.GetMap(1).Objects);
         Assert.False(File.Exists(transfer.PendingPath));
     }
@@ -319,7 +323,7 @@ public sealed class GroundItemDropTests : IDisposable
         Send(new Gm { RoleId = id, Command = "item 2000 1" });
         _server.ResetSession(2);
         new MockTransport(_server).Dispose(); // 正常关闭补写，即使检测周期为零。
-        Assert.Equal(4, Assert.Single(_repo.Load(id).Bag.Items).Count);
+        Assert.Equal(4, Assert.Single(_repo.Load(id).BagItems).Count);
         Assert.Equal(2, Assert.Single(new RepoServerMap(_root).Load(_maps[0])).Count);
     }
 
@@ -334,27 +338,26 @@ public sealed class GroundItemDropTests : IDisposable
         AssertDropClearance(ground, 1536, 1500);
     }
 
-
     /// <summary>同地图多角色关联为一组，第二个背包锁住时连同第一个回滚，解锁后共同重试。</summary>
     [Fact]
     public void MultipleRolesOnSameMapCannotPartiallyFlush()
     {
         var second = _repo.Create("另一角色", ServerRoleGender.Female, 1, spawnX: 1500, spawnY: 1500);
-        _repo.SaveBag(second with { Bag = new() { Revision = 1, NextInstanceId = 2, Items = [new(1, 2000, 0, 5)] } });
+        _repo.SaveBag(second.WithItems([new(1, 2000, 0, 5)], 2));
         _server = Start(); Enter(_id);
         Assert.True(Drop(2).Success);
-        Enter(second.RoleId);
-        Assert.True(Drop(3, role: second.RoleId).Success);
-        using (var locked = new FileStream(_repo.GetItemPath(second.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
+        Enter(second.Role.Value.RoleId);
+        Assert.True(Drop(3, role: second.Role.Value.RoleId).Success);
+        using (var locked = new FileStream(_repo.GetItemPath(second.Role.Value.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
         {
             Assert.Throws<AggregateException>(_server.Flush);
-            Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
-            Assert.Equal(5, Assert.Single(_repo.Load(second.RoleId).Bag.Items).Count);
+            Assert.Equal(5, Assert.Single(_repo.Load(_id).BagItems).Count);
+            Assert.Equal(5, Assert.Single(_repo.Load(second.Role.Value.RoleId).BagItems).Count);
             Assert.Empty(new RepoServerMap(_root).Load(_maps[0]));
         }
         _server.Flush();
-        Assert.Equal(3, Assert.Single(_repo.Load(_id).Bag.Items).Count);
-        Assert.Equal(2, Assert.Single(_repo.Load(second.RoleId).Bag.Items).Count);
+        Assert.Equal(3, Assert.Single(_repo.Load(_id).BagItems).Count);
+        Assert.Equal(2, Assert.Single(_repo.Load(second.Role.Value.RoleId).BagItems).Count);
         Assert.Equal(5, _server.GetMap(1).Objects.Values.Sum(item => item.Count));
     }
 

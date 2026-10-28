@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Text.Json;
-using Rpg.Server.Data;
 using Rpg.Server.Entity;
 using Rpg.Server.EntityCache;
 
@@ -17,15 +16,17 @@ public sealed class RepoServerRole
     /// <summary>实体文件根目录。</summary>
     private readonly string _directory;
     /// <summary>仅已选择或本次修改角色才进入完整实体缓存。</summary>
-    private readonly Dictionary<long, RepoEntityCache>? _cache;
+    private readonly Dictionary<long, RoleEntityTables>? _cache;
     /// <summary>登录加载的独立摘要及删除墓碑。</summary>
-    private readonly Dictionary<long, RoleSummaryEntity> _summaries = new();
+    private readonly Dictionary<long, RoleSummaryEntity> _summaries;
     /// <summary>仅角色单例的未落地删除，不要求加载物品表。</summary>
-    private readonly Dictionary<long, RoleEntity> _deletions = new();
+    private readonly Dictionary<long, RoleEntity> _deletions;
     /// <summary>待写领域：1 角色、2 物品、3 完整、4 未加载角色删除。</summary>
-    private readonly Dictionary<long, int> _dirty = new();
+    private readonly Dictionary<long, int> _dirty;
     /// <summary>摘要是否已经完整加载。</summary>
-    private bool _loaded;
+    private bool _loaded { get => Cache.SummariesLoaded; set => Cache.SummariesLoaded = value; }
+    /// <summary>仓库使用的纯内存实体入口，可独立传给 Handler。</summary>
+    public RepoEntityCache Cache { get; }
     /// <summary>实体表使用与配置一致的 camelCase 对象或无包装数组。</summary>
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -33,11 +34,15 @@ public sealed class RepoServerRole
     };
 
     /// <summary>绑定实体目录，可选择缓存优先与延迟落地。</summary>
-    public RepoServerRole(string directory, Action<string, string>? writeLog = null, bool deferWrites = false)
+    public RepoServerRole(string directory, Action<string, string>? writeLog = null, bool deferWrites = false, RepoEntityCache? cache = null)
     {
         _directory = Path.GetFullPath(directory);
         _writeLog = writeLog;
-        if (deferWrites) _cache = new();
+        Cache = cache ?? new RepoEntityCache();
+        _summaries = Cache.Summaries;
+        _deletions = Cache.Deletions;
+        _dirty = Cache.Dirty;
+        if (deferWrites) _cache = Cache.Roles;
     }
 
     /// <summary>角色单例表路径。</summary>
@@ -50,24 +55,24 @@ public sealed class RepoServerRole
     public string GetSummaryPath(long roleId) => GetPath(roleId, "role_summary");
 
     /// <summary>只加载指定角色的全部实体表；其他角色仍只有摘要。</summary>
-    public DataServerRole Load(long roleId)
+    public RoleEntityTables Load(long roleId)
     {
         if (_cache is not null)
         {
             EnsureCache();
             if (!_summaries.TryGetValue(roleId, out var summary) || summary.IsDeleted)
                 throw new InvalidDataException("角色不存在或已删除");
-            if (_cache.TryGetValue(roleId, out var cached)) return cached.ToRole();
+            if (_cache.TryGetValue(roleId, out var cached)) return cached;
         }
         Recover(roleId);
         var role = Read(roleId);
-        if (role.IsDeleted) throw new InvalidDataException("角色已删除");
-        if (_cache is not null) _cache.Add(roleId, new RepoEntityCache(role));
+        if (role.Role.Value.IsDeleted) throw new InvalidDataException("角色已删除");
+        if (_cache is not null) _cache.Add(roleId, role);
         return role;
     }
 
     /// <summary>按需加载完整角色列表；登录及角色管理只读取 ListSummaries。</summary>
-    public IReadOnlyList<DataServerRole> List() => ListSummaries().Select(value => Load(value.RoleId)).ToList().AsReadOnly();
+    public IReadOnlyList<RoleEntityTables> List() => ListSummaries().Select(value => Load(value.RoleId)).ToList().AsReadOnly();
 
     /// <summary>首次只读取全部摘要，不通过完整角色数据回填。</summary>
     public IReadOnlyList<RoleSummaryEntity> ListSummaries()
@@ -107,29 +112,28 @@ public sealed class RepoServerRole
     }
 
     /// <summary>完整保存只提交发生变化的实体文件，创建时提交全部表。</summary>
-    public void Save(DataServerRole role)
+    public void Save(RoleEntityTables role)
     {
         Validate(role);
         if (_cache is not null) { Stage(role, 3); return; }
-        Recover(role.RoleId);
-        var cache = new RepoEntityCache(role);
-        Commit(role.RoleId, Changed(role.RoleId, Serialize(cache)));
+        Recover(role.Role.Value.RoleId);
+        var cache = role;
+        Commit(role.Role.Value.RoleId, Changed(role.Role.Value.RoleId, Serialize(cache)));
     }
 
     /// <summary>移动只写角色单例，展示字段变化时同时更新摘要。</summary>
-    public void SaveRole(DataServerRole role)
+    public void SaveRole(RoleEntityTables role)
     {
         Validate(role);
         if (_cache is not null) { Stage(role, 1); return; }
-        Recover(role.RoleId);
-        var previous = ReadRoleEntity(role.RoleId);
-        var cache = new RepoEntityCache(role);
-        var entity = cache.Role.Value with { NextInstanceId = previous.NextInstanceId, BagExtraRows = previous.BagExtraRows };
-        var summary = ReadJson<RoleSummaryEntity>(GetSummaryPath(role.RoleId), JsonOptions) with
+        Recover(role.Role.Value.RoleId);
+        var previous = ReadRoleEntity(role.Role.Value.RoleId);
+        var entity = role.Role.Value with { NextInstanceId = previous.NextInstanceId, BagExtraRows = previous.BagExtraRows };
+        var summary = ReadJson<RoleSummaryEntity>(GetSummaryPath(role.Role.Value.RoleId), JsonOptions) with
         {
-            Name = role.Name, Level = role.Level, Gender = role.Gender, HeadId = role.HeadId, IsDeleted = role.IsDeleted
+            Name = entity.Name, Level = entity.Level, Gender = entity.Gender, HeadId = entity.HeadId, IsDeleted = entity.IsDeleted
         };
-        Commit(role.RoleId, Changed(role.RoleId, new Dictionary<string, string>
+        Commit(entity.RoleId, Changed(entity.RoleId, new Dictionary<string, string>
         {
             ["role"] = JsonSerializer.Serialize(entity, JsonOptions),
             ["role_summary"] = JsonSerializer.Serialize(summary, JsonOptions)
@@ -137,41 +141,33 @@ public sealed class RepoServerRole
     }
 
     /// <summary>物品变更拆为实例与扩展表；编号、扩容和展示有变化时共同提交。</summary>
-    public void SaveBag(DataServerRole role)
+    public void SaveBag(RoleEntityTables role)
     {
         Validate(role);
         if (_cache is not null) { Stage(role, 2); return; }
-        Recover(role.RoleId);
-        var cache = new RepoEntityCache(role);
+        Recover(role.Role.Value.RoleId);
+        var cache = role;
         var values = Serialize(cache);
-        var previous = ReadRoleEntity(role.RoleId);
+        var previous = ReadRoleEntity(role.Role.Value.RoleId);
         values["role"] = JsonSerializer.Serialize(previous with
         {
-            BagExtraRows = role.BagExtraRows, NextInstanceId = role.Bag.NextInstanceId
+            BagExtraRows = role.Role.Value.BagExtraRows, NextInstanceId = role.Role.Value.NextInstanceId
         }, JsonOptions);
-        var summary = ReadJson<RoleSummaryEntity>(GetSummaryPath(role.RoleId), JsonOptions) with
+        var summary = ReadJson<RoleSummaryEntity>(GetSummaryPath(role.Role.Value.RoleId), JsonOptions) with
         {
             EquippedItems = RoleSummaryEntity.FromRole(role).EquippedItems
         };
         values["role_summary"] = JsonSerializer.Serialize(summary, JsonOptions);
-        Commit(role.RoleId, Changed(role.RoleId, values));
+        Commit(role.Role.Value.RoleId, Changed(role.Role.Value.RoleId, values));
     }
 
-    /// <summary>把业务候选拆成实体缓存，并同步内存摘要供返回选角读取。</summary>
-    private void Stage(DataServerRole role, int domains)
+    /// <summary>在仓库边界显式准备原表，再把候选提交给纯内存入口。</summary>
+    private void Stage(RoleEntityTables role, int domains)
     {
         EnsureCache();
-        if (_summaries.ContainsKey(role.RoleId))
-        {
-            var previous = _cache!.TryGetValue(role.RoleId, out var cached) ? cached.ToRole() : Read(role.RoleId);
-            if (domains == 1) role = role with { Bag = previous.Bag };
-            if (domains == 2) role = previous with { Bag = role.Bag, BagExtraRows = role.BagExtraRows };
-            if (role == previous) return;
-        }
-        else domains = 3;
-        _cache![role.RoleId] = new RepoEntityCache(role);
-        _summaries[role.RoleId] = RoleSummaryEntity.FromRole(role);
-        _dirty[role.RoleId] = _dirty.GetValueOrDefault(role.RoleId) | domains;
+        if (_summaries.ContainsKey(role.Role.Value.RoleId) && !_cache!.ContainsKey(role.Role.Value.RoleId))
+            Load(role.Role.Value.RoleId);
+        Cache.Commit(role, domains);
     }
 
     /// <summary>只检查待写角色，失败保持已接纳内存并继续其他角色。</summary>
@@ -205,8 +201,8 @@ public sealed class RepoServerRole
     {
         var disk = new RepoServerRole(_directory, log);
         var domains = _dirty[id];
-        if (domains == 4) { disk.Delete(id); return; }
-        var role = _cache![id].ToRole();
+        if (domains == 4) { WriteDeletion(id); return; }
+        var role = _cache![id];
         if (domains == 1) disk.SaveRole(role);
         else if (domains == 2) disk.SaveBag(role);
         else disk.Save(role);
@@ -226,7 +222,7 @@ public sealed class RepoServerRole
     }
 
     /// <summary>读取当前四张实体表，交由主键缓存和组合候选校验。</summary>
-    private DataServerRole Read(long roleId)
+    private RoleEntityTables Read(long roleId)
     {
         var summary = ReadJson<RoleSummaryEntity>(GetSummaryPath(roleId), JsonOptions);
         ValidateSummary(summary, roleId);
@@ -235,7 +231,7 @@ public sealed class RepoServerRole
         {
             var items = new ItemEntityCache(ReadJson<ItemEntity[]>(GetItemPath(roleId), JsonOptions));
             var equipment = new EquipmentEntityCache(ReadJson<EquipmentEntity[]>(GetEquipmentPath(roleId), JsonOptions), items);
-            return new RepoEntityCache(new RoleEntityCache(role), items, equipment).ToRole();
+            return new RoleEntityTables(new RoleEntityCache(role), items, equipment);
         }
         catch (InvalidDataException error)
         { throw new InvalidDataException($"角色实体表无效：{GetItemPath(roleId)}；{GetEquipmentPath(roleId)}；{error.Message}", error); }
@@ -246,6 +242,9 @@ public sealed class RepoServerRole
     {
         var value = ReadJson<RoleEntity>(GetRolePath(roleId), JsonOptions);
         if (value.RoleId != roleId) throw new InvalidDataException($"角色 ID 与文件名不符：{GetRolePath(roleId)}");
+        try { RoleEntityCache.Validate(value); }
+        catch (InvalidDataException error)
+        { throw new InvalidDataException($"角色单例无效：{GetRolePath(roleId)}；{error.Message}", error); }
         return value;
     }
 
@@ -258,12 +257,12 @@ public sealed class RepoServerRole
     }
 
     /// <summary>单例对象与多例数组直接序列化，不含版本及外层包装。</summary>
-    private static Dictionary<string, string> Serialize(RepoEntityCache cache) => new()
+    private static Dictionary<string, string> Serialize(RoleEntityTables cache) => new()
     {
         ["item"] = JsonSerializer.Serialize(cache.Item.Items.Values.OrderBy(item => item.InstanceId), JsonOptions),
         ["equipment"] = JsonSerializer.Serialize(cache.Equipment.Items.Values.OrderBy(item => item.InstanceId), JsonOptions),
         ["role"] = JsonSerializer.Serialize(cache.Role.Value, JsonOptions),
-        ["role_summary"] = JsonSerializer.Serialize(RoleSummaryEntity.FromRole(cache.ToRole()), JsonOptions)
+        ["role_summary"] = JsonSerializer.Serialize(RoleSummaryEntity.FromRole(cache), JsonOptions)
     };
 
     /// <summary>比较实际 JSON 值，首次创建写入完整领域组。</summary>
@@ -367,51 +366,41 @@ public sealed class RepoServerRole
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
-    /// <summary>校验名称及外观，提交仓库状态后允许列表展示新角色。</summary>
-    public DataServerRole Create(string name, ServerRoleGender gender, int headId, int mapId = 1, float? spawnX = null, float? spawnY = null)
+    /// <summary>显式准备摘要后复用纯内存创建业务，再在同步模式落地。</summary>
+    public RoleEntityTables Create(string name, ServerRoleGender gender, int headId, int mapId = 1, float? spawnX = null, float? spawnY = null)
     {
-        var roles = ListSummaries();
-        name = name.Trim();
-        if (name.Length is < 1 or > 16 || name.Any(char.IsControl))
-            throw new ArgumentException("角色名字需为 1 至 16 个字符，且不能包含控制字符");
-        if (roles.Any(role => string.Equals(role.Name, name, StringComparison.OrdinalIgnoreCase)))
-            throw new ArgumentException("角色名字已存在");
-        if (!Enum.IsDefined(gender) || headId is < 1 or > 74) throw new ArgumentException("性别或头型无效");
-        var id = checked((_cache is null ? StoredIds() : _summaries.Keys).DefaultIfEmpty(1002).Max() + 1);
-        var role = new DataServerRole
-        {
-            RoleId = id, MapId = mapId, Name = name, Gender = gender, HeadId = headId, Level = 1,
-            Health = 100, MaxHealth = 100, Mana = 60, MaxMana = 60, Experience = 0, NextExperience = 500,
-            X = spawnX ?? (gender == ServerRoleGender.Male ? 16016 : 16144),
-            Y = spawnY ?? (gender == ServerRoleGender.Male ? 16016 : 16080)
-        };
+        ListSummaries();
+        var role = Handler.Role.RoleCreation.Create(Cache, name, gender, headId, mapId, spawnX, spawnY);
         Save(role);
         return role;
     }
 
-    /// <summary>仅加载角色单例即可删除，不触碰未选择角色的物品表。</summary>
+    /// <summary>只加载删除所需的单例，不读取未选择物品表。</summary>
+    public void PrepareDelete(long roleId)
+    {
+        ListSummaries();
+        if (!_summaries.TryGetValue(roleId, out var summary) || summary.IsDeleted)
+            throw new InvalidDataException("角色不存在或已删除");
+        if (!Cache.Roles.ContainsKey(roleId) && !Cache.Deletions.ContainsKey(roleId))
+            Cache.Deletions[roleId] = ReadRoleEntity(roleId);
+    }
+
+    /// <summary>准备后提交内存墓碑，文件写入仍由独立节点执行。</summary>
     public void Delete(long roleId)
     {
-        var summary = ListSummaries().SingleOrDefault(value => value.RoleId == roleId)
-            ?? throw new InvalidDataException("角色不存在或已删除");
-        if (_cache is not null && _cache.TryGetValue(roleId, out var cached))
-        {
-            SaveRole(cached.ToRole() with { IsDeleted = true });
-            return;
-        }
-        var value = ReadRoleEntity(roleId) with { IsDeleted = true };
-        var deleted = summary with { IsDeleted = true };
-        if (_cache is not null)
-        {
-            _deletions[roleId] = value;
-            _summaries[roleId] = deleted;
-            _dirty[roleId] = 4;
-            return;
-        }
+        PrepareDelete(roleId);
+        Cache.Delete(roleId);
+        if (_cache is null) WriteDeletion(roleId);
+    }
+
+    /// <summary>仅落地角色单例与摘要墓碑。</summary>
+    private void WriteDeletion(long roleId)
+    {
+        var value = Cache.Roles.TryGetValue(roleId, out var tables) ? tables.Role.Value : _deletions[roleId];
         Commit(roleId, Changed(roleId, new Dictionary<string, string>
         {
             ["role"] = JsonSerializer.Serialize(value, JsonOptions),
-            ["role_summary"] = JsonSerializer.Serialize(deleted, JsonOptions)
+            ["role_summary"] = JsonSerializer.Serialize(_summaries[roleId], JsonOptions)
         }));
     }
 
@@ -424,24 +413,6 @@ public sealed class RepoServerRole
         .Select(name => long.TryParse(name, out var id) ? id : 0)
         .Where(id => id > 0).Distinct().OrderBy(id => id);
 
-    /// <summary>拒绝无法成为合法角色快照的存档数据。</summary>
-    public static void Validate(DataServerRole role)
-    {
-        ValidateRole(role);
-        if (role.BagExtraRows < 0 || role.Bag is null) throw new InvalidDataException("角色背包字段无效");
-        role.Bag.Validate();
-    }
-
-    /// <summary>先诊断角色领域自身字段，避免将角色损坏归因到背包路径。</summary>
-    private static void ValidateRole(DataServerRole role)
-    {
-        ArgumentNullException.ThrowIfNull(role);
-        if (role.MapId <= 0 || role.RoleId <= 0 || string.IsNullOrWhiteSpace(role.Name) || role.Level <= 0 ||
-            role.MaxHealth <= 0 || role.Health < 0 || role.Health > role.MaxHealth ||
-            role.MaxMana < 0 || role.Mana < 0 || role.Mana > role.MaxMana ||
-            role.Experience < 0 || role.NextExperience <= 0 ||
-            !float.IsFinite(role.X) || !float.IsFinite(role.Y) || !Enum.IsDefined(role.Gender) ||
-            role.HeadId < 1 || role.HeadId > 74 || role.Revision < 0 || role.AcknowledgedAction < 0)
-            throw new InvalidDataException("角色存档包含无效字段");
-    }
+    /// <summary>实体组构造时完成结构校验，仓库不重建业务模型。</summary>
+    public static void Validate(RoleEntityTables role) => RoleEntityCache.Validate(role.Role.Value);
 }

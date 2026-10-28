@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Map;
+using Rpg.Server.Entity;
 
 namespace ClientTests;
 
@@ -10,15 +11,15 @@ public sealed class MapPersistenceTests : IDisposable
     /// <summary>每个用例独占的文件根目录。</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-map-" + Guid.NewGuid());
     /// <summary>测试地图，单块 320 逻辑像素。</summary>
-    private static readonly DataServerMapRules Rules = new(1, 100, 100, 32, 10);
+    private static readonly MapLayout Rules = new(1, 100, 100, 32, 10);
     /// <summary>测试道具规则，不依赖客户端配置。</summary>
     private static readonly Dictionary<int, int> Items = new() { [1012] = 5 };
 
     /// <summary>创建测试地图，不隐式生成业务对象。</summary>
-    private ServerMap Open(DataServerMapRules? rules = null, RepoServerMap? repo = null) => new(rules ?? Rules, repo ?? new(_directory), Items);
+    private ServerMap Open(MapLayout? rules = null, RepoServerMap? repo = null) => new(rules ?? Rules, repo ?? new(_directory), Items);
 
     /// <summary>生成一个有稳定身份的怪物。</summary>
-    private static DataServerMapObject Monster(float x = 100) => new() { X = x, Y = 100, MonsterTypeId = "test" };
+    private static MapObjectEntity Monster(float x = 100) => new() { X = x, Y = 100, MonsterTypeId = "test" };
 
     /// <summary>两地图同块互不覆盖；内存创建不提前写盘，落地后才能恢复。</summary>
     [Fact]
@@ -144,12 +145,12 @@ public sealed class MapPersistenceTests : IDisposable
     {
         var repo = new RepoServerRole(_directory);
         var role = repo.Create("缺少字段", ServerRoleGender.Male, 1);
-        var path = repo.GetRolePath(role.RoleId);
+        var path = repo.GetRolePath(role.Role.Value.RoleId);
         var data = JsonNode.Parse(File.ReadAllText(path))!;
         data.AsObject().Remove(field);
         var original = data.ToJsonString();
         File.WriteAllText(path, original);
-        var error = Assert.Throws<InvalidDataException>(() => repo.Load(role.RoleId));
+        var error = Assert.Throws<InvalidDataException>(() => repo.Load(role.Role.Value.RoleId));
         Assert.Contains(path, error.Message);
         Assert.Equal(original, File.ReadAllText(path));
     }

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Rpg.Server.Data;
+using Rpg.Server.EntityCache;
 
 namespace Rpg.Server.Entity;
 
@@ -30,10 +30,10 @@ public sealed record RoleSummaryEntity
     }
 
     /// <summary>仅从已加载角色投影列表需要的字段。</summary>
-    public static RoleSummaryEntity FromRole(DataServerRole role) => new()
+    public static RoleSummaryEntity FromRole(RoleEntityTables tables) => new()
     {
-        RoleId = role.RoleId, Name = role.Name, Level = role.Level, Gender = role.Gender,
-        HeadId = role.HeadId, IsDeleted = role.IsDeleted,
-        EquippedItems = role.Bag.Equipment.OrderBy(item => item.Slot).Select(item => item.ItemId).ToArray()
+        RoleId = tables.Role.Value.RoleId, Name = tables.Role.Value.Name, Level = tables.Role.Value.Level, Gender = tables.Role.Value.Gender,
+        HeadId = tables.Role.Value.HeadId, IsDeleted = tables.Role.Value.IsDeleted,
+        EquippedItems = tables.Item.Items.Values.Where(item => item.Equipped).OrderBy(item => item.EquipmentSlot).Select(item => item.ItemId).ToArray()
     };
 }

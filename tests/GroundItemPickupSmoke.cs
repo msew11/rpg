@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 using Godot;
 using Rpg.Utils;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
@@ -34,8 +37,7 @@ public partial class GroundItemPickupSmoke : Node
             File.WriteAllText(Path.Combine(config, "item.json"), definitions.ToJsonString());
             RoleTestData.Seed(server);
             var repo = new RepoServerRole(server);
-            repo.SaveBag(repo.Load(1001) with { Bag = new() { NextInstanceId = 3,
-                Items = [new(1, 1012, 0, 1), new(2, 2000, 1, 5)] } });
+            repo.SaveBag(repo.Load(1001).WithItems([new(1, 1012, 0, 1), new(2, 2000, 1, 5)], 3));
             main = await StartMain(directory, config);
             var bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
             var grid = (GridContainer)bag.FindChild("BagGrid", true, false);
@@ -138,7 +140,7 @@ public partial class GroundItemPickupSmoke : Node
             GameServices.Net.Tick(2); GameServices.World.Tick(2); await Frames();
             Check(GameServices.Session.Map.Objects.Count == 1 && ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("背包空间不足"), "背包满未保留地面物品和反馈");
             GameServices.Net.Tick(5);
-            var savedTotal = repo.Load(1001).Bag.Items.Sum(item => item.Count);
+            var savedTotal = repo.Load(1001).BagItems.Sum(item => item.Count);
             main.QueueFree(); await Frames(); main = null;
             main = await StartMain(directory, config);
             Check(GameServices.Session.Bag.Items.Sum(item => item.Count) == savedTotal && GameServices.Session.Map!.Objects.Count == 1, "重启未恢复拾取和失败后的完整状态");

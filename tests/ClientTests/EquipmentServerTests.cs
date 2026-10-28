@@ -1,9 +1,13 @@
+using System.Linq;
 using Google.Protobuf;
 using Rpg.Const;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 
 namespace ClientTests;
 
@@ -13,14 +17,14 @@ public sealed class EquipmentServerTests : IDisposable
     /// <summary>独立存档目录。</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-equipment-" + Guid.NewGuid());
     /// <summary>两个格子便于验收满包；静态规则含目标槽位分类。</summary>
-    private readonly DataServerBagRules _rules = new(2, 1, [
-        new(1012, "剑", 1, ItemCategory.Weapon, ItemSubCategory.Sword),
-        new(1013, "双手剑", 1, ItemCategory.Weapon, ItemSubCategory.TwoHandedWeapon),
-        new(1014, "盾", 1, ItemCategory.Armor, ItemSubCategory.Shield),
-        new(1015, "杖", 1, ItemCategory.Weapon, ItemSubCategory.Staff),
-        new(1016, "枪", 1, ItemCategory.Weapon, ItemSubCategory.Spear),
-        new(1017, "拳刃", 1, ItemCategory.Weapon, ItemSubCategory.Katar),
-        new(1018, "飞刀", 1, ItemCategory.Weapon, ItemSubCategory.ThrowingWeapon)]);
+    private readonly BagRules _rules = new(2, 1, [
+        RoleTestData.Item(1012, "剑", 1, ItemCategory.Weapon, ItemSubCategory.Sword),
+        RoleTestData.Item(1013, "双手剑", 1, ItemCategory.Weapon, ItemSubCategory.TwoHandedWeapon),
+        RoleTestData.Item(1014, "盾", 1, ItemCategory.Armor, ItemSubCategory.Shield),
+        RoleTestData.Item(1015, "杖", 1, ItemCategory.Weapon, ItemSubCategory.Staff),
+        RoleTestData.Item(1016, "枪", 1, ItemCategory.Weapon, ItemSubCategory.Spear),
+        RoleTestData.Item(1017, "拳刃", 1, ItemCategory.Weapon, ItemSubCategory.Katar),
+        RoleTestData.Item(1018, "飞刀", 1, ItemCategory.Weapon, ItemSubCategory.ThrowingWeapon)]);
     /// <summary>读取实际领域文件的仓库。</summary>
     private readonly RepoServerRole _repo;
     /// <summary>独立解码的输出消息。</summary>
@@ -47,7 +51,7 @@ public sealed class EquipmentServerTests : IDisposable
     public EquipmentServerTests()
     {
         _repo = new RepoServerRole(_directory);
-        _roleId = _repo.Create("装备测试", ServerRoleGender.Male, 1).RoleId;
+        _roleId = _repo.Create("装备测试", ServerRoleGender.Male, 1).Role.Value.RoleId;
         _server = CreateServer();
         Enter(_roleId);
     }
@@ -116,13 +120,13 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.True(Equip(0, EquipmentSlotPb.MainHand, target: sourceSlot).Success);
         _server.Flush();
-        var persisted = _repo.Load(_roleId).Bag;
-        Assert.Equal(4, persisted.NextInstanceId);
+        var persisted = _repo.Load(_roleId);
+        Assert.Equal(4, persisted.Role.Value.NextInstanceId);
         _server = CreateServer();
         Enter(_roleId);
         Assert.Equal(sword, Assert.Single(EquippedItems).InstanceId);
         Assert.Equal(replacement, BagItems.Single(item => item.SlotIndex == sourceSlot).InstanceId);
-        Assert.Equal(0, persisted.Revision);
+
         Assert.True(_bag.GetRevision() > 0);
     }
 
@@ -138,7 +142,7 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.Equal(second, Assert.Single(EquippedItems).InstanceId);
         Assert.Equal(first, Assert.Single(BagItems).InstanceId);
         _server.Flush();
-        var other = _repo.Create("另一角色", ServerRoleGender.Female, 1).RoleId;
+        var other = _repo.Create("另一角色", ServerRoleGender.Female, 1).Role.Value.RoleId;
         _server = CreateServer();
         Enter(other);
         Assert.Empty(BagItems);
@@ -269,7 +273,7 @@ public sealed class EquipmentServerTests : IDisposable
         var beforeBag = _bag.Clone().WithRevision(_bag.GetRevision());
         var beforeEquipment = _equipment.Clone().WithRevision(_equipment.GetRevision());
         _server.Flush();
-        var beforeNextId = _repo.Load(_roleId).Bag.NextInstanceId;
+        var beforeNextId = _repo.Load(_roleId).Role.Value.NextInstanceId;
         Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
         Assert.Equal(shield, Assert.Single(EquippedItems).InstanceId);
         Assert.Equal(EquipmentSlot.OffHand, EquippedItems[0].Slot);
@@ -282,7 +286,7 @@ public sealed class EquipmentServerTests : IDisposable
         var acceptedBag = _bag.Clone().WithRevision(_bag.GetRevision());
         var acceptedEquipment = _equipment.Clone().WithRevision(_equipment.GetRevision());
         _server.Flush();
-        Assert.Equal(beforeNextId, _repo.Load(_roleId).Bag.NextInstanceId);
+        Assert.Equal(beforeNextId, _repo.Load(_roleId).Role.Value.NextInstanceId);
         _server = CreateServer();
         Enter(_roleId);
         Assert.Equal(acceptedBag, _bag);
@@ -297,10 +301,10 @@ public sealed class EquipmentServerTests : IDisposable
     public void InvalidStoredHandsRejectSelectionWithoutRewriting(int mainId, int offId)
     {
         var role = _repo.Load(_roleId);
-        var equipment = new List<DataServerEquipment>();
+        var equipment = new List<ItemEntity>();
         if (mainId != 0) equipment.Add(new(1, mainId, EquipmentSlot.MainHand));
         equipment.Add(new(2, offId, EquipmentSlot.OffHand));
-        _repo.Save(role with { Bag = role.Bag with { NextInstanceId = 3, Equipment = equipment } });
+        _repo.Save(role.WithItems(Enumerable.Concat<ItemEntity>(role.BagItems, equipment), 3));
         var path = _repo.GetItemPath(_roleId);
         var original = File.ReadAllText(path);
         _server = CreateServer();
@@ -311,7 +315,7 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.NotEmpty(response.Error);
         _server.Flush();
         Assert.Equal(original, File.ReadAllText(path));
-        Assert.Equal(equipment, _repo.Load(_roleId).Bag.Equipment);
+        Assert.Equal(equipment, _repo.Load(_roleId).EquippedItems);
     }
     /// <summary>role-equipment：GM 发放与格子移动不覆盖已穿装备，落地后保留实例。</summary>
     [Fact]
@@ -324,7 +328,7 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.True(_messages.OfType<MoveItemRt>().Last().Success);
         Assert.Equal(sword, Assert.Single(EquippedItems).InstanceId);
         _server.Flush();
-        Assert.Equal(sword, Assert.Single(_repo.Load(_roleId).Bag.Equipment).InstanceId);
+        Assert.Equal(sword, Assert.Single(_repo.Load(_roleId).EquippedItems).InstanceId);
     }
     /// <summary>role-equipment：整理不广播公开装备，每次私有组合快照共享新的信封版本。</summary>
     [Fact]
@@ -356,7 +360,6 @@ public sealed class EquipmentServerTests : IDisposable
         Enter(_roleId);
         Assert.Equal(notice.Equipment, _equipment);
     }
-
 
     /// <summary>mock-server：完整角色主动提交若改变物品，也必须交付本人的原子组合快照。</summary>
     [Fact]
@@ -398,11 +401,10 @@ public sealed class EquipmentServerTests : IDisposable
             File.WriteAllText(path, original);
         }
         _server.Flush();
-        var saved = _repo.Load(_roleId).Bag;
-        Assert.Equal(0, saved.Revision);
-        Assert.Equal(0, saved.EquipmentRevision);
-        Assert.Equal(sword, Assert.Single(saved.Equipment).InstanceId);
-        Assert.Empty(saved.Items);
+        var saved = _repo.Load(_roleId);
+
+        Assert.Equal(sword, Assert.Single(saved.EquippedItems).InstanceId);
+        Assert.Empty(saved.BagItems);
     }
 
     /// <summary>mock-server：装备扩展表空载荷保留文件路径诊断，不自动重建表。</summary>

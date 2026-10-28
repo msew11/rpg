@@ -1,10 +1,14 @@
+using System.Linq;
 using Google.Protobuf;
 using Rpg.Config.Data;
 using Rpg.Const;
 using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 using Rpg.Session.Data;
 
 namespace ClientTests;
@@ -29,11 +33,7 @@ public sealed class PublicEquipmentTests
     [Fact]
     public void PublicProjectionAndWireMessagesContainOnlyEquipment()
     {
-        var role = new DataServerRole { RoleId = 1001, Bag = new DataServerBag
-        {
-            NextInstanceId = 3, Items = [new DataServerItem(2, 1012, 17, 1)],
-            Equipment = [new DataServerEquipment(1, 1012, EquipmentSlot.MainHand)]
-        } };
+        var role = new RoleEntityTables(new RoleEntity { RoleId = 1001, MapId = 1, HeadId = 1, Name = "公开装备", Level = 1, MaxHealth = 100, NextExperience = 500, NextInstanceId = 3 }, Enumerable.Concat<ItemEntity>([new ItemEntity(2, 1012, 17, 1)], [new ItemEntity(1, 1012, EquipmentSlot.MainHand)]));
         var notice = MockServer.CreateEquipmentNotice(role);
         var envelope = MessageCodec.ReadEnvelope(MessageCodec.Encode(notice, 7, false, 23));
         var decoded = Assert.IsType<RoleEquipmentNotice>(MessageCodec.ReadPayload(envelope, false));

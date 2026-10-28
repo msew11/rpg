@@ -1,0 +1,30 @@
+using System;
+using System.Linq;
+using System.Numerics;
+using System.Globalization;
+using Rpg.Net.Message;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+
+namespace Rpg.Server.Handler.Bag;
+
+/// <summary>接纳走近拾取意图，近处立即提交，远处由模拟推进继续。</summary>
+public sealed class PickupItemHandler
+{
+    /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
+    public PickupItemRt Handle(RepoEntityCache cache, global::Rpg.Net.Message.PickupItem request)
+    {
+        try
+        {
+            _ = PickupOperations.Validate(cache, request);
+            if (cache.Session.Pickup is { } pending)
+            {
+                if (pending.Equals(request)) return PickupOperations.Response(request);
+                throw new InvalidOperationException("已有待完成的拾取");
+            }
+            cache.Session.Pickup = request.Clone();
+            return PickupOperations.TryComplete(cache) ?? PickupOperations.Response(request);
+        }
+        catch (Exception error) { return PickupOperations.Response(request, error.Message); }
+    }
+}

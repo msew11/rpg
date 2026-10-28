@@ -68,7 +68,11 @@ if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
 
 `dotnet build rpg.csproj` 使用仅构建依赖 `Grpc.Tools 2.84.0` 自动生成 `src/Net/Message/Message.cs`、`Role.cs`、`Login.cs`、`World.cs`、`Bag.cs`、`Equipment.cs` 和 `Gm.cs`，运行依赖为 `Google.Protobuf 3.36.2`，未启用 gRPC。生成 C# 与 proto 一起提交，中文协议注释写在 proto，不直接修改生成文件。SDK 排除生成目录的默认编译项，再由 protobuf 构建目标添加，避免重复编译。
 
-`src/Server` 的 `MockServer` 使用独立的服务端业务候选，不引用客户端模型或 Godot。落地实体放在 `Server/Entity`，缓存放在 `Server/EntityCache`：`RoleEntityCache`、`ItemEntityCache` 和 `EquipmentEntityCache` 平级，分别只持有本表数据。`RoleEntityCache.Value` 直接保存单个 `RoleEntity`；另两个缓存的 `Items` 分别按共享的 InstanceId 主键索引多例记录。外层 `RepoEntityCache` 通过 Role、Item、Equipment 组合三者，承接完整业务候选投影和组合校验；`RepoServerRole` 按角色保存该实体组，角色单例缓存不拥有物品或装备缓存。`RepoServerRole` 保存 `<roleId>.role.json` 单例、`<roleId>.item.json` 物品数组、`<roleId>.equipment.json` 装备扩展数组和 `<roleId>.role_summary.json` 展示快照。全新存档登录为空；首次登录仅载入全部摘要和墓碑，选择后才载入指定角色其他表，未选角色完整文件损坏不阻塞登录或选择其他角色。已加载/修改角色保留实体缓存，业务规则通过 DataServerRole 临时候选投影。删除保留角色和摘要墓碑，编号不复用；创建继续校验名称、性别、头型。变更先提交内存并响应，检测节点只写实际 JSON 内容变化的表；创建及多表变更保留原子回滚和失败重试。
+`src/Server` 使用独立于客户端缓存和 Godot 的实体状态。落地实体放在 `Server/Entity`，缓存放在 `Server/EntityCache`：`RoleEntityCache.Value` 只保存一个 `RoleEntity`；`ItemEntityCache.Items` 与 `EquipmentEntityCache.Items` 按共享 InstanceId 索引。`RoleEntityTables` 平级组合三张表，不复制实体字段；`RepoEntityCache` 统一持有已加载表组、摘要、待写领域、地图及非持久化会话。登录时允许当前角色为空，首次仅读取全部摘要和墓碑，选角后才加载指定角色完整表。实体候选完整校验后一次替换，并同步摘要和 dirty，不再保留 Server/Data 聚合或实体投影适配层。
+
+请求业务按协议文件名首字母大写放在 `Server/Handler/Login`、`Role`、`Bag`、`Gm`、`World`。每个请求类对应一个 Handler，只公开 `响应 Handle(RepoEntityCache cache, 请求 request)`。Handle 不接收路径、仓库、发送委托或加载回调，只读配置和已加载内存。`MockServer` 在调用前显式准备摘要、选中角色、删除单例和地图，调用后发送内存通知及响应，并在唯一发送边界递增 Envelope revision。移动成功响应由 `ServerSimulation` 延迟 0.45 秒生成；拾取先登记意图，走近后通过同一内存规则提交，重复和取消行为保持一致。计时、网络发送及定时/关闭写回均在 Handle 外。
+
+`RepoServerRole` 负责 `<roleId>.role.json` 单例、`<roleId>.item.json` 数组、`<roleId>.equipment.json` 数组与 `<roleId>.role_summary.json` 快照的显式加载和文件提交。删除只需准备角色单例，不加载未选物品表。创建、删除及多表变化保留四表回滚、编号不复用与失败重试。Handler 只更新内存；检测或关闭节点比较最终 JSON，只写实际变化文件，失败保留已接纳实体与待写标记。
 
 模拟移动默认每秒 180 逻辑单位，GM 滑条可在 60–360 间以 10 为步长即时调整；客户端 ECS 与模拟服务端读取同一 Env 速度，保存到 `user://.env` 的 `RPG_MOVEMENT_SPEED`，重启恢复。确认延迟仍为 0.45 秒，横向校正偏差仍为 3 单位。仅保存已确认/推送状态，不保存会话结束时仍待确认的移动；选角恢复位置，信封 revision 由当前发送端生成，移动确认序号重置为 0，供新世界使用。`PublishRoleState` 提供服务端主动更新入口，内存提交成功后发送 Notice，不添加产品操作面板。JSON 存储仅面向单实例进程内 Mock，不提供多进程写入协调。
 
@@ -164,7 +168,7 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 
 候选框显示时，主键盘回车与数字小键盘回车优先补全当前选中项并消费按键，不进入发送链路；候选隐藏后两种回车均可提交。`tests/bag_gm_smoke.tscn` 覆盖连续确认命令与非首个道具、聊天记录及背包版本不变，以及隐藏候选后的默认数量和显式数量提交。
 
-`config/basic.json` 通过 `BasicCfgCache : SingleCfgCache<BasicCfg>` 加载，`Config.Basic.Value` 提供 8 列、5 行基础背包。角色 `BagExtraRows` 默认为 0，容量计算检查非负扩容和整数溢出。`NetService` 从构造绑定的 Config 复制 `DataServerBagRules` 与道具定义，MockServer 不引用客户端配置类或 Godot。
+`config/basic.json` 通过 `BasicCfgCache : SingleCfgCache<BasicCfg>` 加载，`Config.Basic.Value` 提供 8 列、5 行基础背包。角色 `BagExtraRows` 默认为 0，容量计算检查非负扩容和整数溢出。`NetService` 将 Config 中 init-only 的 ItemCfg 集合快照传入 `Handler/Bag/BagRules`，由规则持有按 ID 索引的只读配置；Handler 不依赖配置服务或文件。
 
 服务端实例持久化使用 `.item.json` 与 `.equipment.json` 多例表，容量扩容和 NextInstanceId 由角色单例保存。实例 ID 在角色内递增不复用；未穿实例按零起格子排列，已穿实例 Equipped 为 true、SlotIndex 为 0。`BagPb.Items` 返回全部私有实例，ItemPb 的 equipped 区分穿戴，oneof payload 预留空 EquipmentPb，不向客户端传递装备槽位。`BagPbData.AllItems` 拥有完整列表，Items 仅提供未穿格子视图，Equipment 根据私有实例及配置推导操作视图。选角与 `RoleItemsChangedNotice` 同时携带公开配置 ID 和私有完整实例；缓存先校验容量、数量、实例/未穿格子唯一性及展示一致性，再按信封版本原子替换。移动响应仅含位置，其他角色和旧代次消息隔离。
 
@@ -196,7 +200,7 @@ NetService 与 SettingService 通过构造绑定；MockServer 与 RepoServerRole
 
 `.role.json` 是 RoleEntity 单对象，保存属性、位置、删除墓碑、BagExtraRows 和 NextInstanceId，不包含物品数组或网络 revision。`.item.json` 是 ItemEntity 数组，含 InstanceId、ItemId、SlotIndex、Count、Equipped；服务端另外保留权威 EquipmentSlot 供当前穿脱业务规则使用，绝不投影到 ItemPb。`.equipment.json` 是 EquipmentEntity 数组，当前只有共享 InstanceId，为装备属性留位。`.role_summary.json` 单对象保存 RoleSummaryPb 所需展示字段、装备配置 ID 和删除墓碑。移动调用 SaveRole，只提交角色变化及有变化的展示摘要；物品调用 SaveBag，提交实例、扩展、编号/扩容和有变化的摘要；格子整理仅写 item，角色移动不读取 item/equipment。通用 Save 比较最终 JSON，只提交变化表。
 
-角色存档只支持当前四张实体表，MapId 和 HeadId 必须显式保存。摘要缺失或损坏直接报错，不回读完整角色表生成摘要；选择后再校验物品和装备。目录只从 role 与 role_summary 文件识别角色编号，其他文件不参与登录列表。开发期旧聚合、role/bag 双文件及旧装备迁移代码已删除，本地旧角色 JSON 已清空；DataServerBagRules 继续负责当前入包、穿脱、容量和配置校验。
+角色存档只支持当前四张实体表，MapId 和 HeadId 必须显式保存。摘要缺失或损坏直接报错，不回读完整角色表生成摘要；选择后再校验物品和装备。目录只从 role 与 role_summary 文件识别角色编号，其他文件不参与登录列表。开发期旧聚合、role/bag 双文件及旧装备迁移代码已删除，本地旧角色 JSON 已清空；BagRules 继续负责当前入包、穿脱、容量和配置校验。
 
 单领域提交仍采用同目录临时文件刷盘后替换。创建或多领域更新先保存 `<id>.pending.json` 的原文件文本/缺失状态，替换全部领域后删除记录作为提交点；失败回滚，重启后的首次读取、枚举或保存先恢复未提交状态，恢复失败明确报错。只有全部提交成功才输出目标文件 IO，事务和临时文件不输出业务 IO。该机制用于单进程 Mock，沿用操作系统文件替换的持久性边界，不提供多进程协调。
 
@@ -223,9 +227,9 @@ HUD 布局刷新只更新已展开系统菜单的位置，不收起菜单或重�
 
 地图以数值 ID 寻址，当前地图为 1，chunkSizeTiles=32；静态绘制仍使用 8 格分块。WorldService 构造只绑定 Config/Setting/Session，进入角色时按 Role.MapId 建立当前 DataMapComponent，离开清空。MapConfig 是当前选图入口；Session.Map 保留已校验的权威 AOI 快照，固定帧通过 SyncMapObjectsAction 同步为动态 ECS entity，MapObjects 返回由组件生成的只读状态。表现节点在世界未就绪或离开后等待释放期间跳过地图查询。
 
-角色 MapId 缺失兼容地图 1，读取不改文件，下次正常角色保存写入；新角色使用 basic.initialMapId。当前地图身份位于 RoleWorldPositionPb，PbData 保持独立转换。MockServer 复制地图规则和道具规则，验证移动目标的地图边界，不依赖客户端配置服务。
+角色 MapId 必须显式保存，缺失或无效时拒绝加载；新角色使用 basic.initialMapId。当前地图身份位于 RoleWorldPositionPb，PbData 保持独立转换。MockServer 持有不可变地图规格与只读道具配置，验证移动目标的地图边界，不依赖客户端配置服务。
 
-MockServer 拥有按地图 ID 保存的 ServerMap 及当前观察者 MapAoiTracker。ServerMap 独占对象表、chunk 身份索引和 dirty 集合，向下调用 RepoServerMap；仓库只读写文件，不拥有业务状态。MapAoiTracker 只维护观察者范围和序号，不存对象、不写文件。权威对象创建/更新/删除通过 MockServer 的 CreateMapObject、UpdateMapObject、RemoveMapObject 返回变化并发送可见增量；不增加内部事件总线或反向业务回调。对象以 GUID 稳定寻址，载荷仅定义怪物类型标识或合法道具编号/数量。
+MockServer 拥有按地图 ID 保存的 ServerMap 及当前观察者 MapAoiTracker。地图规格 `MapLayout` 与变更记录 `MapChange` 归 Server/Map，对象 `MapObjectEntity` 归 Server/Entity。ServerMap 独占对象表、chunk 身份索引和 dirty 集合，向下调用 RepoServerMap；仓库只读写文件，不拥有业务状态。MapAoiTracker 只维护观察者范围和序号，不存对象、不写文件。权威对象创建/更新/删除通过 MockServer 的 CreateMapObject、UpdateMapObject、RemoveMapObject 返回变化并发送可见增量；不增加内部事件总线或反向业务回调。对象以 GUID 稳定寻址，载荷仅定义怪物类型标识或合法道具编号/数量。
 
 文件为 user://server/maps/<mapId>/manifest.json 与 chunks/<x>_<y>.<commitId>.json。版本均为 formatVersion=1，清单保存地图身份、布局、提交 GUID 与有效块引用；块保存坐标、提交 GUID 和完整对象。每轮只写变化的非空块，空块移除引用，最后原子替换清单。清单是唯一提交点，跨块移动两侧共同生效；中断候选不参与恢复。已有清单损坏、缺失引用、重复对象或布局不符明确报错。成功提交后清理旧版本，清理失败报告并在下一检测重试，不撤销已提交状态。文件替换沿用单进程及操作系统持久性边界。
 
@@ -256,7 +260,7 @@ GroundItemsView 提供图标命中与视口锚点查询，UI 负责遮挡过滤�
 
 PickupItem 携带角色 ID、对象 GUID、对象版本、背包版本和 move_action_id，不允许指定地图或位置。MockServer 只接纳当前地图权威九块内的地面对象，验证目标坐标与最新移动匹配；远处暂存一个拾取意图，每 Tick 先推进移动，再在实际距离不大于 TileSize 时整份转移。新的有效 Move 取消旧拾取，切角、重新登录和重置清理；对象消失/版本变化、背包版本变化报失败。到达最后一个瓦片即可拾取，移动继续到点击时物品位置，不新增移动系统规则。
 
-DataServerBagRules.Add 统一 GM 和拾取的入包算法：优先补同类堆叠，再按空格分配新实例，容量不足整份拒绝，失败不消耗版本或实例编号。拾取成功保存候选背包、移除地图对象并登记已有共同落地关系，继续通过 RoleItemsChangedNotice、MapAoiNotice 和最终 PickupItemRt 交付结果；缓存不乐观更新。文件格式与 RepoServerItemTransfer 不变，反向拾取、同周期丢捡和不同角色之间的转移都属于同地图提交组。
+BagRules.Add 统一 GM 和拾取的入包算法：优先补同类堆叠，再按空格分配新实例，容量不足整份拒绝，失败不消耗版本或实例编号。拾取成功保存候选背包、移除地图对象并登记已有共同落地关系，继续通过 RoleItemsChangedNotice、MapAoiNotice 和最终 PickupItemRt 交付结果；缓存不乐观更新。文件格式与 RepoServerItemTransfer 不变，反向拾取、同周期丢捡和不同角色之间的转移都属于同地图提交组。
 
 World.Views.DataItemOutline 将显示图标统一到透明 32×32 画布，按非透明像素生成两像素膨胀外轮廓，资源按素材键缓存；缺图问号也使用同一图形/轮廓遮罩。地面使用 GroundAssetId 显式绑定 item/item，背包继续使用 IconAssetId 的 item/itempic；七件装备的地面键来自导出表 icon_small_code，不隐式换算编号。命中使用 32×32 显示矩形向外扩展 8 像素的 48×48 区域，含透明角落；名称由 UI 在悬停时显示，与背包共用 ItemNamePopup 的即时文本、鼠标偏移和视口裁剪，不参与命中；坐标包含摄像机变换并在静止鼠标下逐帧重新计算。UI 悬停和模态窗口阻断命中，失焦、移出、AOI 移除和离开世界清除轮廓。PointerCursor 读取表现组的悬停状态，以 HUD 调整、窗口拖动和聊天缩放、物品 Fetch、普通指针为优先序；复用 Fetch 开手/握手两帧、1.25 缩放及源热点 (6,6)，世界不反向依赖 UI。
 
@@ -279,7 +283,7 @@ DropItem 的 destroy 字段默认 false；Session 仅发送意图。MockServer �
 
 ## 角色装备与窗口
 
-所有角色共用十一槽位定义，装备内容独立，新角色初始装备为空。服务端 DataServerBag.Items/Equipment 仅作为既有物品规则的候选视图，落地拆回 ItemEntityCache 与 EquipmentEntityCache，使用角色单例 NextInstanceId。业务候选 Revision/EquipmentRevision 只在进程内辅助候选，不作为网络版本或落地数据。物品操作并发校验使用最近发送的私有物品快照信封版本；任何物品组合通知里的 Bag 和 Equipment 均使用同一次信封版本。延迟落地、失败重试、正常离角补写及地面转移共同恢复继续覆盖全部实体表与摘要。物品转移记录仅支持版本 2 的现行固定路径组，地图 manifest/chunk 格式不变。
+所有角色共用十一槽位定义，新角色初始装备为空。服务端直接操作 ItemEntity 的 Equipped、EquipmentSlot 和 SlotIndex，物品缓存同时持有未穿与已穿实例；装备扩展独立以 InstanceId 关联。`RoleEntityTables.WithItems` 复用已有扩展，为新增实例创建扩展，删除实例同步移除关联；编号来自角色单例 NextInstanceId。背包与装备候选不再持有 Revision/EquipmentRevision，移动确认序号仅在 ServerSession。物品并发校验使用最近发送的私有快照信封版本。延迟落地、失败重试、离角补写和地面共同恢复继续覆盖四表；转移记录仅支持版本 2，地图 manifest/chunk 格式不变。
 
 `BagPb` 只含全部私有 ItemPb，无 reserved 或 revision。公开 `RoleWorldEquipmentPb` 只含 role_id 与 repeated int32 equipped_items，元素为 item.json 的配置 ID，不含实例编号、槽位、背包容量、格子或私有角色字段。它在 `RoleWorldStatePb` 中与资料、生命魔力、位置并列，可独立从配置分类推导展示。`RoleEquipmentNotice` 仅承载该公开快照；当前 MockServer 未实现多人连接、远端玩家生命周期或广播。选角页同样从 RoleSummaryPb.equipped_items 绘制双手，返回选角从已校验缓存刷新摘要，重新登录从磁盘快照读取。
 

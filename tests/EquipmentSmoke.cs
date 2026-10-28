@@ -5,7 +5,10 @@ using System.Threading.Tasks;
 using Godot;
 using Rpg.Const;
 using Rpg.Server;
-using Rpg.Server.Data;
+using Rpg.Server.Entity;
+using Rpg.Server.EntityCache;
+using Rpg.Server.Handler.Bag;
+using Rpg.Tests;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
@@ -25,9 +28,8 @@ public partial class EquipmentSmoke : Node
         {
             RoleTestData.Seed(Path.Combine(directory, "server"));
             var repo = new RepoServerRole(Path.Combine(directory, "server"));
-            repo.SaveBag(repo.Load(1001) with { Bag = new DataServerBag { NextInstanceId = 9,
-                Items = Enumerable.Range(1012, 7).Select((id, index) => new DataServerItem(index + 1, id, index, 1))
-                    .Append(new DataServerItem(8, 1017, 7, 1)).ToArray() } });
+            repo.SaveBag(repo.Load(1001).WithItems(Enumerable.Range(1012, 7).Select((id, index) => new ItemEntity(index + 1, id, index, 1))
+                    .Append(new ItemEntity(8, 1017, 7, 1)).ToArray(), 9));
             main = new DoubleMainController { SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server") };
             AddChild(main);
             await Frames();
@@ -226,7 +228,7 @@ public partial class EquipmentSmoke : Node
                 GetViewport().GetTexture().GetImage().SavePng(ProjectSettings.GlobalizePath("res://build/equipment-window.png"));
             }
             GameServices.Net.FlushServerWrites();
-            Check(repo.Load(1001).Bag.Equipment.Count == 2, "装备未持久化");
+            Check(repo.Load(1001).EquippedItems.Count == 2, "装备未持久化");
             var capacity = GameServices.Config.Basic.Value.BagColumns * GameServices.Config.Basic.Value.BagRows;
             GameServices.Session.SendGm($"item 1012 {capacity - GameServices.Session.Bag.Items.Count}");
             await Frames();

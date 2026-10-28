@@ -1,105 +1,115 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using Rpg.Server.Data;
+using Google.Protobuf;
 using Rpg.Server.Entity;
+using Rpg.Server.Handler.Bag;
+using Rpg.Server.Map;
 
 namespace Rpg.Server.EntityCache;
 
-/// <summary>仓库实体组，平级持有各表缓存并投影完整业务候选。</summary>
+/// <summary>无 IO 的仓库内存入口，持有实体表、摘要、会话和待发送消息。</summary>
 public sealed class RepoEntityCache
 {
-    /// <summary>角色单例表缓存。</summary>
-    public RoleEntityCache Role { get; }
-    /// <summary>物品多例表缓存。</summary>
-    public ItemEntityCache Item { get; }
-    /// <summary>装备扩展多例表缓存。</summary>
-    public EquipmentEntityCache Equipment { get; }
-    /// <summary>仅业务模拟使用的临时角色序号，不序列化。</summary>
-    private readonly long _roleRevision;
-    /// <summary>仅业务候选使用的临时物品序号，不序列化。</summary>
-    private readonly long _bagRevision;
-    /// <summary>仅业务候选使用的临时装备序号，不序列化。</summary>
-    private readonly long _equipmentRevision;
-    /// <summary>当前移动确认序号，不作为实体表落地。</summary>
-    private readonly long _acknowledgedAction;
+    /// <summary>已显式加载的完整角色表。</summary>
+    internal Dictionary<long, RoleEntityTables> Roles { get; } = new();
+    /// <summary>登录所需摘要，包含墓碑以保证编号不复用。</summary>
+    internal Dictionary<long, RoleSummaryEntity> Summaries { get; } = new();
+    /// <summary>仅为删除准备的角色单例，不加载物品表。</summary>
+    internal Dictionary<long, RoleEntity> Deletions { get; } = new();
+    /// <summary>待落地领域：角色 1、物品 2、全部 3、未加载删除 4。</summary>
+    internal Dictionary<long, int> Dirty { get; } = new();
+    /// <summary>摘要已经完整加载。</summary>
+    internal bool SummariesLoaded { get; set; }
+    /// <summary>处理请求使用的只读配置与背包运算。</summary>
+    public BagRules BagRules { get; }
+    /// <summary>不可变地图规格。</summary>
+    public IReadOnlyDictionary<int, MapLayout> MapLayouts { get; }
+    /// <summary>新角色初始地图。</summary>
+    public int InitialMapId { get; }
+    /// <summary>已由外层准备的地图，不执行延迟加载。</summary>
+    internal Dictionary<int, ServerMap> Maps { get; } = new();
+    /// <summary>地图与角色共同落地分组。</summary>
+    internal Dictionary<int, HashSet<long>> TransferGroups { get; } = new();
+    /// <summary>当前请求会话。</summary>
+    public ServerSession Session { get; } = new();
+    /// <summary>等待外层发送的内存消息队列。</summary>
+    public Queue<IMessage> Notices { get; } = new();
+    /// <summary>当前选择角色的实体表，登录阶段为空。</summary>
+    public RoleEntityTables? Current => Session.RoleId is { } id ? Roles.GetValueOrDefault(id) : null;
 
-    /// <summary>组合独立加载的表缓存，并校验完整业务候选。</summary>
-    public RepoEntityCache(RoleEntityCache role, ItemEntityCache item, EquipmentEntityCache equipment)
+    /// <summary>建立空内存入口，不访问任何文件。</summary>
+    public RepoEntityCache(BagRules? bagRules = null, IEnumerable<MapLayout>? maps = null, int initialMapId = 1)
     {
-        Role = role;
-        Item = item;
-        Equipment = equipment;
-        RepoServerRole.Validate(ToRole());
+        BagRules = bagRules ?? new BagRules(8, 5, []);
+        MapLayouts = new System.Collections.ObjectModel.ReadOnlyDictionary<int, MapLayout>(
+            (maps ?? [new MapLayout(1, 1000, 1000, 32, 32)]).ToDictionary(map => map.MapId));
+        foreach (var map in MapLayouts.Values) map.Validate();
+        if (!MapLayouts.ContainsKey(initialMapId)) throw new ArgumentException("初始地图不存在");
+        InitialMapId = initialMapId;
     }
 
-    /// <summary>将业务候选拆成平级表缓存，不保留聚合副本。</summary>
-    public RepoEntityCache(DataServerRole role)
+    /// <summary>只读取已准备的角色，不尝试加载。</summary>
+    public RoleEntityTables GetRole(long id) => Roles.TryGetValue(id, out var tables) && !tables.Role.Value.IsDeleted
+        ? tables : throw new InvalidOperationException("角色尚未加载或已删除");
+
+    /// <summary>检查当前认证与角色身份。</summary>
+    public RoleEntityTables RequireRole(long id) => Session.Authenticated && Current is { } current && current.Role.Value.RoleId == id
+        ? current : throw new InvalidOperationException("请先进入当前角色");
+
+    /// <summary>角色列表操作仅允许认证且未进入角色时执行。</summary>
+    public void RequireRoleList()
     {
-        RepoServerRole.Validate(role);
-        Role = new RoleEntityCache(new RoleEntity
-        {
-            RoleId = role.RoleId,
-            MapId = role.MapId,
-            Name = role.Name,
-            Level = role.Level,
-            Health = role.Health,
-            MaxHealth = role.MaxHealth,
-            Mana = role.Mana,
-            MaxMana = role.MaxMana,
-            Experience = role.Experience,
-            NextExperience = role.NextExperience,
-            X = role.X,
-            Y = role.Y,
-            Gender = role.Gender,
-            HeadId = role.HeadId,
-            IsDeleted = role.IsDeleted,
-            BagExtraRows = role.BagExtraRows,
-            NextInstanceId = role.Bag.NextInstanceId
-        });
-        Item = new ItemEntityCache(role.Bag.Items.Select(item => new ItemEntity
-        {
-            InstanceId = item.InstanceId, ItemId = item.ItemId, SlotIndex = item.SlotIndex, Count = item.Count
-        }).Concat(role.Bag.Equipment.Select(item => new ItemEntity
-        {
-            InstanceId = item.InstanceId, ItemId = item.ItemId, SlotIndex = 0, Count = 1,
-            Equipped = true, EquipmentSlot = item.Slot
-        })));
-        Equipment = new EquipmentEntityCache(Item.Items.Values.Select(item =>
-            new EquipmentEntity { InstanceId = item.InstanceId }), Item);
-        _roleRevision = role.Revision;
-        _bagRevision = role.Bag.Revision;
-        _equipmentRevision = role.Bag.EquipmentRevision;
-        _acknowledgedAction = role.AcknowledgedAction;
+        if (!Session.Authenticated || Current is not null) throw new InvalidOperationException("请在登录后的角色列表操作");
+        if (!SummariesLoaded) throw new InvalidOperationException("角色摘要尚未加载");
     }
 
-    /// <summary>从三个表缓存投影既有业务规则所需的不可变候选。</summary>
-    public DataServerRole ToRole() => new()
+    /// <summary>按领域合并候选并一次发布实体、摘要和 dirty；全程仅操作内存。</summary>
+    public void Commit(RoleEntityTables candidate, int domains = 3)
     {
-        RoleId = Role.Value.RoleId,
-        MapId = Role.Value.MapId,
-        Name = Role.Value.Name,
-        Level = Role.Value.Level,
-        Health = Role.Value.Health,
-        MaxHealth = Role.Value.MaxHealth,
-        Mana = Role.Value.Mana,
-        MaxMana = Role.Value.MaxMana,
-        Experience = Role.Value.Experience,
-        NextExperience = Role.Value.NextExperience,
-        X = Role.Value.X,
-        Y = Role.Value.Y,
-        Gender = Role.Value.Gender,
-        HeadId = Role.Value.HeadId,
-        IsDeleted = Role.Value.IsDeleted,
-        BagExtraRows = Role.Value.BagExtraRows,
-        Revision = _roleRevision, AcknowledgedAction = _acknowledgedAction,
-        Bag = new DataServerBag
+        var id = candidate.Role.Value.RoleId;
+        if (Roles.TryGetValue(id, out var previous))
         {
-            Revision = _bagRevision, EquipmentRevision = _equipmentRevision,
-            NextInstanceId = Role.Value.NextInstanceId,
-            Items = Item.Items.Values.Where(item => !item.Equipped).OrderBy(item => item.SlotIndex)
-                .Select(item => new DataServerItem(item.InstanceId, item.ItemId, item.SlotIndex, item.Count)).ToArray(),
-            Equipment = Item.Items.Values.Where(item => item.Equipped).OrderBy(item => item.EquipmentSlot)
-                .Select(item => new DataServerEquipment(item.InstanceId, item.ItemId, item.EquipmentSlot!.Value)).ToArray()
+            if (domains == 1) candidate = previous.WithRole(candidate.Role.Value with
+                { NextInstanceId = previous.Role.Value.NextInstanceId, BagExtraRows = previous.Role.Value.BagExtraRows });
+            if (domains == 2) candidate = new RoleEntityTables(new RoleEntityCache(previous.Role.Value with
+                { NextInstanceId = candidate.Role.Value.NextInstanceId, BagExtraRows = candidate.Role.Value.BagExtraRows }), candidate.Item, candidate.Equipment);
+            if (candidate.Equals(previous)) return;
         }
-    };
+        else domains = 3;
+        var summary = RoleSummaryEntity.FromRole(candidate);
+        Roles[id] = candidate;
+        Summaries[id] = summary;
+        Dirty[id] = Dirty.GetValueOrDefault(id) | domains;
+    }
+
+    /// <summary>内存删除已加载角色或外层准备的单例，不触碰未选择物品表。</summary>
+    public void Delete(long id)
+    {
+        if (!Summaries.TryGetValue(id, out var summary) || summary.IsDeleted)
+            throw new System.IO.InvalidDataException("角色不存在或已删除");
+        if (Roles.TryGetValue(id, out var tables)) { Commit(tables.WithRole(tables.Role.Value with { IsDeleted = true }), 1); return; }
+        if (!Deletions.TryGetValue(id, out var role)) throw new InvalidOperationException("删除角色单例尚未加载");
+        Deletions[id] = role with { IsDeleted = true };
+        Summaries[id] = summary with { IsDeleted = true };
+        Dirty[id] = 4;
+    }
+
+    /// <summary>只获取已经准备好的地图。</summary>
+    public ServerMap GetMap(int id) => Maps.TryGetValue(id, out var map) ? map : throw new InvalidOperationException("地图尚未加载");
+
+    /// <summary>将内存转移纳入共同落地组。</summary>
+    public void TrackTransfer(int mapId, long roleId)
+    {
+        if (!TransferGroups.TryGetValue(mapId, out var ids)) TransferGroups[mapId] = ids = new();
+        ids.Add(roleId);
+    }
+
+    /// <summary>记录当前观察者可见的对象变化，不进行发送。</summary>
+    public void PublishMapChange(ServerMap map, MapChange change)
+    {
+        if (change.Before == change.After || Current?.Role.Value.MapId != map.Rules.MapId || Session.Aoi is null) return;
+        var notice = Session.Aoi.Change(map, change);
+        if (notice is not null) Notices.Enqueue(notice);
+    }
 }
