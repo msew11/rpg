@@ -53,9 +53,9 @@ internal sealed class RepoServerItemTransfer
         {
             var data = JsonSerializer.Deserialize<DataTransferFile>(File.ReadAllText(PendingPath))
                 ?? throw new InvalidDataException("转移记录为空");
-            if (data.FormatVersion is not (1 or 2) || data.Roles is null || data.Originals is null)
+            if (data.FormatVersion != 2 || data.Roles is null || data.Originals is null)
                 throw new InvalidDataException("转移记录格式无效");
-            var paths = Paths(data.MapId, data.Roles, data.FormatVersion == 1);
+            var paths = Paths(data.MapId, data.Roles);
             if (!paths.ToHashSet(StringComparer.Ordinal).SetEquals(data.Originals.Keys))
                 throw new InvalidDataException("转移记录包含非法文件路径");
             foreach (var relative in paths)
@@ -82,11 +82,11 @@ internal sealed class RepoServerItemTransfer
     }
 
     /// <summary>只从正整数身份生成固定文件名，拒绝任意路径和重复角色。</summary>
-    private static string[] Paths(int mapId, long[] roles, bool legacy = false)
+    private static string[] Paths(int mapId, long[] roles)
     {
         if (mapId <= 0 || roles.Length == 0 || roles.Any(id => id <= 0) || roles.Distinct().Count() != roles.Length)
             throw new InvalidDataException("转移记录地图或角色身份无效");
-        return roles.SelectMany(id => legacy ? new[] { $"{id}.role.json", $"{id}.bag.json", $"{id}.pending.json" } : new[] { $"{id}.role.json", $"{id}.item.json", $"{id}.equipment.json", $"{id}.role_summary.json", $"{id}.pending.json" })
+        return roles.SelectMany(id => new[] { $"{id}.role.json", $"{id}.item.json", $"{id}.equipment.json", $"{id}.role_summary.json", $"{id}.pending.json" })
             .Append(Path.Combine("maps", mapId.ToString(System.Globalization.CultureInfo.InvariantCulture), "manifest.json")).ToArray();
     }
 

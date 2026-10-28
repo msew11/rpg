@@ -29,10 +29,8 @@ public sealed class RepoServerRole
     /// <summary>实体表使用与配置一致的 camelCase 对象或无包装数组。</summary>
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true
+        WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
-    /// <summary>兼容旧 PascalCase 存档，不改变历史文件。</summary>
-    private static readonly JsonSerializerOptions LegacyOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>绑定实体目录，可选择缓存优先与延迟落地。</summary>
     public RepoServerRole(string directory, Action<string, string>? writeLog = null, bool deferWrites = false)
@@ -50,10 +48,6 @@ public sealed class RepoServerRole
     public string GetEquipmentPath(long roleId) => GetPath(roleId, "equipment");
     /// <summary>登录展示快照路径。</summary>
     public string GetSummaryPath(long roleId) => GetPath(roleId, "role_summary");
-    /// <summary>只供兼容读取的旧背包领域路径。</summary>
-    public string GetBagPath(long roleId) => GetPath(roleId, "bag");
-    /// <summary>只供兼容读取的旧聚合存档路径。</summary>
-    public string GetLegacyPath(long roleId) => GetPath(roleId, null);
 
     /// <summary>只加载指定角色的全部实体表；其他角色仍只有摘要。</summary>
     public DataServerRole Load(long roleId)
@@ -72,10 +66,10 @@ public sealed class RepoServerRole
         return role;
     }
 
-    /// <summary>兼容完整列表接口；登录及角色管理使用 ListSummaries 避免完整加载。</summary>
+    /// <summary>按需加载完整角色列表；登录及角色管理只读取 ListSummaries。</summary>
     public IReadOnlyList<DataServerRole> List() => ListSummaries().Select(value => Load(value.RoleId)).ToList().AsReadOnly();
 
-    /// <summary>首次只读取全部摘要，旧格式无摘要时兼容生成内存快照。</summary>
+    /// <summary>首次只读取全部摘要，不通过完整角色数据回填。</summary>
     public IReadOnlyList<RoleSummaryEntity> ListSummaries()
     {
         if (_cache is not null) EnsureCache();
@@ -95,10 +89,8 @@ public sealed class RepoServerRole
         var values = new Dictionary<long, RoleSummaryEntity>();
         foreach (var id in StoredIds())
         {
-            RoleSummaryEntity value;
             var path = GetSummaryPath(id);
-            if (File.Exists(path) || Directory.Exists(path)) value = ReadJson<RoleSummaryEntity>(path, JsonOptions);
-            else value = RoleSummaryEntity.FromRole(Read(id));
+            var value = ReadJson<RoleSummaryEntity>(path, JsonOptions);
             ValidateSummary(value, id);
             values.Add(id, value);
         }
@@ -114,7 +106,7 @@ public sealed class RepoServerRole
         _loaded = true;
     }
 
-    /// <summary>完整保存只提交发生变化的实体文件，首次迁移提交全部表。</summary>
+    /// <summary>完整保存只提交发生变化的实体文件，创建时提交全部表。</summary>
     public void Save(DataServerRole role)
     {
         Validate(role);
@@ -130,7 +122,6 @@ public sealed class RepoServerRole
         Validate(role);
         if (_cache is not null) { Stage(role, 1); return; }
         Recover(role.RoleId);
-        if (!File.Exists(GetSummaryPath(role.RoleId))) { Save(role); return; }
         var previous = ReadRoleEntity(role.RoleId);
         var cache = new RepoEntityCache(role);
         var entity = cache.Role.Value with { NextInstanceId = previous.NextInstanceId, BagExtraRows = previous.BagExtraRows };
@@ -151,7 +142,6 @@ public sealed class RepoServerRole
         Validate(role);
         if (_cache is not null) { Stage(role, 2); return; }
         Recover(role.RoleId);
-        if (!File.Exists(GetSummaryPath(role.RoleId))) { Save(role); return; }
         var cache = new RepoEntityCache(role);
         var values = Serialize(cache);
         var previous = ReadRoleEntity(role.RoleId);
@@ -229,43 +219,26 @@ public sealed class RepoServerRole
     }
 
     /// <summary>生成固定领域路径，拒绝无效身份。</summary>
-    private string GetPath(long roleId, string? domain)
+    private string GetPath(long roleId, string domain)
     {
         if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
-        return Path.Combine(_directory, domain is null ? $"{roleId}.json" : $"{roleId}.{domain}.json");
+        return Path.Combine(_directory, $"{roleId}.{domain}.json");
     }
 
-    /// <summary>新格式读取实体表并交由主键缓存校验；旧格式仅作为未迁移来源。</summary>
+    /// <summary>读取当前四张实体表，交由主键缓存和组合候选校验。</summary>
     private DataServerRole Read(long roleId)
     {
-        if (File.Exists(GetSummaryPath(roleId)) || File.Exists(GetItemPath(roleId)) || File.Exists(GetEquipmentPath(roleId)))
+        var summary = ReadJson<RoleSummaryEntity>(GetSummaryPath(roleId), JsonOptions);
+        ValidateSummary(summary, roleId);
+        var role = ReadRoleEntity(roleId);
+        try
         {
-            var summary = ReadJson<RoleSummaryEntity>(GetSummaryPath(roleId), JsonOptions);
-            ValidateSummary(summary, roleId);
-            var role = ReadRoleEntity(roleId);
-            try
-            {
-                var items = new ItemEntityCache(ReadJson<ItemEntity[]>(GetItemPath(roleId), JsonOptions));
-                var equipment = new EquipmentEntityCache(ReadJson<EquipmentEntity[]>(GetEquipmentPath(roleId), JsonOptions), items);
-                return new RepoEntityCache(new RoleEntityCache(role), items, equipment).ToRole();
-            }
-            catch (InvalidDataException error)
-            { throw new InvalidDataException($"角色实体表无效：{GetItemPath(roleId)}；{GetEquipmentPath(roleId)}；{error.Message}", error); }
+            var items = new ItemEntityCache(ReadJson<ItemEntity[]>(GetItemPath(roleId), JsonOptions));
+            var equipment = new EquipmentEntityCache(ReadJson<EquipmentEntity[]>(GetEquipmentPath(roleId), JsonOptions), items);
+            return new RepoEntityCache(new RoleEntityCache(role), items, equipment).ToRole();
         }
-        var path = GetRolePath(roleId);
-        DataServerRole legacy;
-        if (File.Exists(path) || Directory.Exists(path) || File.Exists(GetBagPath(roleId)) || Directory.Exists(GetBagPath(roleId)))
-        {
-            legacy = ReadJson<DataServerRole>(path, LegacyOptions);
-            var bag = ReadJson<DataServerBagFile>(GetBagPath(roleId), LegacyOptions);
-            if (bag.Bag is null) throw new InvalidDataException($"角色背包字段无效：{GetBagPath(roleId)}");
-            if (bag.RoleId != roleId) throw new InvalidDataException($"背包角色 ID 与文件名不符：{GetBagPath(roleId)}");
-            legacy = legacy with { BagExtraRows = bag.BagExtraRows, Bag = bag.Bag };
-        }
-        else legacy = ReadJson<DataServerRole>(GetLegacyPath(roleId), LegacyOptions);
-        Validate(legacy);
-        if (legacy.RoleId != roleId) throw new InvalidDataException($"角色 ID 与文件名不符：{path}");
-        return legacy;
+        catch (InvalidDataException error)
+        { throw new InvalidDataException($"角色实体表无效：{GetItemPath(roleId)}；{GetEquipmentPath(roleId)}；{error.Message}", error); }
     }
 
     /// <summary>读取并校验独立角色单例的身份。</summary>
@@ -293,7 +266,7 @@ public sealed class RepoServerRole
         ["role_summary"] = JsonSerializer.Serialize(RoleSummaryEntity.FromRole(cache.ToRole()), JsonOptions)
     };
 
-    /// <summary>比较实际 JSON 值，首次创建和迁移要求完整领域组。</summary>
+    /// <summary>比较实际 JSON 值，首次创建写入完整领域组。</summary>
     private Dictionary<string, string> Changed(long id, Dictionary<string, string> values)
     {
         var changed = new Dictionary<string, string>();
@@ -355,7 +328,7 @@ public sealed class RepoServerRole
         {
             var originals = JsonSerializer.Deserialize<Dictionary<string, string?>>(File.ReadAllText(pending))
                 ?? throw new InvalidDataException("回滚记录为空");
-            if (originals.Count < 2 || originals.Keys.Any(domain => domain is not ("role" or "bag" or "item" or "equipment" or "role_summary")))
+            if (originals.Count < 2 || originals.Keys.Any(domain => domain is not ("role" or "item" or "equipment" or "role_summary")))
                 throw new InvalidDataException("回滚记录包含非法领域");
             foreach (var (domain, content) in originals)
             {
@@ -426,11 +399,6 @@ public sealed class RepoServerRole
             SaveRole(cached.ToRole() with { IsDeleted = true });
             return;
         }
-        if (!File.Exists(GetSummaryPath(roleId)))
-        {
-            SaveRole(Load(roleId) with { IsDeleted = true });
-            return;
-        }
         var value = ReadRoleEntity(roleId) with { IsDeleted = true };
         var deleted = summary with { IsDeleted = true };
         if (_cache is not null)
@@ -447,12 +415,12 @@ public sealed class RepoServerRole
         }));
     }
 
-    /// <summary>从完整角色、摘要或旧文件识别编号，忽略实例表和事务文件。</summary>
+    /// <summary>从当前角色表和摘要识别编号，忽略其他文件。</summary>
     private IEnumerable<long> StoredIds() => (Directory.Exists(_directory) ? Directory.EnumerateFiles(_directory, "*.json") : Array.Empty<string>())
         .Select(Path.GetFileName)
         .Select(name => name!.EndsWith(".role_summary.json", StringComparison.Ordinal)
             ? name[..^".role_summary.json".Length] : name.EndsWith(".role.json", StringComparison.Ordinal)
-                ? name[..^".role.json".Length] : name[..^".json".Length])
+                ? name[..^".role.json".Length] : "")
         .Select(name => long.TryParse(name, out var id) ? id : 0)
         .Where(id => id > 0).Distinct().OrderBy(id => id);
 

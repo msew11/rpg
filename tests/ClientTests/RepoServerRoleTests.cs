@@ -3,7 +3,7 @@ using Rpg.Server.Data;
 
 namespace ClientTests;
 
-/// <summary>验证 openspec/specs/role-management 的全新空列表、显式创建及旧存档兼容场景。</summary>
+/// <summary>验证 openspec/specs/role-management 的全新空列表、显式创建及当前存档恢复场景。</summary>
 public sealed class RepoServerRoleTests : IDisposable
 {
     /// <summary>只访问本次测试的独立存档目录。</summary>
@@ -61,27 +61,22 @@ public sealed class RepoServerRoleTests : IDisposable
         Assert.True(new RepoServerRole(_directory).Create("下个角色", gender, 1).RoleId > created.RoleId);
     }
 
-    /// <summary>有无旧标记都保留已有角色与墓碑，缺失角色不会被补建。</summary>
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ExistingStorageIsPreservedWithoutBackfill(bool hasLegacyMarker)
+    /// <summary>role-management：当前角色与墓碑完整保留，已移除角色不会被补建。</summary>
+    [Fact]
+    public void ExistingStorageIsPreservedWithoutBackfill()
     {
         Rpg.Tests.RoleTestData.Seed(_directory);
         var repo = new RepoServerRole(_directory);
         repo.Delete(1002);
         var existing = File.ReadAllText(repo.GetRolePath(1001));
         var tombstone = File.ReadAllText(repo.GetRolePath(1002));
-        if (hasLegacyMarker) File.WriteAllText(Path.Combine(_directory, "initialized"), "1");
         Assert.Equal(1001, Assert.Single(new RepoServerRole(_directory).List()).RoleId);
         Assert.Equal(existing, File.ReadAllText(repo.GetRolePath(1001)));
         Assert.Equal(tombstone, File.ReadAllText(repo.GetRolePath(1002)));
         foreach (var file in new[] { repo.GetRolePath(1001), repo.GetItemPath(1001), repo.GetEquipmentPath(1001), repo.GetSummaryPath(1001) }) File.Delete(file);
         Assert.Empty(new RepoServerRole(_directory).List());
         Assert.False(File.Exists(repo.GetRolePath(1001)));
-        Assert.Equal(hasLegacyMarker, File.Exists(Path.Combine(_directory, "initialized")));
     }
-
     /// <summary>清理本次测试创建的隔离存档。</summary>
     public void Dispose()
     {

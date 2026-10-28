@@ -158,31 +158,31 @@ public sealed class RoleEntityStorageTests : IDisposable
         Assert.NotNull(MapObjectPb.Descriptor.FindFieldByName("revision"));
     }
 
-    /// <summary>ground-item-drop：升级前未完成的转移仍按旧固定路径恢复，不改变地图格式。</summary>
+    /// <summary>ground-item-drop：不支持的事务版本只报错，不改角色或删除原记录。</summary>
     [Fact]
-    public void RecoversLegacyTransferManifestBeforeReadingRoles()
+    public void UnsupportedTransferManifestDoesNotTouchRoles()
     {
         var repo = new RepoServerRole(_directory);
-        var role = repo.Create("旧事务", ServerRoleGender.Male, 1);
+        var role = repo.Create("事务版本", ServerRoleGender.Male, 1);
         var path = repo.GetRolePath(role.RoleId);
         var original = File.ReadAllText(path);
-        var originals = new Dictionary<string, string?>
-        {
-            [$"{role.RoleId}.role.json"] = original,
-            [$"{role.RoleId}.bag.json"] = null,
-            [$"{role.RoleId}.pending.json"] = null,
-            [Path.Combine("maps", "1", "manifest.json")] = null
-        };
-        File.WriteAllText(path, "半份文件");
         var transfer = new RepoServerItemTransfer(_directory);
-        File.WriteAllText(transfer.PendingPath, System.Text.Json.JsonSerializer.Serialize(new
-        { FormatVersion = 1, MapId = 1, Roles = new[] { role.RoleId }, Originals = originals }));
-        transfer.Recover();
+        var pending = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            FormatVersion = 1, MapId = 1, Roles = new[] { role.RoleId },
+            Originals = new Dictionary<string, string?>
+            {
+                [$"{role.RoleId}.role.json"] = original,
+                [$"{role.RoleId}.bag.json"] = null,
+                [$"{role.RoleId}.pending.json"] = null,
+                [Path.Combine("maps", "1", "manifest.json")] = null
+            }
+        });
+        File.WriteAllText(transfer.PendingPath, pending);
+        Assert.Throws<IOException>(() => transfer.Recover());
         Assert.Equal(original, File.ReadAllText(path));
-        Assert.False(File.Exists(transfer.PendingPath));
-        Assert.Equal(role, repo.Load(role.RoleId));
+        Assert.Equal(pending, File.ReadAllText(transfer.PendingPath));
     }
-
     /// <summary>清理仅属于本次验收的文件。</summary>
     public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }
 }

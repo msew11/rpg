@@ -5,7 +5,7 @@ using Rpg.Server.Data;
 
 namespace ClientTests;
 
-/// <summary>验证 mock-server 的单例/多例表、旧格式迁移和四表事务恢复。</summary>
+/// <summary>验证 mock-server 的单例/多例表、现行格式校验和四表事务恢复。</summary>
 public sealed class DomainSaveTests : IDisposable
 {
     /// <summary>独占实体表目录。</summary>
@@ -25,7 +25,7 @@ public sealed class DomainSaveTests : IDisposable
         var role = repo.Create("分域角色", ServerRoleGender.Male, 2);
         Assert.Equal(Domains.Select(domain => $"1003.{domain}.json"), _writes);
         Assert.Equal(4, Directory.GetFiles(_directory).Length);
-        Assert.False(File.Exists(repo.GetBagPath(role.RoleId)));
+        Assert.False(File.Exists(Path.Combine(_directory, $"{role.RoleId}.bag.json")));
         var update = role with { Revision = 9, AcknowledgedAction = 3, BagExtraRows = 1000,
             Bag = new DataServerBag { Revision = 7, EquipmentRevision = 4, NextInstanceId = 1001,
                 Items = Enumerable.Range(1, 1000).Select(id => new DataServerItem(id, 1012, id - 1, 1)).ToArray() } };
@@ -71,35 +71,23 @@ public sealed class DomainSaveTests : IDisposable
         Assert.Equal(actual.X, repo.Load(role.RoleId).X);
     }
 
-    /// <summary>mock-server：旧聚合读取不迁移，首次保存四表，删除同步摘要且备份不能复活角色。</summary>
+    /// <summary>mock-server：当前四表删除保留墓碑，重启后角色不复活且编号不复用。</summary>
     [Fact]
-    public void MigratesLegacyOnSaveAndNeverRevivesLegacyTombstone()
+    public void CurrentTombstonesDoNotReviveOrReuseRoleIds()
     {
-        Directory.CreateDirectory(_directory);
         var repo = Repo;
-        var old = new DataServerRole { RoleId = 1003, Name = "旧角色", Level = 1, Health = 10,
-            MaxHealth = 10, NextExperience = 100, BagExtraRows = 3, Bag = new DataServerBag {
-                Revision = 9, NextInstanceId = 2, Items = [new(1, 1012, 0, 1)] } };
-        var legacy = JsonSerializer.Serialize(old);
-        File.WriteAllText(repo.GetLegacyPath(old.RoleId), legacy);
-        Assert.Equal(old, repo.Load(old.RoleId));
-        Assert.Single(repo.ListSummaries());
-        Assert.Empty(_writes);
-        Assert.False(File.Exists(repo.GetRolePath(old.RoleId)));
-        repo.SaveRole(old with { X = 30 });
-        Assert.Equal(30, repo.Load(old.RoleId).X);
-        Assert.Equal(0, repo.Load(old.RoleId).Bag.Revision);
-        Assert.Equal(old.Bag.Items, repo.Load(old.RoleId).Bag.Items);
-        Assert.Equal(legacy, File.ReadAllText(repo.GetLegacyPath(old.RoleId)));
+        var role = repo.Create("删除角色", ServerRoleGender.Male, 1);
+        repo.SaveBag(role with { Bag = new DataServerBag {
+            NextInstanceId = 2, Items = [new(1, 1012, 0, 1)] } });
         _writes.Clear();
-        repo.Delete(old.RoleId);
+        repo.Delete(role.RoleId);
         Assert.Equal(new[] { "1003.role.json", "1003.role_summary.json" }, _writes);
-        Assert.Empty(new RepoServerRole(_directory).ListSummaries());
-        Assert.Throws<InvalidDataException>(() => repo.Load(old.RoleId));
-        Assert.True(repo.Create("后续角色", ServerRoleGender.Female, 1).RoleId > old.RoleId);
+        var restarted = new RepoServerRole(_directory);
+        Assert.Empty(restarted.ListSummaries());
+        Assert.Throws<InvalidDataException>(() => restarted.Load(role.RoleId));
+        Assert.True(restarted.Create("后续角色", ServerRoleGender.Female, 1).RoleId > role.RoleId);
     }
-
-    /// <summary>mock-server：新表损坏不得回退旧备份；完整表校验只在选角发生。</summary>
+    /// <summary>mock-server：当前表缺失、损坏或身份不符时拒绝读取，不改写任何表。</summary>
     [Theory]
     [InlineData("missing-role")]
     [InlineData("json-role")]
@@ -107,11 +95,10 @@ public sealed class DomainSaveTests : IDisposable
     [InlineData("json")]
     [InlineData("identity")]
     [InlineData("field")]
-    public void CorruptSplitBagDoesNotFallbackToLegacy(string kind)
+    public void CorruptEntityTablesFailWithoutWritingFiles(string kind)
     {
         var repo = Repo;
         var role = repo.Create("拒绝损坏", ServerRoleGender.Male, 1);
-        File.WriteAllText(repo.GetLegacyPath(role.RoleId), JsonSerializer.Serialize(role));
         var path = kind.EndsWith("-role", StringComparison.Ordinal) || kind == "identity"
             ? repo.GetRolePath(role.RoleId) : repo.GetItemPath(role.RoleId);
         if (kind is "missing" or "missing-role") File.Delete(path);
@@ -130,6 +117,35 @@ public sealed class DomainSaveTests : IDisposable
         Assert.Empty(_writes);
     }
 
+    /// <summary>mock-server：旧聚合 JSON 不进入列表、不迁移，显式加载失败且原文件不变。</summary>
+    [Fact]
+    public void UnsupportedAggregateFileIsNotLoadedOrMigrated()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "1003.json");
+        const string original = "{\"RoleId\":1003,\"Name\":\"旧格式\",\"Bag\":{}}";
+        File.WriteAllText(path, original);
+        Assert.Empty(Repo.ListSummaries());
+        Assert.Throws<InvalidDataException>(() => Repo.Load(1003));
+        Assert.Equal(original, File.ReadAllText(path));
+        Assert.Single(Directory.GetFiles(_directory));
+        Assert.Empty(_writes);
+    }
+
+    /// <summary>mock-server：摘要缺失时直接失败，不读取完整物品表或创建替代摘要。</summary>
+    [Fact]
+    public void MissingSummaryDoesNotReadItemsOrBackfillFiles()
+    {
+        var repo = Repo;
+        var role = repo.Create("缺少摘要", ServerRoleGender.Male, 1);
+        File.Delete(repo.GetSummaryPath(role.RoleId));
+        _writes.Clear();
+        using var locked = new FileStream(repo.GetItemPath(role.RoleId), FileMode.Open, FileAccess.Read, FileShare.None);
+        var error = Assert.Throws<InvalidDataException>(() => repo.ListSummaries());
+        Assert.Contains(repo.GetSummaryPath(role.RoleId), error.Message);
+        Assert.False(File.Exists(repo.GetSummaryPath(role.RoleId)));
+        Assert.Empty(_writes);
+    }
     /// <summary>mock-server：创建中途失败回滚已写表，解除阻塞后仍使用原编号。</summary>
     [Fact]
     public void FailedCreateRollsBackBothDomains()

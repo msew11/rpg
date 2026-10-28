@@ -6,7 +6,7 @@ using Rpg.Server.Data;
 
 namespace ClientTests;
 
-/// <summary>验证 openspec/specs/gm-item 与 role-bag 的字节链路、原子发放、兼容与重启持久化。</summary>
+/// <summary>验证 openspec/specs/gm-item 与 role-bag 的字节链路、原子发放、扩容与重启持久化。</summary>
 public sealed class BagServerTests : IDisposable
 {
     /// <summary>本次测试独占的临时存档。</summary>
@@ -305,25 +305,18 @@ public sealed class BagServerTests : IDisposable
         Assert.Equal(before, File.ReadAllBytes(_repo.GetItemPath(_roleId)));
     }
 
-    /// <summary>旧存档缺失背包字段时为空，额外行数影响真实可发放容量。</summary>
+    /// <summary>role-bag：当前角色扩容增加真实可发放容量，超出新增容量仍失败。</summary>
     [Fact]
-    public void LegacySaveDefaultsToEmptyAndExtraRowsExpandCapacity()
+    public void ExtraRowsExpandCapacity()
     {
-        var path = _repo.GetLegacyPath(_roleId);
-        var json = System.Text.Json.JsonSerializer.SerializeToNode(_repo.Load(_roleId))!.AsObject();
-        foreach (var file in new[] { _repo.GetRolePath(_roleId), _repo.GetItemPath(_roleId), _repo.GetEquipmentPath(_roleId), _repo.GetSummaryPath(_roleId) }) File.Delete(file);
-        json.Remove("Bag");
-        json.Remove("BagExtraRows");
-        File.WriteAllText(path, json.ToJsonString());
-        var old = _repo.Load(_roleId);
-        Assert.Empty(old.Bag.Items);
-        Assert.Equal(0, old.BagExtraRows);
-        _repo.Save(old with { BagExtraRows = 1 });
+        var role = _repo.Load(_roleId);
+        Assert.Empty(role.Bag.Items);
+        Assert.Equal(0, role.BagExtraRows);
+        _repo.SaveBag(role with { BagExtraRows = 1 });
         Enter();
         Assert.True(Grant("item 1012 6").Success);
         Assert.False(Grant("item 1012").Success);
     }
-
     /// <summary>新增请求、响应和推送方向都显式注册，往返不共享对象。</summary>
     [Fact]
     public void GmAndBagProtocolsCheckDirectionAndCopyPayload()

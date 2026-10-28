@@ -138,7 +138,7 @@ public sealed class DataServerBagRules
     private bool OccupiesBothHands(int itemId) => Items.TryGetValue(itemId, out var definition) &&
         EquipmentSlotUtil.OccupiesBothHands(definition.Category, definition.SubCategory);
 
-    /// <summary>将旧装备或冲突装备放入首个空格；候选空间不足时整次拒绝。</summary>
+    /// <summary>将冲突装备放入首个空格；候选空间不足时整次拒绝。</summary>
     private void ReturnToBag(DataServerRole role, List<DataServerItem> items, DataServerEquipment equipment)
     {
         var destination = Enumerable.Range(0, GetCapacity(role.BagExtraRows))
@@ -147,34 +147,8 @@ public sealed class DataServerBagRules
         items.Add(new DataServerItem(equipment.InstanceId, equipment.ItemId, destination, 1));
     }
 
-    /// <summary>选角前保留旧副手武器与冲突盾牌；不改原状态，无法回包则拒绝迁移。</summary>
-    public DataServerRole MigrateLegacyEquipment(DataServerRole role)
-    {
-        Validate(role, true);
-        var equipment = role.Bag.Equipment.ToList();
-        var items = role.Bag.Items.ToList();
-        var main = equipment.SingleOrDefault(item => item.Slot == EquipmentSlot.MainHand);
-        var off = equipment.SingleOrDefault(item => item.Slot == EquipmentSlot.OffHand);
-        if (off is null || CanEquip(off.ItemId, EquipmentSlot.OffHand) &&
-            (main is null || !OccupiesBothHands(main.ItemId))) return role;
-        equipment.Remove(off);
-        if (main is null && CanEquip(off.ItemId, EquipmentSlot.MainHand))
-            equipment.Add(off with { Slot = EquipmentSlot.MainHand });
-        else ReturnToBag(role, items, off);
-        var candidate = role with { Bag = role.Bag with
-        {
-            Revision = checked(role.Bag.Revision + 1), EquipmentRevision = checked(role.Bag.EquipmentRevision + 1),
-            Items = items.OrderBy(item => item.SlotIndex).ToArray(), Equipment = equipment.OrderBy(item => item.Slot).ToArray()
-        } };
-        Validate(candidate);
-        return candidate;
-    }
-
     /// <summary>在存档结构校验后核对当前配置与容量。</summary>
-    public void Validate(DataServerRole role) => Validate(role, false);
-
-    /// <summary>仅在迁移入口容许旧副手拳刃或暗器，其余非法数据始终拒绝。</summary>
-    private void Validate(DataServerRole role, bool legacyHands)
+    public void Validate(DataServerRole role)
     {
         role.Bag.Validate();
         var capacity = GetCapacity(role.BagExtraRows);
@@ -184,14 +158,9 @@ public sealed class DataServerBagRules
                 throw new InvalidDataException("背包物品超出容量、配置不存在或数量超出堆叠上限");
         }
         foreach (var item in role.Bag.Equipment)
-        {
-            var legacy = legacyHands && item.Slot == EquipmentSlot.OffHand &&
-                Items.TryGetValue(item.ItemId, out var definition) && definition.MaxStack == 1 &&
-                EquipmentSlotUtil.HasPairedAppearance(definition.Category, definition.SubCategory);
-            if (!CanEquip(item.ItemId, item.Slot) && !legacy) throw new InvalidDataException("装备配置不存在或不适配槽位");
-        }
+            if (!CanEquip(item.ItemId, item.Slot)) throw new InvalidDataException("装备配置不存在或不适配槽位");
         var main = role.Bag.Equipment.SingleOrDefault(item => item.Slot == EquipmentSlot.MainHand);
-        if (!legacyHands && main is not null && OccupiesBothHands(main.ItemId) &&
+        if (main is not null && OccupiesBothHands(main.ItemId) &&
             role.Bag.Equipment.Any(item => item.Slot == EquipmentSlot.OffHand))
             throw new InvalidDataException("双手武器不能同时装备副手物品");
     }

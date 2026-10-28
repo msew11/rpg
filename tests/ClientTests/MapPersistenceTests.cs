@@ -136,24 +136,23 @@ public sealed class MapPersistenceTests : IDisposable
         Assert.Equal(4, Rules.Neighborhood(0, 0).Count);
     }
 
-    /// <summary>旧角色文件缺失地图字段时默认为 1，下次角色领域正常保存才补写。</summary>
-    [Fact]
-    public void LegacyRoleGetsMapOneWithoutEagerMigration()
+    /// <summary>mock-server：角色缺少地图或头型时拒绝加载，不补默认值或修改文件。</summary>
+    [Theory]
+    [InlineData("mapId")]
+    [InlineData("headId")]
+    public void MissingRoleFieldsFailWithoutBackfill(string field)
     {
         var repo = new RepoServerRole(_directory);
-        var role = repo.Create("旧地图角色", ServerRoleGender.Male, 1);
+        var role = repo.Create("缺少字段", ServerRoleGender.Male, 1);
         var path = repo.GetRolePath(role.RoleId);
         var data = JsonNode.Parse(File.ReadAllText(path))!;
-        data.AsObject().Remove("mapId");
-        var legacy = data.ToJsonString();
-        File.WriteAllText(path, legacy);
-        var restored = repo.Load(role.RoleId);
-        Assert.Equal(1, restored.MapId);
-        Assert.Equal(legacy, File.ReadAllText(path));
-        repo.SaveRole(restored);
-        Assert.Equal(1, JsonNode.Parse(File.ReadAllText(path))!["mapId"]!.GetValue<int>());
+        data.AsObject().Remove(field);
+        var original = data.ToJsonString();
+        File.WriteAllText(path, original);
+        var error = Assert.Throws<InvalidDataException>(() => repo.Load(role.RoleId));
+        Assert.Contains(path, error.Message);
+        Assert.Equal(original, File.ReadAllText(path));
     }
-
     /// <summary>地图沿用 0 禁用及关闭补写；返回登录后对象仍在服务端内存。</summary>
     [Fact]
     public void DisabledPeriodicFlushStillCommitsOnTransportClose()

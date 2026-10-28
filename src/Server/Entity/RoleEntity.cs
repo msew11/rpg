@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Rpg.Server.Data;
 
 namespace Rpg.Server.Entity;
@@ -7,8 +8,9 @@ public sealed record RoleEntity
 {
     /// <summary>角色唯一标识。</summary>
     public long RoleId { get; init; }
-    /// <summary>角色所属地图，缺失的旧存档兼容原地图 1。</summary>
-    public int MapId { get; init; } = 1;
+    /// <summary>角色所属地图，必须为正数。</summary>
+    [JsonRequired]
+    public int MapId { get; init; }
     /// <summary>显示名称。</summary>
     public string Name { get; init; } = "";
     /// <summary>角色等级。</summary>
@@ -31,11 +33,12 @@ public sealed record RoleEntity
     public float Y { get; init; }
     /// <summary>基础身体性别。</summary>
     public ServerRoleGender Gender { get; init; }
-    /// <summary>头型编号，旧存档缺失时使用默认头型。</summary>
-    public int HeadId { get; init; } = 1;
+    /// <summary>必须保存的合法头型编号。</summary>
+    [JsonRequired]
+    public int HeadId { get; init; }
     /// <summary>持久化删除标记，保留编号防止重启恢复。</summary>
     public bool IsDeleted { get; init; }
-    /// <summary>角色额外解锁的背包行数，旧存档为零。</summary>
+    /// <summary>角色额外解锁的背包行数。</summary>
     public int BagExtraRows { get; init; }
     /// <summary>下次创建物品的稳定编号，已删除编号不复用。</summary>
     public long NextInstanceId { get; init; } = 1;

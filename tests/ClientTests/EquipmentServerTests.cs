@@ -289,53 +289,33 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.Equal(acceptedEquipment, _equipment);
     }
 
-    /// <summary>role-equipment：旧双拳刃、飞刀和带盾存档选角迁移，满包拒绝且原档不变。</summary>
+    /// <summary>role-equipment：非法副手或双手组合直接拒绝选角，不迁移或重写存档。</summary>
     [Theory]
-    [InlineData(0, 1018, false)]
-    [InlineData(1017, 1017, false)]
-    [InlineData(1013, 1014, false)]
-    [InlineData(1017, 1018, true)]
-    public void LegacyHandsMigrateWithoutLosingItems(int mainId, int offId, bool full)
+    [InlineData(0, 1018)]
+    [InlineData(1017, 1017)]
+    [InlineData(1013, 1014)]
+    public void InvalidStoredHandsRejectSelectionWithoutRewriting(int mainId, int offId)
     {
         var role = _repo.Load(_roleId);
         var equipment = new List<DataServerEquipment>();
         if (mainId != 0) equipment.Add(new(1, mainId, EquipmentSlot.MainHand));
         equipment.Add(new(2, offId, EquipmentSlot.OffHand));
-        _repo.Save(role with { Bag = role.Bag with { Revision = 4, EquipmentRevision = 2, NextInstanceId = 5,
-            Equipment = equipment, Items = full ? [new(3, 1012, 0, 1), new(4, 1012, 1, 1)] : [] } });
+        _repo.Save(role with { Bag = role.Bag with { NextInstanceId = 3, Equipment = equipment } });
         var path = _repo.GetItemPath(_roleId);
         var original = File.ReadAllText(path);
         _server = CreateServer();
-        if (full)
-        {
-            Send(new Login { Username = "demo", Password = "demo" });
-            Send(new SelectRole { RoleId = _roleId });
-            Assert.False(_messages.OfType<SelectRoleRt>().Last().Success);
-            Assert.Contains("背包空间不足", _messages.OfType<SelectRoleRt>().Last().Error);
-            _server.Flush();
-            Assert.Equal(original, File.ReadAllText(path));
-            return;
-        }
-        Enter(_roleId);
-        Assert.Equal(mainId == 0 ? 2 : 1, Assert.Single(EquippedItems).InstanceId);
-        Assert.Equal(mainId == 0 ? offId : mainId, EquippedItems[0].ItemId);
-        Assert.Equal(EquipmentSlot.MainHand, EquippedItems[0].Slot);
-        Assert.Equal(mainId == 0 ? 0 : 1, BagItems.Count);
-        if (mainId != 0) Assert.Equal(2, BagItems[0].InstanceId);
-        Assert.True(_bag.GetRevision() > 0);
-        Assert.Equal(_bag.GetRevision(), _equipment.GetRevision());
-        Assert.Equal(original, File.ReadAllText(path));
+        Send(new Login { Username = "demo", Password = "demo" });
+        Send(new SelectRole { RoleId = _roleId });
+        var response = _messages.OfType<SelectRoleRt>().Last();
+        Assert.False(response.Success);
+        Assert.NotEmpty(response.Error);
         _server.Flush();
-        Assert.Equal(5, _repo.Load(_roleId).Bag.NextInstanceId);
-        _server = CreateServer();
-        Enter(_roleId);
-        Assert.True(_bag.GetRevision() > 0);
-        Assert.Equal(_bag.GetRevision(), _equipment.GetRevision());
+        Assert.Equal(original, File.ReadAllText(path));
+        Assert.Equal(equipment, _repo.Load(_roleId).Bag.Equipment);
     }
-
-    /// <summary>GM、背包移动不覆盖已穿装备，旧存档默认空装备。</summary>
+    /// <summary>role-equipment：GM 发放与格子移动不覆盖已穿装备，落地后保留实例。</summary>
     [Fact]
-    public void GrantsAndMovesKeepEquipmentAndLegacyFilesStayEmpty()
+    public void GrantsAndMovesKeepEquipment()
     {
         var sword = Grant(1012);
         Assert.True(Equip(sword, EquipmentSlotPb.MainHand).Success);
@@ -344,11 +324,8 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.True(_messages.OfType<MoveItemRt>().Last().Success);
         Assert.Equal(sword, Assert.Single(EquippedItems).InstanceId);
         _server.Flush();
-        var legacy = System.Text.Json.JsonSerializer.Deserialize<DataServerBag>("{\"Revision\":0,\"NextInstanceId\":1,\"Items\":[]}")!;
-        legacy.Validate();
-        Assert.Empty(legacy.Equipment);
+        Assert.Equal(sword, Assert.Single(_repo.Load(_roleId).Bag.Equipment).InstanceId);
     }
-
     /// <summary>role-equipment：整理不广播公开装备，每次私有组合快照共享新的信封版本。</summary>
     [Fact]
     public void InventoryEnvelopeRevisionRejectsEitherStaleVersion()
@@ -380,32 +357,6 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.Equal(notice.Equipment, _equipment);
     }
 
-    /// <summary>mock-server：旧双文件存档读时不写，装备与身份迁移到新表且不保存旧版本。</summary>
-    [Fact]
-    public void ExistingEquippedSaveMigratesWithoutPersistingVersions()
-    {
-        var sword = Grant(1012);
-        Assert.True(Equip(sword, EquipmentSlotPb.MainHand).Success);
-        _server.Flush();
-        var role = _repo.Load(_roleId);
-        foreach (var file in new[] { _repo.GetItemPath(_roleId), _repo.GetEquipmentPath(_roleId), _repo.GetSummaryPath(_roleId) }) File.Delete(file);
-        File.WriteAllText(_repo.GetRolePath(_roleId), System.Text.Json.JsonSerializer.Serialize(role));
-        var path = _repo.GetBagPath(_roleId);
-        var original = System.Text.Json.JsonSerializer.Serialize(DataServerBagFile.FromRole(role));
-        File.WriteAllText(path, original);
-        _server = CreateServer();
-        Enter(_roleId);
-        Assert.Equal(original, File.ReadAllText(path));
-        Assert.False(File.Exists(_repo.GetItemPath(_roleId)));
-        Assert.Equal(sword, Assert.Single(EquippedItems).InstanceId);
-        Grant(1014);
-        _server.Flush();
-        Assert.DoesNotContain("revision", File.ReadAllText(_repo.GetItemPath(_roleId)), StringComparison.OrdinalIgnoreCase);
-        _server = CreateServer();
-        Enter(_roleId);
-        Assert.Equal(sword, Assert.Single(EquippedItems).InstanceId);
-        Assert.True(_bag.GetRevision() > 0);
-    }
 
     /// <summary>mock-server：完整角色主动提交若改变物品，也必须交付本人的原子组合快照。</summary>
     [Fact]
@@ -454,20 +405,16 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.Empty(saved.Items);
     }
 
-    /// <summary>mock-server：旧背包空载荷保留文件路径诊断，不自动生成新表。</summary>
+    /// <summary>mock-server：装备扩展表空载荷保留文件路径诊断，不自动重建表。</summary>
     [Fact]
-    public void NullLegacyBagReportsItsSavePath()
+    public void NullEquipmentTableReportsItsSavePath()
     {
-        var role = _repo.Load(_roleId);
-        foreach (var file in new[] { _repo.GetItemPath(_roleId), _repo.GetEquipmentPath(_roleId), _repo.GetSummaryPath(_roleId) }) File.Delete(file);
-        File.WriteAllText(_repo.GetRolePath(_roleId), System.Text.Json.JsonSerializer.Serialize(role));
-        var path = _repo.GetBagPath(_roleId);
-        File.WriteAllText(path, "{\"RoleId\":" + _roleId + ",\"Bag\":null}");
+        var path = _repo.GetEquipmentPath(_roleId);
+        File.WriteAllText(path, "null");
         var error = Assert.Throws<InvalidDataException>(() => _repo.Load(_roleId));
         Assert.Contains(path, error.Message);
-        Assert.False(File.Exists(_repo.GetItemPath(_roleId)));
+        Assert.Equal("null", File.ReadAllText(path));
     }
-
     /// <summary>清理本次隔离存档。</summary>
     public void Dispose() => Directory.Delete(_directory, true);
 }

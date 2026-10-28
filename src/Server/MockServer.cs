@@ -379,13 +379,12 @@ public sealed class MockServer
         try
         {
             if (!_authenticated) throw new InvalidOperationException("请先登录");
-            var loaded = _roles.Load(request.RoleId) with { AcknowledgedAction = 0 };
-            var role = _bagRules.MigrateLegacyEquipment(loaded);
+            var role = _roles.Load(request.RoleId) with { AcknowledgedAction = 0 };
+            _bagRules.Validate(role);
             var map = GetMap(role.MapId);
             if (!map.Rules.Contains(role.X, role.Y)) throw new InvalidOperationException("角色位置超出所属地图");
             var observer = new MapAoiTracker(role.RoleId, role.MapId);
             snapshot = observer.Snapshot(map, role.X, role.Y);
-            if (!ReferenceEquals(loaded, role)) _roles.SaveBag(role);
             _pending.Clear();
             _pickup = null;
             _lastAction = 0;

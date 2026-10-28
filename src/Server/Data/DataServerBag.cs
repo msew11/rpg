@@ -9,7 +9,7 @@ namespace Rpg.Server.Data;
 /// <summary>物品规则的不可变业务候选；实体缓存负责拆表，下一个实例编号不因失败消耗。</summary>
 public sealed record DataServerBag
 {
-    /// <summary>进程内候选变更序号，兼容读取旧存档，不作为信封版本或新表字段。</summary>
+    /// <summary>进程内候选变更序号，不作为信封版本或实体表字段。</summary>
     public long Revision { get; init; }
     /// <summary>仅装备变化时递增的候选序号，不公开或落地到新表。</summary>
     public long EquipmentRevision { get; init; }
@@ -24,7 +24,7 @@ public sealed record DataServerBag
         init => _items = value is null ? null! : Array.AsReadOnly(value.ToArray());
     }
 
-    /// <summary>穿戴物品的独立只读副本，旧存档缺失时为空。</summary>
+    /// <summary>由本候选拥有的穿戴物品只读副本。</summary>
     private readonly IReadOnlyList<DataServerEquipment> _equipment = Array.AsReadOnly(Array.Empty<DataServerEquipment>());
     /// <summary>与背包共用实例编号的穿戴候选视图。</summary>
     public IReadOnlyList<DataServerEquipment> Equipment

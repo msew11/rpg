@@ -9,12 +9,12 @@ public enum ServerRoleGender
     Female
 }
 
-/// <summary>服务端独立保存的不可变角色状态。</summary>
+/// <summary>服务端使用的不可变角色业务候选。</summary>
 public sealed record DataServerRole
 {
     /// <summary>角色唯一标识。</summary>
     public long RoleId { get; init; }
-    /// <summary>角色所属地图，缺失的旧存档兼容原地图 1。</summary>
+    /// <summary>角色所属地图，内存候选默认使用地图 1。</summary>
     public int MapId { get; init; } = 1;
     /// <summary>显示名称。</summary>
     public string Name { get; init; } = "";
@@ -38,16 +38,16 @@ public sealed record DataServerRole
     public float Y { get; init; }
     /// <summary>基础身体性别。</summary>
     public ServerRoleGender Gender { get; init; }
-    /// <summary>头型编号，旧存档缺失时使用默认头型。</summary>
+    /// <summary>头型编号，内存候选默认使用头型 1。</summary>
     public int HeadId { get; init; } = 1;
     /// <summary>持久化删除标记，保留编号防止重启恢复。</summary>
     public bool IsDeleted { get; init; }
-    /// <summary>持久化的递增状态版本。</summary>
+    /// <summary>仅供业务候选比较的进程内状态序号。</summary>
     public long Revision { get; init; }
     /// <summary>本次会话已经确认的移动序号。</summary>
     public long AcknowledgedAction { get; init; }
-    /// <summary>角色额外解锁的背包行数，旧存档为零。</summary>
+    /// <summary>角色额外解锁的背包行数。</summary>
     public int BagExtraRows { get; init; }
-    /// <summary>独立于角色领域持久化的背包，旧存档为空背包。</summary>
+    /// <summary>背包与穿戴的业务候选视图，由实体缓存拆表。</summary>
     public DataServerBag Bag { get; init; } = new();
 }

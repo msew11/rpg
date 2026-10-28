@@ -334,26 +334,6 @@ public sealed class GroundItemDropTests : IDisposable
         AssertDropClearance(ground, 1536, 1500);
     }
 
-    /// <summary>旧聚合存档迁移失败恢复旧格式，重试成功后两侧一起迁移。</summary>
-    [Fact]
-    public void LegacyMigrationParticipatesInSameRollbackBoundary()
-    {
-        File.WriteAllText(_repo.GetLegacyPath(_id), System.Text.Json.JsonSerializer.Serialize(_repo.Load(_id)));
-        foreach (var file in new[] { _repo.GetRolePath(_id), _repo.GetItemPath(_id), _repo.GetEquipmentPath(_id), _repo.GetSummaryPath(_id) }) File.Delete(file);
-        _server = Start(); Enter(_id);
-        Assert.True(Drop(2).Success);
-        _server.Transfers.BeforeComplete = () => throw new IOException("模拟迁移提交失败");
-        Assert.Throws<AggregateException>(_server.Flush);
-        Assert.False(File.Exists(_repo.GetRolePath(_id)));
-        Assert.False(File.Exists(_repo.GetItemPath(_id)));
-        Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
-        _server.Transfers.BeforeComplete = null;
-        _server.Flush();
-        Assert.True(File.Exists(_repo.GetLegacyPath(_id)));
-        Assert.Equal(3, Assert.Single(_repo.Load(_id).Bag.Items).Count);
-        _server = Start(); Enter(_id);
-        Assert.Equal(2, Assert.Single(_server.GetMap(1).Objects).Value.Count);
-    }
 
     /// <summary>同地图多角色关联为一组，第二个背包锁住时连同第一个回滚，解锁后共同重试。</summary>
     [Fact]
