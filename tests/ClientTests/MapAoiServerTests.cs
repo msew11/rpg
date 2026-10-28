@@ -19,7 +19,7 @@ public sealed class MapAoiServerTests : IDisposable
     /// <summary>两个独立地图的真实 MockServer。</summary>
     private readonly MockServer _server;
     /// <summary>当前选中的角色。</summary>
-    private readonly RoleEntityTables _role;
+    private readonly ServerRoleCache _role;
 
     /// <summary>将角色放在中心块 (2,2)，使完整九块范围可被验收。</summary>
     public MapAoiServerTests()

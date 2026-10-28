@@ -53,7 +53,7 @@ internal sealed class WorldActor : BaseActor
             DataWorldRequest value when value.MapId == MapId => (value.Role, (Func<WorldContext, object?>)(context => Handle(context, value.Request))),
             _ => throw new InvalidOperationException("地图分片身份不符")
         };
-        if (role.Tables?.Role.Value.MapId != MapId) throw new InvalidOperationException("角色所属地图不符");
+        if (role.Role.Value.MapId != MapId) throw new InvalidOperationException("角色所属地图不符");
         var context = new WorldContext(_cache, new RoleContext(role, _rules));
         var response = work(context);
         return ValueTask.FromResult<object?>(new DataRoleResult(response, context.Role.EntityCache, context.Role.Notices.ToArray()));

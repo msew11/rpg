@@ -27,7 +27,7 @@ public sealed class LoginContext
     }
 
     /// <summary>暂存创建结果并更新角色列表摘要。</summary>
-    public void Create(RoleEntityTables candidate)
+    public void Create(ServerRoleCache candidate)
     {
         var id = candidate.Role.Value.RoleId;
         EntityCache.Created[id] = candidate;

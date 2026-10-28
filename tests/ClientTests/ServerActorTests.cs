@@ -131,16 +131,16 @@ public sealed class ServerActorShardTests : IDisposable
         Assert.Equal(ActorState.INIT, one.State);
         one.Tell(new DataRoleWork(first.Role.Value.RoleId, cache =>
         {
-            cache.Commit(cache.EntityCache.Tables!.WithRole(cache.EntityCache.Tables.Role.Value with { Health = 17 }), 1);
+            cache.Commit(cache.EntityCache.WithRole(cache.EntityCache.Role.Value with { Health = 17 }), 1);
             return true;
         }));
-        var reply = await one.Ask<DataRoleResult>(new DataRoleWork(first.Role.Value.RoleId, cache => cache.EntityCache.Tables!.Role.Value.Health));
+        var reply = await one.Ask<DataRoleResult>(new DataRoleWork(first.Role.Value.RoleId, cache => cache.EntityCache.Role.Value.Health));
         Assert.Equal(17, reply.Response);
         Assert.Equal(ActorState.RUN, one.State);
         Assert.Equal(ActorState.INIT, two.State);
         Assert.Equal(ActorState.RUN, server.GetWorldActor(1).State);
         Assert.Same(server.GetWorldActor(1), server.GetWorldActor(1));
-        await two.Ask<DataRoleResult>(new DataRoleWork(second.Role.Value.RoleId, cache => cache.EntityCache.Tables!.Role.Value.Health));
+        await two.Ask<DataRoleResult>(new DataRoleWork(second.Role.Value.RoleId, cache => cache.EntityCache.Role.Value.Health));
         Assert.Equal(100, disk.Load(first.Role.Value.RoleId).Role.Value.Health);
         server.Flush();
         Assert.Equal(17, disk.Load(first.Role.Value.RoleId).Role.Value.Health);

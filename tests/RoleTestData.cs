@@ -13,9 +13,9 @@ internal static class RoleTestData
     internal static void Seed(string directory)
     {
         var repo = new RepoServerRole(directory);
-        repo.Save(new RoleEntityTables(new RoleEntity { MapId = 1, HeadId = 1, RoleId = 1001, Name = "晨星", Level = 5, Health = 86, MaxHealth = 100,
+        repo.Save(new ServerRoleCache(new RoleEntity { MapId = 1, HeadId = 1, RoleId = 1001, Name = "晨星", Level = 5, Health = 86, MaxHealth = 100,
             Mana = 42, MaxMana = 60, Experience = 240, NextExperience = 500, X = 16016, Y = 16016, Gender = ServerRoleGender.Male }));
-        repo.Save(new RoleEntityTables(new RoleEntity { MapId = 1, HeadId = 1, RoleId = 1002, Name = "流光", Level = 3, Health = 64, MaxHealth = 80,
+        repo.Save(new ServerRoleCache(new RoleEntity { MapId = 1, HeadId = 1, RoleId = 1002, Name = "流光", Level = 3, Health = 64, MaxHealth = 80,
             Mana = 75, MaxMana = 90, Experience = 120, NextExperience = 300, X = 16144, Y = 16080, Gender = ServerRoleGender.Female }));
     }
     /// <summary>构造测试道具配置，避免测试依赖磁盘配置加载。</summary>

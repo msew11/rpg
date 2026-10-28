@@ -42,7 +42,7 @@ public sealed class BagRules
     }
 
     /// <summary>先补堆叠再使用空格，构造失败不消耗实例编号。</summary>
-    public RoleEntityTables Add(RoleEntityTables tables, int itemId, int count)
+    public ServerRoleCache Add(ServerRoleCache tables, int itemId, int count)
     {
         if (count <= 0 || !Items.TryGetValue(itemId, out var definition)) throw new InvalidDataException("道具或数量无效");
         Validate(tables);
@@ -76,7 +76,7 @@ public sealed class BagRules
     }
 
     /// <summary>直接替换物品穿戴字段，处理换装、卸下和双手冲突。</summary>
-    public RoleEntityTables Equip(RoleEntityTables tables, long instanceId, EquipmentSlot slot, int? targetBagSlot = null)
+    public ServerRoleCache Equip(ServerRoleCache tables, long instanceId, EquipmentSlot slot, int? targetBagSlot = null)
     {
         Validate(tables);
         if (slot is not (EquipmentSlot.MainHand or EquipmentSlot.OffHand) || instanceId < 0)
@@ -134,7 +134,7 @@ public sealed class BagRules
         EquipmentSlotUtil.OccupiesBothHands(definition.Category, definition.SubCategory);
 
     /// <summary>检查当前配置、容量、堆叠及双手组合，不修改实体。</summary>
-    public void Validate(RoleEntityTables tables)
+    public void Validate(ServerRoleCache tables)
     {
         var capacity = GetCapacity(tables.Role.Value.BagExtraRows);
         foreach (var item in tables.Item.Items.Values)

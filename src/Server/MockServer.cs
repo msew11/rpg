@@ -110,7 +110,7 @@ public sealed class MockServer : IDisposable
                     if (request is DeleteRole deletion && _authenticated && _selected is null &&
                         _roles.TryGetValue(deletion.RoleId, out var loaded) && loaded.State == ActorState.RUN)
                     {
-                        var role = (RoleEntityTables)Work(deletion.RoleId, cache => cache.EntityCache.Tables!).Response!;
+                        var role = (ServerRoleCache)Work(deletion.RoleId, cache => cache.EntityCache).Response!;
                         if (!role.Role.Value.IsDeleted)
                             _login.Ask<bool>(new DataLoginWork(cache => { cache.EntityCache.Deletions[deletion.RoleId] = role.Role.Value; return true; })).GetAwaiter().GetResult();
                     }
@@ -119,7 +119,7 @@ public sealed class MockServer : IDisposable
                     if (request is DeleteRole deleted && reply is DeleteRoleRt { Success: true } &&
                         _roles.TryGetValue(deleted.RoleId, out var existing) && existing.State == ActorState.RUN)
                     {
-                        Work(deleted.RoleId, cache => { cache.Commit(cache.EntityCache.Tables!.WithRole(cache.EntityCache.Tables.Role.Value with { IsDeleted = true }), 1); return true; });
+                        Work(deleted.RoleId, cache => { cache.Commit(cache.EntityCache.WithRole(cache.EntityCache.Role.Value with { IsDeleted = true }), 1); return true; });
                         _login.Ask<bool>(new DataLoginWork(cache => { cache.EntityCache.Deletions.Remove(deleted.RoleId); return true; })).GetAwaiter().GetResult();
                     }
                     Send(reply);
@@ -216,9 +216,9 @@ public sealed class MockServer : IDisposable
         {
             if (cache.EntityCache.Dirty == 0) return true;
             var repo = log is null ? _repo : new RepoServerRole(System.IO.Path.GetDirectoryName(_repo.GetRolePath(id))!, log);
-            if (cache.EntityCache.Dirty == 1) repo.SaveRole(cache.EntityCache.Tables!);
-            else if (cache.EntityCache.Dirty == 2) repo.SaveBag(cache.EntityCache.Tables!);
-            else repo.Save(cache.EntityCache.Tables!);
+            if (cache.EntityCache.Dirty == 1) repo.SaveRole(cache.EntityCache);
+            else if (cache.EntityCache.Dirty == 2) repo.SaveBag(cache.EntityCache);
+            else repo.Save(cache.EntityCache);
             if (accept) cache.EntityCache.Dirty = 0;
             return true;
         });
@@ -242,7 +242,7 @@ public sealed class MockServer : IDisposable
         {
             ThrowIfStopped();
             var change = MapAsk<MapChange>(mapId, cache => operation(cache.Map));
-            if (_selected is { } id) Deliver(WorldWork(id, cache => { if (cache.Role.EntityCache.Tables!.Role.Value.MapId == mapId) cache.PublishMapChange(cache.GetMap(mapId), change); return true; }));
+            if (_selected is { } id) Deliver(WorldWork(id, cache => { if (cache.Role.EntityCache.Role.Value.MapId == mapId) cache.PublishMapChange(cache.GetMap(mapId), change); return true; }));
             return change;
         }
     }
@@ -341,7 +341,7 @@ public sealed class MockServer : IDisposable
     private void ThrowIfStopped() => ObjectDisposedException.ThrowIf(_disposed, this);
 
     /// <summary>提交完整实体候选并发送对应领域推送。</summary>
-    public void PublishRoleState(RoleEntityTables update)
+    public void PublishRoleState(ServerRoleCache update)
     {
         RunCurrentWorld(cache =>
         {
@@ -424,7 +424,7 @@ public sealed class MockServer : IDisposable
         if (notice is not null) cache.Role.Notices.Enqueue(notice);
     }
     /// <summary>构造独立公开装备载荷。</summary>
-    internal static RoleEquipmentNotice CreateEquipmentNotice(RoleEntityTables tables) => new() { Equipment = RoleMessages.Equipment(tables) };
+    internal static RoleEquipmentNotice CreateEquipmentNotice(ServerRoleCache tables) => new() { Equipment = RoleMessages.Equipment(tables) };
     /// <summary>公开装备只包含配置编号。</summary>
-    internal static RoleWorldEquipmentPb ToEquipmentMessage(RoleEntityTables tables) => RoleMessages.Equipment(tables);
+    internal static RoleWorldEquipmentPb ToEquipmentMessage(ServerRoleCache tables) => RoleMessages.Equipment(tables);
 }

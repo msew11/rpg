@@ -38,7 +38,7 @@ public sealed class RepoServerRole
     public string GetSummaryPath(long roleId) => GetPath(roleId, "role_summary");
 
     /// <summary>只加载指定角色的全部实体表；其他角色仍只有摘要。</summary>
-    public RoleEntityTables Load(long roleId)
+    public ServerRoleCache Load(long roleId)
     {
         Recover(roleId);
         var role = Read(roleId);
@@ -47,7 +47,7 @@ public sealed class RepoServerRole
     }
 
     /// <summary>按需加载完整角色列表；登录及角色管理只读取 ListSummaries。</summary>
-    public IReadOnlyList<RoleEntityTables> List() => ListSummaries().Select(value => Load(value.RoleId)).ToList().AsReadOnly();
+    public IReadOnlyList<ServerRoleCache> List() => ListSummaries().Select(value => Load(value.RoleId)).ToList().AsReadOnly();
 
     /// <summary>首次只读取全部摘要，不通过完整角色数据回填。</summary>
     public IReadOnlyList<RoleSummaryEntity> ListSummaries()
@@ -75,7 +75,7 @@ public sealed class RepoServerRole
     }
 
     /// <summary>完整保存只提交发生变化的实体文件，创建时提交全部表。</summary>
-    public void Save(RoleEntityTables role)
+    public void Save(ServerRoleCache role)
     {
         Validate(role);
         Recover(role.Role.Value.RoleId);
@@ -83,7 +83,7 @@ public sealed class RepoServerRole
     }
 
     /// <summary>移动只写角色单例，展示字段变化时同时更新摘要。</summary>
-    public void SaveRole(RoleEntityTables role)
+    public void SaveRole(ServerRoleCache role)
     {
         Validate(role);
         Recover(role.Role.Value.RoleId);
@@ -101,7 +101,7 @@ public sealed class RepoServerRole
     }
 
     /// <summary>物品变更拆为实例与扩展表；编号、扩容和展示有变化时共同提交。</summary>
-    public void SaveBag(RoleEntityTables role)
+    public void SaveBag(ServerRoleCache role)
     {
         Validate(role);
         Recover(role.Role.Value.RoleId);
@@ -127,14 +127,14 @@ public sealed class RepoServerRole
     }
 
     /// <summary>读取当前四张实体表，交由主键缓存和组合候选校验。</summary>
-    private RoleEntityTables Read(long roleId)
+    private ServerRoleCache Read(long roleId)
     {
         var role = ReadRoleEntity(roleId);
         try
         {
             var items = new ItemEntityCache(ReadJson<ItemEntity[]>(GetItemPath(roleId), JsonOptions));
             var equipment = new EquipmentEntityCache(ReadJson<EquipmentEntity[]>(GetEquipmentPath(roleId), JsonOptions), items);
-            return new RoleEntityTables(new RoleEntityCache(role), items, equipment);
+            return new ServerRoleCache(new RoleEntityCache(role), items, equipment);
         }
         catch (InvalidDataException error)
         { throw new InvalidDataException($"角色实体表无效：{GetItemPath(roleId)}；{GetEquipmentPath(roleId)}；{error.Message}", error); }
@@ -160,7 +160,7 @@ public sealed class RepoServerRole
     }
 
     /// <summary>单例对象与多例数组直接序列化，不含版本及外层包装。</summary>
-    private static Dictionary<string, string> Serialize(RoleEntityTables cache) => new()
+    private static Dictionary<string, string> Serialize(ServerRoleCache cache) => new()
     {
         ["item"] = JsonSerializer.Serialize(cache.Item.Items.Values.OrderBy(item => item.InstanceId), JsonOptions),
         ["equipment"] = JsonSerializer.Serialize(cache.Equipment.Items.Values.OrderBy(item => item.InstanceId), JsonOptions),
@@ -270,7 +270,7 @@ public sealed class RepoServerRole
     }
 
     /// <summary>显式准备摘要后复用纯内存创建业务，再在同步模式落地。</summary>
-    public RoleEntityTables Create(string name, ServerRoleGender gender, int headId, int mapId = 1, float? spawnX = null, float? spawnY = null)
+    public ServerRoleCache Create(string name, ServerRoleGender gender, int headId, int mapId = 1, float? spawnX = null, float? spawnY = null)
     {
         var context = new Context.LoginContext(new ServerLoginCache(), new Context.DataServerRules());
         foreach (var summary in ReadSummaries()) context.EntityCache.Summaries.Add(summary.RoleId, summary);
@@ -309,5 +309,5 @@ public sealed class RepoServerRole
         .Where(id => id > 0).Distinct().OrderBy(id => id);
 
     /// <summary>实体组构造时完成结构校验，仓库不重建业务模型。</summary>
-    public static void Validate(RoleEntityTables role) => RoleEntityCache.Validate(role.Role.Value);
+    public static void Validate(ServerRoleCache role) => RoleEntityCache.Validate(role.Role.Value);
 }

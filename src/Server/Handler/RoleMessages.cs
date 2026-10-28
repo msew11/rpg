@@ -9,7 +9,7 @@ namespace Rpg.Server.Handler;
 internal static class RoleMessages
 {
     /// <summary>本人完整物品快照，装备槽位仅留在服务端。</summary>
-    internal static BagPb Bag(RoleEntityTables tables)
+    internal static BagPb Bag(ServerRoleCache tables)
     {
         var message = new BagPb();
         message.Items.AddRange(tables.Item.Items.Values.OrderBy(item => item.Equipped).ThenBy(item => item.SlotIndex)
@@ -22,7 +22,7 @@ internal static class RoleMessages
         return message;
     }
     /// <summary>公开装备仅包含配置编号。</summary>
-    internal static RoleWorldEquipmentPb Equipment(RoleEntityTables tables)
+    internal static RoleWorldEquipmentPb Equipment(ServerRoleCache tables)
     {
         var message = new RoleWorldEquipmentPb { RoleId = tables.Role.Value.RoleId };
         message.EquippedItems.AddRange(tables.Item.Items.Values.Where(item => item.Equipped)
@@ -30,7 +30,7 @@ internal static class RoleMessages
         return message;
     }
     /// <summary>本人一次接收同批物品与公开穿戴。</summary>
-    internal static RoleItemsChangedNotice Items(RoleEntityTables tables) => new()
+    internal static RoleItemsChangedNotice Items(ServerRoleCache tables) => new()
     { RoleId = tables.Role.Value.RoleId, Bag = Bag(tables), Equipment = Equipment(tables) };
     /// <summary>角色列表展示快照。</summary>
     internal static RoleSummaryPb Summary(RoleSummaryEntity role)
@@ -55,6 +55,6 @@ internal static class RoleMessages
     internal static RoleWorldPositionPb Position(RoleEntity role, long acknowledgedAction) => new()
     { RoleId = role.RoleId, MapId = role.MapId, X = role.X, Y = role.Y, AcknowledgedAction = acknowledgedAction };
     /// <summary>完整世界快照，不含私有角色字段。</summary>
-    internal static RoleWorldStatePb World(RoleEntityTables tables, long acknowledgedAction) => new()
+    internal static RoleWorldStatePb World(ServerRoleCache tables, long acknowledgedAction) => new()
     { Profile = Profile(tables.Role.Value), Status = Status(tables.Role.Value), Position = Position(tables.Role.Value, acknowledgedAction), Equipment = Equipment(tables) };
 }

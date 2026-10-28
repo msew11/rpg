@@ -68,7 +68,7 @@ if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
 
 `dotnet build rpg.csproj` 使用仅构建依赖 `Grpc.Tools 2.84.0` 自动生成 `src/Net/Message/Message.cs`、`Role.cs`、`Login.cs`、`World.cs`、`Bag.cs`、`Equipment.cs` 和 `Gm.cs`，运行依赖为 `Google.Protobuf 3.36.2`，未启用 gRPC。生成 C# 与 proto 一起提交，中文协议注释写在 proto，不直接修改生成文件。SDK 排除生成目录的默认编译项，再由 protobuf 构建目标添加，避免重复编译。
 
-`src/Server` 使用独立于客户端缓存和 Godot 的实体状态。落地实体放在 `Server/Entity`，缓存放在 `Server/EntityCache`：`RoleEntityCache.Value` 只保存一个 `RoleEntity`；`ItemEntityCache.Items` 与 `EquipmentEntityCache.Items` 按共享 InstanceId 索引。`RoleEntityTables` 平级组合三张表，不复制实体字段。ServerRoleCache 按角色持有表组、待写领域和非持久化会话，ServerLoginCache 持有摘要及列表管理结果，ServerWorldCache 按地图独占对象和共同转移身份。实体候选完整校验后一次替换并更新 dirty，展示变化由 Actor 消息同步摘要。
+`src/Server` 使用独立于客户端缓存和 Godot 的实体状态。落地实体放在 `Server/Entity`，缓存放在 `Server/EntityCache`：`RoleEntityCache.Value` 只保存一个 `RoleEntity`；`ItemEntityCache.Items` 与 `EquipmentEntityCache.Items` 按共享 InstanceId 索引。`ServerRoleCache` 按角色直接持有平级的 `Role`、`Item`、`Equipment` 缓存、待写领域和非持久化会话，不再经由独立表组容器，也不复制实体字段，ServerLoginCache 持有摘要及列表管理结果，ServerWorldCache 按地图独占对象和共同转移身份。实体候选完整校验后在角色工作副本中一次接纳三份缓存引用并更新 dirty，保留当前会话；跨 Actor 工作副本共享不可变实体缓存并独立复制会话，展示变化由 Actor 消息同步摘要。
 
 请求业务按所属 Actor 放在 `Server/Handler/Login`、`Role`、`World`。每个请求对应一个 Handler，Actor 用只读字段声明并复用自己的处理器。登录处理器接收 `LoginContext`，角色处理器接收 `RoleContext`，世界处理器接收 `WorldContext`；每个 Handle 只公开对应 Context 与请求两个参数并返回响应。Handle 不接收路径、仓库、发送委托或加载回调，只读配置和已加载内存。Actor 初始化加载所属数据，进入 RUN 后调用 Handler，MockServer 接回内存通知及响应，并在唯一发送边界递增 Envelope revision。移动成功响应由 `ServerSimulation` 延迟 0.45 秒生成；拾取先登记意图，走近后通过同一内存规则提交，重复和取消行为保持一致。计时、网络发送及定时/关闭写回均在 Handle 外。
 
@@ -295,7 +295,7 @@ DropItem 的 destroy 字段默认 false；Session 仅发送意图。MockServer �
 
 ## 角色装备与窗口
 
-所有角色共用十一槽位定义，新角色初始装备为空。服务端直接操作 ItemEntity 的 Equipped、EquipmentSlot 和 SlotIndex，物品缓存同时持有未穿与已穿实例；装备扩展独立以 InstanceId 关联。`RoleEntityTables.WithItems` 复用已有扩展，为新增实例创建扩展，删除实例同步移除关联；编号来自角色单例 NextInstanceId。背包与装备候选不再持有 Revision/EquipmentRevision，移动确认序号仅在 ServerSession。物品并发校验使用最近发送的私有快照信封版本。延迟落地、失败重试、离角补写和地面共同恢复继续覆盖四表；转移记录仅支持版本 2，地图 manifest/chunk 格式不变。
+所有角色共用十一槽位定义，新角色初始装备为空。服务端直接操作 ItemEntity 的 Equipped、EquipmentSlot 和 SlotIndex，物品缓存同时持有未穿与已穿实例；装备扩展独立以 InstanceId 关联。`ServerRoleCache.WithItems` 复用已有扩展，为新增实例创建扩展，删除实例同步移除关联；编号来自角色单例 NextInstanceId。背包与装备候选不再持有 Revision/EquipmentRevision，移动确认序号仅在 ServerSession。物品并发校验使用最近发送的私有快照信封版本。延迟落地、失败重试、离角补写和地面共同恢复继续覆盖四表；转移记录仅支持版本 2，地图 manifest/chunk 格式不变。
 
 `BagPb` 只含全部私有 ItemPb，无 reserved 或 revision。公开 `RoleWorldEquipmentPb` 只含 role_id 与 repeated int32 equipped_items，元素为 item.json 的配置 ID，不含实例编号、槽位、背包容量、格子或私有角色字段。它在 `RoleWorldStatePb` 中与资料、生命魔力、位置并列，可独立从配置分类推导展示。`RoleEquipmentNotice` 仅承载该公开快照；当前 MockServer 未实现多人连接、远端玩家生命周期或广播。选角页同样从 RoleSummaryPb.equipped_items 绘制双手，返回选角从已校验缓存刷新摘要，重新登录从磁盘快照读取。
 

@@ -30,7 +30,7 @@ public sealed record RoleSummaryEntity
     }
 
     /// <summary>仅从已加载角色投影列表需要的字段。</summary>
-    public static RoleSummaryEntity FromRole(RoleEntityTables tables) => new()
+    public static RoleSummaryEntity FromRole(ServerRoleCache tables) => new()
     {
         RoleId = tables.Role.Value.RoleId, Name = tables.Role.Value.Name, Level = tables.Role.Value.Level, Gender = tables.Role.Value.Gender,
         HeadId = tables.Role.Value.HeadId, IsDeleted = tables.Role.Value.IsDeleted,

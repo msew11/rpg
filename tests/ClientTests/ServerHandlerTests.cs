@@ -46,12 +46,11 @@ public sealed class ServerHandlerTests : IDisposable
         _map = new ServerMap(new Rpg.Server.Map.MapLayout(1, 1000, 1000, 32, 32), new RepoServerMap(_directory),
             new Dictionary<int, int> { [1012] = 1, [2000] = 10 });
         var config = new DataServerRules(rules);
-        _cache = new RoleContext(new ServerRoleCache(), config);
+        _cache = new RoleContext(_repo.Load(_id), config);
         _login = new LoginContext(new ServerLoginCache(), config);
         _world = new WorldContext(new ServerWorldCache(_map), _cache);
         foreach (var summary in _repo.ReadSummaries()) _login.EntityCache.Summaries[summary.RoleId] = summary;
         _login.EntityCache.Loaded = true;
-        _cache.EntityCache.Tables = _repo.Load(_id);
     }
 
     /// <summary>mock-server：锁住全部角色表仍能登录、选角、发放、穿脱、整理、丢弃、拾取和重同步。</summary>
@@ -90,7 +89,7 @@ public sealed class ServerHandlerTests : IDisposable
         Assert.Equal(originals.Count, Directory.GetFiles(_directory).Length);
         foreach (var (path, bytes) in originals) Assert.Equal(bytes, File.ReadAllBytes(path));
         // 外层显式提交后，角色实体与物品才落地。
-        _repo.Save(_cache.EntityCache.Tables!);
+        _repo.Save(_cache.EntityCache);
         Assert.Single(new RepoServerRole(_directory).Load(_id).BagItems);
     }
 
@@ -118,18 +117,20 @@ public sealed class ServerHandlerTests : IDisposable
         Assert.Empty(_cache.Notices);
     }
 
-    /// <summary>mock-server：选择未准备角色只返回加载错误，不能绕过外层直接读盘。</summary>
+    /// <summary>mock-server：工作区未准备请求角色时只返回错误，不能绕过外层读取该角色。</summary>
     [Fact]
     public void SelectionRequiresExplicitPreparation()
     {
-        _cache.EntityCache.Tables = null;
+        var other = _cache.EntityCache.WithRole(_cache.EntityCache.Role.Value with { RoleId = _id + 1 });
+        var unprepared = new RoleContext(other, _cache.Rules);
+        var world = new WorldContext(_world.EntityCache, unprepared);
         Assert.True(new LoginHandler().Handle(_login, new Login { Username = "demo", Password = "demo" }).Success);
-        _cache.Session.Authenticated = _login.Authenticated;
-        var response = new SelectRoleHandler().Handle(_world, new SelectRole { RoleId = _id });
+        unprepared.Session.Authenticated = _login.Authenticated;
+        var response = new SelectRoleHandler().Handle(world, new SelectRole { RoleId = _id });
         Assert.False(response.Success);
-        Assert.Null(_cache.Current);
-        Assert.Empty(_cache.Notices);
-        _cache.EntityCache.Tables = _repo.Load(_id);
+        Assert.Null(unprepared.Current);
+        Assert.Empty(unprepared.Notices);
+        _cache.Session.Authenticated = _login.Authenticated;
         Assert.True(new SelectRoleHandler().Handle(_world, new SelectRole { RoleId = _id }).Success);
     }
 
@@ -137,7 +138,6 @@ public sealed class ServerHandlerTests : IDisposable
     [Fact]
     public void RoleListHandlersUseOnlyPreparedMemory()
     {
-        _cache.EntityCache.Tables = null;
         _login.EntityCache.Deletions[_id] = _repo.ReadRole(_id);
         var paths = Directory.GetFiles(_directory);
         var locks = paths.Select(path => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None)).ToArray();

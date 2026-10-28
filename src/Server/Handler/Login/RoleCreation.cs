@@ -10,7 +10,7 @@ namespace Rpg.Server.Handler.Login;
 internal static class RoleCreation
 {
     /// <summary>校验列表唯一名称和外观，准备初始实体，不消耗失败编号。</summary>
-    internal static RoleEntityTables Create(LoginContext cache, string name, ServerRoleGender gender,
+    internal static ServerRoleCache Create(LoginContext cache, string name, ServerRoleGender gender,
         int headId, int mapId, float? spawnX = null, float? spawnY = null)
     {
         name = name.Trim();
@@ -20,7 +20,7 @@ internal static class RoleCreation
             throw new ArgumentException("角色名字已存在");
         if (!Enum.IsDefined(gender) || headId is < 1 or > 74) throw new ArgumentException("性别或头型无效");
         var id = checked(cache.EntityCache.Summaries.Keys.DefaultIfEmpty(1002).Max() + 1);
-        return new RoleEntityTables(new RoleEntity
+        return new ServerRoleCache(new RoleEntity
         {
             RoleId = id, MapId = mapId, Name = name, Gender = gender, HeadId = headId, Level = 1,
             Health = 100, MaxHealth = 100, Mana = 60, MaxMana = 60, NextExperience = 500,

@@ -33,7 +33,7 @@ public sealed class PublicEquipmentTests
     [Fact]
     public void PublicProjectionAndWireMessagesContainOnlyEquipment()
     {
-        var role = new RoleEntityTables(new RoleEntity { RoleId = 1001, MapId = 1, HeadId = 1, Name = "公开装备", Level = 1, MaxHealth = 100, NextExperience = 500, NextInstanceId = 3 }, Enumerable.Concat<ItemEntity>([new ItemEntity(2, 1012, 17, 1)], [new ItemEntity(1, 1012, EquipmentSlot.MainHand)]));
+        var role = new ServerRoleCache(new RoleEntity { RoleId = 1001, MapId = 1, HeadId = 1, Name = "公开装备", Level = 1, MaxHealth = 100, NextExperience = 500, NextInstanceId = 3 }, Enumerable.Concat<ItemEntity>([new ItemEntity(2, 1012, 17, 1)], [new ItemEntity(1, 1012, EquipmentSlot.MainHand)]));
         var notice = MockServer.CreateEquipmentNotice(role);
         var envelope = MessageCodec.ReadEnvelope(MessageCodec.Encode(notice, 7, false, 23));
         var decoded = Assert.IsType<RoleEquipmentNotice>(MessageCodec.ReadPayload(envelope, false));

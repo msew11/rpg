@@ -7,6 +7,7 @@ using Rpg.Server;
 using Rpg.Server.Entity;
 using Rpg.Server.EntityCache;
 using Rpg.Server.Handler.Bag;
+using Rpg.Server.Context;
 using Rpg.Tests;
 using Rpg.Services;
 
@@ -82,21 +83,110 @@ public sealed class RoleEntityStorageTests : IDisposable
         Assert.Equal(0, entities.Item.Items[1].SlotIndex);
     }
 
-    /// <summary>mock-server：平级实体表重组保留完整角色、穿戴及编号，会话序号与实体表分离。</summary>
+    /// <summary>openspec/specs/mock-server：角色缓存直接持有三份实体缓存并保留穿戴、扩容及实例编号。</summary>
     [Fact]
-    public void PeerTablesPreserveRoleStateAndInstanceNumbers()
+    public void RoleCachePreservesPeerEntitiesAndInstanceNumbers()
     {
         var original = new RepoServerRole(_directory).Create("平级缓存", ServerRoleGender.Female, 2);
         var role = original.WithRole(original.Role.Value with { BagExtraRows = 1 })
             .WithItems([new(3, 1014, 2, 1), new(10, 1012, EquipmentSlot.MainHand)], 11);
-        var restored = new RoleEntityTables(role.Role, role.Item, role.Equipment);
+        var restored = new ServerRoleCache(role.Role, role.Item, role.Equipment);
         Assert.Equal(role, restored);
         Assert.Same(role.Role, restored.Role);
         Assert.Same(role.Item, restored.Item);
         Assert.Same(role.Equipment, restored.Equipment);
         Assert.Equal(11, restored.Role.Value.NextInstanceId);
         Assert.Equal(EquipmentSlot.MainHand, restored.Item.Items[10].EquipmentSlot);
+    }
 
+    /// <summary>openspec/specs/server-actors：工作副本共享只读实体，但会话及其可写集合与来源隔离。</summary>
+    [Fact]
+    public void RoleWorkCopyIsolatesSessionAndEntityCommits()
+    {
+        var original = new RepoServerRole(_directory).Create("副本隔离", ServerRoleGender.Male, 1);
+        original.Dirty = 1;
+        original.Session.Authenticated = true;
+        original.Session.RoleId = original.Role.Value.RoleId;
+        original.Session.ItemsRevision = 7;
+        original.Session.Moves.Add(new PendingMove(1, 0.45));
+        original.Session.Pickup = new PickupItem { RoleId = original.Role.Value.RoleId, MoveActionId = 1 };
+        var copy = original.Copy();
+        Assert.Same(original.Role, copy.Role);
+        Assert.Same(original.Item, copy.Item);
+        Assert.Same(original.Equipment, copy.Equipment);
+        Assert.NotSame(original.Session, copy.Session);
+        Assert.NotSame(original.Session.Pickup, copy.Session.Pickup);
+        Assert.Equal(1, copy.Dirty);
+        Assert.Equal(7, copy.Session.ItemsRevision);
+
+        var context = new RoleContext(copy, new DataServerRules(_rules));
+        context.Commit(copy.WithItems([new(1, 1012, 0, 1)], 2), 2);
+        copy.Session.ItemsRevision = 9;
+        copy.Session.Moves.Clear();
+        copy.Session.Pickup!.MoveActionId = 2;
+        Assert.Single(copy.BagItems);
+        Assert.Equal(3, copy.Dirty);
+        Assert.Empty(original.BagItems);
+        Assert.Equal(1, original.Role.Value.NextInstanceId);
+        Assert.Equal(1, original.Dirty);
+        Assert.Equal(7, original.Session.ItemsRevision);
+        Assert.Single(original.Session.Moves);
+        Assert.Equal(1, original.Session.Pickup.MoveActionId);
+    }
+
+    /// <summary>openspec/specs/mock-server、server-write-back：领域提交仅接纳对应实体字段，保留会话和既有待写标记。</summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void EntityCommitPreservesSessionAndFiltersDomains(int domain)
+    {
+        var cache = new RepoServerRole(_directory).Create("领域提交", ServerRoleGender.Male, 1);
+        var before = cache.Role.Value;
+        var items = cache.Item;
+        cache.Dirty = domain == 1 ? 2 : 1;
+        cache.Session.RoleId = before.RoleId;
+        cache.Session.AcknowledgedAction = 5;
+        cache.Session.Moves.Add(new PendingMove(6, 0.45));
+        var session = cache.Session;
+        var context = new RoleContext(cache, new DataServerRules(_rules));
+        var candidate = cache.WithRole(before with { Health = 77, BagExtraRows = 2 })
+            .WithItems([new(1, 1012, 0, 1)], 2);
+        context.Commit(candidate, domain);
+        Assert.Same(session, cache.Session);
+        Assert.Equal(5, session.AcknowledgedAction);
+        Assert.Single(session.Moves);
+        Assert.Equal(domain == 2 ? before.Health : 77, cache.Role.Value.Health);
+        Assert.Equal(domain == 1 ? before.BagExtraRows : 2, cache.Role.Value.BagExtraRows);
+        Assert.Equal(domain == 1 ? before.NextInstanceId : 2, cache.Role.Value.NextInstanceId);
+        Assert.Equal(domain == 1 ? 0 : 1, cache.BagItems.Count);
+        if (domain == 1) Assert.Same(items, cache.Item);
+        Assert.Equal(3, cache.Dirty);
+        cache.Dirty = 0;
+        context.Commit(cache.Copy(), domain);
+        Assert.Equal(0, cache.Dirty);
+    }
+
+    /// <summary>openspec/specs/mock-server：编号越界、重复背包格或装备槽的候选失败时不改变当前缓存。</summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void InvalidEntityCandidatesLeaveCurrentCacheUntouched(int invalidCase)
+    {
+        var cache = new RepoServerRole(_directory).Create("跨表校验", ServerRoleGender.Male, 1);
+        var role = cache.Role;
+        var item = cache.Item;
+        var equipment = cache.Equipment;
+        ItemEntity[] invalid = invalidCase == 2
+            ? [new(1, 1012, EquipmentSlot.MainHand), new(2, 1012, EquipmentSlot.MainHand)]
+            : [new(1, 1012, 0, 1), new(2, 1012, 0, 1)];
+        if (invalidCase == 0) invalid = [new(3, 1012, 0, 1)];
+        Assert.Throws<InvalidDataException>(() => cache.WithItems(invalid, 3));
+        Assert.Same(role, cache.Role);
+        Assert.Same(item, cache.Item);
+        Assert.Same(equipment, cache.Equipment);
+        Assert.Equal(0, cache.Dirty);
     }
 
     /// <summary>mock-server：多例缓存以 InstanceId 拒绝重复、悬空关联和缺失穿戴扩展。</summary>

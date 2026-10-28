@@ -30,7 +30,7 @@ internal sealed record DataSummaryChanged(RoleSummaryEntity Summary);
 /// <summary>角色初始化前领取未落地的新建数据。</summary>
 internal sealed record DataClaimRole(long RoleId);
 /// <summary>角色初始化数据为空表示从独立三表加载。</summary>
-internal sealed record DataRoleSeed(RoleEntityTables? Tables);
+internal sealed record DataRoleSeed(ServerRoleCache? Cache);
 /// <summary>读取或提交登录暂存结果的有序回合。</summary>
 internal sealed record DataLoginWork(Func<LoginContext, object?> Work);
 /// <summary>地图的独立只读快照，不泄露可写缓存。</summary>

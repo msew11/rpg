@@ -22,7 +22,7 @@ internal sealed class RoleActor : BaseActor
     /// <summary>只读业务规则。</summary>
     private readonly DataServerRules _rules;
     /// <summary>本回合结束后唯一保留的角色缓存。</summary>
-    private ServerRoleCache _cache = new();
+    private ServerRoleCache _cache = null!;
 
     /// <summary>本 Actor 复用的Move请求处理器。</summary>
     private readonly MoveHandler _moveHandler = new();
@@ -43,10 +43,10 @@ internal sealed class RoleActor : BaseActor
     {
         // 地图初始化成功后才接管新建实体，失败仍由登录缓存保留待写数据。
         var seed = await _login.Ask<DataRoleSeed>(new DataClaimRole(RoleId)).ConfigureAwait(false);
-        _cache.Tables = seed.Tables ?? _repo.Load(RoleId);
-        _cache.Dirty = seed.Tables is null ? 0 : 3;
-        _rules.BagRules.Validate(_cache.Tables);
-        await _world(_cache.Tables.Role.Value.MapId).Ask<bool>(new DataMapWork(_cache.Tables.Role.Value.MapId, _ => true)).ConfigureAwait(false);
+        _cache = seed.Cache?.Copy() ?? _repo.Load(RoleId);
+        _cache.Dirty = seed.Cache is null ? 0 : 3;
+        _rules.BagRules.Validate(_cache);
+        await _world(_cache.Role.Value.MapId).Ask<bool>(new DataMapWork(_cache.Role.Value.MapId, _ => true)).ConfigureAwait(false);
         await _login.Ask<bool>(new DataLoginWork(context => { context.EntityCache.Created.Remove(RoleId); return true; })).ConfigureAwait(false);
     }
 
@@ -73,7 +73,7 @@ internal sealed class RoleActor : BaseActor
     /// <summary>纯角色请求在自己的异步回合处理，结果采用副本发布。</summary>
     private DataRoleResult InRole(Func<RoleContext, object?> work)
     {
-        var previous = _cache.Tables!;
+        var previous = _cache;
         var context = new RoleContext(_cache.Copy(), _rules);
         var response = work(context);
         _cache = context.EntityCache;
@@ -84,8 +84,8 @@ internal sealed class RoleActor : BaseActor
     /// <summary>暂停本角色回合，地图串行处理副本后接回全部结果。</summary>
     private async Task<DataRoleResult> InWorld(Func<int, object> message)
     {
-        var previous = _cache.Tables!;
-        var id = _cache.Tables!.Role.Value.MapId;
+        var previous = _cache;
+        var id = _cache.Role.Value.MapId;
         var result = await _world(id).Ask<DataRoleResult>(message(id)).ConfigureAwait(false);
         _cache = result.Role;
         PublishSummary(previous);
@@ -93,9 +93,9 @@ internal sealed class RoleActor : BaseActor
     }
 
     /// <summary>只有展示字段或物品表变化才发布摘要，空回合和位置推进不增加登录消息。</summary>
-    private void PublishSummary(RoleEntityTables previous)
+    private void PublishSummary(ServerRoleCache previous)
     {
-        var current = _cache.Tables!;
+        var current = _cache;
         var before = previous.Role.Value;
         var after = current.Role.Value;
         if (!ReferenceEquals(previous.Item, current.Item) || before.Name != after.Name || before.Level != after.Level ||

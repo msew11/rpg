@@ -20,29 +20,29 @@ public sealed class RoleContext
     public Queue<IMessage> Notices { get; } = new();
     /// <summary>模拟和认证会话。</summary>
     public ServerSession Session => EntityCache.Session;
-    /// <summary>本次选中的角色表。</summary>
-    public RoleEntityTables? Current => Session.RoleId is { } id && EntityCache.Tables?.Role.Value.RoleId == id ? EntityCache.Tables : null;
+    /// <summary>本次选中的角色实体缓存。</summary>
+    public ServerRoleCache? Current => Session.RoleId == EntityCache.Role.Value.RoleId ? EntityCache : null;
 
     /// <summary>只查询已经加载的本角色实体。</summary>
-    public RoleEntityTables GetRole(long id) => EntityCache.Tables is { } tables && tables.Role.Value.RoleId == id && !tables.Role.Value.IsDeleted
-        ? tables : throw new InvalidOperationException("角色尚未加载或已删除");
+    public ServerRoleCache GetRole(long id) => EntityCache.Role.Value.RoleId == id && !EntityCache.Role.Value.IsDeleted
+        ? EntityCache : throw new InvalidOperationException("角色尚未加载或已删除");
 
     /// <summary>检查当前认证与角色身份。</summary>
-    public RoleEntityTables RequireRole(long id) => Session.Authenticated && Current is { } current && current.Role.Value.RoleId == id
+    public ServerRoleCache RequireRole(long id) => Session.Authenticated && Current is { } current && current.Role.Value.RoleId == id
         ? current : throw new InvalidOperationException("请先进入当前角色");
 
     /// <summary>提交角色候选，只修改本分片并登记待写领域。</summary>
-    public void Commit(RoleEntityTables candidate, int domains = 3)
+    public void Commit(ServerRoleCache candidate, int domains = 3)
     {
         var id = candidate.Role.Value.RoleId;
-        var previous = EntityCache.Tables ?? throw new InvalidOperationException("角色尚未加载");
+        var previous = EntityCache;
         if (previous.Role.Value.RoleId != id) throw new InvalidOperationException("角色分片身份不符");
         if (domains == 1) candidate = previous.WithRole(candidate.Role.Value with
             { NextInstanceId = previous.Role.Value.NextInstanceId, BagExtraRows = previous.Role.Value.BagExtraRows });
-        if (domains == 2) candidate = new RoleEntityTables(new RoleEntityCache(previous.Role.Value with
+        if (domains == 2) candidate = new ServerRoleCache(new RoleEntityCache(previous.Role.Value with
             { NextInstanceId = candidate.Role.Value.NextInstanceId, BagExtraRows = candidate.Role.Value.BagExtraRows }), candidate.Item, candidate.Equipment);
         if (candidate.Equals(previous)) return;
-        EntityCache.Tables = candidate;
+        EntityCache.ReplaceEntities(candidate);
         EntityCache.Dirty |= domains;
     }
 }

@@ -15,7 +15,7 @@
 - [x] 装备配置基础：道具大小类及十一种槽位枚举、大小类到槽位的代码映射；独立 equipment.json 和道具 relatedId 关联，分类单键/双键 List 索引，CfgCache 加载后索引钩子与全表 Validate 关联校验。启动拒绝未定义枚举及缺失引用。
 
 - [x] 角色装备闭环：所有角色共用十一槽位、独立保存内容；主副手穿脱替换走服务器消息，信封物品快照版本及原子实体表存档，替换回来源格、满包卸下失败；角色窗口旋转预览与左右槽位，沿用背包两次点击交互并支持 Ctrl＋左键自动穿脱，空手隐藏武器。
-- [x] 服务端实体缓存平级：RoleEntityCache 仅持有角色单例，ItemEntityCache 与 EquipmentEntityCache 独立；RoleEntityTables 组合三张表并投影业务候选，由 ServerRoleCache 按角色持有，沿用摘要优先加载及四表事务。
+- [x] 服务端实体缓存平级：RoleEntityCache 仅持有角色单例，ItemEntityCache 与 EquipmentEntityCache 独立；ServerRoleCache 按角色直接持有三份缓存、待写领域与会话，承担候选构造和跨表校验；移除独立表组容器，工作副本隔离会话，沿用摘要优先加载及四表事务。
 - [x] 装备展示与实例分离：公开世界及选角摘要只含 equipped_items 配置 ID；私有 ItemPb 使用 equipped、穿戴 slot_index=0 及空 EquipmentPb oneof。装备协议归并 bag.proto，网络 revision 统一放 EnvelopePb 且不落地；地图对象版本和地图格式保持不变。
 - [x] 装备窗口紧凑展示：中央人物与地图等大且隐藏头像，空槽内灰色部位名，移除穿脱提示和右键卸下；角色、选角与创角统一箭头图标旋转按钮。
 - [x] 装备窗口五行重排：主副手移到人物下方并与鞋子同行，预览与旋转上移；格子及图标与背包完全等大，旋转改为小尺寸居中上弧箭头，普通窗口标题统一背包字号，角色外框去除固定右侧留白。
