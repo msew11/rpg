@@ -66,11 +66,39 @@ public sealed class RoleEntityStorageTests : IDisposable
         var loaded = disk.Load(role.RoleId);
         Assert.Equal(1, Assert.Single(loaded.Bag.Equipment).InstanceId);
         Assert.Equal(new[] { 1012 }, Assert.Single(new RepoServerRole(_directory).ListSummaries()).EquippedItems);
-        var entities = new RoleEntityCache(loaded);
-        Assert.IsType<RoleEntity>(entities.Value);
+        var entities = new RepoEntityCache(loaded);
+        Assert.IsType<RoleEntity>(entities.Role.Value);
         Assert.Equal(entities.Item.Items.Keys, entities.Equipment.Items.Keys);
         Assert.True(entities.Item.Items[1].Equipped);
         Assert.Equal(0, entities.Item.Items[1].SlotIndex);
+    }
+
+    /// <summary>mock-server：平级实体表重组保留完整角色、穿戴及编号，临时序号仅随内存候选保留。</summary>
+    [Fact]
+    public void PeerTablesPreserveRoleStateAndInstanceNumbers()
+    {
+        var role = new RepoServerRole(_directory).Create("平级缓存", ServerRoleGender.Female, 2) with
+        {
+            Revision = 7, AcknowledgedAction = 4, BagExtraRows = 1,
+            Bag = new DataServerBag
+            {
+                Revision = 8, EquipmentRevision = 9, NextInstanceId = 11,
+                Items = [new(3, 1014, 2, 1)],
+                Equipment = [new(10, 1012, EquipmentSlot.MainHand)]
+            }
+        };
+        var cache = new RepoEntityCache(role);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(role),
+            System.Text.Json.JsonSerializer.Serialize(cache.ToRole()));
+
+        var restored = new RepoEntityCache(cache.Role, cache.Item, cache.Equipment).ToRole();
+        var expected = role with
+        {
+            Revision = 0, AcknowledgedAction = 0,
+            Bag = role.Bag with { Revision = 0, EquipmentRevision = 0 }
+        };
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(expected),
+            System.Text.Json.JsonSerializer.Serialize(restored));
     }
 
     /// <summary>mock-server：多例缓存以 InstanceId 拒绝重复、悬空关联和缺失穿戴扩展。</summary>

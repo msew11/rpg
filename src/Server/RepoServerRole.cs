@@ -17,7 +17,7 @@ public sealed class RepoServerRole
     /// <summary>实体文件根目录。</summary>
     private readonly string _directory;
     /// <summary>仅已选择或本次修改角色才进入完整实体缓存。</summary>
-    private readonly Dictionary<long, RoleEntityCache>? _cache;
+    private readonly Dictionary<long, RepoEntityCache>? _cache;
     /// <summary>登录加载的独立摘要及删除墓碑。</summary>
     private readonly Dictionary<long, RoleSummaryEntity> _summaries = new();
     /// <summary>仅角色单例的未落地删除，不要求加载物品表。</summary>
@@ -68,7 +68,7 @@ public sealed class RepoServerRole
         Recover(roleId);
         var role = Read(roleId);
         if (role.IsDeleted) throw new InvalidDataException("角色已删除");
-        if (_cache is not null) _cache.Add(roleId, new RoleEntityCache(role));
+        if (_cache is not null) _cache.Add(roleId, new RepoEntityCache(role));
         return role;
     }
 
@@ -120,7 +120,7 @@ public sealed class RepoServerRole
         Validate(role);
         if (_cache is not null) { Stage(role, 3); return; }
         Recover(role.RoleId);
-        var cache = new RoleEntityCache(role);
+        var cache = new RepoEntityCache(role);
         Commit(role.RoleId, Changed(role.RoleId, Serialize(cache)));
     }
 
@@ -132,8 +132,8 @@ public sealed class RepoServerRole
         Recover(role.RoleId);
         if (!File.Exists(GetSummaryPath(role.RoleId))) { Save(role); return; }
         var previous = ReadRoleEntity(role.RoleId);
-        var cache = new RoleEntityCache(role);
-        var entity = cache.Value with { NextInstanceId = previous.NextInstanceId, BagExtraRows = previous.BagExtraRows };
+        var cache = new RepoEntityCache(role);
+        var entity = cache.Role.Value with { NextInstanceId = previous.NextInstanceId, BagExtraRows = previous.BagExtraRows };
         var summary = ReadJson<RoleSummaryEntity>(GetSummaryPath(role.RoleId), JsonOptions) with
         {
             Name = role.Name, Level = role.Level, Gender = role.Gender, HeadId = role.HeadId, IsDeleted = role.IsDeleted
@@ -152,7 +152,7 @@ public sealed class RepoServerRole
         if (_cache is not null) { Stage(role, 2); return; }
         Recover(role.RoleId);
         if (!File.Exists(GetSummaryPath(role.RoleId))) { Save(role); return; }
-        var cache = new RoleEntityCache(role);
+        var cache = new RepoEntityCache(role);
         var values = Serialize(cache);
         var previous = ReadRoleEntity(role.RoleId);
         values["role"] = JsonSerializer.Serialize(previous with
@@ -179,7 +179,7 @@ public sealed class RepoServerRole
             if (role == previous) return;
         }
         else domains = 3;
-        _cache![role.RoleId] = new RoleEntityCache(role);
+        _cache![role.RoleId] = new RepoEntityCache(role);
         _summaries[role.RoleId] = RoleSummaryEntity.FromRole(role);
         _dirty[role.RoleId] = _dirty.GetValueOrDefault(role.RoleId) | domains;
     }
@@ -247,7 +247,7 @@ public sealed class RepoServerRole
             {
                 var items = new ItemEntityCache(ReadJson<ItemEntity[]>(GetItemPath(roleId), JsonOptions));
                 var equipment = new EquipmentEntityCache(ReadJson<EquipmentEntity[]>(GetEquipmentPath(roleId), JsonOptions), items);
-                return new RoleEntityCache(role, items, equipment).ToRole();
+                return new RepoEntityCache(new RoleEntityCache(role), items, equipment).ToRole();
             }
             catch (InvalidDataException error)
             { throw new InvalidDataException($"角色实体表无效：{GetItemPath(roleId)}；{GetEquipmentPath(roleId)}；{error.Message}", error); }
@@ -285,11 +285,11 @@ public sealed class RepoServerRole
     }
 
     /// <summary>单例对象与多例数组直接序列化，不含版本及外层包装。</summary>
-    private static Dictionary<string, string> Serialize(RoleEntityCache cache) => new()
+    private static Dictionary<string, string> Serialize(RepoEntityCache cache) => new()
     {
         ["item"] = JsonSerializer.Serialize(cache.Item.Items.Values.OrderBy(item => item.InstanceId), JsonOptions),
         ["equipment"] = JsonSerializer.Serialize(cache.Equipment.Items.Values.OrderBy(item => item.InstanceId), JsonOptions),
-        ["role"] = JsonSerializer.Serialize(cache.Value, JsonOptions),
+        ["role"] = JsonSerializer.Serialize(cache.Role.Value, JsonOptions),
         ["role_summary"] = JsonSerializer.Serialize(RoleSummaryEntity.FromRole(cache.ToRole()), JsonOptions)
     };
 
