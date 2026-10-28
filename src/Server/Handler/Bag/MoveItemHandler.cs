@@ -12,7 +12,7 @@ namespace Rpg.Server.Handler.Bag;
 public sealed class MoveItemHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public MoveItemRt Handle(RepoEntityCache cache, global::Rpg.Net.Message.MoveItem request)
+    public MoveItemRt Handle(ServerRequestContext cache, global::Rpg.Net.Message.MoveItem request)
     {
         var response = new MoveItemRt { RoleId = request.RoleId, InstanceId = request.InstanceId, TargetSlotIndex = request.TargetSlotIndex };
         try

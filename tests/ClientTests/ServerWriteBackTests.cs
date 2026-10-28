@@ -22,21 +22,20 @@ public sealed class ServerWriteBackTests : IDisposable
         var disk = new RepoServerRole(_directory);
         var original = disk.Create("合并测试", ServerRoleGender.Male, 1);
         var writes = new List<string>();
-        var cache = new RepoServerRole(_directory, (path, _) => writes.Add(path), deferWrites: true);
-        cache.SaveRole(original.WithRole(original.Role.Value with { X = 20 }));
-        cache.SaveRole(original.WithRole(original.Role.Value with { X = 30 }));
+        using var server = new MockServer(_directory, new BagRules(8, 5, []), (path, _) => writes.Add(path));
+        Enter(server, original.Role.Value.RoleId);
+        server.PublishRolePosition(20, original.Role.Value.Y);
+        server.PublishRolePosition(30, original.Role.Value.Y);
         Assert.Equal(original, disk.Load(original.Role.Value.RoleId));
-        Assert.Equal(30, cache.Load(original.Role.Value.RoleId).Role.Value.X);
         Assert.Empty(writes);
-        cache.Flush();
+        server.Flush();
         Assert.Equal(disk.GetRolePath(original.Role.Value.RoleId), Assert.Single(writes));
         Assert.Equal(30, disk.Load(original.Role.Value.RoleId).Role.Value.X);
         writes.Clear();
-        cache.SaveRole(original.WithRole(original.Role.Value with { X = 40 }));
-        cache.SaveRole(original.WithRole(original.Role.Value with { X = 30 }));
-        cache.SaveBag(original);
-        cache.Flush();
-        cache.Flush();
+        server.PublishRolePosition(40, original.Role.Value.Y);
+        server.PublishRolePosition(30, original.Role.Value.Y);
+        server.Flush();
+        server.Flush();
         Assert.Empty(writes);
     }
 
@@ -47,15 +46,17 @@ public sealed class ServerWriteBackTests : IDisposable
         var disk = new RepoServerRole(_directory);
         var first = disk.Create("首个", ServerRoleGender.Male, 1);
         var second = disk.Create("另一个", ServerRoleGender.Female, 1);
-        var cache = new RepoServerRole(_directory, deferWrites: true);
-        cache.SaveRole(first.WithRole(first.Role.Value with { Health = 10 }));
-        cache.SaveRole(second.WithRole(second.Role.Value with { Health = 20 }));
+        using var server = new MockServer(_directory, new BagRules(8, 5, []));
+        Enter(server, first.Role.Value.RoleId);
+        server.PublishRoleStatus(first.Role.Value with { Health = 10 });
+        server.ResetSession(1);
+        Enter(server, second.Role.Value.RoleId);
+        server.PublishRoleStatus(second.Role.Value with { Health = 20 });
         using (var locked = new FileStream(disk.GetRolePath(first.Role.Value.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
-            Assert.Throws<AggregateException>(() => cache.Flush());
-        Assert.Equal(10, cache.Load(first.Role.Value.RoleId).Role.Value.Health);
+            Assert.Throws<AggregateException>(() => server.Flush());
         Assert.Equal(100, disk.Load(first.Role.Value.RoleId).Role.Value.Health);
         Assert.Equal(20, disk.Load(second.Role.Value.RoleId).Role.Value.Health);
-        cache.Flush();
+        server.Flush();
         Assert.Equal(10, disk.Load(first.Role.Value.RoleId).Role.Value.Health);
     }
 
@@ -63,17 +64,23 @@ public sealed class ServerWriteBackTests : IDisposable
     [Fact]
     public void CachedCreationDeletionAndIdsSurviveFlush()
     {
-        var cache = new RepoServerRole(_directory, deferWrites: true);
-        var first = cache.Create("首个", ServerRoleGender.Male, 1);
-        cache.Delete(first.Role.Value.RoleId);
-        var second = cache.Create("另一个", ServerRoleGender.Female, 1);
-        Assert.True(second.Role.Value.RoleId > first.Role.Value.RoleId);
-        Assert.Equal(second, Assert.Single(cache.List()));
+        using var server = new MockServer(_directory, new BagRules(8, 5, []));
+        server.ResetSession(1);
+        var replies = new List<Google.Protobuf.IMessage>();
+        server.Outgoing += packet => replies.Add(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false));
+        Send(server, new Login { Username = "demo", Password = "demo" });
+        Send(server, new CreateRole { Name = "首个", HeadId = 1, Gender = RoleGenderPb.Male });
+        var first = Assert.Single(replies.OfType<CreateRoleRt>().Last().Roles).RoleId;
+        Send(server, new DeleteRole { RoleId = first });
+        Assert.True(replies.OfType<DeleteRoleRt>().Last().Success);
+        Send(server, new CreateRole { Name = "另一个", HeadId = 1, Gender = RoleGenderPb.Female });
+        var second = Assert.Single(replies.OfType<CreateRoleRt>().Last().Roles).RoleId;
+        Assert.True(second > first);
         Assert.False(Directory.Exists(_directory));
-        cache.Flush();
+        server.Flush();
         var disk = new RepoServerRole(_directory);
-        Assert.Equal(second, Assert.Single(disk.List()));
-        Assert.True(disk.Create("重启创建", ServerRoleGender.Male, 1).Role.Value.RoleId > second.Role.Value.RoleId);
+        Assert.Equal(second, Assert.Single(disk.List()).Role.Value.RoleId);
+        Assert.True(disk.Create("重启创建", ServerRoleGender.Male, 1).Role.Value.RoleId > second);
     }
 
     /// <summary>即使未选角也按周期落地；0 禁用，调整重新计时，关闭强制补写。</summary>
@@ -124,6 +131,17 @@ public sealed class ServerWriteBackTests : IDisposable
         net.ResetSession();
         Assert.Equal("离角落地", Assert.Single(new RepoServerRole(_directory).List()).Role.Value.Name);
     }
+
+    /// <summary>通过正式协议进入角色 Actor。</summary>
+    private static void Enter(MockServer server, long id)
+    {
+        server.ResetSession(1);
+        Send(server, new Login { Username = "demo", Password = "demo" });
+        Send(server, new SelectRole { RoleId = id });
+    }
+
+    /// <summary>使用当前默认连接代次发送测试消息。</summary>
+    private static void Send(MockServer server, Google.Protobuf.IMessage request) => server.Receive(MessageCodec.Encode(request, 1, true));
 
     /// <summary>移除本次验收独占文件。</summary>
     public void Dispose()

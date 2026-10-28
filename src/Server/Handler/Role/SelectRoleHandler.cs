@@ -12,7 +12,7 @@ namespace Rpg.Server.Handler.Role;
 public sealed class SelectRoleHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public SelectRoleRt Handle(RepoEntityCache cache, global::Rpg.Net.Message.SelectRole request)
+    public SelectRoleRt Handle(ServerRequestContext cache, global::Rpg.Net.Message.SelectRole request)
     {
         var response = new SelectRoleRt { RoleId = request.RoleId };
         try

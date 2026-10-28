@@ -12,7 +12,7 @@ namespace Rpg.Server.Handler.Bag;
 public sealed class EquipItemHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public EquipItemRt Handle(RepoEntityCache cache, global::Rpg.Net.Message.EquipItem request)
+    public EquipItemRt Handle(ServerRequestContext cache, global::Rpg.Net.Message.EquipItem request)
     {
         var response = new EquipItemRt { RoleId = request.RoleId, Slot = request.Slot };
         try

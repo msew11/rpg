@@ -24,6 +24,10 @@ public sealed class MapAoiTracker
     /// <summary>创建当前角色的地图观察者。</summary>
     public MapAoiTracker(long roleId, int mapId) { _roleId = roleId; _mapId = mapId; }
 
+    /// <summary>复制订阅集合及序号，供跨 Actor 的独占工作副本使用。</summary>
+    internal MapAoiTracker Copy() => new(_roleId, _mapId)
+    { _chunks = new(_chunks), _center = _center, _sequence = _sequence };
+
     /// <summary>首次进入或重同步时返回当前九块，继续本观察者序号。</summary>
     public MapAoiSnapshotPb Snapshot(ServerMap map, float x, float y)
     {

@@ -10,7 +10,7 @@ namespace Rpg.Server.Handler.Bag;
 internal static class PickupOperations
 {
     /// <summary>校验角色、版本、九块范围与最近移动目标。</summary>
-    internal static MapObjectEntity Validate(RepoEntityCache cache, PickupItem request)
+    internal static MapObjectEntity Validate(ServerRequestContext cache, PickupItem request)
     {
         var tables = cache.RequireRole(request.RoleId);
         var session = cache.Session;
@@ -28,7 +28,7 @@ internal static class PickupOperations
     }
 
     /// <summary>距离足够时整份入包；空值表示仍需等待，不触发 IO。</summary>
-    internal static PickupItemRt? TryComplete(RepoEntityCache cache)
+    internal static PickupItemRt? TryComplete(ServerRequestContext cache)
     {
         if (cache.Session.Pickup is not { } request) return null;
         try

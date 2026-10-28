@@ -12,7 +12,7 @@ namespace Rpg.Server.Handler.Bag;
 public sealed class DropItemHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public DropItemRt Handle(RepoEntityCache cache, global::Rpg.Net.Message.DropItem request)
+    public DropItemRt Handle(ServerRequestContext cache, global::Rpg.Net.Message.DropItem request)
     {
         var response = new DropItemRt { RoleId = request.RoleId, InstanceId = request.InstanceId };
         try

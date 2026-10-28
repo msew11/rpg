@@ -8,8 +8,6 @@ public sealed class MockTransport : INetTransport, IServerWriteBackTransport
 {
     /// <summary>此传输连接的本地模拟服务端。</summary>
     private readonly MockServer _server;
-    /// <summary>最近一次重置的代次。</summary>
-    private long _generation;
     /// <summary>是否已断开此传输。</summary>
     private bool _disposed;
     /// <summary>交付收到的服务器信封字节。</summary>
@@ -47,7 +45,6 @@ public sealed class MockTransport : INetTransport, IServerWriteBackTransport
     public void ResetSession(long generation)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _generation = generation;
         _server.ResetSession(generation);
     }
 
@@ -55,10 +52,9 @@ public sealed class MockTransport : INetTransport, IServerWriteBackTransport
     public void Dispose()
     {
         if (_disposed) return;
-        _server.Flush();
+        _server.Dispose();
         _disposed = true;
         _server.Outgoing -= OnOutgoing;
-        _server.ResetSession(_generation + 1);
         Received = null;
     }
 

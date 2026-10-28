@@ -68,9 +68,9 @@ if (GameServices.Config.Item.Items.TryGetValue(id, out var item))
 
 `dotnet build rpg.csproj` 使用仅构建依赖 `Grpc.Tools 2.84.0` 自动生成 `src/Net/Message/Message.cs`、`Role.cs`、`Login.cs`、`World.cs`、`Bag.cs`、`Equipment.cs` 和 `Gm.cs`，运行依赖为 `Google.Protobuf 3.36.2`，未启用 gRPC。生成 C# 与 proto 一起提交，中文协议注释写在 proto，不直接修改生成文件。SDK 排除生成目录的默认编译项，再由 protobuf 构建目标添加，避免重复编译。
 
-`src/Server` 使用独立于客户端缓存和 Godot 的实体状态。落地实体放在 `Server/Entity`，缓存放在 `Server/EntityCache`：`RoleEntityCache.Value` 只保存一个 `RoleEntity`；`ItemEntityCache.Items` 与 `EquipmentEntityCache.Items` 按共享 InstanceId 索引。`RoleEntityTables` 平级组合三张表，不复制实体字段；`RepoEntityCache` 统一持有已加载表组、摘要、待写领域、地图及非持久化会话。登录时允许当前角色为空，首次仅读取全部摘要和墓碑，选角后才加载指定角色完整表。实体候选完整校验后一次替换，并同步摘要和 dirty，不再保留 Server/Data 聚合或实体投影适配层。
+`src/Server` 使用独立于客户端缓存和 Godot 的实体状态。落地实体放在 `Server/Entity`，缓存放在 `Server/EntityCache`：`RoleEntityCache.Value` 只保存一个 `RoleEntity`；`ItemEntityCache.Items` 与 `EquipmentEntityCache.Items` 按共享 InstanceId 索引。`RoleEntityTables` 平级组合三张表，不复制实体字段。ServerRoleCache 按角色持有表组、待写领域和非持久化会话，ServerLoginCache 持有摘要及列表管理结果，ServerWorldCache 按地图独占对象和共同转移身份。实体候选完整校验后一次替换并更新 dirty，展示变化由 Actor 消息同步摘要。
 
-请求业务按协议文件名首字母大写放在 `Server/Handler/Login`、`Role`、`Bag`、`Gm`、`World`。每个请求类对应一个 Handler，只公开 `响应 Handle(RepoEntityCache cache, 请求 request)`。Handle 不接收路径、仓库、发送委托或加载回调，只读配置和已加载内存。`MockServer` 在调用前显式准备摘要、选中角色、删除单例和地图，调用后发送内存通知及响应，并在唯一发送边界递增 Envelope revision。移动成功响应由 `ServerSimulation` 延迟 0.45 秒生成；拾取先登记意图，走近后通过同一内存规则提交，重复和取消行为保持一致。计时、网络发送及定时/关闭写回均在 Handle 外。
+请求业务按协议文件名首字母大写放在 `Server/Handler/Login`、`Role`、`Bag`、`Gm`、`World`。每个请求类对应一个 Handler，只公开 `响应 Handle(ServerRequestContext cache, 请求 request)`。Handle 不接收路径、仓库、发送委托或加载回调，只读配置和已加载内存。Actor 初始化加载所属数据，进入 RUN 后调用 Handler，MockServer 接回内存通知及响应，并在唯一发送边界递增 Envelope revision。移动成功响应由 `ServerSimulation` 延迟 0.45 秒生成；拾取先登记意图，走近后通过同一内存规则提交，重复和取消行为保持一致。计时、网络发送及定时/关闭写回均在 Handle 外。
 
 `RepoServerRole` 负责 `<roleId>.role.json` 单例、`<roleId>.item.json` 数组、`<roleId>.equipment.json` 数组与 `<roleId>.role_summary.json` 快照的显式加载和文件提交。删除只需准备角色单例，不加载未选物品表。创建、删除及多表变化保留四表回滚、编号不复用与失败重试。Handler 只更新内存；检测或关闭节点比较最终 JSON，只写实际变化文件，失败保留已接纳实体与待写标记。
 
@@ -196,6 +196,18 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 
 NetService 与 SettingService 通过构造绑定；MockServer 与 RepoServerRole 通过提交回调输出，不依赖 Godot。日志开启时，请求在调用传输发送前记录，表示发送尝试，传输失败仍保留并沿用网络错误报告；当前代次响应和推送在解析成功后、发布前记录。三类消息分别使用 `[Client][Request]`、`[Client][Response]`、`[Client][Notice]` 前缀并附协议名和 protobuf JSON；只有 Request 标记为绿色、Response/Notice 标记为橙色。成功提交设置和服务端角色 JSON 使用 `[Client][IO][filename]` 与 `[Server][IO][filename]`，附实际写入 JSON 的紧凑单行表示，文件格式保持原样；读取、失败和临时文件不输出 IO。消息 JSON 字符串中的方括号使用 Unicode 转义，IO 走纯文本输出，输出故障不改变业务结果。
 
+## 服务端 Actor 与消息
+
+`BaseActor` 使用单消费者 Channel 和独立异步 Task，生命周期为 INIT → RUN → STOP。首次消息触发初始化，加载成功后逐条处理邮箱，Ask 返回 Task 或在调用方延续中处理回调，Tell 不建立业务回复；通知异常经 Error 事件报告。停止关闭接纳入口并排空已接纳消息，初始化失败进入 STOP 并将原始错误交给全部等待者。每个 Actor 使用串行异步回合，不固定占用一条操作系统线程。
+
+启动默认创建唯一 LoginActor，加载所有 `<id>.role_summary.json` 与墓碑到 ServerLoginCache。按正整数角色 ID 创建 RoleActor，按地图 ID 创建 WorldActor，角色及地图消息始终携带分片身份；首次客户端请求、Ask 或 Tell 可以启动对应分片。RoleActor 领取登录阶段的新建实体，或只读取自身 role/item/equipment 三表，读取角色 MapId 后 Ask 初始化对应 WorldActor，再进入 RUN。多个角色共享同一个地图分片。初始化失败的角色或地图分片可在后续请求重新创建，不影响其他合法分片。
+
+RoleActor 独占 ServerRoleCache，处理移动意图、GM 和背包/装备的纯角色操作。涉及地图的选角、AOI、丢弃、拾取及时间推进，将实体表和深复制瞬态状态作为独占工作副本发往 WorldActor；地图在自己的邮箱串行处理并归还结果，RoleActor 等待期间不处理下一条消息。MapAoiTracker 复制订阅集合和序号，待拾取消息也复制，避免跨 Actor 共享可写状态。展示字段或物品表变化后以 Tell 发布不可变摘要给 LoginActor。
+
+Handler 的 `Handle(ServerRequestContext, 请求)` 只接触当前回合内存；ServerRequestContext 是工作区，不是全局缓存，不读取文件或发送网络。旧 RepoEntityCache、MockServer.Prepare 和仓库延迟缓存结构已经删除。MockServer 仅管理当前单连接认证、分片目录、发送信封版本和落地协调，响应在原客户端调用线程交付，Godot UI 不从后台 Actor 回调。同步传输仍会等待加载和写入，真实异步网络、多客户端连接与跨地图迁移待独立需求确定。
+
+MockTransport 正常关闭先完成落地，成功后排空并停止 Role、World、Login 全部 Actor；落地失败保留运行状态与 dirty，供离角或关闭重试。地图查询返回独立只读快照。角色删除保留仍有共同转移的已加载分片及最新物品，未加载或初始化失败角色的删除只读角色单例，不加载物品表。
+
 ## 服务端领域存档
 
 `.role.json` 是 RoleEntity 单对象，保存属性、位置、删除墓碑、BagExtraRows 和 NextInstanceId，不包含物品数组或网络 revision。`.item.json` 是 ItemEntity 数组，含 InstanceId、ItemId、SlotIndex、Count、Equipped；服务端另外保留权威 EquipmentSlot 供当前穿脱业务规则使用，绝不投影到 ItemPb。`.equipment.json` 是 EquipmentEntity 数组，当前只有共享 InstanceId，为装备属性留位。`.role_summary.json` 单对象保存 RoleSummaryPb 所需展示字段、装备配置 ID 和删除墓碑。移动调用 SaveRole，只提交角色变化及有变化的展示摘要；物品调用 SaveBag，提交实例、扩展、编号/扩容和有变化的摘要；格子整理仅写 item，角色移动不读取 item/equipment。通用 Save 比较最终 JSON，只提交变化表。
@@ -218,9 +230,9 @@ HUD 布局刷新只更新已展开系统菜单的位置，不收起菜单或重�
 
 ## 服务端缓存落地调度
 
-`MockServer` 启用 `RepoServerRole` 的延迟模式，直接磁盘仓库用于同步提交与独立验证。`NetService` 通过构造绑定的 Env 提供当前检测秒数，服务端每次 Tick 在业务推进后累计时间，即使未选角也检测。默认 5 秒，GM 的“Server 落地检测”使用 5 秒步长，0 关闭定时检测；`Env.ServerFlushIntervalSeconds` 严格校验非负五秒倍数，保存在 `user://.env` 的 `RPG_SERVER_FLUSH_INTERVAL_SECONDS`，非法文件值回退 5，设置失败恢复输入并反馈。修改后下一 Tick 重新计时，不读写系统环境变量。
+`LoginActor`、`RoleActor` 和 `WorldActor` 分别保存登录列表暂存结果、角色待写领域和地图待写块；`RepoServerRole` 只负责同步文件提交，不再持有业务缓存或延迟模式。`MockServer.Flush` 通过 Actor 邮箱执行准备写入及确认，协调现行角色/地图共同事务。`NetService` 通过构造绑定的 Env 提供当前检测秒数，服务端每次 Tick 在业务推进后累计时间，即使未选角也检测。默认 5 秒，GM 的“Server 落地检测”使用 5 秒步长，0 关闭定时检测；`Env.ServerFlushIntervalSeconds` 严格校验非负五秒倍数，保存在 `user://.env` 的 `RPG_SERVER_FLUSH_INTERVAL_SECONDS`，非法文件值回退 5，设置失败恢复输入并反馈。修改后下一 Tick 重新计时，不读写系统环境变量。
 
-切换角色、返回登录与会话重置不清理服务端缓存；系统菜单离开角色前由 NetService 以零时间帧发送已排队请求，再经可选本地传输写回能力同步调用 MockServer.Flush，成功后才清理角色，失败保留角色界面供重试。正常传输关闭也调用 Flush 补写全部待写文件。某角色落地失败保留内存及待写标记，继续其他角色；定时错误沿用 Net.Error 报告，下个检测节点重试。业务成功不再保证已刷盘，强制结束进程或尚未被服务端确认的移动可能丢失；0 仅禁用周期检测，离角与正常关闭仍补写。落地仍在主线程同步执行，不新增后台线程或并发文件写入。IO 日志只记录实际成功替换的文件。
+切换角色、返回登录与会话重置不清理服务端缓存；系统菜单离开角色前由 NetService 以零时间帧发送已排队请求，再经可选本地传输写回能力同步调用 MockServer.Flush，成功后才清理角色，失败保留角色界面供重试。正常传输关闭也调用 Flush 补写全部待写文件。某角色落地失败保留内存及待写标记，继续其他角色；定时错误沿用 Net.Error 报告，下个检测节点重试。业务成功不再保证已刷盘，强制结束进程或尚未被服务端确认的移动可能丢失；0 仅禁用周期检测，离角与正常关闭仍补写。落地在所属 Actor 异步任务中执行，当前客户端传输边界同步等待回合完成；共同提交由同一外层边界串行协调。IO 日志只记录实际成功替换的文件。
 
 
 ## 多地图状态与九块 AOI
@@ -229,7 +241,7 @@ HUD 布局刷新只更新已展开系统菜单的位置，不收起菜单或重�
 
 角色 MapId 必须显式保存，缺失或无效时拒绝加载；新角色使用 basic.initialMapId。当前地图身份位于 RoleWorldPositionPb，PbData 保持独立转换。MockServer 持有不可变地图规格与只读道具配置，验证移动目标的地图边界，不依赖客户端配置服务。
 
-MockServer 拥有按地图 ID 保存的 ServerMap 及当前观察者 MapAoiTracker。地图规格 `MapLayout` 与变更记录 `MapChange` 归 Server/Map，对象 `MapObjectEntity` 归 Server/Entity。ServerMap 独占对象表、chunk 身份索引和 dirty 集合，向下调用 RepoServerMap；仓库只读写文件，不拥有业务状态。MapAoiTracker 只维护观察者范围和序号，不存对象、不写文件。权威对象创建/更新/删除通过 MockServer 的 CreateMapObject、UpdateMapObject、RemoveMapObject 返回变化并发送可见增量；不增加内部事件总线或反向业务回调。对象以 GUID 稳定寻址，载荷仅定义怪物类型标识或合法道具编号/数量。
+WorldActor 按地图 ID 独占 ServerWorldCache 和其中的 ServerMap；当前角色的 MapAoiTracker 属于 RoleActor 的 ServerRoleCache。地图规格 `MapLayout` 与变更记录 `MapChange` 归 Server/Map，对象 `MapObjectEntity` 归 Server/Entity。ServerMap 独占对象表、chunk 身份索引和 dirty 集合，向下调用 RepoServerMap；仓库只读写文件，不拥有业务状态。MapAoiTracker 只维护观察者范围和序号，不存对象、不写文件。权威对象创建/更新/删除通过 MockServer 的 CreateMapObject、UpdateMapObject、RemoveMapObject 返回变化并发送可见增量；不增加内部事件总线或反向业务回调。对象以 GUID 稳定寻址，载荷仅定义怪物类型标识或合法道具编号/数量。
 
 文件为 user://server/maps/<mapId>/manifest.json 与 chunks/<x>_<y>.<commitId>.json。版本均为 formatVersion=1，清单保存地图身份、布局、提交 GUID 与有效块引用；块保存坐标、提交 GUID 和完整对象。每轮只写变化的非空块，空块移除引用，最后原子替换清单。清单是唯一提交点，跨块移动两侧共同生效；中断候选不参与恢复。已有清单损坏、缺失引用、重复对象或布局不符明确报错。成功提交后清理旧版本，清理失败报告并在下一检测重试，不撤销已提交状态。文件替换沿用单进程及操作系统持久性边界。
 

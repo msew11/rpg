@@ -81,6 +81,24 @@ public sealed class GroundItemDropTests : IDisposable
         return Assert.Single(_messages.OfType<DropItemRt>());
     }
 
+    /// <summary>server-actors：删除角色仍共同提交其最新物品和已丢弃对象，不丢失转移关系。</summary>
+    [Fact]
+    public void DeleteRoleRetainsPendingTransferAndLatestItems()
+    {
+        Assert.True(Drop(2).Success);
+        var ground = Assert.Single(_server.GetMap(1).Objects).Value;
+        _server.ResetSession(1);
+        Send(new DeleteRole { RoleId = _id });
+        Assert.True(_messages.OfType<DeleteRoleRt>().Last().Success);
+        _server.Flush();
+        Assert.Empty(new RepoServerRole(_root).ListSummaries());
+        Assert.Equal(3, System.Text.Json.JsonDocument.Parse(File.ReadAllText(_repo.GetItemPath(_id)))
+            .RootElement[0].GetProperty("count").GetInt32());
+        var restarted = Start();
+        Assert.Equal(ground, Assert.Single(restarted.GetMap(1).Objects).Value);
+        restarted.Dispose();
+    }
+
     /// <summary>部分丢弃保留身份，全部丢弃移除源，地面数量与原背包守恒。</summary>
     [Fact]
     public void PartialThenFullDropPreservesTotalAndIdentity()

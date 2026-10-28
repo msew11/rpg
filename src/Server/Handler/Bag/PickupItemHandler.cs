@@ -12,7 +12,7 @@ namespace Rpg.Server.Handler.Bag;
 public sealed class PickupItemHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public PickupItemRt Handle(RepoEntityCache cache, global::Rpg.Net.Message.PickupItem request)
+    public PickupItemRt Handle(ServerRequestContext cache, global::Rpg.Net.Message.PickupItem request)
     {
         try
         {

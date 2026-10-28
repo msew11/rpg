@@ -21,7 +21,7 @@ public sealed class ServerHandlerTests : IDisposable
     /// <summary>仅本测试拥有的存档根目录。</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-handlers-" + Guid.NewGuid());
     /// <summary>显式准备完成后共享的实体入口。</summary>
-    private readonly RepoEntityCache _cache;
+    private readonly ServerRequestContext _cache;
     /// <summary>用于 IO 准备和最终落地的外层仓库。</summary>
     private readonly RepoServerRole _repo;
     /// <summary>已经加载的地图。</summary>
@@ -35,13 +35,15 @@ public sealed class ServerHandlerTests : IDisposable
         var disk = new RepoServerRole(_directory);
         var role = disk.Create("处理器角色", ServerRoleGender.Male, 1, spawnX: 100, spawnY: 100);
         _id = role.Role.Value.RoleId;
-        _cache = new RepoEntityCache(new BagRules(2, 2,
-        [RoleTestData.Item(1012, "剑", 1, ItemCategory.Weapon, ItemSubCategory.Sword), RoleTestData.Item(2000, "堆叠", 10)]));
-        _repo = new RepoServerRole(_directory, deferWrites: true, cache: _cache);
-        _repo.ListSummaries();
-        _repo.Load(_id);
-        _map = new ServerMap(_cache.MapLayouts[1], new RepoServerMap(_directory), new Dictionary<int, int> { [1012] = 1, [2000] = 10 });
-        _cache.Maps[1] = _map;
+        var rules = new BagRules(2, 2,
+            [RoleTestData.Item(1012, "剑", 1, ItemCategory.Weapon, ItemSubCategory.Sword), RoleTestData.Item(2000, "堆叠", 10)]);
+        _repo = new RepoServerRole(_directory);
+        _map = new ServerMap(new Rpg.Server.Map.MapLayout(1, 1000, 1000, 32, 32), new RepoServerMap(_directory),
+            new Dictionary<int, int> { [1012] = 1, [2000] = 10 });
+        _cache = new ServerRequestContext(rules, world: new ServerWorldCache(_map));
+        foreach (var summary in _repo.ReadSummaries()) _cache.Login.Summaries[summary.RoleId] = summary;
+        _cache.Login.Loaded = true;
+        _cache.Role.Tables = _repo.Load(_id);
     }
 
     /// <summary>mock-server：锁住全部角色表仍能登录、选角、发放、穿脱、整理、丢弃、拾取和重同步。</summary>
@@ -74,13 +76,13 @@ public sealed class ServerHandlerTests : IDisposable
             Assert.True(new ResyncMapAoiHandler().Handle(_cache, new ResyncMapAoi { RoleId = _id, MapId = 1 }).Success);
             Assert.Contains(_cache.Notices, message => message is MoveRt { Success: true });
             Assert.Contains(_cache.Notices, message => message is PickupItemRt { Success: true });
-            Assert.NotEmpty(_cache.Dirty);
+            Assert.NotEqual(0, _cache.Role.Dirty);
         }
         finally { foreach (var file in locks) file.Dispose(); }
         Assert.Equal(originals.Count, Directory.GetFiles(_directory).Length);
         foreach (var (path, bytes) in originals) Assert.Equal(bytes, File.ReadAllBytes(path));
         // 外层显式提交后，角色实体与物品才落地。
-        _repo.Flush();
+        _repo.Save(_cache.Role.Tables!);
         Assert.Single(new RepoServerRole(_directory).Load(_id).BagItems);
     }
 
@@ -93,18 +95,18 @@ public sealed class ServerHandlerTests : IDisposable
         Assert.True(new GmHandler().Handle(_cache, new Gm { RoleId = _id, Command = "item 1012 4" }).Success);
         _cache.Notices.Clear();
         var before = _cache.Current;
-        var summary = _cache.Summaries[_id];
-        var dirty = _cache.Dirty.ToArray();
+        var summary = _cache.Login.Summaries[_id];
+        var dirty = _cache.Role.Dirty;
         Assert.False(new GmHandler().Handle(_cache, new Gm { RoleId = _id, Command = "item 1012" }).Success);
         Assert.False(new MoveItemHandler().Handle(_cache, new MoveItem { RoleId = _id, InstanceId = 1, TargetSlotIndex = 1, ExpectedRevision = 8 }).Success);
         Assert.False(new EquipItemHandler().Handle(_cache, new EquipItem { RoleId = _id, InstanceId = 1, Slot = EquipmentSlotPb.OffHand,
             ExpectedBagRevision = 9, ExpectedEquipmentRevision = 9 }).Success);
         Assert.False(new DropItemHandler().Handle(_cache, new DropItem { RoleId = _id, InstanceId = 1, Count = 2, ExpectedRevision = 9 }).Success);
         Assert.Same(before, _cache.Current);
-        Assert.Same(summary, _cache.Summaries[_id]);
-        Assert.Equal(dirty, _cache.Dirty.ToArray());
+        Assert.Same(summary, _cache.Login.Summaries[_id]);
+        Assert.Equal(dirty, _cache.Role.Dirty);
         Assert.Empty(_map.Objects);
-        Assert.Empty(_cache.TransferGroups);
+        Assert.Empty(_cache.World!.Transfers);
         Assert.Empty(_cache.Notices);
     }
 
@@ -112,13 +114,13 @@ public sealed class ServerHandlerTests : IDisposable
     [Fact]
     public void SelectionRequiresExplicitPreparation()
     {
-        _cache.Roles.Clear();
+        _cache.Role.Tables = null;
         Assert.True(new LoginHandler().Handle(_cache, new Login { Username = "demo", Password = "demo" }).Success);
         var response = new SelectRoleHandler().Handle(_cache, new SelectRole { RoleId = _id });
         Assert.False(response.Success);
         Assert.Null(_cache.Current);
         Assert.Empty(_cache.Notices);
-        _repo.Load(_id);
+        _cache.Role.Tables = _repo.Load(_id);
         Assert.True(new SelectRoleHandler().Handle(_cache, new SelectRole { RoleId = _id }).Success);
     }
 
@@ -126,8 +128,8 @@ public sealed class ServerHandlerTests : IDisposable
     [Fact]
     public void RoleListHandlersUseOnlyPreparedMemory()
     {
-        _cache.Roles.Clear();
-        _repo.PrepareDelete(_id);
+        _cache.Role.Tables = null;
+        _cache.Login.Deletions[_id] = _repo.ReadRole(_id);
         var paths = Directory.GetFiles(_directory);
         var locks = paths.Select(path => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None)).ToArray();
         try
@@ -138,10 +140,11 @@ public sealed class ServerHandlerTests : IDisposable
             Assert.True(created.Success, created.Error);
             Assert.True(Assert.Single(created.Roles).RoleId > _id);
             Assert.Null(_cache.Current);
-            Assert.Equal(4, _cache.Dirty[_id]);
+            Assert.True(_cache.Login.Deletions[_id].IsDeleted);
         }
         finally { foreach (var file in locks) file.Dispose(); }
-        _repo.Flush();
+        _repo.SaveDeletion(_cache.Login.Deletions[_id], _cache.Login.Summaries[_id]);
+        foreach (var tables in _cache.Login.Created.Values) _repo.Save(tables);
         Assert.Equal("新处理器角色", Assert.Single(new RepoServerRole(_directory).ListSummaries()).Name);
     }
 
@@ -167,7 +170,7 @@ public sealed class ServerHandlerTests : IDisposable
         Assert.IsType<PickupItemRt>(Assert.Single(_cache.Notices));
         Assert.False(((PickupItemRt)_cache.Notices.Peek()).Success);
         Assert.Single(_map.Objects);
-        Assert.Empty(_cache.Dirty);
+        Assert.Equal(0, _cache.Role.Dirty);
     }
 
     /// <summary>mock-server：每个 protobuf Handler 仅公开一个约定签名的处理入口。</summary>
@@ -182,7 +185,7 @@ public sealed class ServerHandlerTests : IDisposable
             Assert.Equal("Handle", method.Name);
             var parameters = method.GetParameters();
             Assert.Equal(2, parameters.Length);
-            Assert.Equal(typeof(RepoEntityCache), parameters[0].ParameterType);
+            Assert.Equal(typeof(ServerRequestContext), parameters[0].ParameterType);
             Assert.True(typeof(IMessage).IsAssignableFrom(parameters[1].ParameterType));
             Assert.Equal(parameters[1].ParameterType.Name + "Rt", method.ReturnType.Name);
         }

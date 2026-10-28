@@ -12,7 +12,7 @@ namespace Rpg.Server.Handler.World;
 public sealed class MoveHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public MoveRt Handle(RepoEntityCache cache, global::Rpg.Net.Message.Move request)
+    public MoveRt Handle(ServerRequestContext cache, global::Rpg.Net.Message.Move request)
     {
         var response = new MoveRt { RoleId = request.RoleId, ActionId = request.ActionId };
         try

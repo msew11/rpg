@@ -54,15 +54,24 @@ public sealed class RoleEntityStorageTests : IDisposable
     {
         var disk = new RepoServerRole(_directory);
         var role = disk.Create("摘要事务", ServerRoleGender.Male, 1);
-        var cache = new RepoServerRole(_directory, deferWrites: true);
-        cache.SaveBag(role.WithItems([new(1, 1012, EquipmentSlot.MainHand)], 2));
-        Assert.Equal(new[] { 1012 }, Assert.Single(cache.ListSummaries()).EquippedItems);
+        using var server = new MockServer(_directory, _rules);
+        server.ResetSession(1);
+        var replies = new List<IMessage>();
+        server.Outgoing += packet => replies.Add(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false));
+        void Send(IMessage request) => server.Receive(MessageCodec.Encode(request, 1, true));
+        Send(new Login { Username = "demo", Password = "demo" });
+        Send(new SelectRole { RoleId = role.Role.Value.RoleId });
+        server.PublishRoleState(role.WithItems([new(1, 1012, EquipmentSlot.MainHand)], 2));
+        server.ResetSession(1);
+        Send(new Login { Username = "demo", Password = "demo" });
+        Assert.Equal(new[] { 1012 }, Assert.Single(replies.OfType<LoginRt>().Last().Roles).EquippedItems);
         using (var locked = new FileStream(disk.GetSummaryPath(role.Role.Value.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
-            Assert.Throws<AggregateException>(() => cache.Flush());
+            Assert.Throws<AggregateException>(() => server.Flush());
         Assert.Empty(disk.Load(role.Role.Value.RoleId).EquippedItems);
         Assert.Empty(Assert.Single(disk.ListSummaries()).EquippedItems);
-        Assert.Equal(new[] { 1012 }, Assert.Single(cache.ListSummaries()).EquippedItems);
-        cache.Flush();
+        Send(new Login { Username = "demo", Password = "demo" });
+        Assert.Equal(new[] { 1012 }, Assert.Single(replies.OfType<LoginRt>().Last().Roles).EquippedItems);
+        server.Flush();
         var loaded = disk.Load(role.Role.Value.RoleId);
         Assert.Equal(1, Assert.Single(loaded.EquippedItems).InstanceId);
         Assert.Equal(new[] { 1012 }, Assert.Single(new RepoServerRole(_directory).ListSummaries()).EquippedItems);

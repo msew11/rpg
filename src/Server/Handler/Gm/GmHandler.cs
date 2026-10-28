@@ -12,7 +12,7 @@ namespace Rpg.Server.Handler.Gm;
 public sealed class GmHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public GmRt Handle(RepoEntityCache cache, global::Rpg.Net.Message.Gm request)
+    public GmRt Handle(ServerRequestContext cache, global::Rpg.Net.Message.Gm request)
     {
         var response = new GmRt { RoleId = request.RoleId, Command = request.Command };
         try

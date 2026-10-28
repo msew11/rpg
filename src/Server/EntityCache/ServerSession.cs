@@ -28,6 +28,19 @@ public sealed class ServerSession
     /// <summary>当前角色的范围观察者。</summary>
     internal MapAoiTracker? Aoi { get; set; }
 
+    /// <summary>复制瞬态状态，地图回合不持有角色 Actor 的可写集合。</summary>
+    internal ServerSession Copy()
+    {
+        var copy = new ServerSession
+        {
+            Authenticated = Authenticated, RoleId = RoleId, Position = Position, Target = Target,
+            LastAction = LastAction, AcknowledgedAction = AcknowledgedAction, ItemsRevision = ItemsRevision,
+            Pickup = Pickup?.Clone(), Aoi = Aoi?.Copy()
+        };
+        copy.Moves.AddRange(Moves);
+        return copy;
+    }
+
     /// <summary>离开角色时清理模拟状态，保留账号认证。</summary>
     public void Reset()
     {

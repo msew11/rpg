@@ -12,7 +12,7 @@ namespace Rpg.Server.Handler.World;
 public sealed class ResyncMapAoiHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public ResyncMapAoiRt Handle(RepoEntityCache cache, global::Rpg.Net.Message.ResyncMapAoi request)
+    public ResyncMapAoiRt Handle(ServerRequestContext cache, global::Rpg.Net.Message.ResyncMapAoi request)
     {
         var response = new ResyncMapAoiRt { RoleId = request.RoleId, MapId = request.MapId };
         try

@@ -12,7 +12,7 @@ namespace Rpg.Server;
 internal static class ServerSimulation
 {
     /// <summary>按环境速度推进移动，再完成可达拾取和 AOI 差集。</summary>
-    internal static void Advance(RepoEntityCache cache, double delta, int movementSpeed)
+    internal static void Advance(ServerRequestContext cache, double delta, int movementSpeed)
     {
         AdvanceMovement(cache, delta, movementSpeed);
         var pickup = PickupOperations.TryComplete(cache);
@@ -25,7 +25,7 @@ internal static class ServerSimulation
     }
 
     /// <summary>维持 0.45 秒确认和三像素修正，失败终止相关待确认意图。</summary>
-    private static void AdvanceMovement(RepoEntityCache cache, double delta, int speed)
+    private static void AdvanceMovement(ServerRequestContext cache, double delta, int speed)
     {
         if (cache.Current is null) return;
         var session = cache.Session;
