@@ -1,3 +1,4 @@
+using Rpg.Net;
 using System.IO;
 using Rpg.Net.Message;
 
@@ -12,7 +13,7 @@ public sealed record RolePbData(long RoleId, int Experience, int NextExperience,
     {
         if (message is null) throw new InvalidDataException("私有角色协议不能为空");
         var data = new RolePbData(message.RoleId, message.Experience, message.NextExperience,
-            message.BagExtraRows, message.Revision);
+            message.BagExtraRows, message.GetRevision());
         data.Validate();
         return data;
     }
@@ -22,7 +23,7 @@ public sealed record RolePbData(long RoleId, int Experience, int NextExperience,
     {
         Validate();
         return new RolePb { RoleId = RoleId, Experience = Experience,
-            NextExperience = NextExperience, BagExtraRows = BagExtraRows, Revision = Revision };
+            NextExperience = NextExperience, BagExtraRows = BagExtraRows }.WithRevision(Revision);
     }
 
     /// <summary>拒绝无效经验、容量和版本。</summary>

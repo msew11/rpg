@@ -35,7 +35,7 @@ internal sealed class RepoServerItemTransfer
         var paths = Paths(mapId, ids);
         var originals = paths.ToDictionary(path => path, path =>
             File.Exists(Path.Combine(_root, path)) ? File.ReadAllText(Path.Combine(_root, path)) : null);
-        WriteAtomic(PendingPath, JsonSerializer.Serialize(new DataTransferFile(1, mapId, ids, originals)));
+        WriteAtomic(PendingPath, JsonSerializer.Serialize(new DataTransferFile(2, mapId, ids, originals)));
     }
 
     /// <summary>删除记录是组提交点，失败时仍可恢复旧组。</summary>
@@ -53,9 +53,9 @@ internal sealed class RepoServerItemTransfer
         {
             var data = JsonSerializer.Deserialize<DataTransferFile>(File.ReadAllText(PendingPath))
                 ?? throw new InvalidDataException("转移记录为空");
-            if (data.FormatVersion != 1 || data.Roles is null || data.Originals is null)
+            if (data.FormatVersion is not (1 or 2) || data.Roles is null || data.Originals is null)
                 throw new InvalidDataException("转移记录格式无效");
-            var paths = Paths(data.MapId, data.Roles);
+            var paths = Paths(data.MapId, data.Roles, data.FormatVersion == 1);
             if (!paths.ToHashSet(StringComparer.Ordinal).SetEquals(data.Originals.Keys))
                 throw new InvalidDataException("转移记录包含非法文件路径");
             foreach (var relative in paths)
@@ -82,11 +82,11 @@ internal sealed class RepoServerItemTransfer
     }
 
     /// <summary>只从正整数身份生成固定文件名，拒绝任意路径和重复角色。</summary>
-    private static string[] Paths(int mapId, long[] roles)
+    private static string[] Paths(int mapId, long[] roles, bool legacy = false)
     {
         if (mapId <= 0 || roles.Length == 0 || roles.Any(id => id <= 0) || roles.Distinct().Count() != roles.Length)
             throw new InvalidDataException("转移记录地图或角色身份无效");
-        return roles.SelectMany(id => new[] { $"{id}.role.json", $"{id}.bag.json", $"{id}.pending.json" })
+        return roles.SelectMany(id => legacy ? new[] { $"{id}.role.json", $"{id}.bag.json", $"{id}.pending.json" } : new[] { $"{id}.role.json", $"{id}.item.json", $"{id}.equipment.json", $"{id}.role_summary.json", $"{id}.pending.json" })
             .Append(Path.Combine("maps", mapId.ToString(System.Globalization.CultureInfo.InvariantCulture), "manifest.json")).ToArray();
     }
 

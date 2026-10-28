@@ -1,3 +1,4 @@
+using Rpg.Net;
 using System.IO;
 using Godot;
 using Rpg.Net.Message;
@@ -13,7 +14,7 @@ public sealed record RoleWorldPositionPbData(long RoleId, int MapId, Vector2 Pos
     {
         if (message is null) throw new InvalidDataException("角色位置协议不能为空");
         var data = new RoleWorldPositionPbData(message.RoleId, message.MapId,
-            new Vector2(message.X, message.Y), message.Revision, message.AcknowledgedAction);
+            new Vector2(message.X, message.Y), message.GetRevision(), message.AcknowledgedAction);
         data.Validate();
         return data;
     }
@@ -23,7 +24,7 @@ public sealed record RoleWorldPositionPbData(long RoleId, int MapId, Vector2 Pos
     {
         Validate();
         return new RoleWorldPositionPb { RoleId = RoleId, MapId = MapId, X = Position.X, Y = Position.Y,
-            Revision = Revision, AcknowledgedAction = AcknowledgedAction };
+            AcknowledgedAction = AcknowledgedAction }.WithRevision(Revision);
     }
 
     /// <summary>拒绝非法位置和版本。</summary>

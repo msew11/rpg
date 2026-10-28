@@ -106,8 +106,8 @@ public sealed class SessionServiceTests : RegisteredServiceTestScope
         transport.Inject(MessageCodec.Encode(new SelectRoleRt { Success = true, RoleId = 1001, State = state, Bag = new BagPb(),
             Role = new RolePb { RoleId = 1001, NextExperience = 20 } }, generation, false));
         var staleState = state.Clone();
-        staleState.Profile.Revision = 99;
-        staleState.Position.Revision = 99;
+        staleState.Profile.WithRevision(99);
+        staleState.Position.WithRevision(99);
         staleState.Status.Health = 1;
         staleState.Position.AcknowledgedAction = 7;
         transport.Inject(MessageCodec.Encode(new MoveRt { Success = true, RoleId = 1001, ActionId = 7, Position = staleState.Position }, oldGeneration, false));

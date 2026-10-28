@@ -35,6 +35,14 @@ public sealed class EquipmentServerTests : IDisposable
     /// <summary>独立的公开装备快照。</summary>
     private RoleWorldEquipmentPb _equipment = new();
 
+    /// <summary>只读取未穿实例以验收背包位置。</summary>
+    private IReadOnlyList<ItemPb> BagItems => _bag.Items.Where(item => !item.Equipped).ToArray();
+    /// <summary>私有实例推导操作槽位，公开协议不含实例编号。</summary>
+    private IReadOnlyList<Rpg.Session.Data.EquippedItemData> EquippedItems => _bag.Items.Where(item => item.Equipped)
+        .Select(item => new Rpg.Session.Data.EquippedItemData(item.InstanceId, item.ItemId,
+            Rpg.Utils.EquipmentSlotUtil.TryGetSlot(_rules.Items[item.ItemId].Category,
+                _rules.Items[item.ItemId].SubCategory, out var slot) ? slot : default)).ToArray();
+
     /// <summary>创建已有角色并通过字节登录选角。</summary>
     public EquipmentServerTests()
     {
@@ -76,7 +84,7 @@ public sealed class EquipmentServerTests : IDisposable
     {
         Send(new Gm { RoleId = _roleId, Command = $"item {id}" });
         Assert.True(_messages.OfType<GmRt>().Last().Success);
-        return _bag.Items.Last(item => item.ItemId == id).InstanceId;
+        return BagItems.Last(item => item.ItemId == id).InstanceId;
     }
 
     /// <summary>提交穿脱，可显式构造非法身份、旧版本和卸下目标。</summary>
@@ -84,7 +92,7 @@ public sealed class EquipmentServerTests : IDisposable
     {
         _messages.Clear();
         var request = new EquipItem { RoleId = role ?? _roleId, InstanceId = id, Slot = slot,
-            ExpectedBagRevision = revision ?? _bag.Revision, ExpectedEquipmentRevision = equipmentRevision ?? _equipment.Revision };
+            ExpectedBagRevision = revision ?? _bag.GetRevision(), ExpectedEquipmentRevision = equipmentRevision ?? _equipment.GetRevision() };
         if (target.HasValue) request.TargetBagSlot = target.Value;
         Send(request);
         return Assert.Single(_messages.OfType<EquipItemRt>());
@@ -98,11 +106,11 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.True(Equip(sword, EquipmentSlotPb.MainHand).Success);
         var replacement = Grant(1013);
         Grant(1014);
-        var sourceSlot = _bag.Items.Single(item => item.InstanceId == replacement).SlotIndex;
+        var sourceSlot = BagItems.Single(item => item.InstanceId == replacement).SlotIndex;
         Assert.True(Equip(replacement, EquipmentSlotPb.MainHand).Success);
-        Assert.Equal(sword, _bag.Items.Single(item => item.SlotIndex == sourceSlot).InstanceId);
-        Assert.Equal(replacement, Assert.Single(_equipment.Items).InstanceId);
-        var before = _bag.Clone();
+        Assert.Equal(sword, BagItems.Single(item => item.SlotIndex == sourceSlot).InstanceId);
+        Assert.Equal(replacement, Assert.Single(EquippedItems).InstanceId);
+        var before = _bag.Clone().WithRevision(_bag.GetRevision());
         Assert.False(Equip(0, EquipmentSlotPb.MainHand).Success);
         Assert.Equal(before, _bag);
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
@@ -112,9 +120,10 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.Equal(4, persisted.NextInstanceId);
         _server = CreateServer();
         Enter(_roleId);
-        Assert.Equal(sword, Assert.Single(_equipment.Items).InstanceId);
-        Assert.Equal(replacement, _bag.Items.Single(item => item.SlotIndex == sourceSlot).InstanceId);
-        Assert.Equal(persisted.Revision, _bag.Revision);
+        Assert.Equal(sword, Assert.Single(EquippedItems).InstanceId);
+        Assert.Equal(replacement, BagItems.Single(item => item.SlotIndex == sourceSlot).InstanceId);
+        Assert.Equal(0, persisted.Revision);
+        Assert.True(_bag.GetRevision() > 0);
     }
 
     /// <summary>role-equipment：一件主手拳刃保持单实例，连续穿戴替换主手，切角互不污染。</summary>
@@ -126,16 +135,16 @@ public sealed class EquipmentServerTests : IDisposable
         var second = Grant(1017);
         Assert.False(Equip(second, EquipmentSlotPb.OffHand).Success);
         Assert.True(Equip(second, EquipmentSlotPb.MainHand).Success);
-        Assert.Equal(second, Assert.Single(_equipment.Items).InstanceId);
-        Assert.Equal(first, Assert.Single(_bag.Items).InstanceId);
+        Assert.Equal(second, Assert.Single(EquippedItems).InstanceId);
+        Assert.Equal(first, Assert.Single(BagItems).InstanceId);
         _server.Flush();
         var other = _repo.Create("另一角色", ServerRoleGender.Female, 1).RoleId;
         _server = CreateServer();
         Enter(other);
-        Assert.Empty(_bag.Items);
-        Assert.Empty(_equipment.Items);
+        Assert.Empty(BagItems);
+        Assert.Empty(EquippedItems);
         Enter(_roleId);
-        Assert.Equal(second, Assert.Single(_equipment.Items).InstanceId);
+        Assert.Equal(second, Assert.Single(EquippedItems).InstanceId);
     }
 
     /// <summary>role-equipment：飞刀仅主手，旧版本、错槽与角色请求保持原子拒绝。</summary>
@@ -143,7 +152,7 @@ public sealed class EquipmentServerTests : IDisposable
     public void RejectsStaleWrongSlotIdentityAndRepeatedRequests()
     {
         var knife = Grant(1018);
-        var before = _bag.Clone();
+        var before = _bag.Clone().WithRevision(_bag.GetRevision());
         Assert.False(Equip(knife, EquipmentSlotPb.OffHand).Success);
         Assert.False(Equip(knife, EquipmentSlotPb.MainHand, revision: 0).Success);
         Assert.False(Equip(knife, EquipmentSlotPb.MainHand, role: _roleId + 1).Success);
@@ -152,12 +161,12 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.False(Equip(999, EquipmentSlotPb.MainHand).Success);
         Assert.Equal(before, _bag);
         Assert.True(Equip(knife, EquipmentSlotPb.MainHand).Success);
-        Assert.False(Equip(knife, EquipmentSlotPb.MainHand, revision: before.Revision).Success);
+        Assert.False(Equip(knife, EquipmentSlotPb.MainHand, revision: before.GetRevision()).Success);
         var shield = Grant(1014);
         Assert.False(Equip(shield, EquipmentSlotPb.MainHand).Success);
         Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
-        Assert.Equal(shield, Assert.Single(_equipment.Items).InstanceId);
-        Assert.Equal(knife, Assert.Single(_bag.Items).InstanceId);
+        Assert.Equal(shield, Assert.Single(EquippedItems).InstanceId);
+        Assert.Equal(knife, Assert.Single(BagItems).InstanceId);
     }
 
     /// <summary>role-equipment：剑盾切成对主手时自动收盾，满包失败不改变双版本或实例。</summary>
@@ -172,8 +181,8 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
         var weapon = Grant(1018);
         if (full) Grant(1017);
-        var beforeBag = _bag.Clone();
-        var beforeEquipment = _equipment.Clone();
+        var beforeBag = _bag.Clone().WithRevision(_bag.GetRevision());
+        var beforeEquipment = _equipment.Clone().WithRevision(_equipment.GetRevision());
         Assert.Equal(!full, Equip(weapon, EquipmentSlotPb.MainHand).Success);
         if (full)
         {
@@ -183,17 +192,18 @@ public sealed class EquipmentServerTests : IDisposable
         }
         else
         {
-            Assert.Equal(weapon, Assert.Single(_equipment.Items).InstanceId);
-            Assert.Equal(EquipmentSlotPb.MainHand, _equipment.Items[0].Slot);
-            Assert.Equal(new[] { sword, shield }, _bag.Items.OrderBy(item => item.SlotIndex).Select(item => item.InstanceId));
-            Assert.Equal(beforeBag.Revision + 1, _bag.Revision);
-            Assert.Equal(beforeEquipment.Revision + 1, _equipment.Revision);
+            Assert.Equal(weapon, Assert.Single(EquippedItems).InstanceId);
+            Assert.Equal(EquipmentSlot.MainHand, EquippedItems[0].Slot);
+            Assert.Equal(new[] { sword, shield }, BagItems.OrderBy(item => item.SlotIndex).Select(item => item.InstanceId));
+            Assert.True(_bag.GetRevision() > beforeBag.GetRevision());
+            Assert.True(_equipment.GetRevision() > beforeEquipment.GetRevision());
+        Assert.Equal(_bag.GetRevision(), _equipment.GetRevision());
             Assert.Single(_messages.OfType<RoleItemsChangedNotice>());
             _server.Flush();
             _server = CreateServer();
             Enter(_roleId);
-            Assert.Equal(weapon, Assert.Single(_equipment.Items).InstanceId);
-            Assert.Equal(2, _bag.Items.Count);
+            Assert.Equal(weapon, Assert.Single(EquippedItems).InstanceId);
+            Assert.Equal(2, BagItems.Count);
         }
     }
 
@@ -209,14 +219,14 @@ public sealed class EquipmentServerTests : IDisposable
     {
         var shield = Grant(1014);
         Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
-        Assert.Single(_equipment.Items);
+        Assert.Single(EquippedItems);
         var sword = Grant(1012);
         Assert.True(Equip(sword, EquipmentSlotPb.MainHand).Success);
         var weapon = Grant(itemId);
         if (full) Grant(1012);
-        var beforeBag = _bag.Clone();
-        var beforeEquipment = _equipment.Clone();
-        var source = _bag.Items.Single(item => item.InstanceId == weapon).SlotIndex;
+        var beforeBag = _bag.Clone().WithRevision(_bag.GetRevision());
+        var beforeEquipment = _equipment.Clone().WithRevision(_equipment.GetRevision());
+        var source = BagItems.Single(item => item.InstanceId == weapon).SlotIndex;
         Assert.Equal(!full, Equip(0, EquipmentSlotPb.MainHand, target: source).Success);
         if (full)
         {
@@ -225,15 +235,16 @@ public sealed class EquipmentServerTests : IDisposable
             Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
             return;
         }
-        Assert.Equal(weapon, Assert.Single(_equipment.Items).InstanceId);
-        Assert.Equal(sword, _bag.Items.Single(item => item.SlotIndex == source).InstanceId);
-        Assert.Contains(_bag.Items, item => item.InstanceId == shield);
-        Assert.Equal(beforeBag.Revision + 1, _bag.Revision);
-        Assert.Equal(beforeEquipment.Revision + 1, _equipment.Revision);
+        Assert.Equal(weapon, Assert.Single(EquippedItems).InstanceId);
+        Assert.Equal(sword, BagItems.Single(item => item.SlotIndex == source).InstanceId);
+        Assert.Contains(BagItems, item => item.InstanceId == shield);
+        Assert.True(_bag.GetRevision() > beforeBag.GetRevision());
+        Assert.True(_equipment.GetRevision() > beforeEquipment.GetRevision());
+        Assert.Equal(_bag.GetRevision(), _equipment.GetRevision());
         Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
-        Assert.Equal(shield, Assert.Single(_equipment.Items).InstanceId);
-        Assert.Contains(_bag.Items, item => item.InstanceId == weapon);
-        Assert.Contains(_bag.Items, item => item.InstanceId == sword);
+        Assert.Equal(shield, Assert.Single(EquippedItems).InstanceId);
+        Assert.Contains(BagItems, item => item.InstanceId == weapon);
+        Assert.Contains(BagItems, item => item.InstanceId == sword);
     }
 
     /// <summary>role-equipment：盾牌穿戴收回全部双手武器，满包使用来源格，双版本与重启保持实例。</summary>
@@ -254,21 +265,22 @@ public sealed class EquipmentServerTests : IDisposable
         Assert.True(Equip(weapon, EquipmentSlotPb.MainHand).Success);
         if (full) Grant(1012);
         var shield = Grant(1014);
-        var source = _bag.Items.Single(item => item.InstanceId == shield).SlotIndex;
-        var beforeBag = _bag.Clone();
-        var beforeEquipment = _equipment.Clone();
+        var source = BagItems.Single(item => item.InstanceId == shield).SlotIndex;
+        var beforeBag = _bag.Clone().WithRevision(_bag.GetRevision());
+        var beforeEquipment = _equipment.Clone().WithRevision(_equipment.GetRevision());
         _server.Flush();
         var beforeNextId = _repo.Load(_roleId).Bag.NextInstanceId;
         Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
-        Assert.Equal(shield, Assert.Single(_equipment.Items).InstanceId);
-        Assert.Equal(EquipmentSlotPb.OffHand, _equipment.Items[0].Slot);
-        Assert.Equal(weapon, _bag.Items.Single(item => item.SlotIndex == source).InstanceId);
-        Assert.Equal(beforeBag.Items.Count, _bag.Items.Count);
-        Assert.Equal(beforeBag.Revision + 1, _bag.Revision);
-        Assert.Equal(beforeEquipment.Revision + 1, _equipment.Revision);
+        Assert.Equal(shield, Assert.Single(EquippedItems).InstanceId);
+        Assert.Equal(EquipmentSlot.OffHand, EquippedItems[0].Slot);
+        Assert.Equal(weapon, BagItems.Single(item => item.SlotIndex == source).InstanceId);
+        Assert.Equal(beforeBag.Items.Count(item => !item.Equipped), BagItems.Count);
+        Assert.True(_bag.GetRevision() > beforeBag.GetRevision());
+        Assert.True(_equipment.GetRevision() > beforeEquipment.GetRevision());
+        Assert.Equal(_bag.GetRevision(), _equipment.GetRevision());
         Assert.Single(_messages.OfType<RoleItemsChangedNotice>());
-        var acceptedBag = _bag.Clone();
-        var acceptedEquipment = _equipment.Clone();
+        var acceptedBag = _bag.Clone().WithRevision(_bag.GetRevision());
+        var acceptedEquipment = _equipment.Clone().WithRevision(_equipment.GetRevision());
         _server.Flush();
         Assert.Equal(beforeNextId, _repo.Load(_roleId).Bag.NextInstanceId);
         _server = CreateServer();
@@ -291,7 +303,7 @@ public sealed class EquipmentServerTests : IDisposable
         equipment.Add(new(2, offId, EquipmentSlot.OffHand));
         _repo.Save(role with { Bag = role.Bag with { Revision = 4, EquipmentRevision = 2, NextInstanceId = 5,
             Equipment = equipment, Items = full ? [new(3, 1012, 0, 1), new(4, 1012, 1, 1)] : [] } });
-        var path = _repo.GetBagPath(_roleId);
+        var path = _repo.GetItemPath(_roleId);
         var original = File.ReadAllText(path);
         _server = CreateServer();
         if (full)
@@ -305,20 +317,20 @@ public sealed class EquipmentServerTests : IDisposable
             return;
         }
         Enter(_roleId);
-        Assert.Equal(mainId == 0 ? 2 : 1, Assert.Single(_equipment.Items).InstanceId);
-        Assert.Equal(mainId == 0 ? offId : mainId, _equipment.Items[0].ItemId);
-        Assert.Equal(EquipmentSlotPb.MainHand, _equipment.Items[0].Slot);
-        Assert.Equal(mainId == 0 ? 0 : 1, _bag.Items.Count);
-        if (mainId != 0) Assert.Equal(2, _bag.Items[0].InstanceId);
-        Assert.Equal(5, _bag.Revision);
-        Assert.Equal(3, _equipment.Revision);
+        Assert.Equal(mainId == 0 ? 2 : 1, Assert.Single(EquippedItems).InstanceId);
+        Assert.Equal(mainId == 0 ? offId : mainId, EquippedItems[0].ItemId);
+        Assert.Equal(EquipmentSlot.MainHand, EquippedItems[0].Slot);
+        Assert.Equal(mainId == 0 ? 0 : 1, BagItems.Count);
+        if (mainId != 0) Assert.Equal(2, BagItems[0].InstanceId);
+        Assert.True(_bag.GetRevision() > 0);
+        Assert.Equal(_bag.GetRevision(), _equipment.GetRevision());
         Assert.Equal(original, File.ReadAllText(path));
         _server.Flush();
         Assert.Equal(5, _repo.Load(_roleId).Bag.NextInstanceId);
         _server = CreateServer();
         Enter(_roleId);
-        Assert.Equal(5, _bag.Revision);
-        Assert.Equal(3, _equipment.Revision);
+        Assert.True(_bag.GetRevision() > 0);
+        Assert.Equal(_bag.GetRevision(), _equipment.GetRevision());
     }
 
     /// <summary>GM、背包移动不覆盖已穿装备，旧存档默认空装备。</summary>
@@ -328,68 +340,71 @@ public sealed class EquipmentServerTests : IDisposable
         var sword = Grant(1012);
         Assert.True(Equip(sword, EquipmentSlotPb.MainHand).Success);
         var shield = Grant(1014);
-        Send(new MoveItem { RoleId = _roleId, InstanceId = shield, TargetSlotIndex = 1, ExpectedRevision = _bag.Revision });
+        Send(new MoveItem { RoleId = _roleId, InstanceId = shield, TargetSlotIndex = 1, ExpectedRevision = _bag.GetRevision() });
         Assert.True(_messages.OfType<MoveItemRt>().Last().Success);
-        Assert.Equal(sword, Assert.Single(_equipment.Items).InstanceId);
+        Assert.Equal(sword, Assert.Single(EquippedItems).InstanceId);
         _server.Flush();
         var legacy = System.Text.Json.JsonSerializer.Deserialize<DataServerBag>("{\"Revision\":0,\"NextInstanceId\":1,\"Items\":[]}")!;
         legacy.Validate();
         Assert.Empty(legacy.Equipment);
     }
 
-    /// <summary>role-equipment：背包整理不广播装备或改变装备版本，两个预期版本分别拒绝过期请求。</summary>
+    /// <summary>role-equipment：整理不广播公开装备，每次私有组合快照共享新的信封版本。</summary>
     [Fact]
-    public void EquipmentVersionChangesOnlyOnWearAndRejectsEitherStaleVersion()
+    public void InventoryEnvelopeRevisionRejectsEitherStaleVersion()
     {
         var sword = Grant(1012);
-        Assert.Equal(0, _equipment.Revision);
+        var initial = _bag.GetRevision();
+        Assert.True(initial > 0);
+        Assert.Equal(initial, _equipment.GetRevision());
         Assert.True(Equip(sword, EquipmentSlotPb.MainHand).Success);
-        Assert.Equal(1, _equipment.Revision);
         var equipment = _equipment.Clone();
+        var equipRevision = _equipment.GetRevision();
         var shield = Grant(1014);
-        Send(new MoveItem { RoleId = _roleId, InstanceId = shield, TargetSlotIndex = 1, ExpectedRevision = _bag.Revision });
+        _messages.Clear();
+        Send(new MoveItem { RoleId = _roleId, InstanceId = shield, TargetSlotIndex = 1, ExpectedRevision = _bag.GetRevision() });
+        Assert.True(Assert.Single(_messages.OfType<MoveItemRt>()).Success);
         Assert.Equal(equipment, _equipment);
+        Assert.True(_equipment.GetRevision() > equipRevision);
+        Assert.Equal(_bag.GetRevision(), _equipment.GetRevision());
         Assert.Empty(_messages.OfType<RoleEquipmentNotice>());
-        Assert.False(Equip(shield, EquipmentSlotPb.OffHand, equipmentRevision: 0).Success);
+        Assert.False(Equip(shield, EquipmentSlotPb.OffHand, equipmentRevision: equipRevision).Success);
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
-        Assert.Equal(equipment, _equipment);
-        Assert.False(Equip(shield, EquipmentSlotPb.OffHand, revision: _bag.Revision - 1).Success);
-        Assert.Equal(equipment, _equipment);
+        Assert.False(Equip(shield, EquipmentSlotPb.OffHand, revision: initial).Success);
         Assert.True(Equip(shield, EquipmentSlotPb.OffHand).Success);
         var notice = Assert.Single(_messages.OfType<RoleItemsChangedNotice>());
-        Assert.Equal(2, notice.Equipment.Revision);
+        Assert.Equal(notice.Bag.GetRevision(), notice.Equipment.GetRevision());
         _server.Flush();
         Assert.Equal(notice.Equipment, MockServer.CreateEquipmentNotice(_repo.Load(_roleId)).Equipment);
         Enter(_roleId);
         Assert.Equal(notice.Equipment, _equipment);
     }
 
-    /// <summary>mock-server：旧存档已有装备不能因版本迁移丢失，读取无写入，下次物品落地补存版本。</summary>
+    /// <summary>mock-server：旧双文件存档读时不写，装备与身份迁移到新表且不保存旧版本。</summary>
     [Fact]
-    public void ExistingEquippedSaveMigratesVersionWithoutWritingOnRead()
+    public void ExistingEquippedSaveMigratesWithoutPersistingVersions()
     {
         var sword = Grant(1012);
         Assert.True(Equip(sword, EquipmentSlotPb.MainHand).Success);
         _server.Flush();
+        var role = _repo.Load(_roleId);
+        foreach (var file in new[] { _repo.GetItemPath(_roleId), _repo.GetEquipmentPath(_roleId), _repo.GetSummaryPath(_roleId) }) File.Delete(file);
+        File.WriteAllText(_repo.GetRolePath(_roleId), System.Text.Json.JsonSerializer.Serialize(role));
         var path = _repo.GetBagPath(_roleId);
-        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
-        json["Bag"]!.AsObject().Remove("EquipmentRevision");
-        var original = json.ToJsonString();
+        var original = System.Text.Json.JsonSerializer.Serialize(DataServerBagFile.FromRole(role));
         File.WriteAllText(path, original);
-        var previousRevision = _bag.Revision;
         _server = CreateServer();
         Enter(_roleId);
         Assert.Equal(original, File.ReadAllText(path));
-        Assert.Equal(previousRevision, _equipment.Revision);
-        Assert.Equal(sword, Assert.Single(_equipment.Items).InstanceId);
+        Assert.False(File.Exists(_repo.GetItemPath(_roleId)));
+        Assert.Equal(sword, Assert.Single(EquippedItems).InstanceId);
         Grant(1014);
-        Assert.Equal(previousRevision, _equipment.Revision);
         _server.Flush();
-        Assert.Contains("EquipmentRevision", File.ReadAllText(path));
+        Assert.DoesNotContain("revision", File.ReadAllText(_repo.GetItemPath(_roleId)), StringComparison.OrdinalIgnoreCase);
         _server = CreateServer();
         Enter(_roleId);
-        Assert.Equal(previousRevision, _equipment.Revision);
-        Assert.Equal(sword, Assert.Single(_equipment.Items).InstanceId);
+        Assert.Equal(sword, Assert.Single(EquippedItems).InstanceId);
+        Assert.True(_bag.GetRevision() > 0);
     }
 
     /// <summary>mock-server：完整角色主动提交若改变物品，也必须交付本人的原子组合快照。</summary>
@@ -404,10 +419,10 @@ public sealed class EquipmentServerTests : IDisposable
         var items = Assert.Single(_messages.OfType<RoleItemsChangedNotice>());
         var world = Assert.Single(_messages.OfType<RoleStateNotice>()).State;
         Assert.Equal(world.Equipment, items.Equipment);
-        Assert.Empty(items.Bag.Items);
-        Assert.Equal(sword, Assert.Single(items.Equipment.Items).InstanceId);
-        Assert.Equal(before.Bag.Revision + 1, items.Bag.Revision);
-        Assert.Equal(before.Bag.EquipmentRevision + 1, items.Equipment.Revision);
+        Assert.Empty(items.Bag.Items.Where(item => !item.Equipped));
+        Assert.Equal(sword, Assert.Single(items.Bag.Items.Where(item => item.Equipped)).InstanceId);
+        Assert.True(items.Bag.GetRevision() > 0);
+        Assert.Equal(items.Bag.GetRevision(), items.Equipment.GetRevision());
     }
 
     /// <summary>server-write-back：穿脱落地失败保留完整内存和待写，两侧在重试后共同恢复。</summary>
@@ -416,15 +431,15 @@ public sealed class EquipmentServerTests : IDisposable
     {
         var sword = Grant(1012);
         Assert.True(Equip(sword, EquipmentSlotPb.MainHand).Success);
-        var path = _repo.GetBagPath(_roleId);
+        var path = _repo.GetItemPath(_roleId);
         var original = File.ReadAllText(path);
         File.Delete(path);
         Directory.CreateDirectory(path);
         try
         {
             Assert.Throws<AggregateException>(() => _server.Flush());
-            Assert.Equal(sword, Assert.Single(_equipment.Items).InstanceId);
-            Assert.Empty(_bag.Items);
+            Assert.Equal(sword, Assert.Single(EquippedItems).InstanceId);
+            Assert.Empty(BagItems);
         }
         finally
         {
@@ -433,23 +448,24 @@ public sealed class EquipmentServerTests : IDisposable
         }
         _server.Flush();
         var saved = _repo.Load(_roleId).Bag;
-        Assert.Equal(_bag.Revision, saved.Revision);
-        Assert.Equal(_equipment.Revision, saved.EquipmentRevision);
+        Assert.Equal(0, saved.Revision);
+        Assert.Equal(0, saved.EquipmentRevision);
         Assert.Equal(sword, Assert.Single(saved.Equipment).InstanceId);
         Assert.Empty(saved.Items);
     }
 
-    /// <summary>mock-server：损坏的背包不能在旧版本兼容时绕过存档诊断。</summary>
+    /// <summary>mock-server：旧背包空载荷保留文件路径诊断，不自动生成新表。</summary>
     [Fact]
-    public void NullBagReportsItsSavePathDuringVersionMigration()
+    public void NullLegacyBagReportsItsSavePath()
     {
+        var role = _repo.Load(_roleId);
+        foreach (var file in new[] { _repo.GetItemPath(_roleId), _repo.GetEquipmentPath(_roleId), _repo.GetSummaryPath(_roleId) }) File.Delete(file);
+        File.WriteAllText(_repo.GetRolePath(_roleId), System.Text.Json.JsonSerializer.Serialize(role));
         var path = _repo.GetBagPath(_roleId);
-        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
-        json["Bag"] = null;
-        File.WriteAllText(path, json.ToJsonString());
+        File.WriteAllText(path, "{\"RoleId\":" + _roleId + ",\"Bag\":null}");
         var error = Assert.Throws<InvalidDataException>(() => _repo.Load(_roleId));
         Assert.Contains(path, error.Message);
-        Assert.Contains("角色背包字段无效", error.Message);
+        Assert.False(File.Exists(_repo.GetItemPath(_roleId)));
     }
 
     /// <summary>清理本次隔离存档。</summary>

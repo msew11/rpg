@@ -3,7 +3,7 @@ package rpg;
 option csharp_namespace = "Rpg.Net.Message";
 
 import "role.proto";
-import "equipment.proto";
+import "bag.proto";
 
 // 提交带序号的移动意图。
 message Move {

@@ -25,64 +25,71 @@ public sealed class PublicEquipmentTests
         [1018] = new() { Id = 1018, RelatedId = 1018, Category = ItemCategory.Weapon, SubCategory = ItemSubCategory.ThrowingWeapon, MaxStack = 1 }
     };
 
-    /// <summary>公开投影排除背包字段，完整和独立消息都能独立序列化。</summary>
+    /// <summary>公开投影只含配置 ID，信封承担版本；私有实例有穿戴和 oneof 扩展。</summary>
     [Fact]
     public void PublicProjectionAndWireMessagesContainOnlyEquipment()
     {
         var role = new DataServerRole { RoleId = 1001, Bag = new DataServerBag
         {
-            Revision = 12, EquipmentRevision = 3, NextInstanceId = 3,
-            Items = [new DataServerItem(2, 1012, 17, 1)],
+            NextInstanceId = 3, Items = [new DataServerItem(2, 1012, 17, 1)],
             Equipment = [new DataServerEquipment(1, 1012, EquipmentSlot.MainHand)]
         } };
         var notice = MockServer.CreateEquipmentNotice(role);
-        var decoded = Assert.IsType<RoleEquipmentNotice>(MessageCodec.ReadPayload(
-            MessageCodec.ReadEnvelope(MessageCodec.Encode(notice, 7, false)), false));
+        var envelope = MessageCodec.ReadEnvelope(MessageCodec.Encode(notice, 7, false, 23));
+        var decoded = Assert.IsType<RoleEquipmentNotice>(MessageCodec.ReadPayload(envelope, false));
         Assert.Equal(notice, decoded);
-        Assert.NotSame(notice.Equipment, decoded.Equipment);
-        Assert.Equal(3, decoded.Equipment.Revision);
-        Assert.Equal(1, Assert.Single(decoded.Equipment.Items).InstanceId);
-        Assert.Equal(["role_id", "revision", "items"], RoleWorldEquipmentPb.Descriptor.Fields.InFieldNumberOrder().Select(field => field.Name));
-        Assert.Equal(["instance_id", "item_id", "slot"], EquippedItemPb.Descriptor.Fields.InFieldNumberOrder().Select(field => field.Name));
-        Assert.Equal(["revision", "items"], BagPb.Descriptor.Fields.InFieldNumberOrder().Select(field => field.Name));
-        Assert.Equal(RoleWorldEquipmentPb.Descriptor, RoleWorldStatePb.Descriptor.FindFieldByNumber(4).MessageType);
-        Assert.Null(RoleWorldProfilePb.Descriptor.FindFieldByName("equipment"));
-        Assert.Contains("equipment", BagPb.Descriptor.ToProto().ReservedName);
-        Assert.Contains(BagPb.Descriptor.ToProto().ReservedRange, range => range.Start == 3 && range.End == 4);
-        Assert.Equal(4, EquipItem.Descriptor.FindFieldByName("expected_bag_revision").FieldNumber);
-        Assert.Equal(6, EquipItem.Descriptor.FindFieldByName("expected_equipment_revision").FieldNumber);
+        Assert.Equal(23, envelope.Revision);
+        Assert.Equal(23, decoded.Equipment.GetRevision());
+        Assert.Equal(1012, Assert.Single(decoded.Equipment.EquippedItems));
+        Assert.Equal(["role_id", "equipped_items"], RoleWorldEquipmentPb.Descriptor.Fields.InFieldNumberOrder().Select(field => field.Name));
+        Assert.Equal(["items"], BagPb.Descriptor.Fields.InFieldNumberOrder().Select(field => field.Name));
+        Assert.Empty(BagPb.Descriptor.ToProto().ReservedName);
+        Assert.Empty(BagPb.Descriptor.ToProto().ReservedRange);
+        Assert.Null(RoleWorldProfilePb.Descriptor.FindFieldByName("revision"));
+        Assert.Null(RoleWorldPositionPb.Descriptor.FindFieldByName("revision"));
+        Assert.Null(RoleWorldStatusPb.Descriptor.FindFieldByName("revision"));
+        Assert.Null(RolePb.Descriptor.FindFieldByName("revision"));
+        Assert.NotNull(EnvelopePb.Descriptor.FindFieldByName("revision"));
+        Assert.Equal(EquipmentPb.Descriptor, ItemPb.Descriptor.FindFieldByName("equipment").MessageType);
+        Assert.Empty(EquipmentPb.Descriptor.Fields.InFieldNumberOrder());
+        Assert.Single(ItemPb.Descriptor.Oneofs);
+        Assert.Null(ItemPb.Descriptor.FindFieldByName("slot"));
+        Assert.Equal(BagPb.Descriptor.File, RoleWorldEquipmentPb.Descriptor.File);
+        Assert.Equal(BagPb.Descriptor.File, EquipItem.Descriptor.File);
         Assert.Throws<InvalidDataException>(() => MessageCodec.Encode(notice, 7, true));
-        Assert.Throws<InvalidDataException>(() => MessageCodec.ReadPayload(new EnvelopePb
-            { Generation = 7, MessageType = "rpg.BagChangedNotice" }, false));
-
-        var items = new RoleItemsChangedNotice { RoleId = role.RoleId,
-            Bag = new BagPb { Revision = role.Bag.Revision }, Equipment = notice.Equipment };
-        Assert.Equal(items, MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(MessageCodec.Encode(items, 7, false)), false));
-        Assert.Throws<InvalidDataException>(() => MessageCodec.Encode(items, 7, true));
-        var equip = new EquipItem { RoleId = 1001, InstanceId = 2, Slot = EquipmentSlotPb.MainHand,
-            ExpectedBagRevision = 12, ExpectedEquipmentRevision = 3 };
-        Assert.Equal(equip, MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(MessageCodec.Encode(equip, 7, true)), true));
-        Assert.Throws<InvalidDataException>(() => MessageCodec.Encode(equip, 7, false));
+        var item = new ItemPb { InstanceId = 1, ItemId = 1012, Count = 1, Equipped = true,
+            SlotIndex = 0, Equipment = new EquipmentPb() };
+        var data = ItemPbData.FromPb(ItemPb.Parser.ParseFrom(item.ToByteArray()));
+        Assert.True(data.Equipped);
+        Assert.True(data.HasEquipment);
+        Assert.Equal(item, data.ToPb());
+        item.SlotIndex = 1;
+        Assert.Throws<InvalidDataException>(() => ItemPbData.FromPb(item));
+        var summary = new RoleSummaryPb { RoleId = 1001, Name = "展示角色", Level = 1,
+            Gender = RoleGenderPb.Male, EquippedItems = { 1012, 1014 } };
+        var snapshot = RoleSummaryPbData.FromPb(summary);
+        summary.EquippedItems.Clear();
+        Assert.Equal([1012, 1014], snapshot.EquippedItems);
+        Assert.Equal([1012, 1014], snapshot.ToPb().EquippedItems);
     }
 
-    /// <summary>无私有数据即可转换全量装备，原协议和输出协议均不能修改缓存。</summary>
+    /// <summary>无私有数据即可转换完整展示，输出和输入均不能修改快照。</summary>
     [Fact]
     public void EquipmentConvertsIndependentlyAndEmptyListClearsAllSlots()
     {
-        var message = new RoleWorldEquipmentPb { RoleId = 1001, Revision = 2,
-            Items = { new EquippedItemPb { InstanceId = 1, ItemId = 1012, Slot = EquipmentSlotPb.MainHand } } };
+        var message = new RoleWorldEquipmentPb { RoleId = 1001, EquippedItems = { 1012 } }.WithRevision(2);
         var snapshot = RoleWorldEquipmentPbData.FromPb(message, Definitions);
         Assert.Equal(message, snapshot.ToPb());
-        message.Items.Clear();
-        snapshot.ToPb().Items.Clear();
-        Assert.Single(snapshot.Items);
-        var empty = RoleWorldEquipmentPbData.FromPb(new RoleWorldEquipmentPb { RoleId = 1001, Revision = 3 }, Definitions);
-        Assert.Empty(empty.Items);
+        message.EquippedItems.Clear();
+        snapshot.ToPb().EquippedItems.Clear();
+        Assert.Single(snapshot.EquippedItems);
+        var empty = RoleWorldEquipmentPbData.FromPb(new RoleWorldEquipmentPb { RoleId = 1001 }.WithRevision(3), Definitions);
+        Assert.Empty(empty.EquippedItems);
         Assert.Equal(3, empty.Revision);
         Assert.Throws<InvalidDataException>(() => RoleWorldEquipmentPbData.FromPb(null!, Definitions));
     }
 
-    /// <summary>role-equipment：普通剑盾可共存，全部双手武器只允许单件主手公开实例。</summary>
+    /// <summary>role-equipment：配置推导的剑盾合法，其他主手武器排斥副手。</summary>
     [Theory]
     [InlineData(1012)]
     [InlineData(1013)]
@@ -92,36 +99,28 @@ public sealed class PublicEquipmentTests
     [InlineData(1018)]
     public void PublicSnapshotEnforcesCrossSlotRules(int mainId)
     {
-        var message = new RoleWorldEquipmentPb { RoleId = 1001, Revision = 1,
-            Items = { new EquippedItemPb { InstanceId = 1, ItemId = mainId, Slot = EquipmentSlotPb.MainHand } } };
+        var message = new RoleWorldEquipmentPb { RoleId = 1001, EquippedItems = { mainId } };
         Assert.Single(RoleWorldEquipmentPbData.FromPb(message, Definitions).Items);
-        message.Items.Add(new EquippedItemPb { InstanceId = 2, ItemId = 1014, Slot = EquipmentSlotPb.OffHand });
+        message.EquippedItems.Add(1014);
         if (mainId == 1012) Assert.Equal(2, RoleWorldEquipmentPbData.FromPb(message, Definitions).Items.Count);
         else Assert.Throws<InvalidDataException>(() => RoleWorldEquipmentPbData.FromPb(message, Definitions));
-        message.Items.RemoveAt(0);
-        Assert.Single(RoleWorldEquipmentPbData.FromPb(message, Definitions).Items);
-        message.Items[0].ItemId = mainId;
-        Assert.Throws<InvalidDataException>(() => RoleWorldEquipmentPbData.FromPb(message, Definitions));
     }
 
-    /// <summary>非法身份、版本、重复实例或槽位均不能形成可消费的公开装备。</summary>
+    /// <summary>未知配置、重复推导槽位、无效身份及本地非法版本均拒绝。</summary>
     [Theory]
     [InlineData("identity")]
     [InlineData("revision")]
-    [InlineData("instance")]
-    [InlineData("slot")]
-    [InlineData("category")]
+    [InlineData("duplicate")]
+    [InlineData("unknown")]
     public void InvalidPublicEquipmentIsRejected(string kind)
     {
-        var message = new RoleWorldEquipmentPb { RoleId = 1001, Revision = 1,
-            Items = { new EquippedItemPb { InstanceId = 1, ItemId = 1012, Slot = EquipmentSlotPb.MainHand } } };
+        var message = new RoleWorldEquipmentPb { RoleId = 1001, EquippedItems = { 1012 } }.WithRevision(1);
         switch (kind)
         {
             case "identity": message.RoleId = 0; break;
-            case "revision": message.Revision = -1; break;
-            case "instance": message.Items.Add(message.Items[0].Clone()); break;
-            case "slot": message.Items.Add(new EquippedItemPb { InstanceId = 2, ItemId = 1012, Slot = EquipmentSlotPb.MainHand }); break;
-            case "category": message.Items[0].Slot = EquipmentSlotPb.OffHand; break;
+            case "revision": message.WithRevision(-1); break;
+            case "duplicate": message.EquippedItems.Add(1017); break;
+            case "unknown": message.EquippedItems[0] = 99999; break;
         }
         Assert.Throws<InvalidDataException>(() => RoleWorldEquipmentPbData.FromPb(message, Definitions));
     }

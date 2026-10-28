@@ -103,6 +103,7 @@ public sealed class SessionService : Service
         if (!IsLoggedIn) throw new InvalidOperationException("尚未登录");
         if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
         var role = RoleCache;
+        if (HasRole) _login!.RefreshRole(role.State);
         ResetNetwork();
         role.Reset(roleId);
         _map?.Reset(roleId);
@@ -114,6 +115,7 @@ public sealed class SessionService : Service
     {
         EnsureActive();
         if (_role is not null && RoleId == 0) return;
+        if (HasRole) _login!.RefreshRole(RoleCache.State);
         ResetNetwork();
         _role?.Reset();
         _map?.Reset();

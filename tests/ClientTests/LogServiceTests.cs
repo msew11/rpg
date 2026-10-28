@@ -66,7 +66,7 @@ public sealed class LogServiceTests
             net.Tick(5);
             Assert.True(Assert.Single(responses).Success);
             Assert.Single(Directory.GetFiles(Path.Combine(root, "server"), "*.role.json"));
-            Assert.Single(Directory.GetFiles(Path.Combine(root, "server"), "*.bag.json"));
+            Assert.Single(Directory.GetFiles(Path.Combine(root, "server"), "*.item.json"));
             settings.SetMasterVolume(0.4f);
             Assert.True(File.Exists(settings.SystemPath));
             Assert.DoesNotContain("ConsoleLogEnabled", File.ReadAllText(settings.SystemPath));
@@ -76,13 +76,13 @@ public sealed class LogServiceTests
             Assert.StartsWith("[Client][IO]", Assert.Single(lines));
             net.Send(new CreateRole { Name = "开启日志", Gender = RoleGenderPb.Female, HeadId = 1 });
             net.Tick(5);
-            Assert.Equal(5, lines.Count);
+            Assert.Equal(7, lines.Count);
             Assert.Equal(2, responses.Count);
             Assert.True(responses[1].Success);
             env.ConsoleLogEnabled = false;
             net.Send(new CreateRole { Name = "再次关闭", Gender = RoleGenderPb.Male, HeadId = 1 });
             net.Tick(5);
-            Assert.Equal(5, lines.Count);
+            Assert.Equal(7, lines.Count);
             Assert.Equal(3, responses.Count);
             Assert.True(responses[2].Success);
         }
@@ -193,14 +193,16 @@ public sealed class LogServiceTests
             net.Send(new CreateRole { Name = "顺序测试", Gender = RoleGenderPb.Male, HeadId = 1 });
             Assert.Empty(lines);
             net.Tick(5);
-            Assert.Equal(4, lines.Count);
+            Assert.Equal(6, lines.Count);
             Assert.StartsWith("[Client][color=green][Request][/color]CreateRole{", lines[0]);
             Assert.StartsWith("[Server][IO][", lines[1]);
-            Assert.Contains(".bag.json]", lines[1]);
+            Assert.Contains(".item.json]", lines[1]);
             Assert.StartsWith("[Server][IO][", lines[2]);
-            Assert.Contains(".role.json]", lines[2]);
-            Assert.StartsWith("[Client][color=#ffa500][Response][/color]CreateRoleRt{", lines[3]);
-            Assert.Contains("\"success\":true", lines[3]);
+            Assert.Contains(".equipment.json]", lines[2]);
+            Assert.Contains(".role.json]", lines[3]);
+            Assert.Contains(".role_summary.json]", lines[4]);
+            Assert.StartsWith("[Client][color=#ffa500][Response][/color]CreateRoleRt{", lines[5]);
+            Assert.Contains("\"success\":true", lines[5]);
         }
         finally { net.Dispose(); if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
@@ -224,18 +226,20 @@ public sealed class LogServiceTests
             Assert.Equal("[Client][IO][1.json]" + Compact(File.ReadAllText(setting.RolePath)), lines[1]);
             var repo = new RepoServerRole(Path.Combine(root, "server"), log.ServerIO);
             var role = repo.Create("测试", Rpg.Server.Data.ServerRoleGender.Male, 1);
-            Assert.Equal("[Server][IO][" + role.RoleId + ".bag.json]" +
-                Compact(File.ReadAllText(repo.GetBagPath(role.RoleId))), lines[2]);
+            Assert.Equal("[Server][IO][" + role.RoleId + ".item.json]" +
+                Compact(File.ReadAllText(repo.GetItemPath(role.RoleId))), lines[2]);
             Assert.Equal("[Server][IO][" + role.RoleId + ".role.json]" +
-                Compact(File.ReadAllText(repo.GetRolePath(role.RoleId))), lines[3]);
+                Compact(File.ReadAllText(repo.GetRolePath(role.RoleId))), lines[4]);
+            Assert.Contains(".equipment.json]", lines[3]);
+            Assert.Contains(".role_summary.json]", lines[5]);
             Assert.All(lines, line => { Assert.DoesNotContain("\n", line); Assert.DoesNotContain("\r", line); });
             repo.Load(role.RoleId);
-            Assert.Equal(4, lines.Count);
+            Assert.Equal(6, lines.Count);
             using (var locked = new FileStream(repo.GetRolePath(role.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
                 Assert.Throws<IOException>(() => repo.SaveRole(role with { X = role.X + 1 }));
             Directory.CreateDirectory(setting.SystemPath + ".tmp");
             Assert.Throws<UnauthorizedAccessException>(() => setting.SetMasterVolume(0.4f));
-            Assert.Equal(4, lines.Count);
+            Assert.Equal(6, lines.Count);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

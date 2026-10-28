@@ -20,7 +20,7 @@ public static class MessageCodec
         GmRt.Descriptor, RoleItemsChangedNotice.Descriptor, MoveItemRt.Descriptor, EquipItemRt.Descriptor, DropItemRt.Descriptor, PickupItemRt.Descriptor, MapAoiNotice.Descriptor, ResyncMapAoiRt.Descriptor);
 
     /// <summary>冻结业务消息为带会话代次的独立字节数组。</summary>
-    public static byte[] Encode(IMessage message, long generation, bool request)
+    public static byte[] Encode(IMessage message, long generation, bool request, long? revision = null)
     {
         ArgumentNullException.ThrowIfNull(message);
         var registry = request ? Requests : Responses;
@@ -30,6 +30,7 @@ public static class MessageCodec
         {
             MessageType = message.Descriptor.FullName,
             Generation = generation,
+            Revision = revision ?? message.GetRevision(),
             Payload = message.ToByteString()
         }.ToByteArray();
     }
@@ -40,8 +41,8 @@ public static class MessageCodec
         try
         {
             var envelope = EnvelopePb.Parser.ParseFrom(bytes);
-            if (envelope.Generation <= 0 || string.IsNullOrWhiteSpace(envelope.MessageType))
-                throw new InvalidDataException("协议缺少有效类型或会话代次");
+            if (envelope.Generation <= 0 || envelope.Revision < 0 || string.IsNullOrWhiteSpace(envelope.MessageType))
+                throw new InvalidDataException("协议缺少有效类型、会话代次或消息版本");
             return envelope;
         }
         catch (InvalidProtocolBufferException error) { throw new InvalidDataException("无法解析 protobuf 信封", error); }
@@ -53,7 +54,7 @@ public static class MessageCodec
         var registry = request ? Requests : Responses;
         if (!registry.TryGetValue(envelope.MessageType, out var parser))
             throw new InvalidDataException($"未注册或方向错误的协议：{envelope.MessageType}");
-        try { return parser.ParseFrom(envelope.Payload); }
+        try { return parser.ParseFrom(envelope.Payload).WithRevision(envelope.Revision); }
         catch (InvalidProtocolBufferException error)
         {
             throw new InvalidDataException($"无法解析协议载荷：{envelope.MessageType}", error);

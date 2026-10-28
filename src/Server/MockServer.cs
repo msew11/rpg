@@ -54,6 +54,10 @@ public sealed class MockServer
     private Vector2 _target;
     /// <summary>当前允许处理的会话代次。</summary>
     private long _generation;
+    /// <summary>此发送端每条消息递增的非持久化序号。</summary>
+    private long _revision;
+    /// <summary>最近发送的私有物品快照信封版本，供并发校验。</summary>
+    private long _itemsRevision;
     /// <summary>是否已通过演示账号验证。</summary>
     private bool _authenticated;
     /// <summary>本会话最近收到的移动序号。</summary>
@@ -360,7 +364,7 @@ public sealed class MockServer
         var response = new LoginRt();
         try
         {
-            foreach (var role in _roles.List()) response.Roles.Add(ToSummary(role));
+            foreach (var role in _roles.ListSummaries()) response.Roles.Add(ToSummary(role));
             response.Success = _authenticated = true;
         }
         catch (Exception error) { response.Error = error.Message; response.Roles.Clear(); }
@@ -407,7 +411,7 @@ public sealed class MockServer
         {
             EnsureRoleList();
             var summaries = new List<RoleSummaryPb>();
-            foreach (var existing in _roles.List()) summaries.Add(ToSummary(existing));
+            foreach (var existing in _roles.ListSummaries()) summaries.Add(ToSummary(existing));
             var gender = request.Gender switch
             {
                 RoleGenderPb.Male => ServerRoleGender.Male,
@@ -434,7 +438,7 @@ public sealed class MockServer
         {
             EnsureRoleList();
             var summaries = new List<RoleSummaryPb>();
-            foreach (var role in _roles.List())
+            foreach (var role in _roles.ListSummaries())
                 if (role.RoleId != request.RoleId) summaries.Add(ToSummary(role));
             _roles.Delete(request.RoleId);
             response.Roles.AddRange(summaries);
@@ -511,8 +515,8 @@ public sealed class MockServer
         {
             if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
                 throw new InvalidOperationException("请先进入当前角色");
-            if (request.ExpectedBagRevision != _current.Bag.Revision ||
-                request.ExpectedEquipmentRevision != _current.Bag.EquipmentRevision)
+            if (request.ExpectedBagRevision != _itemsRevision ||
+                request.ExpectedEquipmentRevision != _itemsRevision)
                 throw new InvalidOperationException("物品已更新，请重新选择装备");
             var candidate = _bagRules.Equip(_current, request.InstanceId, (Rpg.Const.EquipmentSlot)request.Slot,
                 request.HasTargetBagSlot ? request.TargetBagSlot : null);
@@ -535,7 +539,7 @@ public sealed class MockServer
         {
             if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
                 throw new InvalidOperationException("请先进入当前角色");
-            if (request.ExpectedRevision != _current.Bag.Revision)
+            if (request.ExpectedRevision != _itemsRevision)
                 throw new InvalidOperationException("背包已更新，请重新拖动物品");
             _bagRules.Validate(_current);
             if (request.TargetSlotIndex < 0 || request.TargetSlotIndex >= _bagRules.GetCapacity(_current.BagExtraRows))
@@ -599,7 +603,7 @@ public sealed class MockServer
         {
             if (!_authenticated || _current is null || request.RoleId != _current.RoleId)
                 throw new InvalidOperationException("请先进入当前角色");
-            if (request.ExpectedRevision != _current.Bag.Revision)
+            if (request.ExpectedRevision != _itemsRevision)
                 throw new InvalidOperationException("背包已更新，请重新选择丢弃物品");
             _bagRules.Validate(_current);
             var source = _current.Bag.Items.SingleOrDefault(item => item.InstanceId == request.InstanceId)
@@ -706,7 +710,7 @@ public sealed class MockServer
     {
         if (!_authenticated || _current is null || request.RoleId != _current.RoleId || request.MoveActionId <= 0 || request.MoveActionId != _lastAction)
             throw new InvalidOperationException("拾取角色或移动意图无效");
-        if (request.ExpectedBagRevision != _current.Bag.Revision) throw new InvalidOperationException("背包已更新，请重新拾取");
+        if (request.ExpectedBagRevision != _itemsRevision) throw new InvalidOperationException("背包已更新，请重新拾取");
         var map = GetMap(_current.MapId);
         if (!Guid.TryParseExact(request.ObjectId, "N", out var id) || !map.Objects.TryGetValue(id, out var item) || item.MonsterTypeId is not null)
             throw new InvalidOperationException("地面物品已不存在");
@@ -760,22 +764,25 @@ public sealed class MockServer
     /// <summary>复制服务端实例为独立完整背包协议。</summary>
     private static BagPb ToBagMessage(DataServerBag bag)
     {
-        var message = new BagPb { Revision = bag.Revision };
+        var message = new BagPb();
         message.Items.AddRange(bag.Items.Select(item => new ItemPb
         {
-            InstanceId = item.InstanceId, ItemId = item.ItemId, SlotIndex = item.SlotIndex, Count = item.Count
+            InstanceId = item.InstanceId, ItemId = item.ItemId, SlotIndex = item.SlotIndex,
+            Count = item.Count, Equipment = new EquipmentPb()
+        }));
+        message.Items.AddRange(bag.Equipment.Select(item => new ItemPb
+        {
+            InstanceId = item.InstanceId, ItemId = item.ItemId, SlotIndex = 0,
+            Count = 1, Equipped = true, Equipment = new EquipmentPb()
         }));
         return message;
     }
 
-    /// <summary>显式投影公开装备，不能带出背包格子或私有玩法数据。</summary>
+    /// <summary>公开投影只输出道具配置编号，不携带私有实例和装备槽。</summary>
     internal static RoleWorldEquipmentPb ToEquipmentMessage(DataServerRole role)
     {
-        var message = new RoleWorldEquipmentPb { RoleId = role.RoleId, Revision = role.Bag.EquipmentRevision };
-        message.Items.AddRange(role.Bag.Equipment.Select(item => new EquippedItemPb
-        {
-            InstanceId = item.InstanceId, ItemId = item.ItemId, Slot = (EquipmentSlotPb)item.Slot
-        }));
+        var message = new RoleWorldEquipmentPb { RoleId = role.RoleId };
+        message.EquippedItems.AddRange(role.Bag.Equipment.OrderBy(item => item.Slot).Select(item => item.ItemId));
         return message;
     }
 
@@ -792,11 +799,19 @@ public sealed class MockServer
     };
 
     /// <summary>登录只返回选角页所需的角色摘要。</summary>
-    private static RoleSummaryPb ToSummary(DataServerRole role) => new()
+    private static RoleSummaryPb ToSummary(DataServerRole role) => ToSummary(Entity.RoleSummaryEntity.FromRole(role));
+
+    /// <summary>从独立摘要快照投影选角展示，不读取角色实体表。</summary>
+    private static RoleSummaryPb ToSummary(Entity.RoleSummaryEntity role)
     {
-        RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId,
-        Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female
-    };
+        var message = new RoleSummaryPb
+        {
+            RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId,
+            Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female
+        };
+        message.EquippedItems.AddRange(role.EquippedItems);
+        return message;
+    }
 
     /// <summary>将完整角色世界状态复制为协议对象，不向客户端共享服务端模型。</summary>
     private static RoleWorldStatePb ToMessage(DataServerRole role) => new()
@@ -809,33 +824,38 @@ public sealed class MockServer
     private static RoleWorldProfilePb ToProfileMessage(DataServerRole role) => new()
     {
         RoleId = role.RoleId, Name = role.Name, Level = role.Level, HeadId = role.HeadId,
-        Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female,
-        Revision = role.Revision
+        Gender = role.Gender == ServerRoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female
     };
 
     /// <summary>复制可见的生命和魔力状态。</summary>
     private static RoleWorldStatusPb ToStatusMessage(DataServerRole role) => new()
     {
         RoleId = role.RoleId, Health = role.Health, MaxHealth = role.MaxHealth,
-        Mana = role.Mana, MaxMana = role.MaxMana, Revision = role.Revision
+        Mana = role.Mana, MaxMana = role.MaxMana
     };
 
     /// <summary>复制仅当前玩家可见的角色玩法领域。</summary>
     private static RolePb ToRoleMessage(DataServerRole role) => new()
     {
         RoleId = role.RoleId, Experience = role.Experience, NextExperience = role.NextExperience,
-        BagExtraRows = role.BagExtraRows, Revision = role.Revision
+        BagExtraRows = role.BagExtraRows
     };
 
     /// <summary>复制角色位置和移动确认到独立协议对象。</summary>
     private static RoleWorldPositionPb ToPositionMessage(DataServerRole role) => new()
     {
         RoleId = role.RoleId, MapId = role.MapId, X = role.X, Y = role.Y,
-        Revision = role.Revision, AcknowledgedAction = role.AcknowledgedAction
+        AcknowledgedAction = role.AcknowledgedAction
     };
 
     /// <summary>冻结响应为当前代次的字节交给传输层。</summary>
-    private void Send(IMessage response) => Outgoing?.Invoke(MessageCodec.Encode(response, _generation, false));
+    private void Send(IMessage response)
+    {
+        var revision = checked(++_revision);
+        if (response is RoleItemsChangedNotice || response is SelectRoleRt { Success: true })
+            _itemsRevision = revision;
+        Outgoing?.Invoke(MessageCodec.Encode(response, _generation, false, revision));
+    }
 
     /// <summary>记录等待延迟确认的移动。</summary>
     /// <param name="ActionId">客户端提交的意图序号。</param>

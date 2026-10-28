@@ -66,7 +66,7 @@ public sealed class ServerWriteBackTests : IDisposable
         var second = cache.Create("另一个", ServerRoleGender.Female, 1);
         Assert.True(second.RoleId > first.RoleId);
         Assert.Equal(second, Assert.Single(cache.List()));
-        Assert.Empty(Directory.GetFiles(_directory));
+        Assert.False(Directory.Exists(_directory));
         cache.Flush();
         var disk = new RepoServerRole(_directory);
         Assert.Equal(second, Assert.Single(disk.List()));
@@ -84,7 +84,7 @@ public sealed class ServerWriteBackTests : IDisposable
         transport.Send(MessageCodec.Encode(new Login { Username = "demo", Password = "demo" }, 1, true));
         transport.Send(MessageCodec.Encode(new CreateRole { Name = "定时测试", HeadId = 1, Gender = RoleGenderPb.Male }, 1, true));
         server.Tick(4.9);
-        Assert.Empty(Directory.GetFiles(_directory));
+        Assert.False(Directory.Exists(_directory));
         server.Tick(0.1);
         Assert.Single(Directory.GetFiles(_directory, "*.role.json"));
         interval = 0;
@@ -115,7 +115,7 @@ public sealed class ServerWriteBackTests : IDisposable
         net.Send(new Login { Username = "demo", Password = "demo" });
         net.Tick(0);
         net.Send(new CreateRole { Name = "离角落地", HeadId = 1, Gender = RoleGenderPb.Male });
-        Assert.Empty(Directory.GetFiles(_directory, "*.role.json"));
+        Assert.False(Directory.Exists(_directory));
 
         net.FlushServerWrites();
         net.ResetSession();

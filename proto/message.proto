@@ -10,4 +10,6 @@ message EnvelopePb {
   int64 generation = 2;
   // 业务消息的 protobuf 字节。
   bytes payload = 3;
+  // 发送端每发一条消息递增，仅存于当前进程。
+  int64 revision = 4;
 }

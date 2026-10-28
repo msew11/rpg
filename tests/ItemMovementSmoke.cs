@@ -103,7 +103,7 @@ public partial class ItemMovementSmoke : Node
             // server-write-back：先推进到落地节点，再核对失败请求与重启文件。
             GameServices.Net.Tick(5);
             var saved = repo.Load(1001).Bag;
-            GameServices.Session.MoveItem(99999, 4, saved.Revision);
+            GameServices.Session.MoveItem(99999, 4, GameServices.Session.Bag.Revision);
             await Frames();
             Check(bag.FindChild("ItemMoveStatus", true, false) is Label { Visible: true, Text: "源物品不存在" }, "失败响应没有提示");
             Check(repo.Load(1001).Bag == saved, "失败请求修改了存档");

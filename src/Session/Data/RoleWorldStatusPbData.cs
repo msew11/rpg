@@ -1,3 +1,4 @@
+using Rpg.Net;
 using System.IO;
 using Rpg.Net.Message;
 
@@ -12,7 +13,7 @@ public sealed record RoleWorldStatusPbData(long RoleId, int Health, int MaxHealt
     {
         if (message is null) throw new InvalidDataException("角色状态协议不能为空");
         var data = new RoleWorldStatusPbData(message.RoleId, message.Health, message.MaxHealth,
-            message.Mana, message.MaxMana, message.Revision);
+            message.Mana, message.MaxMana, message.GetRevision());
         data.Validate();
         return data;
     }
@@ -22,7 +23,7 @@ public sealed record RoleWorldStatusPbData(long RoleId, int Health, int MaxHealt
     {
         Validate();
         return new RoleWorldStatusPb { RoleId = RoleId, Health = Health, MaxHealth = MaxHealth,
-            Mana = Mana, MaxMana = MaxMana, Revision = Revision };
+            Mana = Mana, MaxMana = MaxMana }.WithRevision(Revision);
     }
 
     /// <summary>拒绝无效生命、魔力和版本。</summary>

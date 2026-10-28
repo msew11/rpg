@@ -24,47 +24,126 @@ namespace Rpg.Net.Message {
     static BagReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "CgliYWcucHJvdG8SA3JwZxoPZXF1aXBtZW50LnByb3RvIlEKBkl0ZW1QYhIT",
-            "CgtpbnN0YW5jZV9pZBgBIAEoAxIPCgdpdGVtX2lkGAIgASgFEhIKCnNsb3Rf",
-            "aW5kZXgYAyABKAUSDQoFY291bnQYBCABKAUiRgoFQmFnUGISEAoIcmV2aXNp",
-            "b24YASABKAMSGgoFaXRlbXMYAiADKAsyCy5ycGcuSXRlbVBiSgQIAxAEUgll",
-            "cXVpcG1lbnQicAoWUm9sZUl0ZW1zQ2hhbmdlZE5vdGljZRIPCgdyb2xlX2lk",
-            "GAEgASgDEhcKA2JhZxgCIAEoCzIKLnJwZy5CYWdQYhIsCgllcXVpcG1lbnQY",
-            "AyABKAsyGS5ycGcuUm9sZVdvcmxkRXF1aXBtZW50UGIiZgoITW92ZUl0ZW0S",
-            "DwoHcm9sZV9pZBgBIAEoAxITCgtpbnN0YW5jZV9pZBgCIAEoAxIZChF0YXJn",
-            "ZXRfc2xvdF9pbmRleBgDIAEoBRIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEo",
-            "AyJtCgpNb3ZlSXRlbVJ0Eg8KB3JvbGVfaWQYASABKAMSEwoLaW5zdGFuY2Vf",
-            "aWQYAiABKAMSGQoRdGFyZ2V0X3Nsb3RfaW5kZXgYAyABKAUSDwoHc3VjY2Vz",
-            "cxgEIAEoCBINCgVlcnJvchgFIAEoCSKrAQoIRHJvcEl0ZW0SDwoHcm9sZV9p",
-            "ZBgBIAEoAxITCgtpbnN0YW5jZV9pZBgCIAEoAxINCgVjb3VudBgDIAEoBRIZ",
-            "ChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoAxIPCgdkZXN0cm95GAUgASgIEhMK",
-            "BmRyb3BfeBgGIAEoAkgAiAEBEhMKBmRyb3BfeRgHIAEoAkgBiAEBQgkKB19k",
-            "cm9wX3hCCQoHX2Ryb3BfeSJlCgpEcm9wSXRlbVJ0Eg8KB3JvbGVfaWQYASAB",
-            "KAMSEwoLaW5zdGFuY2VfaWQYAiABKAMSDwoHc3VjY2VzcxgDIAEoCBINCgVl",
-            "cnJvchgEIAEoCRIRCglvYmplY3RfaWQYBSABKAkiiQEKClBpY2t1cEl0ZW0S",
-            "DwoHcm9sZV9pZBgBIAEoAxIRCglvYmplY3RfaWQYAiABKAkSIAoYZXhwZWN0",
-            "ZWRfb2JqZWN0X3JldmlzaW9uGAMgASgDEh0KFWV4cGVjdGVkX2JhZ19yZXZp",
-            "c2lvbhgEIAEoAxIWCg5tb3ZlX2FjdGlvbl9pZBgFIAEoAyJqCgxQaWNrdXBJ",
-            "dGVtUnQSDwoHcm9sZV9pZBgBIAEoAxIRCglvYmplY3RfaWQYAiABKAkSFgoO",
-            "bW92ZV9hY3Rpb25faWQYAyABKAMSDwoHc3VjY2VzcxgEIAEoCBINCgVlcnJv",
-            "chgFIAEoCUISqgIPUnBnLk5ldC5NZXNzYWdlYgZwcm90bzM="));
+            "CgliYWcucHJvdG8SA3JwZyKVAQoGSXRlbVBiEhMKC2luc3RhbmNlX2lkGAEg",
+            "ASgDEg8KB2l0ZW1faWQYAiABKAUSEgoKc2xvdF9pbmRleBgDIAEoBRINCgVj",
+            "b3VudBgEIAEoBRIQCghlcXVpcHBlZBgFIAEoCBIlCgllcXVpcG1lbnQYBiAB",
+            "KAsyEC5ycGcuRXF1aXBtZW50UGJIAEIJCgdwYXlsb2FkIiMKBUJhZ1BiEhoK",
+            "BWl0ZW1zGAIgAygLMgsucnBnLkl0ZW1QYiJwChZSb2xlSXRlbXNDaGFuZ2Vk",
+            "Tm90aWNlEg8KB3JvbGVfaWQYASABKAMSFwoDYmFnGAIgASgLMgoucnBnLkJh",
+            "Z1BiEiwKCWVxdWlwbWVudBgDIAEoCzIZLnJwZy5Sb2xlV29ybGRFcXVpcG1l",
+            "bnRQYiJmCghNb3ZlSXRlbRIPCgdyb2xlX2lkGAEgASgDEhMKC2luc3RhbmNl",
+            "X2lkGAIgASgDEhkKEXRhcmdldF9zbG90X2luZGV4GAMgASgFEhkKEWV4cGVj",
+            "dGVkX3JldmlzaW9uGAQgASgDIm0KCk1vdmVJdGVtUnQSDwoHcm9sZV9pZBgB",
+            "IAEoAxITCgtpbnN0YW5jZV9pZBgCIAEoAxIZChF0YXJnZXRfc2xvdF9pbmRl",
+            "eBgDIAEoBRIPCgdzdWNjZXNzGAQgASgIEg0KBWVycm9yGAUgASgJIqsBCghE",
+            "cm9wSXRlbRIPCgdyb2xlX2lkGAEgASgDEhMKC2luc3RhbmNlX2lkGAIgASgD",
+            "Eg0KBWNvdW50GAMgASgFEhkKEWV4cGVjdGVkX3JldmlzaW9uGAQgASgDEg8K",
+            "B2Rlc3Ryb3kYBSABKAgSEwoGZHJvcF94GAYgASgCSACIAQESEwoGZHJvcF95",
+            "GAcgASgCSAGIAQFCCQoHX2Ryb3BfeEIJCgdfZHJvcF95ImUKCkRyb3BJdGVt",
+            "UnQSDwoHcm9sZV9pZBgBIAEoAxITCgtpbnN0YW5jZV9pZBgCIAEoAxIPCgdz",
+            "dWNjZXNzGAMgASgIEg0KBWVycm9yGAQgASgJEhEKCW9iamVjdF9pZBgFIAEo",
+            "CSKJAQoKUGlja3VwSXRlbRIPCgdyb2xlX2lkGAEgASgDEhEKCW9iamVjdF9p",
+            "ZBgCIAEoCRIgChhleHBlY3RlZF9vYmplY3RfcmV2aXNpb24YAyABKAMSHQoV",
+            "ZXhwZWN0ZWRfYmFnX3JldmlzaW9uGAQgASgDEhYKDm1vdmVfYWN0aW9uX2lk",
+            "GAUgASgDImoKDFBpY2t1cEl0ZW1SdBIPCgdyb2xlX2lkGAEgASgDEhEKCW9i",
+            "amVjdF9pZBgCIAEoCRIWCg5tb3ZlX2FjdGlvbl9pZBgDIAEoAxIPCgdzdWNj",
+            "ZXNzGAQgASgIEg0KBWVycm9yGAUgASgJIg0KC0VxdWlwbWVudFBiIssBCglF",
+            "cXVpcEl0ZW0SDwoHcm9sZV9pZBgBIAEoAxITCgtpbnN0YW5jZV9pZBgCIAEo",
+            "AxIiCgRzbG90GAMgASgOMhQucnBnLkVxdWlwbWVudFNsb3RQYhIdChVleHBl",
+            "Y3RlZF9iYWdfcmV2aXNpb24YBCABKAMSHAoPdGFyZ2V0X2JhZ19zbG90GAUg",
+            "ASgFSACIAQESIwobZXhwZWN0ZWRfZXF1aXBtZW50X3JldmlzaW9uGAYgASgD",
+            "QhIKEF90YXJnZXRfYmFnX3Nsb3QiYgoLRXF1aXBJdGVtUnQSDwoHcm9sZV9p",
+            "ZBgBIAEoAxIiCgRzbG90GAIgASgOMhQucnBnLkVxdWlwbWVudFNsb3RQYhIP",
+            "CgdzdWNjZXNzGAMgASgIEg0KBWVycm9yGAQgASgJIj8KFFJvbGVXb3JsZEVx",
+            "dWlwbWVudFBiEg8KB3JvbGVfaWQYASABKAMSFgoOZXF1aXBwZWRfaXRlbXMY",
+            "AyADKAUq+AIKD0VxdWlwbWVudFNsb3RQYhIhCh1FUVVJUE1FTlRfU0xPVF9Q",
+            "Ql9VTlNQRUNJRklFRBAAEh8KG0VRVUlQTUVOVF9TTE9UX1BCX01BSU5fSEFO",
+            "RBABEh4KGkVRVUlQTUVOVF9TTE9UX1BCX09GRl9IQU5EEAISGgoWRVFVSVBN",
+            "RU5UX1NMT1RfUEJfSEVBRBADEhoKFkVRVUlQTUVOVF9TTE9UX1BCX0ZBQ0UQ",
+            "BBIaChZFUVVJUE1FTlRfU0xPVF9QQl9CT0RZEAUSHgoaRVFVSVBNRU5UX1NM",
+            "T1RfUEJfTkVDS0xBQ0UQBhIbChdFUVVJUE1FTlRfU0xPVF9QQl9IQU5EUxAH",
+            "EhsKF0VRVUlQTUVOVF9TTE9UX1BCX1JJTkcxEAgSGgoWRVFVSVBNRU5UX1NM",
+            "T1RfUEJfTEVHUxAJEhsKF0VRVUlQTUVOVF9TTE9UX1BCX1JJTkcyEAoSGgoW",
+            "RVFVSVBNRU5UX1NMT1RfUEJfRkVFVBALQhKqAg9ScGcuTmV0Lk1lc3NhZ2Vi",
+            "BnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { global::Rpg.Net.Message.EquipmentReflection.Descriptor, },
-          new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.ItemPb), global::Rpg.Net.Message.ItemPb.Parser, new[]{ "InstanceId", "ItemId", "SlotIndex", "Count" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.BagPb), global::Rpg.Net.Message.BagPb.Parser, new[]{ "Revision", "Items" }, null, null, null, null),
+          new pbr::FileDescriptor[] { },
+          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rpg.Net.Message.EquipmentSlotPb), }, null, new pbr::GeneratedClrTypeInfo[] {
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.ItemPb), global::Rpg.Net.Message.ItemPb.Parser, new[]{ "InstanceId", "ItemId", "SlotIndex", "Count", "Equipped", "Equipment" }, new[]{ "Payload" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.BagPb), global::Rpg.Net.Message.BagPb.Parser, new[]{ "Items" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleItemsChangedNotice), global::Rpg.Net.Message.RoleItemsChangedNotice.Parser, new[]{ "RoleId", "Bag", "Equipment" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.MoveItem), global::Rpg.Net.Message.MoveItem.Parser, new[]{ "RoleId", "InstanceId", "TargetSlotIndex", "ExpectedRevision" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.MoveItemRt), global::Rpg.Net.Message.MoveItemRt.Parser, new[]{ "RoleId", "InstanceId", "TargetSlotIndex", "Success", "Error" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItem), global::Rpg.Net.Message.DropItem.Parser, new[]{ "RoleId", "InstanceId", "Count", "ExpectedRevision", "Destroy", "DropX", "DropY" }, new[]{ "DropX", "DropY" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.DropItemRt), global::Rpg.Net.Message.DropItemRt.Parser, new[]{ "RoleId", "InstanceId", "Success", "Error", "ObjectId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.PickupItem), global::Rpg.Net.Message.PickupItem.Parser, new[]{ "RoleId", "ObjectId", "ExpectedObjectRevision", "ExpectedBagRevision", "MoveActionId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.PickupItemRt), global::Rpg.Net.Message.PickupItemRt.Parser, new[]{ "RoleId", "ObjectId", "MoveActionId", "Success", "Error" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.PickupItemRt), global::Rpg.Net.Message.PickupItemRt.Parser, new[]{ "RoleId", "ObjectId", "MoveActionId", "Success", "Error" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.EquipmentPb), global::Rpg.Net.Message.EquipmentPb.Parser, null, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.EquipItem), global::Rpg.Net.Message.EquipItem.Parser, new[]{ "RoleId", "InstanceId", "Slot", "ExpectedBagRevision", "TargetBagSlot", "ExpectedEquipmentRevision" }, new[]{ "TargetBagSlot" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.EquipItemRt), global::Rpg.Net.Message.EquipItemRt.Parser, new[]{ "RoleId", "Slot", "Success", "Error" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldEquipmentPb), global::Rpg.Net.Message.RoleWorldEquipmentPb.Parser, new[]{ "RoleId", "EquippedItems" }, null, null, null, null)
           }));
     }
     #endregion
 
   }
+  #region Enums
+  /// <summary>
+  /// 与业务装备槽位保持一致的稳定传输编号。
+  /// </summary>
+  public enum EquipmentSlotPb {
+    /// <summary>
+    /// 未指定槽位，不能作为有效目标。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_UNSPECIFIED")] Unspecified = 0,
+    /// <summary>
+    /// 主手武器。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_MAIN_HAND")] MainHand = 1,
+    /// <summary>
+    /// 副手武器或盾牌。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_OFF_HAND")] OffHand = 2,
+    /// <summary>
+    /// 头部。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_HEAD")] Head = 3,
+    /// <summary>
+    /// 面部。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_FACE")] Face = 4,
+    /// <summary>
+    /// 身体。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_BODY")] Body = 5,
+    /// <summary>
+    /// 项链。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_NECKLACE")] Necklace = 6,
+    /// <summary>
+    /// 手部。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_HANDS")] Hands = 7,
+    /// <summary>
+    /// 第一枚戒指。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_RING1")] Ring1 = 8,
+    /// <summary>
+    /// 裤子。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_LEGS")] Legs = 9,
+    /// <summary>
+    /// 第二枚戒指。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_RING2")] Ring2 = 10,
+    /// <summary>
+    /// 鞋子。
+    /// </summary>
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_FEET")] Feet = 11,
+  }
+
+  #endregion
+
   #region Messages
   /// <summary>
   /// 角色持有的基础道具实例，不重复传递静态配置。
@@ -108,6 +187,13 @@ namespace Rpg.Net.Message {
       itemId_ = other.itemId_;
       slotIndex_ = other.slotIndex_;
       count_ = other.count_;
+      equipped_ = other.equipped_;
+      switch (other.PayloadCase) {
+        case PayloadOneofCase.Equipment:
+          Equipment = other.Equipment.Clone();
+          break;
+      }
+
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -177,6 +263,53 @@ namespace Rpg.Net.Message {
       }
     }
 
+    /// <summary>Field number for the "equipped" field.</summary>
+    public const int EquippedFieldNumber = 5;
+    private bool equipped_;
+    /// <summary>
+    /// 是否正在穿戴；穿戴时 slot_index 固定为 0。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equipped {
+      get { return equipped_; }
+      set {
+        equipped_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "equipment" field.</summary>
+    public const int EquipmentFieldNumber = 6;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.Net.Message.EquipmentPb Equipment {
+      get { return payloadCase_ == PayloadOneofCase.Equipment ? (global::Rpg.Net.Message.EquipmentPb) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.Equipment;
+      }
+    }
+
+    private object payload_;
+    /// <summary>Enum of possible cases for the "payload" oneof.</summary>
+    public enum PayloadOneofCase {
+      None = 0,
+      Equipment = 6,
+    }
+    private PayloadOneofCase payloadCase_ = PayloadOneofCase.None;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PayloadOneofCase PayloadCase {
+      get { return payloadCase_; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearPayload() {
+      payloadCase_ = PayloadOneofCase.None;
+      payload_ = null;
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -196,6 +329,9 @@ namespace Rpg.Net.Message {
       if (ItemId != other.ItemId) return false;
       if (SlotIndex != other.SlotIndex) return false;
       if (Count != other.Count) return false;
+      if (Equipped != other.Equipped) return false;
+      if (!object.Equals(Equipment, other.Equipment)) return false;
+      if (PayloadCase != other.PayloadCase) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -207,6 +343,9 @@ namespace Rpg.Net.Message {
       if (ItemId != 0) hash ^= ItemId.GetHashCode();
       if (SlotIndex != 0) hash ^= SlotIndex.GetHashCode();
       if (Count != 0) hash ^= Count.GetHashCode();
+      if (Equipped != false) hash ^= Equipped.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.Equipment) hash ^= Equipment.GetHashCode();
+      hash ^= (int) payloadCase_;
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -241,6 +380,14 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(32);
         output.WriteInt32(Count);
       }
+      if (Equipped != false) {
+        output.WriteRawTag(40);
+        output.WriteBool(Equipped);
+      }
+      if (payloadCase_ == PayloadOneofCase.Equipment) {
+        output.WriteRawTag(50);
+        output.WriteMessage(Equipment);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -267,6 +414,14 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(32);
         output.WriteInt32(Count);
       }
+      if (Equipped != false) {
+        output.WriteRawTag(40);
+        output.WriteBool(Equipped);
+      }
+      if (payloadCase_ == PayloadOneofCase.Equipment) {
+        output.WriteRawTag(50);
+        output.WriteMessage(Equipment);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -288,6 +443,12 @@ namespace Rpg.Net.Message {
       }
       if (Count != 0) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(Count);
+      }
+      if (Equipped != false) {
+        size += 1 + 1;
+      }
+      if (payloadCase_ == PayloadOneofCase.Equipment) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Equipment);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -313,6 +474,18 @@ namespace Rpg.Net.Message {
       if (other.Count != 0) {
         Count = other.Count;
       }
+      if (other.Equipped != false) {
+        Equipped = other.Equipped;
+      }
+      switch (other.PayloadCase) {
+        case PayloadOneofCase.Equipment:
+          if (Equipment == null) {
+            Equipment = new global::Rpg.Net.Message.EquipmentPb();
+          }
+          Equipment.MergeFrom(other.Equipment);
+          break;
+      }
+
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -346,6 +519,19 @@ namespace Rpg.Net.Message {
           }
           case 32: {
             Count = input.ReadInt32();
+            break;
+          }
+          case 40: {
+            Equipped = input.ReadBool();
+            break;
+          }
+          case 50: {
+            global::Rpg.Net.Message.EquipmentPb subBuilder = new global::Rpg.Net.Message.EquipmentPb();
+            if (payloadCase_ == PayloadOneofCase.Equipment) {
+              subBuilder.MergeFrom(Equipment);
+            }
+            input.ReadMessage(subBuilder);
+            Equipment = subBuilder;
             break;
           }
         }
@@ -383,6 +569,19 @@ namespace Rpg.Net.Message {
             Count = input.ReadInt32();
             break;
           }
+          case 40: {
+            Equipped = input.ReadBool();
+            break;
+          }
+          case 50: {
+            global::Rpg.Net.Message.EquipmentPb subBuilder = new global::Rpg.Net.Message.EquipmentPb();
+            if (payloadCase_ == PayloadOneofCase.Equipment) {
+              subBuilder.MergeFrom(Equipment);
+            }
+            input.ReadMessage(subBuilder);
+            Equipment = subBuilder;
+            break;
+          }
         }
       }
     }
@@ -391,7 +590,7 @@ namespace Rpg.Net.Message {
   }
 
   /// <summary>
-  /// 独立版本的完整背包快照，空格不存记录。
+  /// 当前玩家持有的全部私有物品，包含穿戴实例；空格不存记录。
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class BagPb : pb::IMessage<BagPb>
@@ -428,7 +627,6 @@ namespace Rpg.Net.Message {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public BagPb(BagPb other) : this() {
-      revision_ = other.revision_;
       items_ = other.items_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
@@ -437,21 +635,6 @@ namespace Rpg.Net.Message {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public BagPb Clone() {
       return new BagPb(this);
-    }
-
-    /// <summary>Field number for the "revision" field.</summary>
-    public const int RevisionFieldNumber = 1;
-    private long revision_;
-    /// <summary>
-    /// 每次物品提交递增的版本，穿脱同样递增。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Revision {
-      get { return revision_; }
-      set {
-        revision_ = value;
-      }
     }
 
     /// <summary>Field number for the "items" field.</summary>
@@ -483,7 +666,6 @@ namespace Rpg.Net.Message {
       if (ReferenceEquals(other, this)) {
         return true;
       }
-      if (Revision != other.Revision) return false;
       if(!items_.Equals(other.items_)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
@@ -492,7 +674,6 @@ namespace Rpg.Net.Message {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
-      if (Revision != 0L) hash ^= Revision.GetHashCode();
       hash ^= items_.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -512,10 +693,6 @@ namespace Rpg.Net.Message {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (Revision != 0L) {
-        output.WriteRawTag(8);
-        output.WriteInt64(Revision);
-      }
       items_.WriteTo(output, _repeated_items_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -527,10 +704,6 @@ namespace Rpg.Net.Message {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (Revision != 0L) {
-        output.WriteRawTag(8);
-        output.WriteInt64(Revision);
-      }
       items_.WriteTo(ref output, _repeated_items_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -542,9 +715,6 @@ namespace Rpg.Net.Message {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
-      if (Revision != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Revision);
-      }
       size += items_.CalculateSize(_repeated_items_codec);
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -557,9 +727,6 @@ namespace Rpg.Net.Message {
     public void MergeFrom(BagPb other) {
       if (other == null) {
         return;
-      }
-      if (other.Revision != 0L) {
-        Revision = other.Revision;
       }
       items_.Add(other.items_);
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
@@ -581,10 +748,6 @@ namespace Rpg.Net.Message {
           default:
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
-          case 8: {
-            Revision = input.ReadInt64();
-            break;
-          }
           case 18: {
             items_.AddEntriesFrom(input, _repeated_items_codec);
             break;
@@ -608,10 +771,6 @@ namespace Rpg.Net.Message {
           default:
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
-          case 8: {
-            Revision = input.ReadInt64();
-            break;
-          }
           case 18: {
             items_.AddEntriesFrom(ref input, _repeated_items_codec);
             break;
@@ -3169,6 +3328,1150 @@ namespace Rpg.Net.Message {
           }
           case 42: {
             Error = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 装备实例的扩展载荷，后续加入装备属性。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class EquipmentPb : pb::IMessage<EquipmentPb>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<EquipmentPb> _parser = new pb::MessageParser<EquipmentPb>(() => new EquipmentPb());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<EquipmentPb> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.Net.Message.BagReflection.Descriptor.MessageTypes[9]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public EquipmentPb() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public EquipmentPb(EquipmentPb other) : this() {
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public EquipmentPb Clone() {
+      return new EquipmentPb(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as EquipmentPb);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(EquipmentPb other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(EquipmentPb other) {
+      if (other == null) {
+        return;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 正实例编号表示从背包装备，零表示卸下目标装备槽。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class EquipItem : pb::IMessage<EquipItem>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<EquipItem> _parser = new pb::MessageParser<EquipItem>(() => new EquipItem());
+    private pb::UnknownFieldSet _unknownFields;
+    private int _hasBits0;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<EquipItem> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.Net.Message.BagReflection.Descriptor.MessageTypes[10]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public EquipItem() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public EquipItem(EquipItem other) : this() {
+      _hasBits0 = other._hasBits0;
+      roleId_ = other.roleId_;
+      instanceId_ = other.instanceId_;
+      slot_ = other.slot_;
+      expectedBagRevision_ = other.expectedBagRevision_;
+      targetBagSlot_ = other.targetBagSlot_;
+      expectedEquipmentRevision_ = other.expectedEquipmentRevision_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public EquipItem Clone() {
+      return new EquipItem(this);
+    }
+
+    /// <summary>Field number for the "role_id" field.</summary>
+    public const int RoleIdFieldNumber = 1;
+    private long roleId_;
+    /// <summary>
+    /// 必须与当前角色一致。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long RoleId {
+      get { return roleId_; }
+      set {
+        roleId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "instance_id" field.</summary>
+    public const int InstanceIdFieldNumber = 2;
+    private long instanceId_;
+    /// <summary>
+    /// 背包实例编号，零表示卸下。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long InstanceId {
+      get { return instanceId_; }
+      set {
+        instanceId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "slot" field.</summary>
+    public const int SlotFieldNumber = 3;
+    private global::Rpg.Net.Message.EquipmentSlotPb slot_ = global::Rpg.Net.Message.EquipmentSlotPb.Unspecified;
+    /// <summary>
+    /// 明确指定主手或副手。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.Net.Message.EquipmentSlotPb Slot {
+      get { return slot_; }
+      set {
+        slot_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "expected_bag_revision" field.</summary>
+    public const int ExpectedBagRevisionFieldNumber = 4;
+    private long expectedBagRevision_;
+    /// <summary>
+    /// 物品拿起时的本人物品提交版本。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long ExpectedBagRevision {
+      get { return expectedBagRevision_; }
+      set {
+        expectedBagRevision_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "target_bag_slot" field.</summary>
+    public const int TargetBagSlotFieldNumber = 5;
+    private readonly static int TargetBagSlotDefaultValue = 0;
+
+    private int targetBagSlot_;
+    /// <summary>
+    /// 卸下可指定格子，缺省自动选择首个空格。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int TargetBagSlot {
+      get { if ((_hasBits0 & 1) != 0) { return targetBagSlot_; } else { return TargetBagSlotDefaultValue; } }
+      set {
+        _hasBits0 |= 1;
+        targetBagSlot_ = value;
+      }
+    }
+    /// <summary>Gets whether the "target_bag_slot" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasTargetBagSlot {
+      get { return (_hasBits0 & 1) != 0; }
+    }
+    /// <summary>Clears the value of the "target_bag_slot" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearTargetBagSlot() {
+      _hasBits0 &= ~1;
+    }
+
+    /// <summary>Field number for the "expected_equipment_revision" field.</summary>
+    public const int ExpectedEquipmentRevisionFieldNumber = 6;
+    private long expectedEquipmentRevision_;
+    /// <summary>
+    /// 拿起时的独立装备版本。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long ExpectedEquipmentRevision {
+      get { return expectedEquipmentRevision_; }
+      set {
+        expectedEquipmentRevision_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as EquipItem);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(EquipItem other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RoleId != other.RoleId) return false;
+      if (InstanceId != other.InstanceId) return false;
+      if (Slot != other.Slot) return false;
+      if (ExpectedBagRevision != other.ExpectedBagRevision) return false;
+      if (TargetBagSlot != other.TargetBagSlot) return false;
+      if (ExpectedEquipmentRevision != other.ExpectedEquipmentRevision) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RoleId != 0L) hash ^= RoleId.GetHashCode();
+      if (InstanceId != 0L) hash ^= InstanceId.GetHashCode();
+      if (Slot != global::Rpg.Net.Message.EquipmentSlotPb.Unspecified) hash ^= Slot.GetHashCode();
+      if (ExpectedBagRevision != 0L) hash ^= ExpectedBagRevision.GetHashCode();
+      if (HasTargetBagSlot) hash ^= TargetBagSlot.GetHashCode();
+      if (ExpectedEquipmentRevision != 0L) hash ^= ExpectedEquipmentRevision.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (InstanceId != 0L) {
+        output.WriteRawTag(16);
+        output.WriteInt64(InstanceId);
+      }
+      if (Slot != global::Rpg.Net.Message.EquipmentSlotPb.Unspecified) {
+        output.WriteRawTag(24);
+        output.WriteEnum((int) Slot);
+      }
+      if (ExpectedBagRevision != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(ExpectedBagRevision);
+      }
+      if (HasTargetBagSlot) {
+        output.WriteRawTag(40);
+        output.WriteInt32(TargetBagSlot);
+      }
+      if (ExpectedEquipmentRevision != 0L) {
+        output.WriteRawTag(48);
+        output.WriteInt64(ExpectedEquipmentRevision);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (InstanceId != 0L) {
+        output.WriteRawTag(16);
+        output.WriteInt64(InstanceId);
+      }
+      if (Slot != global::Rpg.Net.Message.EquipmentSlotPb.Unspecified) {
+        output.WriteRawTag(24);
+        output.WriteEnum((int) Slot);
+      }
+      if (ExpectedBagRevision != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(ExpectedBagRevision);
+      }
+      if (HasTargetBagSlot) {
+        output.WriteRawTag(40);
+        output.WriteInt32(TargetBagSlot);
+      }
+      if (ExpectedEquipmentRevision != 0L) {
+        output.WriteRawTag(48);
+        output.WriteInt64(ExpectedEquipmentRevision);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RoleId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(RoleId);
+      }
+      if (InstanceId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(InstanceId);
+      }
+      if (Slot != global::Rpg.Net.Message.EquipmentSlotPb.Unspecified) {
+        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Slot);
+      }
+      if (ExpectedBagRevision != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(ExpectedBagRevision);
+      }
+      if (HasTargetBagSlot) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(TargetBagSlot);
+      }
+      if (ExpectedEquipmentRevision != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(ExpectedEquipmentRevision);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(EquipItem other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RoleId != 0L) {
+        RoleId = other.RoleId;
+      }
+      if (other.InstanceId != 0L) {
+        InstanceId = other.InstanceId;
+      }
+      if (other.Slot != global::Rpg.Net.Message.EquipmentSlotPb.Unspecified) {
+        Slot = other.Slot;
+      }
+      if (other.ExpectedBagRevision != 0L) {
+        ExpectedBagRevision = other.ExpectedBagRevision;
+      }
+      if (other.HasTargetBagSlot) {
+        TargetBagSlot = other.TargetBagSlot;
+      }
+      if (other.ExpectedEquipmentRevision != 0L) {
+        ExpectedEquipmentRevision = other.ExpectedEquipmentRevision;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 16: {
+            InstanceId = input.ReadInt64();
+            break;
+          }
+          case 24: {
+            Slot = (global::Rpg.Net.Message.EquipmentSlotPb) input.ReadEnum();
+            break;
+          }
+          case 32: {
+            ExpectedBagRevision = input.ReadInt64();
+            break;
+          }
+          case 40: {
+            TargetBagSlot = input.ReadInt32();
+            break;
+          }
+          case 48: {
+            ExpectedEquipmentRevision = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 16: {
+            InstanceId = input.ReadInt64();
+            break;
+          }
+          case 24: {
+            Slot = (global::Rpg.Net.Message.EquipmentSlotPb) input.ReadEnum();
+            break;
+          }
+          case 32: {
+            ExpectedBagRevision = input.ReadInt64();
+            break;
+          }
+          case 40: {
+            TargetBagSlot = input.ReadInt32();
+            break;
+          }
+          case 48: {
+            ExpectedEquipmentRevision = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 穿脱结果，成功状态经完整 RoleItemsChangedNotice 交付。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class EquipItemRt : pb::IMessage<EquipItemRt>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<EquipItemRt> _parser = new pb::MessageParser<EquipItemRt>(() => new EquipItemRt());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<EquipItemRt> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.Net.Message.BagReflection.Descriptor.MessageTypes[11]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public EquipItemRt() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public EquipItemRt(EquipItemRt other) : this() {
+      roleId_ = other.roleId_;
+      slot_ = other.slot_;
+      success_ = other.success_;
+      error_ = other.error_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public EquipItemRt Clone() {
+      return new EquipItemRt(this);
+    }
+
+    /// <summary>Field number for the "role_id" field.</summary>
+    public const int RoleIdFieldNumber = 1;
+    private long roleId_;
+    /// <summary>
+    /// 请求所属角色。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long RoleId {
+      get { return roleId_; }
+      set {
+        roleId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "slot" field.</summary>
+    public const int SlotFieldNumber = 2;
+    private global::Rpg.Net.Message.EquipmentSlotPb slot_ = global::Rpg.Net.Message.EquipmentSlotPb.Unspecified;
+    /// <summary>
+    /// 请求操作的装备槽位。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.Net.Message.EquipmentSlotPb Slot {
+      get { return slot_; }
+      set {
+        slot_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "success" field.</summary>
+    public const int SuccessFieldNumber = 3;
+    private bool success_;
+    /// <summary>
+    /// 是否完成原子转移。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Success {
+      get { return success_; }
+      set {
+        success_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "error" field.</summary>
+    public const int ErrorFieldNumber = 4;
+    private string error_ = "";
+    /// <summary>
+    /// 失败原因，供界面显示。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Error {
+      get { return error_; }
+      set {
+        error_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as EquipItemRt);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(EquipItemRt other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RoleId != other.RoleId) return false;
+      if (Slot != other.Slot) return false;
+      if (Success != other.Success) return false;
+      if (Error != other.Error) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RoleId != 0L) hash ^= RoleId.GetHashCode();
+      if (Slot != global::Rpg.Net.Message.EquipmentSlotPb.Unspecified) hash ^= Slot.GetHashCode();
+      if (Success != false) hash ^= Success.GetHashCode();
+      if (Error.Length != 0) hash ^= Error.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (Slot != global::Rpg.Net.Message.EquipmentSlotPb.Unspecified) {
+        output.WriteRawTag(16);
+        output.WriteEnum((int) Slot);
+      }
+      if (Success != false) {
+        output.WriteRawTag(24);
+        output.WriteBool(Success);
+      }
+      if (Error.Length != 0) {
+        output.WriteRawTag(34);
+        output.WriteString(Error);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (Slot != global::Rpg.Net.Message.EquipmentSlotPb.Unspecified) {
+        output.WriteRawTag(16);
+        output.WriteEnum((int) Slot);
+      }
+      if (Success != false) {
+        output.WriteRawTag(24);
+        output.WriteBool(Success);
+      }
+      if (Error.Length != 0) {
+        output.WriteRawTag(34);
+        output.WriteString(Error);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RoleId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(RoleId);
+      }
+      if (Slot != global::Rpg.Net.Message.EquipmentSlotPb.Unspecified) {
+        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Slot);
+      }
+      if (Success != false) {
+        size += 1 + 1;
+      }
+      if (Error.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Error);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(EquipItemRt other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RoleId != 0L) {
+        RoleId = other.RoleId;
+      }
+      if (other.Slot != global::Rpg.Net.Message.EquipmentSlotPb.Unspecified) {
+        Slot = other.Slot;
+      }
+      if (other.Success != false) {
+        Success = other.Success;
+      }
+      if (other.Error.Length != 0) {
+        Error = other.Error;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 16: {
+            Slot = (global::Rpg.Net.Message.EquipmentSlotPb) input.ReadEnum();
+            break;
+          }
+          case 24: {
+            Success = input.ReadBool();
+            break;
+          }
+          case 34: {
+            Error = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 16: {
+            Slot = (global::Rpg.Net.Message.EquipmentSlotPb) input.ReadEnum();
+            break;
+          }
+          case 24: {
+            Success = input.ReadBool();
+            break;
+          }
+          case 34: {
+            Error = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 可公开的完整穿戴状态，不依赖私有背包。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class RoleWorldEquipmentPb : pb::IMessage<RoleWorldEquipmentPb>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<RoleWorldEquipmentPb> _parser = new pb::MessageParser<RoleWorldEquipmentPb>(() => new RoleWorldEquipmentPb());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<RoleWorldEquipmentPb> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.Net.Message.BagReflection.Descriptor.MessageTypes[12]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleWorldEquipmentPb() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleWorldEquipmentPb(RoleWorldEquipmentPb other) : this() {
+      roleId_ = other.roleId_;
+      equippedItems_ = other.equippedItems_.Clone();
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleWorldEquipmentPb Clone() {
+      return new RoleWorldEquipmentPb(this);
+    }
+
+    /// <summary>Field number for the "role_id" field.</summary>
+    public const int RoleIdFieldNumber = 1;
+    private long roleId_;
+    /// <summary>
+    /// 穿戴者身份。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long RoleId {
+      get { return roleId_; }
+      set {
+        roleId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "equipped_items" field.</summary>
+    public const int EquippedItemsFieldNumber = 3;
+    private static readonly pb::FieldCodec<int> _repeated_equippedItems_codec
+        = pb::FieldCodec.ForInt32(26);
+    private readonly pbc::RepeatedField<int> equippedItems_ = new pbc::RepeatedField<int>();
+    /// <summary>
+    /// 已穿戴道具的 item.json 配置编号，空列表表示全部卸下。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<int> EquippedItems {
+      get { return equippedItems_; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as RoleWorldEquipmentPb);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(RoleWorldEquipmentPb other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RoleId != other.RoleId) return false;
+      if(!equippedItems_.Equals(other.equippedItems_)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RoleId != 0L) hash ^= RoleId.GetHashCode();
+      hash ^= equippedItems_.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      equippedItems_.WriteTo(output, _repeated_equippedItems_codec);
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      equippedItems_.WriteTo(ref output, _repeated_equippedItems_codec);
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RoleId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(RoleId);
+      }
+      size += equippedItems_.CalculateSize(_repeated_equippedItems_codec);
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(RoleWorldEquipmentPb other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RoleId != 0L) {
+        RoleId = other.RoleId;
+      }
+      equippedItems_.Add(other.equippedItems_);
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 26:
+          case 24: {
+            equippedItems_.AddEntriesFrom(input, _repeated_equippedItems_codec);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 26:
+          case 24: {
+            equippedItems_.AddEntriesFrom(ref input, _repeated_equippedItems_codec);
             break;
           }
         }

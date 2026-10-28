@@ -6,12 +6,12 @@ using Rpg.Const;
 
 namespace Rpg.Server.Data;
 
-/// <summary>独立原子保存的背包，下一个实例编号不会因失败而消耗。</summary>
+/// <summary>物品规则的不可变业务候选；实体缓存负责拆表，下一个实例编号不因失败消耗。</summary>
 public sealed record DataServerBag
 {
-    /// <summary>独立于角色移动状态的背包版本。</summary>
+    /// <summary>进程内候选变更序号，兼容读取旧存档，不作为信封版本或新表字段。</summary>
     public long Revision { get; init; }
-    /// <summary>仅装备内容变化时递增的公开版本。</summary>
+    /// <summary>仅装备变化时递增的候选序号，不公开或落地到新表。</summary>
     public long EquipmentRevision { get; init; }
     /// <summary>下次成功建立实例时使用的编号。</summary>
     public long NextInstanceId { get; init; } = 1;
@@ -26,7 +26,7 @@ public sealed record DataServerBag
 
     /// <summary>穿戴物品的独立只读副本，旧存档缺失时为空。</summary>
     private readonly IReadOnlyList<DataServerEquipment> _equipment = Array.AsReadOnly(Array.Empty<DataServerEquipment>());
-    /// <summary>与背包共用提交域及编号、独立版本的装备列表。</summary>
+    /// <summary>与背包共用实例编号的穿戴候选视图。</summary>
     public IReadOnlyList<DataServerEquipment> Equipment
     {
         get => _equipment;

@@ -28,14 +28,12 @@ public sealed class NetworkFoundationTests : EventBusServiceTestScope
     public void ProtocolsRoundTripAsIndependentObjects()
     {
         var state = new RoleWorldStatePb {
-            Profile = new RoleWorldProfilePb { RoleId = 1001, Name = "晨星", Gender = RoleGenderPb.Male,
-                Revision = 9, HeadId = 74 },
+            Profile = new RoleWorldProfilePb { RoleId = 1001, Name = "晨星", Gender = RoleGenderPb.Male, HeadId = 74 }.WithRevision(9),
             Status = new RoleWorldStatusPb { RoleId = 1001, Health = 80, MaxHealth = 100,
-                Mana = 20, MaxMana = 30, Revision = 9 },
-            Position = new RoleWorldPositionPb { RoleId = 1001, MapId = 1, X = 123.5f, Y = 456,
-                Revision = 9, AcknowledgedAction = 3 } };
+                Mana = 20, MaxMana = 30}.WithRevision(9),
+            Position = new RoleWorldPositionPb { RoleId = 1001, MapId = 1, X = 123.5f, Y = 456, AcknowledgedAction = 3 }.WithRevision(9) };
         var role = new RolePb { RoleId = 1001, Experience = 5, NextExperience = 100,
-            BagExtraRows = 1, Revision = 9 };
+            BagExtraRows = 1}.WithRevision(9);
         var summary = new RoleSummaryPb { RoleId = 1001, Name = "晨星", Level = 1, Gender = RoleGenderPb.Male };
         Assert.Equal(RoleWorldPositionPb.Descriptor, MoveRt.Descriptor.FindFieldByName("position").MessageType);
         Assert.Null(MoveRt.Descriptor.FindFieldByName("state"));

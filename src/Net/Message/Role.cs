@@ -24,47 +24,45 @@ namespace Rpg.Net.Message {
     static RoleReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "Cgpyb2xlLnByb3RvEgNycGcaCWJhZy5wcm90bxoPZXF1aXBtZW50LnByb3Rv",
-            "InEKDVJvbGVTdW1tYXJ5UGISDwoHcm9sZV9pZBgBIAEoAxIMCgRuYW1lGAIg",
-            "ASgJEg0KBWxldmVsGAMgASgFEiEKBmdlbmRlchgEIAEoDjIRLnJwZy5Sb2xl",
-            "R2VuZGVyUGISDwoHaGVhZF9pZBgFIAEoBSKIAQoSUm9sZVdvcmxkUHJvZmls",
-            "ZVBiEg8KB3JvbGVfaWQYASABKAMSDAoEbmFtZRgCIAEoCRINCgVsZXZlbBgD",
-            "IAEoBRIhCgZnZW5kZXIYBCABKA4yES5ycGcuUm9sZUdlbmRlclBiEg8KB2hl",
-            "YWRfaWQYBSABKAUSEAoIcmV2aXNpb24YBiABKAMiegoRUm9sZVdvcmxkU3Rh",
-            "dHVzUGISDwoHcm9sZV9pZBgBIAEoAxIOCgZoZWFsdGgYAiABKAUSEgoKbWF4",
-            "X2hlYWx0aBgDIAEoBRIMCgRtYW5hGAQgASgFEhAKCG1heF9tYW5hGAUgASgF",
-            "EhAKCHJldmlzaW9uGAYgASgDInAKBlJvbGVQYhIPCgdyb2xlX2lkGAEgASgD",
-            "EhIKCmV4cGVyaWVuY2UYAiABKAUSFwoPbmV4dF9leHBlcmllbmNlGAMgASgF",
-            "EhYKDmJhZ19leHRyYV9yb3dzGAQgASgFEhAKCHJldmlzaW9uGAUgASgDInsK",
-            "E1JvbGVXb3JsZFBvc2l0aW9uUGISDwoHcm9sZV9pZBgBIAEoAxIOCgZtYXBf",
-            "aWQYAiABKAUSCQoBeBgDIAEoAhIJCgF5GAQgASgCEhAKCHJldmlzaW9uGAUg",
-            "ASgDEhsKE2Fja25vd2xlZGdlZF9hY3Rpb24YBiABKAMivgEKEFJvbGVXb3Js",
-            "ZFN0YXRlUGISKAoHcHJvZmlsZRgBIAEoCzIXLnJwZy5Sb2xlV29ybGRQcm9m",
-            "aWxlUGISKgoIcG9zaXRpb24YAiABKAsyGC5ycGcuUm9sZVdvcmxkUG9zaXRp",
-            "b25QYhImCgZzdGF0dXMYAyABKAsyFi5ycGcuUm9sZVdvcmxkU3RhdHVzUGIS",
-            "LAoJZXF1aXBtZW50GAQgASgLMhkucnBnLlJvbGVXb3JsZEVxdWlwbWVudFBi",
-            "Ih0KClNlbGVjdFJvbGUSDwoHcm9sZV9pZBgBIAEoAyKZAQoMU2VsZWN0Um9s",
-            "ZVJ0Eg8KB3N1Y2Nlc3MYASABKAgSDQoFZXJyb3IYAiABKAkSDwoHcm9sZV9p",
-            "ZBgDIAEoAxIkCgVzdGF0ZRgEIAEoCzIVLnJwZy5Sb2xlV29ybGRTdGF0ZVBi",
-            "EhcKA2JhZxgFIAEoCzIKLnJwZy5CYWdQYhIZCgRyb2xlGAYgASgLMgsucnBn",
-            "LlJvbGVQYiJOCgpDcmVhdGVSb2xlEgwKBG5hbWUYASABKAkSIQoGZ2VuZGVy",
-            "GAIgASgOMhEucnBnLlJvbGVHZW5kZXJQYhIPCgdoZWFkX2lkGAMgASgFIlEK",
-            "DENyZWF0ZVJvbGVSdBIPCgdzdWNjZXNzGAEgASgIEg0KBWVycm9yGAIgASgJ",
-            "EiEKBXJvbGVzGAMgAygLMhIucnBnLlJvbGVTdW1tYXJ5UGIiHQoKRGVsZXRl",
-            "Um9sZRIPCgdyb2xlX2lkGAEgASgDIlEKDERlbGV0ZVJvbGVSdBIPCgdzdWNj",
-            "ZXNzGAEgASgIEg0KBWVycm9yGAIgASgJEiEKBXJvbGVzGAMgAygLMhIucnBn",
-            "LlJvbGVTdW1tYXJ5UGIqYgoMUm9sZUdlbmRlclBiEh4KGlJPTEVfR0VOREVS",
-            "X1BCX1VOU1BFQ0lGSUVEEAASFwoTUk9MRV9HRU5ERVJfUEJfTUFMRRABEhkK",
-            "FVJPTEVfR0VOREVSX1BCX0ZFTUFMRRACQhKqAg9ScGcuTmV0Lk1lc3NhZ2Vi",
-            "BnByb3RvMw=="));
+            "Cgpyb2xlLnByb3RvEgNycGcaCWJhZy5wcm90byKJAQoNUm9sZVN1bW1hcnlQ",
+            "YhIPCgdyb2xlX2lkGAEgASgDEgwKBG5hbWUYAiABKAkSDQoFbGV2ZWwYAyAB",
+            "KAUSIQoGZ2VuZGVyGAQgASgOMhEucnBnLlJvbGVHZW5kZXJQYhIPCgdoZWFk",
+            "X2lkGAUgASgFEhYKDmVxdWlwcGVkX2l0ZW1zGAYgAygFInYKElJvbGVXb3Js",
+            "ZFByb2ZpbGVQYhIPCgdyb2xlX2lkGAEgASgDEgwKBG5hbWUYAiABKAkSDQoF",
+            "bGV2ZWwYAyABKAUSIQoGZ2VuZGVyGAQgASgOMhEucnBnLlJvbGVHZW5kZXJQ",
+            "YhIPCgdoZWFkX2lkGAUgASgFImgKEVJvbGVXb3JsZFN0YXR1c1BiEg8KB3Jv",
+            "bGVfaWQYASABKAMSDgoGaGVhbHRoGAIgASgFEhIKCm1heF9oZWFsdGgYAyAB",
+            "KAUSDAoEbWFuYRgEIAEoBRIQCghtYXhfbWFuYRgFIAEoBSJeCgZSb2xlUGIS",
+            "DwoHcm9sZV9pZBgBIAEoAxISCgpleHBlcmllbmNlGAIgASgFEhcKD25leHRf",
+            "ZXhwZXJpZW5jZRgDIAEoBRIWCg5iYWdfZXh0cmFfcm93cxgEIAEoBSJpChNS",
+            "b2xlV29ybGRQb3NpdGlvblBiEg8KB3JvbGVfaWQYASABKAMSDgoGbWFwX2lk",
+            "GAIgASgFEgkKAXgYAyABKAISCQoBeRgEIAEoAhIbChNhY2tub3dsZWRnZWRf",
+            "YWN0aW9uGAYgASgDIr4BChBSb2xlV29ybGRTdGF0ZVBiEigKB3Byb2ZpbGUY",
+            "ASABKAsyFy5ycGcuUm9sZVdvcmxkUHJvZmlsZVBiEioKCHBvc2l0aW9uGAIg",
+            "ASgLMhgucnBnLlJvbGVXb3JsZFBvc2l0aW9uUGISJgoGc3RhdHVzGAMgASgL",
+            "MhYucnBnLlJvbGVXb3JsZFN0YXR1c1BiEiwKCWVxdWlwbWVudBgEIAEoCzIZ",
+            "LnJwZy5Sb2xlV29ybGRFcXVpcG1lbnRQYiIdCgpTZWxlY3RSb2xlEg8KB3Jv",
+            "bGVfaWQYASABKAMimQEKDFNlbGVjdFJvbGVSdBIPCgdzdWNjZXNzGAEgASgI",
+            "Eg0KBWVycm9yGAIgASgJEg8KB3JvbGVfaWQYAyABKAMSJAoFc3RhdGUYBCAB",
+            "KAsyFS5ycGcuUm9sZVdvcmxkU3RhdGVQYhIXCgNiYWcYBSABKAsyCi5ycGcu",
+            "QmFnUGISGQoEcm9sZRgGIAEoCzILLnJwZy5Sb2xlUGIiTgoKQ3JlYXRlUm9s",
+            "ZRIMCgRuYW1lGAEgASgJEiEKBmdlbmRlchgCIAEoDjIRLnJwZy5Sb2xlR2Vu",
+            "ZGVyUGISDwoHaGVhZF9pZBgDIAEoBSJRCgxDcmVhdGVSb2xlUnQSDwoHc3Vj",
+            "Y2VzcxgBIAEoCBINCgVlcnJvchgCIAEoCRIhCgVyb2xlcxgDIAMoCzISLnJw",
+            "Zy5Sb2xlU3VtbWFyeVBiIh0KCkRlbGV0ZVJvbGUSDwoHcm9sZV9pZBgBIAEo",
+            "AyJRCgxEZWxldGVSb2xlUnQSDwoHc3VjY2VzcxgBIAEoCBINCgVlcnJvchgC",
+            "IAEoCRIhCgVyb2xlcxgDIAMoCzISLnJwZy5Sb2xlU3VtbWFyeVBiKmIKDFJv",
+            "bGVHZW5kZXJQYhIeChpST0xFX0dFTkRFUl9QQl9VTlNQRUNJRklFRBAAEhcK",
+            "E1JPTEVfR0VOREVSX1BCX01BTEUQARIZChVST0xFX0dFTkRFUl9QQl9GRU1B",
+            "TEUQAkISqgIPUnBnLk5ldC5NZXNzYWdlYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { global::Rpg.Net.Message.BagReflection.Descriptor, global::Rpg.Net.Message.EquipmentReflection.Descriptor, },
+          new pbr::FileDescriptor[] { global::Rpg.Net.Message.BagReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rpg.Net.Message.RoleGenderPb), }, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleSummaryPb), global::Rpg.Net.Message.RoleSummaryPb.Parser, new[]{ "RoleId", "Name", "Level", "Gender", "HeadId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldProfilePb), global::Rpg.Net.Message.RoleWorldProfilePb.Parser, new[]{ "RoleId", "Name", "Level", "Gender", "HeadId", "Revision" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldStatusPb), global::Rpg.Net.Message.RoleWorldStatusPb.Parser, new[]{ "RoleId", "Health", "MaxHealth", "Mana", "MaxMana", "Revision" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RolePb), global::Rpg.Net.Message.RolePb.Parser, new[]{ "RoleId", "Experience", "NextExperience", "BagExtraRows", "Revision" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldPositionPb), global::Rpg.Net.Message.RoleWorldPositionPb.Parser, new[]{ "RoleId", "MapId", "X", "Y", "Revision", "AcknowledgedAction" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleSummaryPb), global::Rpg.Net.Message.RoleSummaryPb.Parser, new[]{ "RoleId", "Name", "Level", "Gender", "HeadId", "EquippedItems" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldProfilePb), global::Rpg.Net.Message.RoleWorldProfilePb.Parser, new[]{ "RoleId", "Name", "Level", "Gender", "HeadId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldStatusPb), global::Rpg.Net.Message.RoleWorldStatusPb.Parser, new[]{ "RoleId", "Health", "MaxHealth", "Mana", "MaxMana" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RolePb), global::Rpg.Net.Message.RolePb.Parser, new[]{ "RoleId", "Experience", "NextExperience", "BagExtraRows" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldPositionPb), global::Rpg.Net.Message.RoleWorldPositionPb.Parser, new[]{ "RoleId", "MapId", "X", "Y", "AcknowledgedAction" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.RoleWorldStatePb), global::Rpg.Net.Message.RoleWorldStatePb.Parser, new[]{ "Profile", "Position", "Status", "Equipment" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.SelectRole), global::Rpg.Net.Message.SelectRole.Parser, new[]{ "RoleId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.SelectRoleRt), global::Rpg.Net.Message.SelectRoleRt.Parser, new[]{ "Success", "Error", "RoleId", "State", "Bag", "Role" }, null, null, null, null),
@@ -142,6 +140,7 @@ namespace Rpg.Net.Message {
       level_ = other.level_;
       gender_ = other.gender_;
       headId_ = other.headId_;
+      equippedItems_ = other.equippedItems_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -226,6 +225,20 @@ namespace Rpg.Net.Message {
       }
     }
 
+    /// <summary>Field number for the "equipped_items" field.</summary>
+    public const int EquippedItemsFieldNumber = 6;
+    private static readonly pb::FieldCodec<int> _repeated_equippedItems_codec
+        = pb::FieldCodec.ForInt32(50);
+    private readonly pbc::RepeatedField<int> equippedItems_ = new pbc::RepeatedField<int>();
+    /// <summary>
+    /// 选角展示用的已穿戴道具配置编号。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<int> EquippedItems {
+      get { return equippedItems_; }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -246,6 +259,7 @@ namespace Rpg.Net.Message {
       if (Level != other.Level) return false;
       if (Gender != other.Gender) return false;
       if (HeadId != other.HeadId) return false;
+      if(!equippedItems_.Equals(other.equippedItems_)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -258,6 +272,7 @@ namespace Rpg.Net.Message {
       if (Level != 0) hash ^= Level.GetHashCode();
       if (Gender != global::Rpg.Net.Message.RoleGenderPb.Unspecified) hash ^= Gender.GetHashCode();
       if (HeadId != 0) hash ^= HeadId.GetHashCode();
+      hash ^= equippedItems_.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -296,6 +311,7 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(40);
         output.WriteInt32(HeadId);
       }
+      equippedItems_.WriteTo(output, _repeated_equippedItems_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -326,6 +342,7 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(40);
         output.WriteInt32(HeadId);
       }
+      equippedItems_.WriteTo(ref output, _repeated_equippedItems_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -351,6 +368,7 @@ namespace Rpg.Net.Message {
       if (HeadId != 0) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(HeadId);
       }
+      size += equippedItems_.CalculateSize(_repeated_equippedItems_codec);
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -378,6 +396,7 @@ namespace Rpg.Net.Message {
       if (other.HeadId != 0) {
         HeadId = other.HeadId;
       }
+      equippedItems_.Add(other.equippedItems_);
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -417,6 +436,11 @@ namespace Rpg.Net.Message {
             HeadId = input.ReadInt32();
             break;
           }
+          case 50:
+          case 48: {
+            equippedItems_.AddEntriesFrom(input, _repeated_equippedItems_codec);
+            break;
+          }
         }
       }
     #endif
@@ -454,6 +478,11 @@ namespace Rpg.Net.Message {
           }
           case 40: {
             HeadId = input.ReadInt32();
+            break;
+          }
+          case 50:
+          case 48: {
+            equippedItems_.AddEntriesFrom(ref input, _repeated_equippedItems_codec);
             break;
           }
         }
@@ -506,7 +535,6 @@ namespace Rpg.Net.Message {
       level_ = other.level_;
       gender_ = other.gender_;
       headId_ = other.headId_;
-      revision_ = other.revision_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -591,21 +619,6 @@ namespace Rpg.Net.Message {
       }
     }
 
-    /// <summary>Field number for the "revision" field.</summary>
-    public const int RevisionFieldNumber = 6;
-    private long revision_;
-    /// <summary>
-    /// 递增权威状态版本。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Revision {
-      get { return revision_; }
-      set {
-        revision_ = value;
-      }
-    }
-
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -626,7 +639,6 @@ namespace Rpg.Net.Message {
       if (Level != other.Level) return false;
       if (Gender != other.Gender) return false;
       if (HeadId != other.HeadId) return false;
-      if (Revision != other.Revision) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -639,7 +651,6 @@ namespace Rpg.Net.Message {
       if (Level != 0) hash ^= Level.GetHashCode();
       if (Gender != global::Rpg.Net.Message.RoleGenderPb.Unspecified) hash ^= Gender.GetHashCode();
       if (HeadId != 0) hash ^= HeadId.GetHashCode();
-      if (Revision != 0L) hash ^= Revision.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -678,10 +689,6 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(40);
         output.WriteInt32(HeadId);
       }
-      if (Revision != 0L) {
-        output.WriteRawTag(48);
-        output.WriteInt64(Revision);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -712,10 +719,6 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(40);
         output.WriteInt32(HeadId);
       }
-      if (Revision != 0L) {
-        output.WriteRawTag(48);
-        output.WriteInt64(Revision);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -740,9 +743,6 @@ namespace Rpg.Net.Message {
       }
       if (HeadId != 0) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(HeadId);
-      }
-      if (Revision != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Revision);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -770,9 +770,6 @@ namespace Rpg.Net.Message {
       }
       if (other.HeadId != 0) {
         HeadId = other.HeadId;
-      }
-      if (other.Revision != 0L) {
-        Revision = other.Revision;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -813,10 +810,6 @@ namespace Rpg.Net.Message {
             HeadId = input.ReadInt32();
             break;
           }
-          case 48: {
-            Revision = input.ReadInt64();
-            break;
-          }
         }
       }
     #endif
@@ -854,10 +847,6 @@ namespace Rpg.Net.Message {
           }
           case 40: {
             HeadId = input.ReadInt32();
-            break;
-          }
-          case 48: {
-            Revision = input.ReadInt64();
             break;
           }
         }
@@ -910,7 +899,6 @@ namespace Rpg.Net.Message {
       maxHealth_ = other.maxHealth_;
       mana_ = other.mana_;
       maxMana_ = other.maxMana_;
-      revision_ = other.revision_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -995,21 +983,6 @@ namespace Rpg.Net.Message {
       }
     }
 
-    /// <summary>Field number for the "revision" field.</summary>
-    public const int RevisionFieldNumber = 6;
-    private long revision_;
-    /// <summary>
-    /// 递增权威状态版本。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Revision {
-      get { return revision_; }
-      set {
-        revision_ = value;
-      }
-    }
-
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -1030,7 +1003,6 @@ namespace Rpg.Net.Message {
       if (MaxHealth != other.MaxHealth) return false;
       if (Mana != other.Mana) return false;
       if (MaxMana != other.MaxMana) return false;
-      if (Revision != other.Revision) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1043,7 +1015,6 @@ namespace Rpg.Net.Message {
       if (MaxHealth != 0) hash ^= MaxHealth.GetHashCode();
       if (Mana != 0) hash ^= Mana.GetHashCode();
       if (MaxMana != 0) hash ^= MaxMana.GetHashCode();
-      if (Revision != 0L) hash ^= Revision.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1082,10 +1053,6 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(40);
         output.WriteInt32(MaxMana);
       }
-      if (Revision != 0L) {
-        output.WriteRawTag(48);
-        output.WriteInt64(Revision);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1116,10 +1083,6 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(40);
         output.WriteInt32(MaxMana);
       }
-      if (Revision != 0L) {
-        output.WriteRawTag(48);
-        output.WriteInt64(Revision);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1144,9 +1107,6 @@ namespace Rpg.Net.Message {
       }
       if (MaxMana != 0) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(MaxMana);
-      }
-      if (Revision != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Revision);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1174,9 +1134,6 @@ namespace Rpg.Net.Message {
       }
       if (other.MaxMana != 0) {
         MaxMana = other.MaxMana;
-      }
-      if (other.Revision != 0L) {
-        Revision = other.Revision;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1217,10 +1174,6 @@ namespace Rpg.Net.Message {
             MaxMana = input.ReadInt32();
             break;
           }
-          case 48: {
-            Revision = input.ReadInt64();
-            break;
-          }
         }
       }
     #endif
@@ -1258,10 +1211,6 @@ namespace Rpg.Net.Message {
           }
           case 40: {
             MaxMana = input.ReadInt32();
-            break;
-          }
-          case 48: {
-            Revision = input.ReadInt64();
             break;
           }
         }
@@ -1313,7 +1262,6 @@ namespace Rpg.Net.Message {
       experience_ = other.experience_;
       nextExperience_ = other.nextExperience_;
       bagExtraRows_ = other.bagExtraRows_;
-      revision_ = other.revision_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -1383,21 +1331,6 @@ namespace Rpg.Net.Message {
       }
     }
 
-    /// <summary>Field number for the "revision" field.</summary>
-    public const int RevisionFieldNumber = 5;
-    private long revision_;
-    /// <summary>
-    /// 递增权威状态版本。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Revision {
-      get { return revision_; }
-      set {
-        revision_ = value;
-      }
-    }
-
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -1417,7 +1350,6 @@ namespace Rpg.Net.Message {
       if (Experience != other.Experience) return false;
       if (NextExperience != other.NextExperience) return false;
       if (BagExtraRows != other.BagExtraRows) return false;
-      if (Revision != other.Revision) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1429,7 +1361,6 @@ namespace Rpg.Net.Message {
       if (Experience != 0) hash ^= Experience.GetHashCode();
       if (NextExperience != 0) hash ^= NextExperience.GetHashCode();
       if (BagExtraRows != 0) hash ^= BagExtraRows.GetHashCode();
-      if (Revision != 0L) hash ^= Revision.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1464,10 +1395,6 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(32);
         output.WriteInt32(BagExtraRows);
       }
-      if (Revision != 0L) {
-        output.WriteRawTag(40);
-        output.WriteInt64(Revision);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1494,10 +1421,6 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(32);
         output.WriteInt32(BagExtraRows);
       }
-      if (Revision != 0L) {
-        output.WriteRawTag(40);
-        output.WriteInt64(Revision);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1519,9 +1442,6 @@ namespace Rpg.Net.Message {
       }
       if (BagExtraRows != 0) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(BagExtraRows);
-      }
-      if (Revision != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Revision);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1546,9 +1466,6 @@ namespace Rpg.Net.Message {
       }
       if (other.BagExtraRows != 0) {
         BagExtraRows = other.BagExtraRows;
-      }
-      if (other.Revision != 0L) {
-        Revision = other.Revision;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1585,10 +1502,6 @@ namespace Rpg.Net.Message {
             BagExtraRows = input.ReadInt32();
             break;
           }
-          case 40: {
-            Revision = input.ReadInt64();
-            break;
-          }
         }
       }
     #endif
@@ -1622,10 +1535,6 @@ namespace Rpg.Net.Message {
           }
           case 32: {
             BagExtraRows = input.ReadInt32();
-            break;
-          }
-          case 40: {
-            Revision = input.ReadInt64();
             break;
           }
         }
@@ -1677,7 +1586,6 @@ namespace Rpg.Net.Message {
       mapId_ = other.mapId_;
       x_ = other.x_;
       y_ = other.y_;
-      revision_ = other.revision_;
       acknowledgedAction_ = other.acknowledgedAction_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
@@ -1748,21 +1656,6 @@ namespace Rpg.Net.Message {
       }
     }
 
-    /// <summary>Field number for the "revision" field.</summary>
-    public const int RevisionFieldNumber = 5;
-    private long revision_;
-    /// <summary>
-    /// 递增权威状态版本。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public long Revision {
-      get { return revision_; }
-      set {
-        revision_ = value;
-      }
-    }
-
     /// <summary>Field number for the "acknowledged_action" field.</summary>
     public const int AcknowledgedActionFieldNumber = 6;
     private long acknowledgedAction_;
@@ -1797,7 +1690,6 @@ namespace Rpg.Net.Message {
       if (MapId != other.MapId) return false;
       if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(X, other.X)) return false;
       if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(Y, other.Y)) return false;
-      if (Revision != other.Revision) return false;
       if (AcknowledgedAction != other.AcknowledgedAction) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
@@ -1810,7 +1702,6 @@ namespace Rpg.Net.Message {
       if (MapId != 0) hash ^= MapId.GetHashCode();
       if (X != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(X);
       if (Y != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(Y);
-      if (Revision != 0L) hash ^= Revision.GetHashCode();
       if (AcknowledgedAction != 0L) hash ^= AcknowledgedAction.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -1846,10 +1737,6 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(37);
         output.WriteFloat(Y);
       }
-      if (Revision != 0L) {
-        output.WriteRawTag(40);
-        output.WriteInt64(Revision);
-      }
       if (AcknowledgedAction != 0L) {
         output.WriteRawTag(48);
         output.WriteInt64(AcknowledgedAction);
@@ -1880,10 +1767,6 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(37);
         output.WriteFloat(Y);
       }
-      if (Revision != 0L) {
-        output.WriteRawTag(40);
-        output.WriteInt64(Revision);
-      }
       if (AcknowledgedAction != 0L) {
         output.WriteRawTag(48);
         output.WriteInt64(AcknowledgedAction);
@@ -1909,9 +1792,6 @@ namespace Rpg.Net.Message {
       }
       if (Y != 0F) {
         size += 1 + 4;
-      }
-      if (Revision != 0L) {
-        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Revision);
       }
       if (AcknowledgedAction != 0L) {
         size += 1 + pb::CodedOutputStream.ComputeInt64Size(AcknowledgedAction);
@@ -1939,9 +1819,6 @@ namespace Rpg.Net.Message {
       }
       if (other.Y != 0F) {
         Y = other.Y;
-      }
-      if (other.Revision != 0L) {
-        Revision = other.Revision;
       }
       if (other.AcknowledgedAction != 0L) {
         AcknowledgedAction = other.AcknowledgedAction;
@@ -1981,10 +1858,6 @@ namespace Rpg.Net.Message {
             Y = input.ReadFloat();
             break;
           }
-          case 40: {
-            Revision = input.ReadInt64();
-            break;
-          }
           case 48: {
             AcknowledgedAction = input.ReadInt64();
             break;
@@ -2022,10 +1895,6 @@ namespace Rpg.Net.Message {
           }
           case 37: {
             Y = input.ReadFloat();
-            break;
-          }
-          case 40: {
-            Revision = input.ReadInt64();
             break;
           }
           case 48: {
@@ -2139,7 +2008,7 @@ namespace Rpg.Net.Message {
     public const int EquipmentFieldNumber = 4;
     private global::Rpg.Net.Message.RoleWorldEquipmentPb equipment_;
     /// <summary>
-    /// 可公开且独立版本的完整装备。
+    /// 可公开的完整装备展示，版本来自信封。
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]

@@ -12,6 +12,8 @@ public sealed class GroundItemDropTests : IDisposable
 {
     /// <summary>验收独占的服务端目录。</summary>
     private readonly string _root = Path.Combine(Path.GetTempPath(), "rpg-drop-" + Guid.NewGuid());
+    /// <summary>最近私有快照的信封序号，用作并发条件。</summary>
+    private long _bagRevision;
     /// <summary>真实 protobuf 输出。</summary>
     private readonly List<IMessage> _messages = [];
     /// <summary>完成提交的业务日志。</summary>
@@ -44,7 +46,13 @@ public sealed class GroundItemDropTests : IDisposable
     {
         var server = new MockServer(_root, _rules, (path, _) => _logs.Add(path), () => 0, _maps);
         server.ResetSession(1);
-        server.Outgoing += bytes => _messages.Add(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(bytes), false));
+        server.Outgoing += packet =>
+        {
+            var message = MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false);
+            _messages.Add(message);
+            if (message is SelectRoleRt { Success: true } or RoleItemsChangedNotice)
+                _bagRevision = message.GetRevision();
+        };
         return server;
     }
 
@@ -60,10 +68,10 @@ public sealed class GroundItemDropTests : IDisposable
     }
 
     /// <summary>构造可指定旧版本、非法数量和身份的请求。</summary>
-    private DropItemRt Drop(int count, long revision = 1, long? role = null, long instance = 1, bool destroy = false, Vector2? position = null)
+    private DropItemRt Drop(int count, long? revision = null, long? role = null, long instance = 1, bool destroy = false, Vector2? position = null)
     {
         _messages.Clear();
-        var request = new DropItem { RoleId = role ?? _id, InstanceId = instance, Count = count, ExpectedRevision = revision, Destroy = destroy };
+        var request = new DropItem { RoleId = role ?? _id, InstanceId = instance, Count = count, ExpectedRevision = revision ?? _bagRevision, Destroy = destroy };
         if (position is { } point) { request.DropX = point.X; request.DropY = point.Y; }
         Send(request);
         return Assert.Single(_messages.OfType<DropItemRt>());
@@ -82,7 +90,7 @@ public sealed class GroundItemDropTests : IDisposable
         AssertDropClearance(ground, 1500, 1500);
         Assert.Equal(2, ground.Count);
         Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
-        Assert.True(Drop(3, 2, position: new Vector2(1450, 1550)).Success);
+        Assert.True(Drop(3, null, position: new Vector2(1450, 1550)).Success);
         Assert.Empty(Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag.Items);
         var dropped = _server.GetMap(1).Objects.Values.ToArray();
         Assert.Equal(5, dropped.Sum(item => item.Count));
@@ -119,7 +127,7 @@ public sealed class GroundItemDropTests : IDisposable
     public void PartialClientDropPositionIsRejected()
     {
         _messages.Clear();
-        Send(new DropItem { RoleId = _id, InstanceId = 1, Count = 1, ExpectedRevision = 1, DropX = 1550 });
+        Send(new DropItem { RoleId = _id, InstanceId = 1, Count = 1, ExpectedRevision = _bagRevision, DropX = 1550 });
         Assert.False(Assert.Single(_messages.OfType<DropItemRt>()).Success);
         Assert.Empty(_server.GetMap(1).Objects);
     }
@@ -164,12 +172,13 @@ public sealed class GroundItemDropTests : IDisposable
     [InlineData(1, 1, false, 99)]
     public void InvalidRequestDoesNotMutate(int count, long version, bool wrongRole, long instance)
     {
-        Assert.False(Drop(count, version, wrongRole ? _id + 1 : _id, instance).Success);
+        Assert.False(Drop(count, version == 1 ? _bagRevision : version, wrongRole ? _id + 1 : _id, instance).Success);
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Empty(_messages.OfType<MapAoiNotice>());
         Assert.Empty(_server.GetMap(1).Objects);
+        var beforeRevision = _bagRevision;
         Assert.True(Drop(1).Success);
-        Assert.False(Drop(1).Success);
+        Assert.False(Drop(1, beforeRevision).Success);
         Assert.Single(_server.GetMap(1).Objects);
     }
 
@@ -177,6 +186,7 @@ public sealed class GroundItemDropTests : IDisposable
     [Fact]
     public void DestroyPartialAndFullPersistsWithoutGroundObjects()
     {
+        var beforeRevision = _bagRevision;
         var response = Drop(2, destroy: true);
         Assert.True(response.Success);
         Assert.Empty(response.ObjectId);
@@ -184,9 +194,9 @@ public sealed class GroundItemDropTests : IDisposable
         Assert.Equal((1L, 3), (Assert.Single(bag.Items).InstanceId, bag.Items[0].Count));
         Assert.Empty(_messages.OfType<MapAoiNotice>());
         Assert.Empty(_server.GetMap(1).Objects);
-        Assert.False(Drop(2, destroy: true).Success);
+        Assert.False(Drop(2, beforeRevision, destroy: true).Success);
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
-        Assert.True(Drop(3, 2, destroy: true).Success);
+        Assert.True(Drop(3, null, destroy: true).Success);
         Assert.Empty(Assert.Single(_messages.OfType<RoleItemsChangedNotice>()).Bag.Items);
         Assert.Empty(_messages.OfType<MapAoiNotice>());
         Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
@@ -207,7 +217,7 @@ public sealed class GroundItemDropTests : IDisposable
     [InlineData(1, 1, false, 99)]
     public void InvalidDestroyDoesNotMutate(int count, long revision, bool wrongRole, long instance)
     {
-        Assert.False(Drop(count, revision, wrongRole ? _id + 1 : _id, instance, true).Success);
+        Assert.False(Drop(count, revision == 1 ? _bagRevision : revision, wrongRole ? _id + 1 : _id, instance, true).Success);
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
         Assert.Empty(_messages.OfType<MapAoiNotice>());
         Assert.Empty(_server.GetMap(1).Objects);
@@ -220,7 +230,7 @@ public sealed class GroundItemDropTests : IDisposable
     public void DropThenDestroyUsesExistingTransferGroup()
     {
         Assert.True(Drop(2).Success);
-        Assert.True(Drop(3, 2, destroy: true).Success);
+        Assert.True(Drop(3, null, destroy: true).Success);
         Assert.Empty(_messages.OfType<MapAoiNotice>());
         _server.Flush();
         _server = Start(); Enter(_id);
@@ -251,7 +261,7 @@ public sealed class GroundItemDropTests : IDisposable
         Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
         Assert.Equal(2, Assert.Single(_server.GetMap(1).Objects).Value.Count);
         Assert.True(File.Exists(new RepoServerMap(_root).ManifestPath(2)));
-        Assert.DoesNotContain(_logs, log => log == _repo.GetBagPath(_id));
+        Assert.DoesNotContain(_logs, log => log == _repo.GetItemPath(_id));
         Directory.Delete(path);
         _server.Flush();
         Assert.Equal(3, Assert.Single(_repo.Load(_id).Bag.Items).Count);
@@ -305,7 +315,7 @@ public sealed class GroundItemDropTests : IDisposable
         var id = _messages.OfType<CreateRoleRt>().Last().Roles.Single(role => role.Name == "新角色").RoleId;
         Send(new SelectRole { RoleId = id });
         Send(new Gm { RoleId = id, Command = "item 2000 5" });
-        Assert.True(Drop(2, 1, id).Success);
+        Assert.True(Drop(2, null, id).Success);
         Send(new Gm { RoleId = id, Command = "item 2000 1" });
         _server.ResetSession(2);
         new MockTransport(_server).Dispose(); // 正常关闭补写，即使检测周期为零。
@@ -329,14 +339,13 @@ public sealed class GroundItemDropTests : IDisposable
     public void LegacyMigrationParticipatesInSameRollbackBoundary()
     {
         File.WriteAllText(_repo.GetLegacyPath(_id), System.Text.Json.JsonSerializer.Serialize(_repo.Load(_id)));
-        File.Delete(_repo.GetRolePath(_id));
-        File.Delete(_repo.GetBagPath(_id));
+        foreach (var file in new[] { _repo.GetRolePath(_id), _repo.GetItemPath(_id), _repo.GetEquipmentPath(_id), _repo.GetSummaryPath(_id) }) File.Delete(file);
         _server = Start(); Enter(_id);
         Assert.True(Drop(2).Success);
         _server.Transfers.BeforeComplete = () => throw new IOException("模拟迁移提交失败");
         Assert.Throws<AggregateException>(_server.Flush);
         Assert.False(File.Exists(_repo.GetRolePath(_id)));
-        Assert.False(File.Exists(_repo.GetBagPath(_id)));
+        Assert.False(File.Exists(_repo.GetItemPath(_id)));
         Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
         _server.Transfers.BeforeComplete = null;
         _server.Flush();
@@ -356,7 +365,7 @@ public sealed class GroundItemDropTests : IDisposable
         Assert.True(Drop(2).Success);
         Enter(second.RoleId);
         Assert.True(Drop(3, role: second.RoleId).Success);
-        using (var locked = new FileStream(_repo.GetBagPath(second.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var locked = new FileStream(_repo.GetItemPath(second.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
         {
             Assert.Throws<AggregateException>(_server.Flush);
             Assert.Equal(5, Assert.Single(_repo.Load(_id).Bag.Items).Count);
@@ -375,7 +384,7 @@ public sealed class GroundItemDropTests : IDisposable
     {
         var transfer = new RepoServerItemTransfer(_root);
         transfer.Begin(1, [9000]);
-        foreach (var domain in new[] { "role", "bag", "pending" })
+        foreach (var domain in new[] { "role", "item", "equipment", "role_summary", "pending" })
             File.WriteAllText(Path.Combine(_root, $"9000.{domain}.json"), "未完成文件");
         _server = Start(); Enter(_id);
         Assert.False(File.Exists(Path.Combine(_root, "9000.pending.json")));

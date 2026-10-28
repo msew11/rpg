@@ -69,6 +69,18 @@ public sealed class LoginCache : CacheBase
         Roles = Array.AsReadOnly(roles);
     }
 
+    /// <summary>离开角色时从已校验缓存刷新列表展示，避免预览保留旧装备。</summary>
+    internal void RefreshRole(RoleWorldStatePbData state)
+    {
+        var previous = Roles.FirstOrDefault(role => role.RoleId == state.RoleId);
+        if (previous is null || previous.Name == state.Name && previous.Level == state.Level &&
+            previous.Gender == state.Gender && previous.HeadId == state.HeadId &&
+            previous.EquippedItems.SequenceEqual(state.Equipment.EquippedItems)) return;
+        var summary = new RoleSummaryPbData(state.RoleId, state.Name, state.Level, state.Gender, state.HeadId)
+        { EquippedItems = Array.AsReadOnly(state.Equipment.EquippedItems.ToArray()) };
+        Roles = Array.AsReadOnly(Roles.Select(role => role.RoleId == state.RoleId ? summary : role).ToArray());
+    }
+
     /// <summary>结束登录缓存生命周期时清除账号摘要。</summary>
     protected override void OnDispose() => Clear();
 }

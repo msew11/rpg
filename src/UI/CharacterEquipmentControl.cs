@@ -102,7 +102,7 @@ public partial class CharacterEquipmentControl : VBoxContainer
         _lastEquipment = GameServices.Session.Equipment;
         _lastAppearance = appearance;
         Bag.HideItemName();
-        var equipment = GameServices.Session.Equipment.Items;
+        var equipment = GameServices.Session.Bag.Equipment;
         _preview.ShowRole(role.Gender, role.HeadId, role.RoleId, role.Name,
             mainHandId: equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
             offHandId: equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0);

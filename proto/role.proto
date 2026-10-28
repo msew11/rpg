@@ -3,7 +3,6 @@ package rpg;
 option csharp_namespace = "Rpg.Net.Message";
 
 import "bag.proto";
-import "equipment.proto";
 
 // 角色基础身体性别；未指定值不作为有效角色数据。
 enum RoleGenderPb {
@@ -27,6 +26,8 @@ message RoleSummaryPb {
   RoleGenderPb gender = 4;
   // 性别内头型编号，0 兼容旧版默认头型。
   int32 head_id = 5;
+  // 选角展示用的已穿戴道具配置编号。
+  repeated int32 equipped_items = 6;
 }
 
 // 角色可见资料。
@@ -41,8 +42,6 @@ message RoleWorldProfilePb {
   RoleGenderPb gender = 4;
   // 性别内头型编号。
   int32 head_id = 5;
-  // 递增权威状态版本。
-  int64 revision = 6;
 }
 
 // 角色可见的生命与魔力状态。
@@ -57,8 +56,6 @@ message RoleWorldStatusPb {
   int32 mana = 4;
   // 魔力上限。
   int32 max_mana = 5;
-  // 递增权威状态版本。
-  int64 revision = 6;
 }
 
 // 当前玩家私有的角色玩法领域。
@@ -71,8 +68,6 @@ message RolePb {
   int32 next_experience = 3;
   // 角色增加的背包行数。
   int32 bag_extra_rows = 4;
-  // 递增权威状态版本。
-  int64 revision = 5;
 }
 
 // 当前地图及逻辑位置，包含移动确认信息。
@@ -85,8 +80,6 @@ message RoleWorldPositionPb {
   float x = 3;
   // 逻辑纵坐标。
   float y = 4;
-  // 递增权威状态版本。
-  int64 revision = 5;
   // 当前会话最后确认的移动序号。
   int64 acknowledged_action = 6;
 }
@@ -99,7 +92,7 @@ message RoleWorldStatePb {
   RoleWorldPositionPb position = 2;
   // 生命与魔力状态。
   RoleWorldStatusPb status = 3;
-  // 可公开且独立版本的完整装备。
+  // 可公开的完整装备展示，版本来自信封。
   RoleWorldEquipmentPb equipment = 4;
 }
 

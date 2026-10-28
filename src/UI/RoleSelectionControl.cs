@@ -1,3 +1,5 @@
+using System.Linq;
+using Rpg.Session.Data;
 using System;
 using Godot;
 using Rpg.Const;
@@ -73,7 +75,10 @@ public partial class RoleSelectionControl : RoleScreenControl
         {
             if (role.RoleId != roleId) continue;
             _selectedId = roleId;
-            Preview.ShowRole(role.Gender, role.HeadId, role.RoleId, role.Name);
+            var equipment = role.EquippedItems.Select(id => EquipmentDisplayData.FromItemId(id, GameServices.Config.Item.Items)).ToArray();
+            Preview.ShowRole(role.Gender, role.HeadId, role.RoleId, role.Name,
+                mainHandId: equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
+                offHandId: equipment.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0);
             return;
         }
     }

@@ -1,3 +1,4 @@
+using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Services;
 using Rpg.World;
@@ -9,11 +10,17 @@ namespace ClientTests;
 public sealed class RoleEquipmentCacheTests : RegisteredServiceTestScope
 {
     /// <summary>构造可独立公开的单件主手快照。</summary>
-    private static RoleWorldEquipmentPb Equipment(long revision = 1) => new()
+    private static RoleWorldEquipmentPb Equipment(long revision = 1) => new RoleWorldEquipmentPb()
     {
-        RoleId = 1001, Revision = revision,
-        Items = { new EquippedItemPb { InstanceId = 1, ItemId = 1012, Slot = EquipmentSlotPb.MainHand } }
-    };
+        RoleId = 1001, EquippedItems = { 1012 }
+    }.WithRevision(revision + 100);
+
+    /// <summary>私有物品完整列表中包含公开展示对应的穿戴实例。</summary>
+    private static BagPb EquippedBag(long revision) => new BagPb
+    {
+        Items = { new ItemPb { InstanceId = 1, ItemId = 1012, Count = 1, Equipped = true,
+            SlotIndex = 0, Equipment = new EquipmentPb() } }
+    }.WithRevision(revision);
 
     /// <summary>任一侧或装备版本非法，均不得发布半份本人物品状态。</summary>
     [Theory]
@@ -29,22 +36,22 @@ public sealed class RoleEquipmentCacheTests : RegisteredServiceTestScope
         using var fixture = new NetworkTestFixture(EventBus, seedRoles: true);
         fixture.Login();
         var session = fixture.SelectRole(1001);
-        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = new BagPb { Revision = 1 }, Equipment = Equipment() });
+        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = EquippedBag(101), Equipment = Equipment() });
         var beforeBag = session.Bag;
         var beforeEquipment = session.Equipment;
-        var notice = new RoleItemsChangedNotice { RoleId = 1001, Bag = new BagPb { Revision = 2 }, Equipment = Equipment() };
+        var notice = new RoleItemsChangedNotice { RoleId = 1001, Bag = EquippedBag(102), Equipment = Equipment() };
         switch (kind)
         {
-            case "rollback": notice.Equipment.Revision = 0; break;
-            case "conflict": notice.Equipment.Items[0].ItemId = 1017; break;
+            case "rollback": notice.Equipment.WithRevision(0); break;
+            case "conflict": notice.Equipment.EquippedItems[0] = 1017; break;
             case "identity": notice.Equipment.RoleId = 1002; break;
             case "missingEquipment": notice.Equipment = null; break;
             case "missingBag": notice.Bag = null; break;
             case "sharedInstance": notice.Bag.Items.Add(new ItemPb { InstanceId = 1, ItemId = 1012, Count = 1 }); break;
             case "bothHands":
-                notice.Equipment.Revision = 2;
-                notice.Equipment.Items[0].ItemId = 1018;
-                notice.Equipment.Items.Add(new EquippedItemPb { InstanceId = 2, ItemId = 1014, Slot = EquipmentSlotPb.OffHand });
+                notice.Equipment.WithRevision(102);
+                notice.Equipment.EquippedItems[0] = 1018;
+                notice.Equipment.EquippedItems.Add(1014);
                 break;
         }
         var called = false;
@@ -69,7 +76,7 @@ public sealed class RoleEquipmentCacheTests : RegisteredServiceTestScope
         EventBus.Publish(new RoleEquipmentNotice { Equipment = Equipment() });
         var world = session.Role.ToPb();
         world.Equipment = Equipment();
-        world.Profile.Revision++;
+        world.Profile.WithRevision(System.Math.Max(world.Profile.GetRevision(), 100) + 1);
         world.Profile.Name = "新名称";
         EventBus.Publish(new RoleStateNotice { State = world });
         Assert.Equal("新名称", session.Role.Name);
@@ -77,14 +84,14 @@ public sealed class RoleEquipmentCacheTests : RegisteredServiceTestScope
         Assert.Same(beforeBag, session.Bag);
         var observedAtomically = false;
         using var ui = EventBus.Subscribe<RoleItemsChangedNotice>(_ =>
-            observedAtomically = session.Bag.Revision == 1 && session.Equipment.Revision == 1 &&
+            observedAtomically = session.Bag.Revision == 101 && session.Equipment.Revision == 101 &&
                 session.Role.ToPb().Equipment.Equals(Equipment()));
-        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = new BagPb { Revision = 1 }, Equipment = Equipment() });
+        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = EquippedBag(101), Equipment = Equipment() });
         Assert.True(observedAtomically);
         var current = session.Equipment;
-        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = new BagPb { Revision = 1 }, Equipment = Equipment(99) });
+        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = EquippedBag(101), Equipment = Equipment(99) });
         Assert.Same(current, session.Equipment);
-        world.Profile.Revision++;
+        world.Profile.WithRevision(System.Math.Max(world.Profile.GetRevision(), 100) + 1);
         world.Equipment = new RoleWorldEquipmentPb { RoleId = 1001 };
         EventBus.Publish(new RoleStateNotice { State = world });
         Assert.Same(current, session.Equipment);
@@ -122,16 +129,16 @@ public sealed class RoleEquipmentCacheTests : RegisteredServiceTestScope
         using var world = new WorldService(GameServices.Env, GameServices.Config, GameServices.Setting, session);
         world.InitializeRole();
         Assert.Equal(0, world.ActorState!.MainHandId);
-        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = new BagPb { Revision = 1 }, Equipment = Equipment() });
+        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = EquippedBag(101), Equipment = Equipment() });
         world.Tick(0);
         Assert.Equal(1012, world.ActorState!.MainHandId);
         var equipment = session.Equipment;
-        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = new BagPb { Revision = 2 }, Equipment = Equipment() });
+        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = EquippedBag(102), Equipment = Equipment() });
         world.Tick(0);
-        Assert.Same(equipment, session.Equipment);
+        Assert.True(equipment.HasSameItems(session.Equipment));
         Assert.Equal(1012, world.ActorState!.MainHandId);
-        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = new BagPb { Revision = 3 },
-            Equipment = new RoleWorldEquipmentPb { RoleId = 1001, Revision = 2 } });
+        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = new BagPb().WithRevision(103),
+            Equipment = new RoleWorldEquipmentPb { RoleId = 1001}.WithRevision(103) });
         world.Tick(0);
         Assert.Equal(0, world.ActorState!.MainHandId);
         world.LeaveRole();
@@ -140,7 +147,7 @@ public sealed class RoleEquipmentCacheTests : RegisteredServiceTestScope
         world.InitializeRole();
         Assert.Empty(session.Equipment.Items);
         Assert.Equal(0, world.ActorState!.MainHandId);
-        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = new BagPb { Revision = 99 }, Equipment = Equipment(99) });
+        EventBus.Publish(new RoleItemsChangedNotice { RoleId = 1001, Bag = new BagPb {}.WithRevision(99), Equipment = Equipment(99) });
         Assert.Empty(session.Equipment.Items);
         Assert.Empty(fixture.Errors);
     }

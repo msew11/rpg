@@ -1,3 +1,4 @@
+using Rpg.Net;
 using Rpg.Session.Data;
 using System;
 using System.IO;
@@ -196,15 +197,14 @@ public sealed class RoleCache : CacheBase
         if (_state is null || notice.RoleId != RoleId) return;
         if (notice.Bag is null || notice.Equipment is null)
             throw new InvalidDataException("物品推送缺少背包或装备快照");
-        if (_bag is not null && notice.Bag.Revision <= _bag.Revision) return;
+        if (_bag is not null && notice.Bag.GetRevision() <= _bag.Revision) return;
         var bag = ConvertBag(notice.Bag, _state.BagExtraRows);
         var equipment = RoleWorldEquipmentPbData.FromPb(notice.Equipment, GameServices.Config.Item.Items);
         if (equipment.RoleId != RoleId || equipment.Revision < Equipment.Revision ||
             (equipment.Revision == Equipment.Revision && !equipment.HasSameItems(Equipment)))
             throw new InvalidDataException("装备身份不符、版本回退或同版本内容冲突");
         equipment.ValidateBag(bag);
-        // 未变化的装备沿用原快照，避免背包整理触发世界装备同步。
-        if (equipment.Revision == Equipment.Revision) equipment = Equipment;
+        // 信封版本可能增加而展示未变，世界按配置内容判断是否需要刷新。
         var state = RoleWorldStatePbData.FromParts(_profile!, _status!, _position!, _role!, equipment);
         _bag = bag;
         _state = state;

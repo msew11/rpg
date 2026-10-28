@@ -109,13 +109,13 @@ public partial class EquipmentSmoke : Node
                 Check(equippedIcon.Size == iconSize && equippedIcon.Texture.GetSize() == sourceSize &&
                     equippedIcon.StretchMode == iconStretch && equippedIcon.TextureFilter == iconFilter,
                     "装备图标与背包的实际显示尺寸或采样方式不同");
-                Check(GameServices.Session.Equipment.Items.Any(item => item.ItemId == id && item.Slot == slot), $"装备失败：{id}");
+                Check(GameServices.Session.Bag.Equipment.Any(item => item.ItemId == id && item.Slot == slot), $"装备失败：{id}");
                 var state = GameServices.World.ActorState!;
                 Check((slot == EquipmentSlot.MainHand ? state.MainHandId : state.OffHandId) == id, "权威装备未同步世界");
                 var sprite = previewActor.GetNode<Sprite2D>(slot == EquipmentSlot.MainHand ? "Facing/RightHand/Weapon" : "Facing/LeftHand/Weapon");
                 Check(sprite.Visible && sprite.Texture is not null, "预览未显示实际装备");
                 if (id is 1017 or 1018)
-                    Check(state.OffHandId == 0 && GameServices.Session.Equipment.Items.Count == 1 &&
+                    Check(state.OffHandId == 0 && GameServices.Session.Bag.Equipment.Count == 1 &&
                         previewActor.GetNode<Sprite2D>("Facing/LeftHand/Weapon").Visible,
                         "单件成对主手没有显示左右手或额外占用副手");
                 // 隐藏背包仍立即显示装备信息，复用同一个浮窗且没有引擎延迟提示。
@@ -144,7 +144,7 @@ public partial class EquipmentSmoke : Node
             var mainSlot = (Control)character.FindChild("EquipmentMainHand", true, false);
             var extra = GameServices.Session.Bag.Items.Single(item => item.InstanceId == 8);
             await Transfer(grid.GetChild<Control>(extra.SlotIndex), mainSlot);
-            Check(GameServices.Session.Equipment.Items.Count == 1 &&
+            Check(GameServices.Session.Bag.Equipment.Count == 1 &&
                 previewActor.GetNode<Sprite2D>("Facing/LeftHand/Weapon").Visible, "单件拳刃未显示双手");
             var direction = preview.Direction;
             await Click((Control)preview.FindChild("RotateClockwise", true, false));
@@ -159,10 +159,10 @@ public partial class EquipmentSmoke : Node
             var shield = GameServices.Session.Bag.Items.Single(item => item.ItemId == 1014);
             await Transfer(grid.GetChild<Control>(shield.SlotIndex), off);
             await Click(off, MouseButton.Right);
-            Check(GameServices.Session.Equipment.Items.Count == 1 && bag.FindChild("PickedItemPreview", true, false) is null,
+            Check(GameServices.Session.Bag.Equipment.Count == 1 && bag.FindChild("PickedItemPreview", true, false) is null,
                 "右键仍会卸下或拿起装备");
             await Click(off, ctrl: true);
-            Check(GameServices.Session.Equipment.Items.Count == 0 && GameServices.World.ActorState!.OffHandId == 0,
+            Check(GameServices.Session.Bag.Equipment.Count == 0 && GameServices.World.ActorState!.OffHandId == 0,
                 "Ctrl＋左键卸下副手失败");
             // 飞刀错误放副手由服务器拒绝，界面展示原因且保留物品。
             var knife = GameServices.Session.Bag.Items.Single(item => item.ItemId == 1018);
@@ -176,11 +176,11 @@ public partial class EquipmentSmoke : Node
             {
                 var item = GameServices.Session.Bag.Items.Single(item => item.ItemId == id && item.InstanceId != 8);
                 var slot = id == 1014 ? EquipmentSlot.OffHand : EquipmentSlot.MainHand;
-                var oldItem = GameServices.Session.Equipment.Items.FirstOrDefault(entry => entry.Slot == slot);
+                var oldItem = GameServices.Session.Bag.Equipment.FirstOrDefault(entry => entry.Slot == slot);
                 var before = GameServices.Session.Bag;
                 await Click(grid.GetChild<Control>(item.SlotIndex), ctrl: true, checkBeforeFrames: () =>
                     Check(ReferenceEquals(before, GameServices.Session.Bag), "Ctrl 穿戴在确认前改写快照"));
-                Check(GameServices.Session.Equipment.Items.Any(entry => entry.InstanceId == item.InstanceId && entry.Slot == slot),
+                Check(GameServices.Session.Bag.Equipment.Any(entry => entry.InstanceId == item.InstanceId && entry.Slot == slot),
                     "Ctrl 自动穿戴选槽错误");
                 if (oldItem is not null)
                     Check(GameServices.Session.Bag.Items.Any(entry => entry.InstanceId == oldItem.InstanceId && entry.SlotIndex == item.SlotIndex),
@@ -204,8 +204,8 @@ public partial class EquipmentSmoke : Node
                 var bagShield = GameServices.Session.Bag.Items.Single(item => item.ItemId == 1014);
                 if (shortcut) await Click(grid.GetChild<Control>(bagShield.SlotIndex), ctrl: true);
                 else await Transfer(grid.GetChild<Control>(bagShield.SlotIndex), off);
-                Check(GameServices.Session.Equipment.Items.Count == 1 &&
-                    GameServices.Session.Equipment.Items[0].InstanceId == bagShield.InstanceId &&
+                Check(GameServices.Session.Bag.Equipment.Count == 1 &&
+                    GameServices.Session.Bag.Equipment[0].InstanceId == bagShield.InstanceId &&
                     GameServices.Session.Bag.Items.Any(item => item.InstanceId == 8), "穿盾未自动收回双手主手");
                 Check(GameServices.World.ActorState is { MainHandId: 0, OffHandId: 1014 } &&
                     !previewActor.GetNode<Sprite2D>("Facing/RightHand/Weapon").Visible &&
@@ -256,7 +256,29 @@ public partial class EquipmentSmoke : Node
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 GetViewport().GetTexture().GetImage().SavePng(ProjectSettings.GlobalizePath("res://build/equipment-window-small.png"));
             }
-            GD.Print("Equipment smoke passed: compact preview, slot labels, icons, Ctrl equip/swap/unequip, full bag rejection, inert right click, 7 items, persistence and small viewport.");
+            // role-management：返回选角只使用摘要装备，切换空角色清理旧外观，重启后仍能恢复。
+            GetWindow().Size = new Vector2I(1280, 720);
+            GetWindow().ContentScaleSize = new Vector2I(1280, 720);
+            await Frames();
+            PressTitle(main, "系统");
+            hud.GetNode("SystemMenuOverlay/SystemMenu").FindChildren("*", "Button", true, false).OfType<Button>()
+                .Single(button => button.Text == "返回角色选择").EmitSignal(Button.SignalName.Pressed);
+            await Frames();
+            AssertSelectionEquipment(main, true);
+            ((Button)main.FindChild("SelectRole1002", true, false)).EmitSignal(Button.SignalName.Pressed);
+            await Frames();
+            AssertSelectionEquipment(main, false);
+            main.QueueFree();
+            await Frames();
+            main = new DoubleMainController { SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server") };
+            AddChild(main);
+            await Frames();
+            PressTitle(main, "登录");
+            await Frames();
+            AssertSelectionEquipment(main, true);
+            Check(GameServices.Session.Roles.Single(role => role.RoleId == 1001).EquippedItems.SequenceEqual(new[] { 1012, 1014 }),
+                "重启后登录摘要缺少装备配置编号");
+            GD.Print("Equipment smoke passed: equipment operations, persistence, selection summary preview, role switch and restart.");
             main.QueueFree();
             await Frames();
             main = null;
@@ -270,6 +292,17 @@ public partial class EquipmentSmoke : Node
             GetTree().Quit(1);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    /// <summary>role-management：摘要预览展示双手且没有创建完整角色会话或世界。</summary>
+    private static void AssertSelectionEquipment(Node main, bool equipped)
+    {
+        var selection = (RoleSelectionControl)main.FindChild("RoleSelectionPage", true, false);
+        var actor = (ActorView)selection.FindChild("PreviewActor", true, false);
+        Check(actor.GetNode<Sprite2D>("Facing/RightHand/Weapon").Visible == equipped &&
+            actor.GetNode<Sprite2D>("Facing/LeftHand/Weapon").Visible == equipped,
+            "选角摘要装备预览缺失或残留旧角色装备");
+        Check(!GameServices.Session.HasRole && !GameServices.World.HasWorld, "选角预览提前加载完整角色或创建世界");
     }
 
     /// <summary>通过真实标题输入移动窗口，保持普通窗口拖动契约。</summary>
@@ -298,12 +331,12 @@ public partial class EquipmentSmoke : Node
     {
         var before = GameServices.Session.Bag;
         var source = before.Items.Single(item => item.InstanceId == instanceId);
-        var replaced = GameServices.Session.Equipment.Items.FirstOrDefault(item => item.Slot == expectedSlot);
+        var replaced = GameServices.Session.Bag.Equipment.FirstOrDefault(item => item.Slot == expectedSlot);
         await Click(grid.GetChild<Control>(source.SlotIndex), ctrl: true, checkBeforeFrames: () =>
             Check(ReferenceEquals(before, GameServices.Session.Bag), "拳套快捷替换在确认前更改缓存"));
         var after = GameServices.Session.Bag;
-        Check(GameServices.Session.Equipment.Items.Any(item => item.InstanceId == instanceId && item.Slot == expectedSlot), "拳套快捷选槽错误");
-        Check(GameServices.Session.Equipment.Items.All(item => item.Slot != EquipmentSlot.OffHand),
+        Check(GameServices.Session.Bag.Equipment.Any(item => item.InstanceId == instanceId && item.Slot == expectedSlot), "拳套快捷选槽错误");
+        Check(GameServices.Session.Bag.Equipment.All(item => item.Slot != EquipmentSlot.OffHand),
             "快捷拳刃残留副手装备");
         if (replaced is not null)
             Check(after.Items.Any(item => item.InstanceId == replaced.InstanceId && item.SlotIndex == source.SlotIndex),

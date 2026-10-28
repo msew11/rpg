@@ -144,14 +144,14 @@ public sealed class MapPersistenceTests : IDisposable
         var role = repo.Create("旧地图角色", ServerRoleGender.Male, 1);
         var path = repo.GetRolePath(role.RoleId);
         var data = JsonNode.Parse(File.ReadAllText(path))!;
-        data.AsObject().Remove("MapId");
+        data.AsObject().Remove("mapId");
         var legacy = data.ToJsonString();
         File.WriteAllText(path, legacy);
         var restored = repo.Load(role.RoleId);
         Assert.Equal(1, restored.MapId);
         Assert.Equal(legacy, File.ReadAllText(path));
         repo.SaveRole(restored);
-        Assert.Equal(1, JsonNode.Parse(File.ReadAllText(path))!["MapId"]!.GetValue<int>());
+        Assert.Equal(1, JsonNode.Parse(File.ReadAllText(path))!["mapId"]!.GetValue<int>());
     }
 
     /// <summary>地图沿用 0 禁用及关闭补写；返回登录后对象仍在服务端内存。</summary>

@@ -27,6 +27,8 @@ public sealed class NetService : Service
     private long _generation = 1;
     /// <summary>是否正在推进，避免回调重入固定帧。</summary>
     private bool _ticking;
+    /// <summary>本发送端不落地的递增消息序号。</summary>
+    private long _revision;
 
     /// <summary>用于会话所有权检查的当前代次。</summary>
     internal long Generation => _generation;
@@ -59,7 +61,7 @@ public sealed class NetService : Service
     public void Send(IMessage request)
     {
         ThrowIfDisposed();
-        _outbound.Enqueue(MessageCodec.Encode(request, _generation, true));
+        _outbound.Enqueue(MessageCodec.Encode(request, _generation, true, checked(++_revision)));
     }
 
     /// <summary>发送当前队列、推进服务端并分发响应，监听中新请求留到下一帧。</summary>

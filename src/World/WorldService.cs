@@ -219,7 +219,9 @@ public sealed class WorldService : Service
     {
         if (!_session.HasRole || ReferenceEquals(_lastEquipmentSnapshot, _session.Equipment)) return;
         var equipment = _session.Equipment;
+        var unchanged = _lastEquipmentSnapshot?.HasSameItems(equipment) == true;
         _lastEquipmentSnapshot = equipment;
+        if (unchanged) return;
         world.Enqueue(new SyncEquipmentAction(_session.RoleId, equipment.Revision,
             equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
             equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0));

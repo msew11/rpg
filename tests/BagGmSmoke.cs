@@ -79,13 +79,14 @@ public partial class BagGmSmoke : Node
             await Frames();
             CheckHudLayout(main, chat);
             CheckBagLayout(bag, grid);
+            revision = GameServices.Session.Bag.Revision;
             var beforeClick = GameServices.World.RoleTarget;
             Click(grid.GetChild<Control>(0).GetGlobalRect().GetCenter());
             await Frames();
             Check(beforeClick == GameServices.World.RoleTarget, "格子点击穿透地面");
             Click(grid.GetChild<Control>(0).GetGlobalRect().GetCenter());
             await Frames();
-            Check(GameServices.Session.Bag.Revision == revision + 1, "同格放回修改了背包版本");
+            Check(GameServices.Session.Bag.Revision == revision, "同格放回修改了背包版本");
 
             // 真实悬停当次输入即显示名称，不等待默认提示计时器。
             using (var motion = new InputEventMouseMotion { Position = grid.GetChild<Control>(0).GetGlobalRect().GetCenter() })

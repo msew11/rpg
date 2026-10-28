@@ -182,7 +182,7 @@ public partial class GroundItemDropSmoke : Node
                 "开启锚点未保存 .env");
             main.QueueFree(); await Frames(); main = null;
             main = await StartMain(directory, config);
-            Check(GameServices.Session.Bag.Revision == saved.Revision && GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.Count)).SequenceEqual(saved.Items.Select(item => (item.InstanceId, item.Count))), "重启后背包未恢复");
+            Check(GameServices.Session.Bag.Revision > 0 && saved.Revision == 0 && GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.Count)).SequenceEqual(saved.Items.Select(item => (item.InstanceId, item.Count))), "重启后背包未恢复");
             Check(GameServices.Session.Map!.Objects.Count == 2, "重启后地图未恢复");
             view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
             overlay = main.FindChildren("*", "Node", true, false).OfType<GroundItemOverlayControl>().Single();

@@ -24,13 +24,14 @@ namespace Rpg.Net.Message {
     static MessageReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "Cg1tZXNzYWdlLnByb3RvEgNycGciRwoKRW52ZWxvcGVQYhIUCgxtZXNzYWdl",
+            "Cg1tZXNzYWdlLnByb3RvEgNycGciWQoKRW52ZWxvcGVQYhIUCgxtZXNzYWdl",
             "X3R5cGUYASABKAkSEgoKZ2VuZXJhdGlvbhgCIAEoAxIPCgdwYXlsb2FkGAMg",
-            "ASgMQhKqAg9ScGcuTmV0Lk1lc3NhZ2ViBnByb3RvMw=="));
+            "ASgMEhAKCHJldmlzaW9uGAQgASgDQhKqAg9ScGcuTmV0Lk1lc3NhZ2ViBnBy",
+            "b3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.EnvelopePb), global::Rpg.Net.Message.EnvelopePb.Parser, new[]{ "MessageType", "Generation", "Payload" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Net.Message.EnvelopePb), global::Rpg.Net.Message.EnvelopePb.Parser, new[]{ "MessageType", "Generation", "Payload", "Revision" }, null, null, null, null)
           }));
     }
     #endregion
@@ -78,6 +79,7 @@ namespace Rpg.Net.Message {
       messageType_ = other.messageType_;
       generation_ = other.generation_;
       payload_ = other.payload_;
+      revision_ = other.revision_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -132,6 +134,21 @@ namespace Rpg.Net.Message {
       }
     }
 
+    /// <summary>Field number for the "revision" field.</summary>
+    public const int RevisionFieldNumber = 4;
+    private long revision_;
+    /// <summary>
+    /// 发送端每发一条消息递增，仅存于当前进程。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long Revision {
+      get { return revision_; }
+      set {
+        revision_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -150,6 +167,7 @@ namespace Rpg.Net.Message {
       if (MessageType != other.MessageType) return false;
       if (Generation != other.Generation) return false;
       if (Payload != other.Payload) return false;
+      if (Revision != other.Revision) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -160,6 +178,7 @@ namespace Rpg.Net.Message {
       if (MessageType.Length != 0) hash ^= MessageType.GetHashCode();
       if (Generation != 0L) hash ^= Generation.GetHashCode();
       if (Payload.Length != 0) hash ^= Payload.GetHashCode();
+      if (Revision != 0L) hash ^= Revision.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -190,6 +209,10 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(26);
         output.WriteBytes(Payload);
       }
+      if (Revision != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(Revision);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -212,6 +235,10 @@ namespace Rpg.Net.Message {
         output.WriteRawTag(26);
         output.WriteBytes(Payload);
       }
+      if (Revision != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(Revision);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -230,6 +257,9 @@ namespace Rpg.Net.Message {
       }
       if (Payload.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeBytesSize(Payload);
+      }
+      if (Revision != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Revision);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -251,6 +281,9 @@ namespace Rpg.Net.Message {
       }
       if (other.Payload.Length != 0) {
         Payload = other.Payload;
+      }
+      if (other.Revision != 0L) {
+        Revision = other.Revision;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -283,6 +316,10 @@ namespace Rpg.Net.Message {
             Payload = input.ReadBytes();
             break;
           }
+          case 32: {
+            Revision = input.ReadInt64();
+            break;
+          }
         }
       }
     #endif
@@ -312,6 +349,10 @@ namespace Rpg.Net.Message {
           }
           case 26: {
             Payload = input.ReadBytes();
+            break;
+          }
+          case 32: {
+            Revision = input.ReadInt64();
             break;
           }
         }

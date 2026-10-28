@@ -262,7 +262,7 @@ public partial class BagControl : PanelContainer
     internal void ShowEquipmentName(EquipmentSlot slot, Control owner)
     {
         if (!GameServices.Session.HasRole) { HideItemName(); return; }
-        var item = GameServices.Session.Equipment.Items.FirstOrDefault(item => item.Slot == slot);
+        var item = GameServices.Session.Bag.Equipment.FirstOrDefault(item => item.Slot == slot);
         if (item is null) { HideItemName(); return; }
         ShowItemInfo(item.ItemId, owner);
     }
@@ -293,7 +293,7 @@ public partial class BagControl : PanelContainer
             UiSoundPlayer.Play(this, 1010);
             return;
         }
-        var item = GameServices.Session.Equipment.Items.FirstOrDefault(item => item.Slot == slot);
+        var item = GameServices.Session.Bag.Equipment.FirstOrDefault(item => item.Slot == slot);
         if (item is null) return;
         Show();
         CancelItemDrag();
@@ -324,7 +324,7 @@ public partial class BagControl : PanelContainer
     internal void Unequip(EquipmentSlot slot)
     {
         CancelItemDrag();
-        if (GameServices.Session.Equipment.Items.All(item => item.Slot != slot)) return;
+        if (GameServices.Session.Bag.Equipment.All(item => item.Slot != slot)) return;
         GameServices.Session.EquipItem(0, slot, GameServices.Session.Bag.Revision, GameServices.Session.Equipment.Revision);
     }
 
@@ -340,7 +340,7 @@ public partial class BagControl : PanelContainer
         return payload["panel"].AsUInt64() == GetInstanceId() && payload["epoch"].AsInt64() == _dragEpoch &&
             payload["role"].AsInt64() == GameServices.Session.RoleId && payload["revision"].AsInt64() == GameServices.Session.Bag.Revision &&
             payload["equipment_revision"].AsInt64() == GameServices.Session.Equipment.Revision &&
-            GameServices.Session.Equipment.Items.Any(item => item.InstanceId == payload["instance"].AsInt64() &&
+            GameServices.Session.Bag.Equipment.Any(item => item.InstanceId == payload["instance"].AsInt64() &&
                 (int)item.Slot == payload["equipment"].AsInt32());
     }
 

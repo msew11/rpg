@@ -1,3 +1,4 @@
+using Rpg.Net;
 using Godot;
 using Rpg.Const;
 using Rpg.Net.Message;
@@ -35,15 +36,14 @@ public sealed class PbDataConversionTests
         var original = new RoleWorldStatePb
         {
             Profile = new RoleWorldProfilePb { RoleId = 1002, Name = "世界角色", Level = 12,
-                Gender = gender, Revision = 9 },
+                Gender = gender}.WithRevision(9),
             Status = new RoleWorldStatusPb { RoleId = 1002, Health = 43, MaxHealth = 120,
-                Mana = 27, MaxMana = 80, Revision = 9 },
-            Position = new RoleWorldPositionPb { RoleId = 1002, MapId = 2, X = 123.5f, Y = 456.25f,
-                Revision = 9, AcknowledgedAction = 3 }
+                Mana = 27, MaxMana = 80}.WithRevision(9),
+            Position = new RoleWorldPositionPb { RoleId = 1002, MapId = 2, X = 123.5f, Y = 456.25f, AcknowledgedAction = 3 }.WithRevision(9)
         };
-        original.Equipment = new RoleWorldEquipmentPb { RoleId = 1002, Revision = 3 };
+        original.Equipment = new RoleWorldEquipmentPb { RoleId = 1002}.WithRevision(3);
         var data = RoleWorldStatePbData.FromPb(original, new RolePb { RoleId = 1002,
-            Experience = 16, NextExperience = 250, Revision = 9 }, new Dictionary<int, Rpg.Config.Data.ItemCfg>());
+            Experience = 16, NextExperience = 250}.WithRevision(9), new Dictionary<int, Rpg.Config.Data.ItemCfg>());
         var result = data.ToPb();
         Assert.Equal(original, result);
         Assert.Equal(16, data.ToRolePb().Experience);

@@ -15,7 +15,7 @@ public sealed class RepoServerRoleTests : IDisposable
     {
         Assert.Empty(new RepoServerRole(_directory).List());
         Assert.Empty(new RepoServerRole(_directory).List());
-        Assert.Empty(Directory.GetFiles(_directory));
+        Assert.False(Directory.Exists(_directory));
     }
 
     /// <summary>读取或删除缺失角色不生成任何存档，包括曾用于演示的编号。</summary>
@@ -76,7 +76,7 @@ public sealed class RepoServerRoleTests : IDisposable
         Assert.Equal(1001, Assert.Single(new RepoServerRole(_directory).List()).RoleId);
         Assert.Equal(existing, File.ReadAllText(repo.GetRolePath(1001)));
         Assert.Equal(tombstone, File.ReadAllText(repo.GetRolePath(1002)));
-        File.Delete(repo.GetRolePath(1001));
+        foreach (var file in new[] { repo.GetRolePath(1001), repo.GetItemPath(1001), repo.GetEquipmentPath(1001), repo.GetSummaryPath(1001) }) File.Delete(file);
         Assert.Empty(new RepoServerRole(_directory).List());
         Assert.False(File.Exists(repo.GetRolePath(1001)));
         Assert.Equal(hasLegacyMarker, File.Exists(Path.Combine(_directory, "initialized")));

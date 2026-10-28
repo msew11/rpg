@@ -1,3 +1,4 @@
+using Rpg.Net;
 using System.IO;
 using Rpg.Const;
 using Rpg.Net.Message;
@@ -19,7 +20,7 @@ public sealed record RoleWorldProfilePbData(long RoleId, string Name, int Level,
             _ => throw new InvalidDataException("角色资料包含无效性别")
         };
         var data = new RoleWorldProfilePbData(message.RoleId, message.Name, message.Level,
-            gender, message.HeadId, message.Revision);
+            gender, message.HeadId, message.GetRevision());
         data.Validate();
         return data;
     }
@@ -30,7 +31,7 @@ public sealed record RoleWorldProfilePbData(long RoleId, string Name, int Level,
         Validate();
         return new RoleWorldProfilePb { RoleId = RoleId, Name = Name, Level = Level,
             Gender = Gender == RoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female,
-            HeadId = HeadId, Revision = Revision };
+            HeadId = HeadId }.WithRevision(Revision);
     }
 
     /// <summary>拒绝不完整或非法资料。</summary>

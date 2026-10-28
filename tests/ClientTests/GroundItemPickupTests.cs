@@ -11,6 +11,8 @@ public sealed class GroundItemPickupTests : IDisposable
 {
     /// <summary>隔离服务端文件目录。</summary>
     private readonly string _root = Path.Combine(Path.GetTempPath(), "rpg-pickup-" + Guid.NewGuid());
+    /// <summary>最近私有快照的信封序号，用作并发条件。</summary>
+    private long _bagRevision;
     /// <summary>真实字节输出的完整消息。</summary>
     private readonly List<IMessage> _messages = [];
     /// <summary>有限容量及可堆叠道具规则。</summary>
@@ -42,7 +44,13 @@ public sealed class GroundItemPickupTests : IDisposable
         var server = new MockServer(_root, _rules, flushInterval: () => 0,
             maps: [new(1, 100, 100, 32, 32), new(2, 100, 100, 32, 32)]);
         server.ResetSession(1);
-        server.Outgoing += packet => _messages.Add(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false));
+        server.Outgoing += packet =>
+        {
+            var message = MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false);
+            _messages.Add(message);
+            if (message is SelectRoleRt { Success: true } or RoleItemsChangedNotice)
+                _bagRevision = message.GetRevision();
+        };
         return server;
     }
 
@@ -64,13 +72,13 @@ public sealed class GroundItemPickupTests : IDisposable
         _server.CreateMapObject(mapId, new() { X = x, Y = 1500, ItemId = 2000, Count = count });
 
     /// <summary>对应真实客户端先移动后绑定拾取的顺序。</summary>
-    private PickupItem Begin(DataServerMapObject item, long version = 1, long? role = null)
+    private PickupItem Begin(DataServerMapObject item, long? version = null, long? role = null)
     {
         _messages.Clear();
         var id = role ?? _id;
         Send(new Move { RoleId = id, ActionId = ++_action, X = item.X, Y = item.Y });
         var request = new PickupItem { RoleId = id, ObjectId = item.ObjectId.ToString("N"),
-            ExpectedObjectRevision = item.Revision, ExpectedBagRevision = version, MoveActionId = _action };
+            ExpectedObjectRevision = item.Revision, ExpectedBagRevision = version ?? _bagRevision, MoveActionId = _action };
         Send(request);
         return request;
     }
@@ -126,7 +134,7 @@ public sealed class GroundItemPickupTests : IDisposable
         Assert.Equal(item, Assert.Single(_server.GetMap(1).Objects).Value);
         _server.Flush();
         Assert.Equal(39, _repo.Load(_id).Bag.Items.Sum(item => item.Count));
-        Assert.Equal(1, _repo.Load(_id).Bag.Revision);
+        Assert.Equal(0, _repo.Load(_id).Bag.Revision);
         Assert.Equal(5, _repo.Load(_id).Bag.NextInstanceId);
     }
 
@@ -146,7 +154,7 @@ public sealed class GroundItemPickupTests : IDisposable
         Send(new Move { RoleId = _id, ActionId = ++_action, X = kind == "far" ? 1500 : item.X, Y = item.Y });
         _messages.Clear();
         Send(new PickupItem { RoleId = kind == "role" ? _id + 1 : _id, ObjectId = item.ObjectId.ToString("N"),
-            ExpectedBagRevision = kind == "bag" ? 0 : 1, ExpectedObjectRevision = kind == "object" ? 0 : 1,
+            ExpectedBagRevision = kind == "bag" ? 0 : _bagRevision, ExpectedObjectRevision = kind == "object" ? 0 : 1,
             MoveActionId = kind == "move" ? 0 : _action });
         Assert.False(Assert.Single(_messages.OfType<PickupItemRt>()).Success);
         Assert.Empty(_messages.OfType<RoleItemsChangedNotice>());
@@ -210,9 +218,9 @@ public sealed class GroundItemPickupTests : IDisposable
     [Fact]
     public void DropAndPickupInSameCyclePreserveTotal()
     {
-        Send(new DropItem { RoleId = _id, InstanceId = 1, Count = 2, ExpectedRevision = 1 });
+        Send(new DropItem { RoleId = _id, InstanceId = 1, Count = 2, ExpectedRevision = _bagRevision });
         var item = Assert.Single(_server.GetMap(1).Objects).Value;
-        Begin(item, 2);
+        Begin(item);
         _server.Tick(2);
         Assert.True(Assert.Single(_messages.OfType<PickupItemRt>()).Success);
         new MockTransport(_server).Dispose();
@@ -227,9 +235,9 @@ public sealed class GroundItemPickupTests : IDisposable
     {
         var second = _repo.Create("接收角色", ServerRoleGender.Female, 1, spawnX: 1500, spawnY: 1500);
         _server = Start(); Enter(_id);
-        Send(new DropItem { RoleId = _id, InstanceId = 1, Count = 3, ExpectedRevision = 1 });
+        Send(new DropItem { RoleId = _id, InstanceId = 1, Count = 3, ExpectedRevision = _bagRevision });
         var item = Assert.Single(_server.GetMap(1).Objects).Value;
-        Enter(second.RoleId); Begin(item, 0, second.RoleId);
+        Enter(second.RoleId); Begin(item, role: second.RoleId);
         _server.Tick(2);
         _server.Transfers.BeforeComplete = () => throw new IOException("模拟跨角色失败");
         Assert.Throws<AggregateException>(_server.Flush);
