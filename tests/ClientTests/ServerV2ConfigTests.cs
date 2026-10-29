@@ -31,8 +31,8 @@ public sealed class ServerV2ConfigTests
         foreach (var actor in new[] { secondModules.Login("alice"), secondModules.Role(10), secondModules.World(1) })
             Assert.Same(secondConfig.Basic.Value, await actor.Ask(new DataReadConfig()));
 
-        ModuleContext[] contexts = [new LoginContext(firstConfig, "alice", new([])),
-            new RoleContext(firstConfig, 10, new(new() { RoleId = 10 }, [], [])), new WorldContext(firstConfig, new(1, 1000, 1000, 32, 32), new([]))];
+        ModuleContext[] contexts = [new LoginContext(firstConfig, firstModules, "alice", new([])),
+            new RoleContext(firstConfig, firstModules, 10, new(new() { RoleId = 10 }, [], [])), new WorldContext(firstConfig, firstModules, new(1, 1000, 1000, 32, 32), new([]))];
         Assert.All(contexts, context => Assert.Same(firstConfig, context.Config));
         await first.DisposeAsync();
         Assert.False(firstConfig.IsDisposed);
@@ -44,12 +44,13 @@ public sealed class ServerV2ConfigTests
 
     /// <summary>验证入口拒绝契约：缺失或失效依赖同步失败，早于分片创建及存档 IO。</summary>
     [Fact]
-    public void HostAndModuleEntriesRejectInvalidDependenciesBeforeWork()
+    public async Task HostAndModuleEntriesRejectInvalidDependenciesBeforeWork()
     {
         var directory = Path.Combine(Path.GetTempPath(), "rpg-v2-entry-" + Guid.NewGuid());
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: directory);
         using var config = new ConfigService(env);
         var repo = new DoubleServerV2Repo();
+        await using var modules = Modules(config);
         Assert.Equal("env", Assert.Throws<ArgumentNullException>(() => new MockServerService(null!, config)).ParamName);
         Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new MockServerService(env, (ConfigService)null!)).ParamName);
         Assert.Equal("modules", Assert.Throws<ArgumentNullException>(() => new MockServerService(env, (ServerModules)null!)).ParamName);
@@ -58,12 +59,12 @@ public sealed class ServerV2ConfigTests
         Assert.Equal("roles", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, null!, new DoubleServerV2Repo(), _ => new())).ParamName);
         Assert.Equal("worlds", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, repo, null!, _ => new())).ParamName);
         Assert.Equal("login", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, repo, new DoubleServerV2Repo(), null!)).ParamName);
-        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new WorldContext(null!, new(1, 1000, 1000, 32, 32), new([]))).ParamName);
+        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new WorldContext(null!, modules, new(1, 1000, 1000, 32, 32), new([]))).ParamName);
         using var disposedConfig = new ConfigService(env);
         disposedConfig.Dispose();
         Assert.Throws<ObjectDisposedException>(() => new MockServerService(env, disposedConfig));
         Assert.Throws<ObjectDisposedException>(() => Modules(disposedConfig));
-        Assert.Throws<ObjectDisposedException>(() => new WorldContext(disposedConfig, new(1, 1000, 1000, 32, 32), new([])));
+        Assert.Throws<ObjectDisposedException>(() => new WorldContext(disposedConfig, modules, new(1, 1000, 1000, 32, 32), new([])));
         using var disposedEnv = ConfigTestFixture.CreateEnv(serverDirectory: directory);
         disposedEnv.Dispose();
         Assert.Throws<ObjectDisposedException>(() => new MockServerService(disposedEnv, config));

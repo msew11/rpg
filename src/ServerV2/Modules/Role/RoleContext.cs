@@ -22,7 +22,7 @@ public sealed class RoleContext : ModuleContext
     /// <summary>相对于保存基线发生变化的表。</summary>
     public DataRoleTables DirtyTables { get; private set; }
     /// <summary>由所属 Actor 用完整加载结果建立基线。</summary>
-    internal RoleContext(ConfigService config, long roleId, DataRoleSnapshot snapshot) : base(config)
+    internal RoleContext(ConfigService config, IActorLocator actors, long roleId, DataRoleSnapshot snapshot) : base(config, actors)
     {
         RoleId = roleId;
         Role = snapshot.Role;

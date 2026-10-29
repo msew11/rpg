@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package rpg.v2.actor;
+option csharp_namespace = "Rpg.ServerV2.ActorProtocol";
+
+// 查询接收地图的完整动态对象数量。
+message GetWorldObjectCount {}
+
+// 返回该地图当前完整动态对象数量。
+message GetWorldObjectCountRt {
+  // 完整内存对象数组的长度。
+  int32 count = 1;
+}

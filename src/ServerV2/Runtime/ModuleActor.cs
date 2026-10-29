@@ -17,7 +17,7 @@ public abstract class ModuleActor<TContext> : BaseActor
     protected sealed override async ValueTask InitializeAsync() => _context = await CreateContextAsync().ConfigureAwait(false);
     /// <summary>将消息交给对应模块处理器，不向外返回上下文本身。</summary>
     protected sealed override ValueTask<object?> ReceiveAsync(object message) => DispatchAsync(_context, message);
-    /// <summary>模块需要跨 Actor 协调时在此覆盖，纯内存业务仍交给处理器表。</summary>
+    /// <summary>默认交给处理器表，模块可覆盖持久化等生命周期边界；业务编排留在处理器内。</summary>
     protected virtual ValueTask<object?> DispatchAsync(TContext context, object message) => _handlers.HandleAsync(context, message);
     /// <summary>模块负责初始化状态；后续 IO 加载在此边界接入。</summary>
     protected abstract ValueTask<TContext> CreateContextAsync();

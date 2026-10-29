@@ -18,7 +18,7 @@ public sealed class LoginContext : ModuleContext
     /// <summary>当前摘要与保存基线是否不同。</summary>
     public bool SummariesDirty { get; private set; }
     /// <summary>用所属 Actor 完整加载的摘要建立基线，不执行 IO。</summary>
-    internal LoginContext(ConfigService config, string username, DataLoginSnapshot snapshot) : base(config)
+    internal LoginContext(ConfigService config, IActorLocator actors, string username, DataLoginSnapshot snapshot) : base(config, actors)
     { Username = username; Summaries = snapshot.Summaries.IsDefault ? [] : snapshot.Summaries; _saved = Snapshot(); }
     /// <summary>取得当前登录模块的不可变聚合快照。</summary>
     public DataLoginSnapshot Snapshot() => new(Summaries);

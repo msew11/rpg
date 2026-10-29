@@ -116,8 +116,9 @@ public sealed class ServerV2PersistenceActorTests : ServerV2ModuleTests
         try
         {
             var repo = new RepoAccountRoleSummary(directory);
+            await using var locator = Modules(new DoubleServerV2Repo());
             await repo.SaveAsync("alice", [new(1, "文件摘要", 1, RoleGender.Male, 1, [])]);
-            await using (var actor = new LoginActor(Config, "alice", repo, LoginHandlers()))
+            await using (var actor = new LoginActor(Config, locator, "alice", repo, LoginHandlers()))
             {
                 Assert.Equal("文件摘要", await actor.Ref.Ask(new DataReadSummary()));
                 await actor.Ref.Ask(new DataWriteSummary("新摘要"));
@@ -129,7 +130,7 @@ public sealed class ServerV2PersistenceActorTests : ServerV2ModuleTests
                 await actor.Ref.Ask(new DataWriteSummary("新摘要"));
                 await actor.Ref.Ask(new DataFlush());
             }
-            await using var reopened = new LoginActor(Config, "alice", repo, LoginHandlers());
+            await using var reopened = new LoginActor(Config, locator, "alice", repo, LoginHandlers());
             Assert.Equal("新摘要", await reopened.Ref.Ask(new DataReadSummary()));
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }

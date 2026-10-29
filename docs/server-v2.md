@@ -6,7 +6,7 @@ V2 在 `src/ServerV2` 独立开发，现有客户端默认仍使用旧 Server。
 
 `Runtime` 只负责类型化 Ask/Tell、串行邮箱、INIT → RUN → STOP 与唯一分片目录。每个 Actor 是可异步等待的任务，不独占 OS 线程。首次消息触发初始化；跨 await 不进入下一回合。业务错误不会终止邮箱，初始化失败拒绝全部等待者，Tell 错误逐一通知诊断观察者。
 
-调用方只取得 `ActorRef`。协议请求直接进入邮箱，Handler 直接返回协议回复，例如 `Ask<LoginRt>(login)`；内部请求仍可实现 `IActorRequest<TReply>` 推断回复类型。可变协议对象由单次请求独占：发送方入队后不再修改请求，Handler 返回后不再修改回复，不共享 Context 中的可写状态。内部消息使用独立或不可变数据，不传工作委托和 Actor 上下文。模块继承 `ModuleActor<TContext>`，自己创建上下文，并在创建 Actor 时冻结专用 `ActorHandlers<TContext>`。Handler 接收上下文与请求，不做文件或网络 IO；跨 Actor 协调在所属 Actor 边界进行，不形成循环 Ask。
+调用方只取得 `ActorRef`。协议请求直接进入邮箱，Handler 直接返回协议回复，例如 `Ask<LoginRt>(login)`；非 proto 的运行时请求仍可实现 `IActorRequest<TReply>` 推断回复类型。可变协议对象由单次请求独占：发送方入队后不再修改请求，接收 Handler 返回后不留存并修改回复，不共享 Context 中的可写状态。内部消息不传工作委托、Repo 或 Actor 上下文。模块继承 `ModuleActor<TContext>`，自己创建上下文，并在创建 Actor 时冻结专用 `ActorHandlers<TContext>`。Handler 接收上下文与请求，不做文件或网络 IO；跨 Actor 协调在所属模块的 Async Handler 中通过 Context.Actors 进行。跨 await 仍占源 Actor 同一串行回合；禁止同 Actor 自身 Ask 和循环等待，当前不提供死锁检测。
 
 `ActorDirectory<TKey>` 在短锁中唯一创建对象，不在创建时初始化。失败分片在后续获取时可以重建。目录关闭拒绝新创建并等待现有邮箱排空；停止前仍需由宿主先排空外部请求，避免过早关闭下游。
 
@@ -17,13 +17,15 @@ V2 在 `src/ServerV2` 独立开发，现有客户端默认仍使用旧 Server。
 | `Hosting` | MockServerService 生命周期、配置依赖与纯 .NET ServerRuntime 装配 |
 | `Connections` | 连接 ID、会话代次、账号绑定、每连接串行入口和输出队列 |
 | `Protocol` | 显式协议方向表、protobuf 编解码、统一错误 |
+| `ActorProtocol/Generated` | 由 protov2/actor 生成的内部消息，不进入客户端编解码注册表 |
 | `Routing` | 从入口或 Session 定位 Actor，直接投递协议并附带响应的会话绑定元数据 |
 | `Runtime` | 通用邮箱、ActorRef、处理器契约与唯一分片目录 |
 | `Modules/Login` | 按规范 username 独占账号摘要；Storage 子目录负责账号文件仓库 |
 | `Modules/Role` | 按 RoleId 独占角色、物品、装备快照；Storage 子目录负责角色三表仓库 |
 | `Modules/World` | 按 MapId 独占配置规格和完整对象快照；Data 保存独立模型，Storage 负责分块清单仓库 |
 | `Modules/<模块>/Handler` | 所属模块的业务处理器，直接使用协议请求与回复 |
-| `Modules/Common` | 模块共用的 Context 配置入口，以及 Data、Storage 子目录 |
+| `Modules/<模块>/Async` | 与 Handler 平级的跨 Actor 业务步骤，共用 IActorHandler/ActorHandlers 注册分发 |
+| `Modules/Common` | ModuleContext 的 Config/Actors 借用入口及 IActorLocator，以及 Data、Storage 子目录 |
 | `Modules/Common/Storage` | 共用 JSON 编解码与单文件原子替换；不持有业务状态 |
 
 ```text
@@ -38,6 +40,8 @@ NetService <-- connection output queue <-- response codec <-- result
 
 不同服务使用各自注入的配置实例；Config 属性不可替换，配置释放后读取会失败。Context、Actor 和 MockServerService 都不释放借用的配置，配置所有者应在 Net 关闭后释放。默认 `LoginHandler` 显式返回 NotImplemented；测试成功不代表认证已实现。
 
+`ServerModules` 拥有目录、身份定位和生命周期，并实现窄 `IActorLocator`：`Login(string)`、`Role(long)`、`World(int)` 仅返回 `ActorRef`。三个 Actor 和 Context 均由构造必需注入此依赖，Context 通过只读 `Actors` 借用，不负责释放，不使用全局 locator 或可空回填。只定位分片不触发 INIT。不同服务的 Context 只定位本服务目录；目录工厂在 Get 时才执行，因此装配中可以捕获所属 ServerModules。
+
 空请求、回复回调、保存快照在各自公开入口拒绝，避免入队或文件 IO 后才发现缺失。内部非空依赖不再逐层兜底；匿名账号、尚未启动或停止的任务、通知无回复、连接屏障无载荷、无效代次及回滚原文件缺失仍以可空值表达。JSON 根 null 的读取检查与已释放状态检查属于边界契约，继续保留。
 
 V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Net 接管服务，负责序列化、排队、固定帧拉取输出及释放；传输只关闭自己绑定的连接。Env 与 Config 的所有者在 Net 释放后再释放它们。当前 `GameServices.Initialize()` 的旧构造仍运行旧业务；不增加全局 MockServer 注册。
@@ -46,7 +50,20 @@ V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Ne
 
 连接 ID 由服务端生成，不进入信封。连接断开即结束 Session，重连生成新 ID。同一账号的多个连接共享账号 Actor，各自保留身份与输出；重复登录限制、断线续接暂不定义。角色状态和地图状态不放进连接 Session。
 
-`protov2` 使用 `rpg.v2` package、`Rpg.ProtocolV2` C# 命名空间；生成文件位于 `src/ProtocolV2/Generated`，中文协议注释只修改 proto。`login.proto` 收拢登录请求、响应、角色性别枚举和摘要结构；业务协议文件按请求与响应、推送、enum 与结构的顺序组织，当前登录没有推送。每条消息使用四字段 EnvelopePb：generation、request_id、message_type、payload。请求编号非零、响应原样返回、通知为零；当前未注册业务通知。编号由客户端递增，切代次不断号，不承诺自动去重。
+外部 `protov2` 使用 `rpg.v2` package、`Rpg.ProtocolV2` C# 命名空间；生成文件位于 `src/ProtocolV2/Generated`，中文协议注释只修改 proto。`login.proto` 收拢登录请求、响应、角色性别枚举和摘要结构；业务协议文件按请求与响应、推送、enum 与结构的顺序组织，当前登录没有推送。每条外部消息使用四字段 EnvelopePb：generation、request_id、message_type、payload。请求编号非零、响应原样返回、通知为零；当前未注册业务通知。编号由客户端递增，切代次不断号，不承诺自动去重。
+
+内部源放 `protov2/actor`，按接收方模块分文件，当前只有 `world.proto` 和 `role.proto`，不预建空 login/common 文件。全部使用 `syntax = "proto3"`、`package rpg.v2.actor`、`csharp_namespace = "Rpg.ServerV2.ActorProtocol"`，默认不 import 外部业务协议。请求使用动作名、响应追加 `Rt`、结构与枚举使用 `Pb`；文件顺序为请求响应→推送→枚举结构，无内容部分省略。生成文件在 `src/ServerV2/ActorProtocol/Generated`；rpg.csproj 的外部 Protobuf 通配排除 protov2/actor/**/*.proto，内部 ProtoRoot 为 `protov2/actor`、GrpcServices 为 None；生成 C# 排除默认 Compile 通配，由 Grpc.Tools 纳入编译。生成 C# 与 Godot UID 一并提交，不手改生成文件。
+
+第一版进程内直接移交 proto，不经客户端信封或额外序列化，不增加中间 C# 请求结果包装或逐请求接口绑定。完整类型名如 `rpg.v2.actor.GetWorldObjectCount`；MessageCodec 只显式登记外部 Login/LoginRt/ErrorRt，内部消息由客户端投递时返回 UnknownMessage。持久化继续使用独立 Data，不用 proto 落盘。
+
+最小只读链路为 `GetRoleWorldObjectCount → Role/Async/GetRoleWorldObjectCountHandler → World/Handler/GetWorldObjectCountHandler`。Role 从当前 `Role.MapId` 定位，World 返回 `Objects.Length`，再由 Role 返回 `GetRoleWorldObjectCountRt.Count`：
+
+```csharp
+var reply = await context.Actors.World(context.Role.MapId)
+    .Ask<GetWorldObjectCountRt>(new GetWorldObjectCount());
+```
+
+目标初始化与处理错误传播到源调用者。默认 Role/World 注册对应处理器；显式提供注册工厂时保持调用者控制，不隐式追加示例。此查询不修改存档或保存基线，不扩展通知框架。
 
 会话初始代次是 1。`ResetSession` 在服务端推进一代，保留账号并清空旧输出；Net 同步本连接的代次。网络适配需要以后为远程连接定义代次同步，当前只是进程内控制调用。旧代次请求和迟到结果丢弃，响应不得改用完成时最新代次。
 
@@ -85,7 +102,7 @@ WorldActor 的 INIT 先从借用的 `ConfigService.Map.Items` 取得条目，复
 
 `Modules/World/Data` 的 `DataWorldObject` 独立保存 `Guid ObjectId`、`Revision`、逻辑像素 `X/Y`、`MonsterTypeId`、`ItemId`、`Count`。`DataWorldSnapshot` 直接持有 `ImmutableArray<DataWorldObject>`；`DataWorldChunk` 是不可变块坐标。它们不引用旧实体或协议，不增加对象编号重复、数值范围、载荷组合和道具配置检查，也不调用旧版 ChunkAt/Validate。
 
-`WorldContext` 固定持有 MapId、Layout，Objects 和 DirtyChunks 只能通过 `Commit(snapshot)` 改变。默认数组视为空；Commit 按 `floor(逻辑坐标 / (TileSize × ChunkSizeTiles))` 分组，将块内对象逐项按内容与保存基线比较，保留块内顺序，不使用 ImmutableArray 的引用相等。对象移出和移入的块都待写，反复修改只写最终值，恢复基线取消待写。所有对象常驻内存，当前不实现 AOI、增量加载或正式 World 业务 Handler。
+`WorldContext` 固定持有 MapId、Layout，Objects 和 DirtyChunks 只能通过 `Commit(snapshot)` 改变。默认数组视为空；Commit 按 `floor(逻辑坐标 / (TileSize × ChunkSizeTiles))` 分组，将块内对象逐项按内容与保存基线比较，保留块内顺序，不使用 ImmutableArray 的引用相等。对象移出和移入的块都待写，反复修改只写最终值，恢复基线取消待写。所有对象常驻内存，目前仅提供内部对象数量查询，不实现 AOI、增量加载或正式 World 玩法业务。
 
 默认 `RepoWorld` 接收 V2 根目录与服务诊断回调，不持有 Context 或业务缓存。存档布局为：
 
@@ -100,6 +117,6 @@ JSON 使用 camelCase，当前 `formatVersion` 为 1。清单保存 `formatVersi
 
 提交后只删除名称严格符合本仓库格式的无引用块，未知文件保留。清理失败进入诊断，诊断监听错误也不撤销已提交结果；后续成功写回会再次清理。仓库依赖同地图邮箱串行调用，不提供多进程写者协调、跨 Actor 事务或旧存档迁移。
 
-增加功能时，先在 protov2 加协议并显式登记方向，在所属模块的 `Handler` 目录新增以协议请求与回复为类型参数的 Handler 并注册，由 Routing 直接投递。登录链路为 `Login → LoginActor → LoginHandler → LoginRt`；路由规范化账号键定位分片，原请求字段保留。Handler 只处理内存，并负责组装协议回复；Context 中的持久化 Data 模型继续独立，不引入登录请求或结果的中间 DTO。需要跨 Actor 协调时覆盖模块的 DispatchAsync，通过 ActorRef 交换数据，不把委托或上下文放进消息。加载与持久化从 Actor 初始化及宿主调度边界接入，不塞进 Handler。
+增加外部功能时，先在 protov2 加协议并显式登记方向，在所属模块的 `Handler` 目录新增以协议请求与回复为类型参数的 Handler 并注册，由 Routing 直接投递。登录链路为 `Login → LoginActor → LoginHandler → LoginRt`；路由规范化账号键定位分片，原请求字段保留。Handler 只处理内存，并负责组装协议回复；Context 中的持久化 Data 模型继续独立，不引入登录请求或结果的中间 DTO。内部协议放 protov2/actor，不注册客户端方向表。需要跨 Actor 协调时在所属模块 `Async` 目录实现 Handler，通过 Context.Actors 定位并使用现有 ActorRef Ask/Tell 邮箱交换数据，不把委托或上下文放进消息。DispatchAsync 保留保存等基础设施边界，不承载业务编排。加载与持久化从 Actor 初始化及宿主调度边界接入，不塞进 Handler。
 
 关闭顺序：停止外部接纳 → 等待连接请求和已有保存轮次 → 最终保存 → 停止角色分片 → 地图分片 → 账号分片。保存失败仍完成停止并向调用方抛错，不静默吞掉失败；进程仍存活时可通过显式 Flush 修复重试。强制中断、邮箱容量与背压、真实认证、角色归属校验和跨 Actor 事务由后续目标分别确定。

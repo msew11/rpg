@@ -21,7 +21,7 @@ public sealed class WorldContext : ModuleContext
     /// <summary>最近完整加载或成功提交的快照。</summary>
     private DataWorldSnapshot _saved;
     /// <summary>只有仓库完整加载成功后才创建工作区。</summary>
-    internal WorldContext(ConfigService config, DataWorldLayout layout, DataWorldSnapshot snapshot) : base(config)
+    internal WorldContext(ConfigService config, IActorLocator actors, DataWorldLayout layout, DataWorldSnapshot snapshot) : base(config, actors)
     {
         Layout = layout;
         Objects = snapshot.Objects.IsDefault ? [] : snapshot.Objects;

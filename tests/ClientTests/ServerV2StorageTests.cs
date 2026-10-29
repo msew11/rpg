@@ -174,12 +174,14 @@ public sealed class ServerV2StorageTests : IDisposable
     /// <summary>修改标记按保存基线及嵌套数组内容计算，恢复原值取消待写。</summary>
     [Fact]
     [Trait("Runtime", "Godot")]
-    public void ContextTracksTablesAndDeepSummaryContentAgainstSavedBaseline()
+    public async Task ContextTracksTablesAndDeepSummaryContentAgainstSavedBaseline()
     {
         using var env = ConfigTestFixture.CreateEnv();
         using var config = new Rpg.Config.ConfigService(env);
+        var repo = new DoubleServerV2Repo();
+        await using var locator = new Rpg.ServerV2.Modules.ServerModules(config, repo, repo, repo, _ => new());
         var original = Sample();
-        var role = new RoleContext(config, 10, original);
+        var role = new RoleContext(config, locator, 10, original);
         Assert.Throws<ArgumentNullException>(() => role.Commit(null!));
         Assert.Same(original.Role, role.Role);
         role.Commit(original with { Role = original.Role with { Name = "甲" }, Items = [new(1, 3, 0, 1)] });
@@ -191,7 +193,7 @@ public sealed class ServerV2StorageTests : IDisposable
         role.AcceptSaved();
         Assert.Equal(DataRoleTables.None, role.DirtyTables);
         var summary = new DataRoleSummary(1, "原", 1, RoleGender.Male, 1, [1, 2]);
-        var account = new LoginContext(config, "alice", new([summary]));
+        var account = new LoginContext(config, locator, "alice", new([summary]));
         var loginSnapshot = account.Snapshot();
         Assert.Throws<ArgumentNullException>(() => account.Commit(null!));
         Assert.Equal(loginSnapshot.Summaries, account.Summaries);
@@ -215,11 +217,13 @@ public sealed class ServerV2StorageTests : IDisposable
     /// <summary>验证 server-v2-storage 的内容基线契约：默认数组与空表等价，恢复后取消待写。</summary>
     [Fact]
     [Trait("Runtime", "Godot")]
-    public void LoginDefaultSummaryArrayBehavesAsEmptyTable()
+    public async Task LoginDefaultSummaryArrayBehavesAsEmptyTable()
     {
         using var env = ConfigTestFixture.CreateEnv();
         using var config = new Rpg.Config.ConfigService(env);
-        var account = new LoginContext(config, "alice", new(default));
+        var repo = new DoubleServerV2Repo();
+        await using var locator = new Rpg.ServerV2.Modules.ServerModules(config, repo, repo, repo, _ => new());
+        var account = new LoginContext(config, locator, "alice", new(default));
         Assert.Empty(account.Snapshot().Summaries);
         account.Commit(new([]));
         Assert.False(account.SummariesDirty);

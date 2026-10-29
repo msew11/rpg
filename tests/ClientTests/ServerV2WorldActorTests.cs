@@ -95,7 +95,7 @@ public sealed class ServerV2WorldActorTests : IDisposable
         Assert.Equal(0, repo.LoadCount);
         Assert.False(Directory.Exists(Storage));
         Assert.NotSame(actor, modules.World(99));
-        Assert.Throws<ArgumentNullException>(() => new WorldActor(_config, 1, null!, Handlers()));
+        Assert.Throws<ArgumentNullException>(() => new WorldActor(_config, modules, 1, null!, Handlers()));
     }
     /// <summary>加载失败拒绝同 INIT 的所有等待者，修复后目录重建分片再加载。</summary>
     [Fact]
@@ -150,7 +150,8 @@ public sealed class ServerV2WorldActorTests : IDisposable
     {
         var value = Object(1);
         var layout = Map(1);
-        var context = new WorldContext(_config, layout, new([value]));
+        await using var locator = Modules(new DoubleServerV2Repo());
+        var context = new WorldContext(_config, locator, layout, new([value]));
         context.Commit(new([value with { }]));
         Assert.Empty(context.DirtyChunks);
         context.Commit(new([value with { X = 1100 }]));
@@ -159,7 +160,7 @@ public sealed class ServerV2WorldActorTests : IDisposable
         Assert.True(Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(2, 0)).SetEquals(context.DirtyChunks));
         context.Commit(new([value with { }]));
         Assert.Empty(context.DirtyChunks);
-        var empty = new WorldContext(_config, layout, new(default));
+        var empty = new WorldContext(_config, locator, layout, new(default));
         empty.Commit(new(default));
         Assert.Empty(empty.Objects);
         Assert.Empty(empty.DirtyChunks);
