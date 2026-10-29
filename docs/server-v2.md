@@ -21,7 +21,7 @@ V2 在 `src/ServerV2` 独立开发，现有客户端默认仍使用旧 Server。
 | `Runtime` | 通用邮箱、ActorRef、处理器契约与唯一分片目录 |
 | `Modules/Login` | 按规范 username 独占账号摘要；Storage 子目录负责账号文件仓库 |
 | `Modules/Role` | 按 RoleId 独占角色、物品、装备快照；Storage 子目录负责角色三表仓库 |
-| `Modules/World` | 按正整数 MapId 的独占状态边界 |
+| `Modules/World` | 按 MapId 独占配置规格和完整对象快照；Data 保存独立模型，Storage 负责分块清单仓库 |
 | `Modules/<模块>/Handler` | 所属模块的业务处理器，直接使用协议请求与回复 |
 | `Modules/Common` | 模块共用的 Context 配置入口，以及 Data、Storage 子目录 |
 | `Modules/Common/Storage` | 共用 JSON 编解码与单文件原子替换；不持有业务状态 |
@@ -32,7 +32,7 @@ NetService --> V2 transport --> connection queue --> codec --> router
 NetService <-- connection output queue <-- response codec <-- result
 ```
 
-`MockServerService(EnvService, ConfigService)` 在公开构造入口校验依赖，再装配完整模块。内部注入构造只接收 `EnvService` 和非空 `ServerModules`，配置直接取自模块，消除重复传递配置造成的不一致。模块装配入口要求有效 ConfigService、仓库与登录处理器工厂；可选的角色/地图工厂及诊断回调在这里一次补齐，内部直接调用。
+`MockServerService(EnvService, ConfigService)` 在公开构造入口校验依赖，再装配完整模块。内部注入构造只接收 `EnvService` 和非空 `ServerModules`，配置直接取自模块，消除重复传递配置造成的不一致。模块装配入口要求有效 ConfigService、账号/角色/地图三种非空仓库与登录处理器工厂；可选的角色/地图工厂及诊断回调在这里一次补齐，内部直接调用。
 
 配置经模块装配和 Actor 必填构造参数传入 Context。LoginContext、RoleContext、WorldContext 继承 `Modules/Common/ModuleContext`，Handler 统一通过 `context.Config` 读取，例如 `context.Config.Basic.Value`、`context.Config.Item.Items`。Handler 不持有 ConfigService 字段或配置构造参数，也不访问全局服务。Config 在构造时保证非空，不再支持省略配置的测试装配；账号 Context 也必须接收完整的加载摘要。模块集成测试使用真实配置并在 Godot 宿主执行，通用邮箱和文件仓库测试仍可独立运行。
 
@@ -63,6 +63,8 @@ LoginActor --> LoginContext --> DataLoginSnapshot(Summaries) + saved baseline + 
            --> Login/Storage/IAccountRoleSummaryRepo
 RoleActor  --> RoleContext  --> Role / Items / Equipments + saved baseline + DirtyTables
            --> Role/Storage/IRoleRepo
+WorldActor --> WorldContext --> Layout / Objects + saved baseline + DirtyChunks
+           --> World/Storage/IWorldRepo
 ```
 
 快照与数据模型放在所属模块的 `Data` 子目录，Context 放在模块根目录；仓库在该模块的 `Storage` 子目录。共用文件工具在 `Modules/Common/Storage`，公共 `RoleGender` 与固定 `DataFlush` 消息在 `Modules/Common/Data`，连接数据在 `Connections/Data`。仓库通过构造注入 Actor，只读写文件，不缓存业务状态。
@@ -75,7 +77,28 @@ Context 属性不可直接赋值，按内容与上次保存基线比较；恢复
 
 `MockServerService.Tick(delta)` 由 V2 传输在 Net Tick 中推进，沿用 `EnvService.ServerFlushIntervalSeconds`：默认 5 秒、0 禁用周期、改变后重新计时。周期保存留在后台，每服务最多一个周期任务；重复到期合并，错误进入服务诊断。
 
-`MockServerService.FlushAsync()` 捕获各连接当前队尾屏障，等待先前已接纳请求，再保存已启动分片；不启动未收消息的分片。角色组完成后保存账号组，各组内并行，独立失败继续其他分片，最后汇总。各保存轮次串行衔接，失败不阻止下一次重试。V2 传输实现 `IServerWriteBackTransport`，所以 `NetService.FlushServerWrites()` 会先发送 Net 已排队消息，再同步等待服务端保存；即使周期禁用也生效。
+`MockServerService.FlushAsync()` 捕获各连接当前队尾屏障，等待先前已接纳请求，再保存已启动分片；不启动未收消息的分片。角色组完成后保存地图组，再保存账号组，各组内并行，独立失败继续其他分片，最后汇总。各保存轮次串行衔接，失败不阻止下一次重试。V2 传输实现 `IServerWriteBackTransport`，所以 `NetService.FlushServerWrites()` 会先发送 Net 已排队消息，再同步等待服务端保存；即使周期禁用也生效。
+
+### World 地图存储
+
+WorldActor 的 INIT 先从借用的 `ConfigService.Map.Items` 取得条目，复制为 `DataWorldLayout(MapId, Width, Height, TileSize, ChunkSizeTiles)`，再等待 `IWorldRepo.LoadAsync(layout)` 完整加载。未知地图在仓库 IO 前失败；同地图只初始化一次，失败后重新取得分片可重试。Context 在加载成功后才发布，不重新读取配置 JSON。
+
+`Modules/World/Data` 的 `DataWorldObject` 独立保存 `Guid ObjectId`、`Revision`、逻辑像素 `X/Y`、`MonsterTypeId`、`ItemId`、`Count`。`DataWorldSnapshot` 直接持有 `ImmutableArray<DataWorldObject>`；`DataWorldChunk` 是不可变块坐标。它们不引用旧实体或协议，不增加对象编号重复、数值范围、载荷组合和道具配置检查，也不调用旧版 ChunkAt/Validate。
+
+`WorldContext` 固定持有 MapId、Layout，Objects 和 DirtyChunks 只能通过 `Commit(snapshot)` 改变。默认数组视为空；Commit 按 `floor(逻辑坐标 / (TileSize × ChunkSizeTiles))` 分组，将块内对象逐项按内容与保存基线比较，保留块内顺序，不使用 ImmutableArray 的引用相等。对象移出和移入的块都待写，反复修改只写最终值，恢复基线取消待写。所有对象常驻内存，当前不实现 AOI、增量加载或正式 World 业务 Handler。
+
+默认 `RepoWorld` 接收 V2 根目录与服务诊断回调，不持有 Context 或业务缓存。存档布局为：
+
+```text
+EnvService.ServerDirectory/v2/maps/<mapId>/manifest.json
+EnvService.ServerDirectory/v2/maps/<mapId>/chunks/<x>_<y>.<commitId>.json
+```
+
+JSON 使用 camelCase，当前 `formatVersion` 为 1。清单保存 `formatVersion`、`mapId`、完整 `layout`、`commitId` 和 `chunks`；各引用只有整数 `x/y` 与 GUID `commitId`。块文件保存 `formatVersion`、`mapId`、`x/y`、`commitId` 和 `objects`。文件名使用 GUID 的 N 格式，恢复时从坐标及编号重新生成路径，存档不提供任意引用路径。读取检查必需结构、版本、地图与块身份及配置布局一致性；根 null、缺失引用块、JSON 和 IO 错误使 INIT 失败。清单缺失只得到空内存地图，未修改不创建目录或文件，孤立候选不加载。
+
+保存仅处理 DirtyChunks：非空变化块先写入新提交编号文件，经同目录临时写入和刷盘完成；未变化块复用旧引用，空块删除引用。全部候选就绪后原子替换清单作为唯一提交点。此前任何失败保留旧清单、最新内存和待写标记；WorldActor 在 DataFlush 回合直接 await 仓库，成功才接受基线，不向自身 Ask。保存期间本 Actor 的后续消息等待，其他地图仍可继续。
+
+提交后只删除名称严格符合本仓库格式的无引用块，未知文件保留。清理失败进入诊断，诊断监听错误也不撤销已提交结果；后续成功写回会再次清理。仓库依赖同地图邮箱串行调用，不提供多进程写者协调、跨 Actor 事务或旧存档迁移。
 
 增加功能时，先在 protov2 加协议并显式登记方向，在所属模块的 `Handler` 目录新增以协议请求与回复为类型参数的 Handler 并注册，由 Routing 直接投递。登录链路为 `Login → LoginActor → LoginHandler → LoginRt`；路由规范化账号键定位分片，原请求字段保留。Handler 只处理内存，并负责组装协议回复；Context 中的持久化 Data 模型继续独立，不引入登录请求或结果的中间 DTO。需要跨 Actor 协调时覆盖模块的 DispatchAsync，通过 ActorRef 交换数据，不把委托或上下文放进消息。加载与持久化从 Actor 初始化及宿主调度边界接入，不塞进 Handler。
 

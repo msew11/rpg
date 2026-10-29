@@ -26,7 +26,7 @@ public sealed class ServerV2ServiceTests : IDisposable
         using var events = new EventBusService();
         using var log = new LogService(Console.WriteLine);
         using var server = successfulHandler
-            ? new MockServerService(env, new ServerModules(config, new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
+            ? new MockServerService(env, new ServerModules(config, new DoubleServerV2Repo(), new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
                 .Register<Login, LoginRt>(new ServerV2NetworkTests.DoubleLoginHandler())))
             : new MockServerService(env, config);
         using var net = new NetService(server, events, log);

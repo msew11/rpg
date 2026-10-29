@@ -32,7 +32,7 @@ public sealed class ServerV2ConfigTests
             Assert.Same(secondConfig.Basic.Value, await actor.Ask(new DataReadConfig()));
 
         ModuleContext[] contexts = [new LoginContext(firstConfig, "alice", new([])),
-            new RoleContext(firstConfig, 10, new(new() { RoleId = 10 }, [], [])), new WorldContext(firstConfig, 1)];
+            new RoleContext(firstConfig, 10, new(new() { RoleId = 10 }, [], [])), new WorldContext(firstConfig, new(1, 1000, 1000, 32, 32), new([]))];
         Assert.All(contexts, context => Assert.Same(firstConfig, context.Config));
         await first.DisposeAsync();
         Assert.False(firstConfig.IsDisposed);
@@ -53,16 +53,17 @@ public sealed class ServerV2ConfigTests
         Assert.Equal("env", Assert.Throws<ArgumentNullException>(() => new MockServerService(null!, config)).ParamName);
         Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new MockServerService(env, (ConfigService)null!)).ParamName);
         Assert.Equal("modules", Assert.Throws<ArgumentNullException>(() => new MockServerService(env, (ServerModules)null!)).ParamName);
-        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new ServerModules(null!, repo, repo, _ => new())).ParamName);
-        Assert.Equal("summaries", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, null!, repo, _ => new())).ParamName);
-        Assert.Equal("roles", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, null!, _ => new())).ParamName);
-        Assert.Equal("login", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, repo, null!)).ParamName);
-        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new WorldContext(null!, 1)).ParamName);
+        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new ServerModules(null!, repo, repo, new DoubleServerV2Repo(), _ => new())).ParamName);
+        Assert.Equal("summaries", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, null!, repo, new DoubleServerV2Repo(), _ => new())).ParamName);
+        Assert.Equal("roles", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, null!, new DoubleServerV2Repo(), _ => new())).ParamName);
+        Assert.Equal("worlds", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, repo, null!, _ => new())).ParamName);
+        Assert.Equal("login", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, repo, new DoubleServerV2Repo(), null!)).ParamName);
+        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new WorldContext(null!, new(1, 1000, 1000, 32, 32), new([]))).ParamName);
         using var disposedConfig = new ConfigService(env);
         disposedConfig.Dispose();
         Assert.Throws<ObjectDisposedException>(() => new MockServerService(env, disposedConfig));
         Assert.Throws<ObjectDisposedException>(() => Modules(disposedConfig));
-        Assert.Throws<ObjectDisposedException>(() => new WorldContext(disposedConfig, 1));
+        Assert.Throws<ObjectDisposedException>(() => new WorldContext(disposedConfig, new(1, 1000, 1000, 32, 32), new([])));
         using var disposedEnv = ConfigTestFixture.CreateEnv(serverDirectory: directory);
         disposedEnv.Dispose();
         Assert.Throws<ObjectDisposedException>(() => new MockServerService(disposedEnv, config));
@@ -71,7 +72,7 @@ public sealed class ServerV2ConfigTests
     }
 
     /// <summary>为三个真实 Actor 注册同一无字段处理器契约，配置仅由 Context 提供。</summary>
-    private static ServerModules Modules(ConfigService config) => new(config, new DoubleServerV2Repo(), new DoubleServerV2Repo(),
+    private static ServerModules Modules(ConfigService config) => new(config, new DoubleServerV2Repo(), new DoubleServerV2Repo(), new DoubleServerV2Repo(),
         _ => new ActorHandlers<LoginContext>().Register<DataReadConfig, BasicCfg>(new DoubleConfigHandler<LoginContext>()),
         _ => new ActorHandlers<RoleContext>().Register<DataReadConfig, BasicCfg>(new DoubleConfigHandler<RoleContext>()),
         _ => new ActorHandlers<WorldContext>().Register<DataReadConfig, BasicCfg>(new DoubleConfigHandler<WorldContext>()));

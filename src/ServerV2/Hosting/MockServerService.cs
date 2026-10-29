@@ -8,6 +8,7 @@ using Rpg.ServerV2.Modules.Login.Storage;
 using Rpg.ServerV2.Modules.Login;
 using Rpg.ServerV2.Modules.Login.Handler;
 using Rpg.ServerV2.Modules.Role.Storage;
+using Rpg.ServerV2.Modules.World.Storage;
 using Rpg.ServerV2.Modules;
 using Rpg.ServerV2.Runtime;
 using Rpg.Services;
@@ -47,7 +48,7 @@ public sealed class MockServerService : Service, IAsyncDisposable
         _env = env;
         _config = config;
         var directory = Path.Combine(Path.GetFullPath(env.ServerDirectory), "v2");
-        var modules = new ServerModules(config, new RepoAccountRoleSummary(directory), new RepoRole(directory), _ => new ActorHandlers<LoginContext>()
+        var modules = new ServerModules(config, new RepoAccountRoleSummary(directory), new RepoRole(directory), new RepoWorld(directory, Report), _ => new ActorHandlers<LoginContext>()
             .Register<ProtocolV2.Login, ProtocolV2.LoginRt>(new LoginHandler()), report: Report);
         _runtime = CreateRuntime(modules);
     }

@@ -9,6 +9,7 @@ using Rpg.ServerV2.Modules.Login;
 using Rpg.ServerV2.Modules.Role.Storage;
 using Rpg.ServerV2.Modules.Role;
 using Rpg.ServerV2.Modules.World;
+using Rpg.ServerV2.Modules.World.Storage;
 using Rpg.ServerV2.Runtime;
 
 namespace Rpg.ServerV2.Modules;
@@ -26,13 +27,14 @@ internal sealed class ServerModules : IAsyncDisposable
     private readonly ActorDirectory<int> _world;
 
     /// <summary>每次创建 Actor 时构造专用注册表，工厂不在消息中流转。</summary>
-    internal ServerModules(ConfigService config, IAccountRoleSummaryRepo summaries, IRoleRepo roles, Func<string, ActorHandlers<LoginContext>> login,
+    internal ServerModules(ConfigService config, IAccountRoleSummaryRepo summaries, IRoleRepo roles, IWorldRepo worlds, Func<string, ActorHandlers<LoginContext>> login,
         Func<long, ActorHandlers<RoleContext>>? role = null, Func<int, ActorHandlers<WorldContext>>? world = null,
         Action<Exception>? report = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(summaries);
         ArgumentNullException.ThrowIfNull(roles);
+        ArgumentNullException.ThrowIfNull(worlds);
         ArgumentNullException.ThrowIfNull(login);
         ObjectDisposedException.ThrowIf(config.IsDisposed, config);
         role ??= static _ => new();
@@ -41,7 +43,7 @@ internal sealed class ServerModules : IAsyncDisposable
         Config = config;
         _login = new(key => new LoginActor(config, key, summaries, login(key)), report);
         _role = new(id => new RoleActor(config, id, roles, role(id)), report);
-        _world = new(id => new WorldActor(config, id, world(id)), report);
+        _world = new(id => new WorldActor(config, id, worlds, world(id)), report);
     }
     /// <summary>规范化后定位账号分片，不预加载其他账号。</summary>
     internal ActorRef Login(string username) => _login.Get(UsernameKey.Normalize(username));
@@ -49,11 +51,12 @@ internal sealed class ServerModules : IAsyncDisposable
     internal ActorRef Role(long roleId) => roleId > 0 ? _role.Get(roleId) : throw new ArgumentOutOfRangeException(nameof(roleId));
     /// <summary>仅允许合法地图身份。</summary>
     internal ActorRef World(int mapId) => mapId > 0 ? _world.Get(mapId) : throw new ArgumentOutOfRangeException(nameof(mapId));
-    /// <summary>先角色后账号，同组并行；错误汇总且不阻止其他分片保存。</summary>
+    /// <summary>按角色、地图、账号保存，同组并行；错误汇总且不阻止其他分片保存。</summary>
     internal async Task FlushAsync()
     {
         var errors = new List<Exception>();
         errors.AddRange(await FlushGroupAsync(_role.StartedRefs()).ConfigureAwait(false));
+        errors.AddRange(await FlushGroupAsync(_world.StartedRefs()).ConfigureAwait(false));
         errors.AddRange(await FlushGroupAsync(_login.StartedRefs()).ConfigureAwait(false));
         if (errors.Count != 0) throw new AggregateException("V2 分片保存失败", errors);
     }
