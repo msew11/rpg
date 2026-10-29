@@ -1,5 +1,9 @@
 # 客户端架构
 
+## 并行 Server V2 框架
+
+`src/ServerV2` 与 `protov2` 是独立重写的基础框架，当前默认客户端仍走旧 Server。V2 的 `MockServerService` 继承 `Service`，借用同次启动的 `ConfigService`；显式 V2 构造的 `NetService` 拥有并释放它，负责字节队列、固定帧收发和 EventBus 发布，不增加全局服务入口。内部按 Hosting、Connections、Protocol、Routing、Runtime、Modules 与 Storage 分类。LoginActor 改为按规范 username 分片，连接登录成功后绑定账号；Role/World 仍按身份分片。V2 信封仅含 generation、request_id、message_type、payload；账号摘要约定为 username.role_summary.json，暂不实现认证、游戏业务或真实存档。目录职责、扩展与生命周期见 [Server V2 框架](server-v2.md)。下文原有模拟服务端、协议与落地说明仍描述旧实现。
+
 ## 服务、数据和生命周期
 
 客户端共享业务枚举放在 `src/Const/`，使用 `Rpg.Const` 命名空间，例如 `RoleGender` 和 `RoleMotion`。

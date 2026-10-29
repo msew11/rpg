@@ -2,6 +2,8 @@
 
 ## 当前阶段：客户端基础纵切
 
+- [x] 并行 Server V2 框架：独立 protov2 四字段信封、统一错误与登录摘要协议；类型化 Actor 邮箱、按账号/角色/地图分片、连接会话与迟到结果隔离；MockServerService 借用 ConfigService 并由 NetService 持有，固定帧拉取输出。账号摘要仅定义 username.role_summary.json 契约，不实现真实认证、游戏业务或文件 IO；当前客户端继续使用旧链路。结构与接入见 docs/server-v2.md。
+
 - [x] 服务端 Actor：独立异步串行邮箱及 INIT/RUN/STOP，Ask/Tell 和回调；启动 LoginActor 摘要缓存，Role/World 按 ID 初始化，Role 通过 MapId Ask 世界；独立角色工作副本与地图串行事务、摘要消息同步、共同落地和正常关闭停止。移除全局实体缓存和仓库延迟缓存，覆盖邮箱顺序、分片故障、停止与现有游戏流程。
 
 - [x] 还原原客户端角色合成：剑类攻击1/准备1、枪杖第2组、拳刃飞刀第3组；身体唯一时钟，源帧取余，男女分别使用普通/g层次，按完整八方向部件次序升序稳定排序。关闭低alpha自动改色及最近邻图集裁边，完整来源RGBA与挂点校验，独立参考核对正式GPU；依据和验收见docs/source-actor-composition.md。

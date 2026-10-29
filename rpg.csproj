@@ -13,6 +13,8 @@
     <InternalsVisibleTo Include="ClientTests" />
     <Compile Remove="tests/ClientTests/**/*.cs" />
     <Compile Remove="src/Net/Message/**/*.cs" />
+    <Compile Remove="src/ProtocolV2/Generated/**/*.cs" />
     <Protobuf Include="proto/**/*.proto" ProtoRoot="proto" OutputDir="src\Net\Message" GrpcServices="None" />
+    <Protobuf Include="protov2/**/*.proto" ProtoRoot="protov2" OutputDir="src\ProtocolV2\Generated" GrpcServices="None" />
   </ItemGroup>
 </Project>

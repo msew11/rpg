@@ -1,0 +1,18 @@
+syntax = "proto3";
+package rpg.v2;
+option csharp_namespace = "Rpg.ProtocolV2";
+import "role_summary.proto";
+
+// 首次定位账号分片的登录请求；不在其他账号请求重复提交 username。
+message Login {
+  // 入口统一去除首尾空白并转小写的账号键。
+  string username = 1;
+  // 供后续认证业务使用，框架不验证密码。
+  string password = 2;
+}
+
+// 登录成功时返回账号可见角色摘要；失败使用 ErrorRt。
+message LoginRt {
+  // 该账号的可选角色，允许为空。
+  repeated RoleSummaryPb roles = 1;
+}

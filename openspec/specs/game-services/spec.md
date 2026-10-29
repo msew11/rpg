@@ -71,7 +71,7 @@ IService SHALL 提供只读 IsDisposed 契约，全部业务服务 SHALL 通过 
 - **THEN** 对应服务最终 IsDisposed 为 true，其余服务仍继续清理，设置退出保存与旧会话隔离行为保持不变
 
 ### Requirement: 环境参数统一管理
-客户端 SHALL 由位于 src/Config/EnvService.cs、命名空间为 Rpg.Config 的无依赖 EnvService 统一持有配置、Schema、设置与模拟服务端目录，通过 GameServices.Env 只读访问。正式启动 SHALL 使用无参 GameServices.Initialize()；配置服务公开构造 SHALL 只接收 EnvService，设置服务 SHALL 接收 EnvService 与 LogService；网络服务 SHALL 显式接收 EnvService、EventBusService、ConfigService 与 LogService，并将已加载规则复制为服务端独立只读配置，账号服务 SHALL 显式接收 NetService；其他正式服务构造 SHALL 只接收前置服务依赖。全部正式服务的构造 SHALL 集中在无参 Initialize 方法体内，按 Env、Log、EventBus、Config、Setting、Net、Session、World、Animation、Items 的顺序显式书写；Register 和注册句柄构造 SHALL 只接收现成实例，不再创建服务，不引入容器、反射或自动排序。内部测试 SHALL 能覆盖环境目录和网络传输，不增加正式启动参数。
+客户端 SHALL 由位于 src/Config/EnvService.cs、命名空间为 Rpg.Config 的无依赖 EnvService 统一持有配置、Schema、设置与模拟服务端目录，通过 GameServices.Env 只读访问。正式启动 SHALL 使用无参 GameServices.Initialize()；配置服务公开构造 SHALL 只接收 EnvService，设置服务 SHALL 接收 EnvService 与 LogService；网络服务 SHALL 显式接收 EnvService、EventBusService、ConfigService 与 LogService，并将已加载规则复制为服务端独立只读配置，账号服务 SHALL 显式接收 NetService；其他正式服务构造 SHALL 只接收前置服务依赖。顶层注册服务的构造 SHALL 集中在无参 Initialize 方法体内，按 Env、Log、EventBus、Config、Setting、Net、Session、World、Animation、Items 的顺序显式书写；Register 和注册句柄构造 SHALL 只接收现成实例，不再创建服务，不引入容器、反射或自动排序。显式 V2 接入 SHALL 允许 NetService 接管已构造的 MockServerService；该子服务只通过构造借用同次启动的 ConfigService，并由 Net 负责字节收发及释放，不增加全局入口。内部测试 SHALL 能覆盖环境目录和网络传输，不增加正式启动参数。
 
 #### Scenario: 无参启动与默认目录
 - **WHEN** 主场景调用 GameServices.Initialize()
@@ -86,7 +86,7 @@ IService SHALL 提供只读 IsDisposed 契约，全部业务服务 SHALL 通过 
 - **THEN** 已成功构造的服务被清理，不留下注册入口或事件域，后续启动仍可成功
 
 ### Requirement: 服务依赖必须遵循固定线性顺序
-服务 SHALL 只通过构造取得依赖，不得访问 GameServices、循环依赖、属性回填或延迟解析。固定构造顺序 SHALL 为 Env、Log、EventBus、Config、Setting、Net、Session、World、Animation、Items，每个服务仅依赖前置服务。整体释放 SHALL 先撤销全局入口，再严格逆序释放，单个服务失败仍继续其余清理；不增加释放前生命周期。EventBus SHALL 与其他服务统一保存在完整注册中，网络提前释放不得阻止访问仍有效的事件服务。
+服务 SHALL 只通过构造取得依赖，不得访问 GameServices、循环依赖、属性回填或延迟解析。顶层固定构造顺序 SHALL 为 Env、Log、EventBus、Config、Setting、Net、Session、World、Animation、Items，每个服务仅依赖前置服务。显式 V2 模式的 MockServerService SHALL 在 Config 之后、Net 之前构造，作为 Net 拥有的子服务先于 Config 释放；子服务不依赖 Net，不另行注册全局入口。整体释放 SHALL 先撤销全局入口，再严格逆序释放，单个服务失败仍继续其余清理；不增加释放前生命周期。EventBus SHALL 与其他服务统一保存在完整注册中，网络提前释放不得阻止访问仍有效的事件服务。
 
 #### Scenario: 清理不依赖全局入口
 - **WHEN** 完整服务组撤销全局入口后释放已登录账号

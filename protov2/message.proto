@@ -1,0 +1,41 @@
+syntax = "proto3";
+package rpg.v2;
+option csharp_namespace = "Rpg.ProtocolV2";
+
+// 请求、响应和通知共用的信封；连接身份由传输边界绑定。
+message EnvelopePb {
+  // 当前连接的会话代次；异步结果保留请求进入时的值。
+  uint64 generation = 1;
+  // 请求与响应的关联编号，主动通知为零。
+  uint64 request_id = 2;
+  // 显式协议表中的 protobuf 完整类型名。
+  string message_type = 3;
+  // 对应消息的独立序列化字节。
+  bytes payload = 4;
+}
+
+// 框架可供调用方判断的失败分类。
+enum ErrorCodePb {
+  // 未指定错误，不能用于有效失败响应。
+  ERROR_CODE_PB_UNSPECIFIED = 0;
+  // 类型尚未注册。
+  ERROR_CODE_PB_UNKNOWN_MESSAGE = 1;
+  // 协议发送方向错误。
+  ERROR_CODE_PB_WRONG_DIRECTION = 2;
+  // 请求字段或 protobuf 载荷无效。
+  ERROR_CODE_PB_INVALID_REQUEST = 3;
+  // 连接尚未绑定账号。
+  ERROR_CODE_PB_NOT_AUTHENTICATED = 4;
+  // 业务功能尚未实现。
+  ERROR_CODE_PB_NOT_IMPLEMENTED = 5;
+  // 处理器意外失败，具体诊断在服务端观察。
+  ERROR_CODE_PB_INTERNAL_ERROR = 6;
+}
+
+// 统一失败响应，通过信封关联原请求。
+message ErrorRt {
+  // 可程序判断的错误分类。
+  ErrorCodePb code = 1;
+  // 可读错误说明。
+  string message = 2;
+}

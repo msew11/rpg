@@ -80,7 +80,7 @@ public sealed class EventSubscriptionBoundaryTests
         }
     }
 
-    /// <summary>验证 game-services 的实际构造顺序、逆序清理及只读前置依赖，禁止回填。</summary>
+    /// <summary>验证 game-services 的顶层顺序及 server-v2-account 的 Net 子服务只读依赖，禁止回填。</summary>
     [Fact]
     public void ServicesFollowFixedConstructionAndReverseDisposalOrder()
     {
@@ -88,14 +88,15 @@ public sealed class EventSubscriptionBoundaryTests
             typeof(Rpg.Settings.SettingService), typeof(Rpg.Net.NetService), typeof(Rpg.Session.SessionService),
             typeof(Rpg.World.WorldService), typeof(Rpg.World.Views.AnimationService), typeof(Rpg.Utils.ItemAssetService)];
         var services = typeof(Service).Assembly.GetTypes().Where(type => !type.IsAbstract && typeof(Service).IsAssignableFrom(type));
-        Assert.Equal(order.OrderBy(type => type.FullName), services.OrderBy(type => type.FullName));
-        foreach (var service in order)
+        var ownershipOrder = order.Take(5).Concat(new[] { typeof(Rpg.ServerV2.Hosting.MockServerService) }).Concat(order.Skip(5)).ToArray();
+        Assert.Equal(ownershipOrder.OrderBy(type => type.FullName), services.OrderBy(type => type.FullName));
+        foreach (var service in ownershipOrder)
         {
             foreach (var constructor in service.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
                 foreach (var parameter in constructor.GetParameters().Where(parameter => typeof(IService).IsAssignableFrom(parameter.ParameterType)))
                 {
-                    Assert.Contains(parameter.ParameterType, order);
-                    Assert.True(Array.IndexOf(order, parameter.ParameterType) < Array.IndexOf(order, service),
+                    Assert.Contains(parameter.ParameterType, ownershipOrder);
+                    Assert.True(Array.IndexOf(ownershipOrder, parameter.ParameterType) < Array.IndexOf(ownershipOrder, service),
                         $"{service.Name} 只能依赖构造顺序中的前置服务");
                 }
             foreach (var field in service.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
