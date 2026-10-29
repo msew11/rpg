@@ -14,7 +14,8 @@ using Rpg.ServerV2.Runtime;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/server-v2-storage 的真实文件、显式屏障和关闭补写集成。</summary>
-public sealed class ServerV2WriteBackTests : IDisposable
+[Trait("Runtime", "Godot")]
+public sealed class ServerV2WriteBackTests : ServerV2ModuleTests
 {
     /// <summary>本例独占存档目录。</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-v2-write-back-" + Guid.NewGuid());
@@ -27,7 +28,7 @@ public sealed class ServerV2WriteBackTests : IDisposable
         var entered = ServerV2PersistenceActorTests.Signal();
         var release = ServerV2PersistenceActorTests.Signal();
         var repo = new RepoAccountRoleSummary(_directory);
-        var modules = new ServerModules(repo, new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
+        var modules = new ServerModules(Config, repo, new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
             .Register<Login, LoginRt>(new DoubleMutatingLoginHandler(entered, release.Task)));
         await using var server = new ServerRuntime(modules);
         var connection = server.OpenConnection();
@@ -51,7 +52,7 @@ public sealed class ServerV2WriteBackTests : IDisposable
     {
         var repo = new ServerV2PersistenceActorTests.DoubleRoleRepo { FailSave = true };
         var accounts = new RepoAccountRoleSummary(_directory);
-        var modules = new ServerModules(accounts, repo, _ => ServerV2PersistenceActorTests.LoginHandlers(),
+        var modules = new ServerModules(Config, accounts, repo, _ => ServerV2PersistenceActorTests.LoginHandlers(),
             _ => ServerV2PersistenceActorTests.RoleHandlers());
         var server = new ServerRuntime(modules);
         var role = modules.Role(10);
@@ -71,7 +72,7 @@ public sealed class ServerV2WriteBackTests : IDisposable
         var repo = new RepoRole(_directory);
         await repo.SaveAsync(10, ServerV2StorageTests.Sample(), DataRoleTables.All);
         File.Delete(Path.Combine(_directory, "10.item.json"));
-        await using var modules = new ServerModules(new DoubleServerV2Repo(), repo, _ => new(), _ => ServerV2PersistenceActorTests.RoleHandlers());
+        await using var modules = new ServerModules(Config, new DoubleServerV2Repo(), repo, _ => new(), _ => ServerV2PersistenceActorTests.RoleHandlers());
         var failed = modules.Role(10);
         await Assert.ThrowsAsync<FileNotFoundException>(() => failed.Ask(new ServerV2PersistenceActorTests.DataReadRole()));
         await File.WriteAllTextAsync(Path.Combine(_directory, "10.item.json"), "[]");
@@ -106,5 +107,5 @@ public sealed class ServerV2WriteBackTests : IDisposable
         }
     }
     /// <summary>仅移除本例创建的独立临时文件。</summary>
-    public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }
+    public override void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); base.Dispose(); }
 }

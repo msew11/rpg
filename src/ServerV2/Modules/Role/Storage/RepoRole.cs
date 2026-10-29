@@ -32,6 +32,7 @@ public sealed class RepoRole : IRoleRepo
     /// <summary>提交变化表；失败留下回滚记录，下一次读写先恢复再继续。</summary>
     public async ValueTask SaveAsync(long roleId, DataRoleSnapshot snapshot, DataRoleTables tables)
     {
+        ArgumentNullException.ThrowIfNull(snapshot);
         await RecoverAsync(roleId).ConfigureAwait(false);
         var changes = new Dictionary<string, byte[]>();
         if (tables.HasFlag(DataRoleTables.Role)) changes.Add("role", StorageJson.Encode(snapshot.Role));

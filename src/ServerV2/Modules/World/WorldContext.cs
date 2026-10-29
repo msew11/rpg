@@ -9,5 +9,5 @@ public sealed class WorldContext : ModuleContext
     /// <summary>本地图的正整数身份。</summary>
     public int MapId { get; }
     /// <summary>由所属 Actor 初始化固定身份。</summary>
-    internal WorldContext(int mapId, ConfigService? config = null) : base(config) => MapId = mapId;
+    internal WorldContext(ConfigService config, int mapId) : base(config) => MapId = mapId;
 }

@@ -41,23 +41,39 @@ public sealed class MockServerService : Service, IAsyncDisposable
     public event Action<Exception>? Error;
 
     /// <summary>公开构造只声明服务依赖；默认仅装配框架处理器。</summary>
-    public MockServerService(EnvService env, ConfigService config) : this(env, config, null) { }
-    /// <summary>验收可注入纯内存模块，不替换正式配置实例。</summary>
-    internal MockServerService(EnvService env, ConfigService config, ServerModules? modules)
+    public MockServerService(EnvService env, ConfigService config)
+    {
+        ValidateDependencies(env, config);
+        _env = env;
+        _config = config;
+        var directory = Path.Combine(Path.GetFullPath(env.ServerDirectory), "v2");
+        var modules = new ServerModules(config, new RepoAccountRoleSummary(directory), new RepoRole(directory), _ => new ActorHandlers<LoginContext>()
+            .Register<ProtocolV2.Login, ProtocolV2.LoginRt>(new LoginHandler()), report: Report);
+        _runtime = CreateRuntime(modules);
+    }
+    /// <summary>验收注入已完整装配的模块，配置直接来自模块，避免重复传入与不一致。</summary>
+    internal MockServerService(EnvService env, ServerModules modules)
+    {
+        ArgumentNullException.ThrowIfNull(modules);
+        ValidateDependencies(env, modules.Config);
+        _env = env;
+        _config = modules.Config;
+        _runtime = CreateRuntime(modules);
+    }
+    /// <summary>只在服务入口拒绝缺失或失效依赖，后续装配不传递空配置。</summary>
+    private static void ValidateDependencies(EnvService env, ConfigService config)
     {
         ArgumentNullException.ThrowIfNull(env);
         ArgumentNullException.ThrowIfNull(config);
         ObjectDisposedException.ThrowIf(env.IsDisposed, env);
         ObjectDisposedException.ThrowIf(config.IsDisposed, config);
-        _env = env;
-        _config = config;
-        var directory = Path.Combine(Path.GetFullPath(env.ServerDirectory), "v2");
-        modules ??= new ServerModules(new RepoAccountRoleSummary(directory), new RepoRole(directory), _ => new ActorHandlers<LoginContext>()
-            .Register<ProtocolV2.Login, ProtocolV2.LoginRt>(new LoginHandler()), report: Report, config: config);
-        if (!ReferenceEquals(modules.Config, config))
-            throw new ArgumentException("V2 模块必须借用当前服务的同一配置实例", nameof(modules));
-        _runtime = new(modules);
-        _runtime.Error += Report;
+    }
+    /// <summary>接管完整模块并绑定本服务诊断，不再兜底创建依赖。</summary>
+    private ServerRuntime CreateRuntime(ServerModules modules)
+    {
+        var runtime = new ServerRuntime(modules);
+        runtime.Error += Report;
+        return runtime;
     }
     /// <summary>由 Net 的传输端建立连接，生成的身份不来自协议载荷。</summary>
     public DataConnectionId OpenConnection() { EnsureActive(); return _runtime.OpenConnection(); }

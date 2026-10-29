@@ -15,7 +15,8 @@ using Rpg.ServerV2.Runtime;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/server-v2-network、server-v2-account 的真实字节与身份边界。</summary>
-public sealed class ServerV2NetworkTests
+[Trait("Runtime", "Godot")]
+public sealed class ServerV2NetworkTests : ServerV2ModuleTests
 {
     /// <summary>验证 server-v2-runtime：路由和邮箱直接传递原协议实例，回复类型错误不影响后续回合。</summary>
     [Fact]
@@ -23,7 +24,7 @@ public sealed class ServerV2NetworkTests
     {
         var seen = new ConcurrentQueue<(string Account, Login Request)>();
         var reply = new LoginRt { Roles = { new RoleSummaryPb { RoleId = 101, Name = "直接回复" } } };
-        await using var modules = new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ =>
+        await using var modules = new ServerModules(Config, new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ =>
             new ActorHandlers<LoginContext>().Register<Login, LoginRt>(new DoubleProtocolHandler(seen, reply)));
         var router = new Rpg.ServerV2.Routing.RequestRouter(modules);
         var request = new Login { Username = "  ALICE ", Password = "原始密码" };
@@ -129,7 +130,7 @@ public sealed class ServerV2NetworkTests
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        await using var server = new ServerRuntime(new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
+        await using var server = new ServerRuntime(new ServerModules(Config, new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
             .Register<Login, LoginRt>(new DoubleSummaryHandler(entered, release.Task))));
         var id = server.OpenConnection();
         var work = server.ReceiveAsync(id, LoginPacket("alice", 11));
@@ -228,7 +229,7 @@ public sealed class ServerV2NetworkTests
     public async Task RoleAndWorldModulesKeepSeparateIdentityAndFrozenHandlers()
     {
         var handlers = new ActorHandlers<RoleContext>().Register<DataRoleIdentity, long>(new DoubleRoleHandler());
-        await using var modules = new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => LoginHandlers(new DoubleLoginHandler()),
+        await using var modules = new ServerModules(Config, new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => LoginHandlers(new DoubleLoginHandler()),
             _ => handlers, _ => new ActorHandlers<WorldContext>().Register<DataMapIdentity, int>(new DoubleWorldHandler()));
         var role = modules.Role(10);
         var world = modules.World(2);
@@ -243,9 +244,9 @@ public sealed class ServerV2NetworkTests
         Assert.Equal(10, await role.Ask(new DataRoleIdentity()));
     }
 
-    /// <summary>明确组装无配置、无文件 IO 的框架验收实例。</summary>
-    private static ServerRuntime CreateServer(ConcurrentDictionary<string, int>? created = null, DoubleLoginHandler? handler = null) =>
-        new(new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), username =>
+    /// <summary>使用本例配置与内存仓库装配框架验收实例。</summary>
+    private ServerRuntime CreateServer(ConcurrentDictionary<string, int>? created = null, DoubleLoginHandler? handler = null) =>
+        new(new ServerModules(Config, new DoubleServerV2Repo(), new DoubleServerV2Repo(), username =>
         {
             created?.AddOrUpdate(username, 1, (_, count) => count + 1);
             return LoginHandlers(handler ?? new DoubleLoginHandler());

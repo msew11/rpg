@@ -6,12 +6,16 @@ namespace ClientTests;
 /// <summary>验证 openspec/specs/server-v2-runtime 的顺序、隔离、故障及排空停止。</summary>
 public sealed class ServerV2ActorTests
 {
-    /// <summary>验证 server-v2-account：纯内存框架未装配配置时明确失败，不回退到全局服务。</summary>
+    /// <summary>验证 server-v2-runtime：无效请求在接纳入口拒绝，不启动 Actor 或进入 Handler。</summary>
     [Fact]
-    public void UnconfiguredContextRejectsConfigReads()
+    public async Task NullRequestIsRejectedBeforeActorInitialization()
     {
-        var context = new Rpg.ServerV2.Modules.World.WorldContext(1);
-        Assert.Throws<InvalidOperationException>(() => context.Config);
+        await using var actor = new DoubleActor(Task.CompletedTask);
+        await Assert.ThrowsAsync<ArgumentNullException>(() => actor.Ref.Ask<int>(null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => actor.Ref.Ask(new DataRead(), null!));
+        Assert.Throws<ArgumentNullException>(() => actor.Ref.Tell(null!));
+        Assert.Equal(ActorState.INIT, actor.State);
+        Assert.False(actor.HasStarted);
     }
 
     /// <summary>初始化屏障前不执行消息，跨 await 仍串行，Ask 回调在调用方执行。</summary>

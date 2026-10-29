@@ -40,5 +40,5 @@ internal sealed class RequestRouter
     }
 
     /// <summary>当前请求独占的响应对象和成功后需要绑定的账号。</summary>
-    internal sealed record DataResponse(IMessage Message, string? BindUsername);
+    internal sealed record DataResponse(IMessage Message, string BindUsername);
 }

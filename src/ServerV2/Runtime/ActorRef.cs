@@ -17,8 +17,11 @@ public sealed class ActorRef
     /// <summary>直接投递独占的协议请求，显式指定回复类型；投递后调用方不再修改请求。</summary>
     public Task<TReply> Ask<TReply>(object request) => _actor.Ask<TReply>(request);
     /// <summary>在调用方延续中执行回复回调，回调不占用邮箱回合。</summary>
-    public async Task Ask<TReply>(IActorRequest<TReply> request, Action<TReply> callback) =>
+    public async Task Ask<TReply>(IActorRequest<TReply> request, Action<TReply> callback)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
         callback(await Ask(request).ConfigureAwait(false));
+    }
     /// <summary>向同一有序邮箱发送单向通知。</summary>
     public void Tell(IActorNotification notification) => _actor.Tell(notification);
 }

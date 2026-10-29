@@ -4,7 +4,7 @@
 
 - [x] 并行 Server V2 框架：独立 protov2 四字段信封、统一错误与登录摘要协议；类型化 Actor 邮箱、按账号/角色/地图分片、连接会话与迟到结果隔离；MockServerService 借用 ConfigService 并由 NetService 持有，固定帧拉取输出。账号摘要使用 username.role_summary.json，真实认证和游戏业务仍待实现；当前客户端继续使用旧链路。结构与接入见 docs/server-v2.md。
 
-- [x] V2 Handler 与配置入口：业务处理器归各模块 Handler 目录；Context.Config 统一提供宿主配置，处理器不保存配置依赖，多实例与释放边界保持隔离。
+- [x] V2 Handler 与配置入口：业务处理器归各模块 Handler 目录；Context.Config 统一提供宿主配置，处理器不保存配置依赖，多实例与释放边界保持隔离。必需配置、模块和账号摘要改为非空构造契约，缺失依赖及无效保存输入在入口拒绝，可选工厂一次补齐。
 
 - [x] V2 协议直达 Handler：登录直接使用 Login/LoginRt，移除中间 DTO 与路由转换；明确协议对象独占约定，保持存档模型、邮箱、会话及默认未实现行为。
 

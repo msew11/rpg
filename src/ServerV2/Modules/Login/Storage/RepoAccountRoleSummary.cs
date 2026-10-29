@@ -27,6 +27,9 @@ public sealed class RepoAccountRoleSummary : IAccountRoleSummaryRepo
         catch (DirectoryNotFoundException) { return new(key, []); }
     }
     /// <summary>仅写数组，账号身份固定来自安全文件名。</summary>
-    public ValueTask SaveAsync(DataAccountRoleSummaries summaries) => StorageJson.WriteAsync(
-        Path.Combine(_directory, UsernameKey.SummaryFileName(summaries.Username)), StorageJson.Encode(summaries.Roles));
+    public ValueTask SaveAsync(DataAccountRoleSummaries summaries)
+    {
+        System.ArgumentNullException.ThrowIfNull(summaries);
+        return StorageJson.WriteAsync(Path.Combine(_directory, UsernameKey.SummaryFileName(summaries.Username)), StorageJson.Encode(summaries.Roles));
+    }
 }

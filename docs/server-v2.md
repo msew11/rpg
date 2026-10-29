@@ -32,7 +32,13 @@ NetService --> V2 transport --> connection queue --> codec --> router
 NetService <-- connection output queue <-- response codec <-- result
 ```
 
-`MockServerService(EnvService, ConfigService)` 借用环境与配置并拥有 Runtime。配置经模块装配和 Actor 传入 Context，LoginContext、RoleContext、WorldContext 继承 `Modules/Common/ModuleContext`，Handler 统一通过 `context.Config` 读取，例如 `context.Config.Basic.Value`、`context.Config.Item.Items`。Handler 不持有 ConfigService 字段或配置构造参数，也不访问全局服务。不同服务使用各自注入的实例；Config 属性不可替换，配置释放后读取会失败。Context、Actor 和 MockServerService 都不释放借用的配置，配置所有者应在 Net 关闭后释放。纯内存框架测试可以省略内部装配的配置，但访问 Config 明确报错；MockServerService 始终要求模块与自身使用同一配置实例。默认 `LoginHandler` 显式返回 NotImplemented；测试成功不代表认证已实现。
+`MockServerService(EnvService, ConfigService)` 在公开构造入口校验依赖，再装配完整模块。内部注入构造只接收 `EnvService` 和非空 `ServerModules`，配置直接取自模块，消除重复传递配置造成的不一致。模块装配入口要求有效 ConfigService、仓库与登录处理器工厂；可选的角色/地图工厂及诊断回调在这里一次补齐，内部直接调用。
+
+配置经模块装配和 Actor 必填构造参数传入 Context。LoginContext、RoleContext、WorldContext 继承 `Modules/Common/ModuleContext`，Handler 统一通过 `context.Config` 读取，例如 `context.Config.Basic.Value`、`context.Config.Item.Items`。Handler 不持有 ConfigService 字段或配置构造参数，也不访问全局服务。Config 在构造时保证非空，不再支持省略配置的测试装配；账号 Context 也必须接收完整的加载摘要。模块集成测试使用真实配置并在 Godot 宿主执行，通用邮箱和文件仓库测试仍可独立运行。
+
+不同服务使用各自注入的配置实例；Config 属性不可替换，配置释放后读取会失败。Context、Actor 和 MockServerService 都不释放借用的配置，配置所有者应在 Net 关闭后释放。默认 `LoginHandler` 显式返回 NotImplemented；测试成功不代表认证已实现。
+
+空请求、回复回调、保存快照在各自公开入口拒绝，避免入队或文件 IO 后才发现缺失。内部非空依赖不再逐层兜底；匿名账号、尚未启动或停止的任务、通知无回复、连接屏障无载荷、无效代次及回滚原文件缺失仍以可空值表达。JSON 根 null 的读取检查与已释放状态检查属于边界契约，继续保留。
 
 V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Net 接管服务，负责序列化、排队、固定帧拉取输出及释放；传输只关闭自己绑定的连接。Env 与 Config 的所有者在 Net 释放后再释放它们。当前 `GameServices.Initialize()` 的旧构造仍运行旧业务；不增加全局 MockServer 注册。
 

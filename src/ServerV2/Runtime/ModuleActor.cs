@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using System;
 
 namespace Rpg.ServerV2.Runtime;
 
@@ -10,7 +11,8 @@ public abstract class ModuleActor<TContext> : BaseActor
     /// <summary>所属模块的显式消息处理器。</summary>
     private readonly ActorHandlers<TContext> _handlers;
     /// <summary>接管本 Actor 专用处理器，不启动初始化。</summary>
-    protected ModuleActor(ActorHandlers<TContext> handlers) { _handlers = handlers; _handlers.Freeze(); }
+    protected ModuleActor(ActorHandlers<TContext> handlers)
+    { ArgumentNullException.ThrowIfNull(handlers); _handlers = handlers; _handlers.Freeze(); }
     /// <summary>首次投递时构造所属分片的独占状态。</summary>
     protected sealed override async ValueTask InitializeAsync() => _context = await CreateContextAsync().ConfigureAwait(false);
     /// <summary>将消息交给对应模块处理器，不向外返回上下文本身。</summary>

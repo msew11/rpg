@@ -15,6 +15,20 @@ public sealed class ServerV2StorageTests : IDisposable
 {
     /// <summary>每例独立的系统临时目录，不触碰实际存档。</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-v2-storage-" + Guid.NewGuid());
+    /// <summary>验证 server-v2-account 入口拒绝契约：空快照在回滚恢复及文件写入前失败。</summary>
+    [Fact]
+    public async Task NullSnapshotsAreRejectedBeforePendingRecoveryOrWrites()
+    {
+        Directory.CreateDirectory(_directory);
+        var pending = PathOf("pending");
+        await File.WriteAllTextAsync(pending, "未完成且无法解析的回滚记录");
+        var roles = new RepoRole(_directory);
+        var accounts = new RepoAccountRoleSummary(_directory);
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await roles.SaveAsync(10, null!, DataRoleTables.All));
+        Assert.Throws<ArgumentNullException>(() => accounts.SaveAsync(null!));
+        Assert.Equal("未完成且无法解析的回滚记录", await File.ReadAllTextAsync(pending));
+        Assert.Single(Directory.GetFiles(_directory));
+    }
     /// <summary>摘要缺失不写盘，保存数组并使用规范账号名。</summary>
     [Fact]
     public async Task MissingAccountStaysInMemoryAndSavedArrayUsesNormalizedName()
@@ -138,10 +152,15 @@ public sealed class ServerV2StorageTests : IDisposable
     }
     /// <summary>修改标记按保存基线及嵌套数组内容计算，恢复原值取消待写。</summary>
     [Fact]
+    [Trait("Runtime", "Godot")]
     public void ContextTracksTablesAndDeepSummaryContentAgainstSavedBaseline()
     {
+        using var env = ConfigTestFixture.CreateEnv();
+        using var config = new Rpg.Config.ConfigService(env);
         var original = Sample();
-        var role = new RoleContext(10, original);
+        var role = new RoleContext(config, 10, original);
+        Assert.Throws<ArgumentNullException>(() => role.Commit(null!));
+        Assert.Same(original.Role, role.Role);
         role.Commit(original with { Role = original.Role with { Name = "甲" }, Items = [new(1, 3, 0, 1)] });
         Assert.Equal(DataRoleTables.Role | DataRoleTables.Item, role.DirtyTables);
         role.Commit(original with { Role = original.Role with { }, Items = ImmutableArray.Create<DataItem>() });
@@ -151,7 +170,7 @@ public sealed class ServerV2StorageTests : IDisposable
         role.AcceptSaved();
         Assert.Equal(DataRoleTables.None, role.DirtyTables);
         var summary = new DataRoleSummary(1, "原", 1, RoleGender.Male, 1, [1, 2]);
-        var account = new LoginContext("alice", new("alice", [summary]));
+        var account = new LoginContext(config, "alice", new("alice", [summary]));
         account.ReplaceSummaries(new("alice", [summary with { EquippedItems = [1, 2] }]));
         Assert.False(account.SummariesDirty);
         account.ReplaceSummaries(new("alice", [summary with { Name = "新" }]));

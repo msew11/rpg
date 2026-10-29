@@ -17,11 +17,11 @@ public sealed class ActorDirectory<TKey> : IAsyncDisposable where TKey : notnull
     /// <summary>目录已经停止接纳。</summary>
     private Task? _stopping;
     /// <summary>创建分片时统一绑定的诊断渠道。</summary>
-    private readonly Action<Exception>? _report;
+    private readonly Action<Exception> _report;
 
     /// <summary>绑定显式工厂与诊断。</summary>
     public ActorDirectory(Func<TKey, BaseActor> factory, Action<Exception>? report = null)
-    { ArgumentNullException.ThrowIfNull(factory); _factory = factory; _report = report; }
+    { ArgumentNullException.ThrowIfNull(factory); _factory = factory; _report = report ?? (static _ => { }); }
 
     /// <summary>同一活动身份始终返回同一引用，失败分片可在后续调用重建。</summary>
     public ActorRef Get(TKey key)
@@ -31,7 +31,7 @@ public sealed class ActorDirectory<TKey> : IAsyncDisposable where TKey : notnull
             ObjectDisposedException.ThrowIf(_stopping is not null, this);
             if (_actors.TryGetValue(key, out var actor) && actor.State != ActorState.STOP) return actor.Ref;
             actor = _factory(key);
-            if (_report is not null) actor.Error += _report;
+            actor.Error += _report;
             _actors[key] = actor;
             return actor.Ref;
         }

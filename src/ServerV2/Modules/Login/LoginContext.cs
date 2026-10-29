@@ -17,8 +17,8 @@ public sealed class LoginContext : ModuleContext
     /// <summary>当前摘要与保存基线是否不同。</summary>
     public bool SummariesDirty { get; private set; }
     /// <summary>用所属 Actor 完整加载的摘要建立基线，不执行 IO。</summary>
-    internal LoginContext(string username, DataAccountRoleSummaries? summaries = null, ConfigService? config = null) : base(config)
-    { Username = username; Summaries = _saved = summaries ?? new(username, []); }
+    internal LoginContext(ConfigService config, string username, DataAccountRoleSummaries summaries) : base(config)
+    { Username = username; Summaries = _saved = summaries; }
     /// <summary>仅在所属回合接纳新快照，以本 Context 的固定账号键持有数据。</summary>
     public void ReplaceSummaries(DataAccountRoleSummaries summaries)
     {

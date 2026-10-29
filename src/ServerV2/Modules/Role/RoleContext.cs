@@ -22,7 +22,7 @@ public sealed class RoleContext : ModuleContext
     /// <summary>相对于保存基线发生变化的表。</summary>
     public DataRoleTables DirtyTables { get; private set; }
     /// <summary>由所属 Actor 用完整加载结果建立基线。</summary>
-    internal RoleContext(long roleId, DataRoleSnapshot snapshot, ConfigService? config = null) : base(config)
+    internal RoleContext(ConfigService config, long roleId, DataRoleSnapshot snapshot) : base(config)
     {
         RoleId = roleId;
         Role = snapshot.Role;
@@ -35,6 +35,7 @@ public sealed class RoleContext : ModuleContext
     /// <summary>回合内一次替换三表，按内容跟踪变化，不验证业务字段。</summary>
     public void Commit(DataRoleSnapshot snapshot)
     {
+        System.ArgumentNullException.ThrowIfNull(snapshot);
         Role = snapshot.Role;
         Items = snapshot.Items.IsDefault ? [] : snapshot.Items;
         Equipments = snapshot.Equipments.IsDefault ? [] : snapshot.Equipments;

@@ -23,16 +23,16 @@ public sealed class ServerV2ConfigTests
         using var secondConfig = new ConfigService(env);
         var firstModules = Modules(firstConfig);
         var secondModules = Modules(secondConfig);
-        await using var first = new MockServerService(env, firstConfig, firstModules);
-        await using var second = new MockServerService(env, secondConfig, secondModules);
+        await using var first = new MockServerService(env, firstModules);
+        await using var second = new MockServerService(env, secondModules);
         Assert.NotSame(firstConfig.Basic.Value, secondConfig.Basic.Value);
         foreach (var actor in new[] { firstModules.Login("alice"), firstModules.Role(10), firstModules.World(1) })
             Assert.Same(firstConfig.Basic.Value, await actor.Ask(new DataReadConfig()));
         foreach (var actor in new[] { secondModules.Login("alice"), secondModules.Role(10), secondModules.World(1) })
             Assert.Same(secondConfig.Basic.Value, await actor.Ask(new DataReadConfig()));
 
-        ModuleContext[] contexts = [new LoginContext("alice", config: firstConfig),
-            new RoleContext(10, new(new() { RoleId = 10 }, [], []), firstConfig), new WorldContext(1, firstConfig)];
+        ModuleContext[] contexts = [new LoginContext(firstConfig, "alice", new("alice", [])),
+            new RoleContext(firstConfig, 10, new(new() { RoleId = 10 }, [], [])), new WorldContext(firstConfig, 1)];
         Assert.All(contexts, context => Assert.Same(firstConfig, context.Config));
         await first.DisposeAsync();
         Assert.False(firstConfig.IsDisposed);
@@ -42,26 +42,39 @@ public sealed class ServerV2ConfigTests
         Assert.Same(secondConfig.Basic.Value, await secondModules.Login("alice").Ask(new DataReadConfig()));
     }
 
-    /// <summary>服务装配拒绝其他实例或缺失的配置，防止处理器读到不同宿主的数据。</summary>
+    /// <summary>验证入口拒绝契约：缺失或失效依赖同步失败，早于分片创建及存档 IO。</summary>
     [Fact]
-    public async Task HostRejectsModulesUsingAnotherConfig()
+    public void HostAndModuleEntriesRejectInvalidDependenciesBeforeWork()
     {
-        using var env = ConfigTestFixture.CreateEnv(serverDirectory: Path.Combine(Path.GetTempPath(), "rpg-v2-config-" + Guid.NewGuid()));
+        var directory = Path.Combine(Path.GetTempPath(), "rpg-v2-entry-" + Guid.NewGuid());
+        using var env = ConfigTestFixture.CreateEnv(serverDirectory: directory);
         using var config = new ConfigService(env);
-        using var other = new ConfigService(env);
-        await using var wrong = Modules(other);
-        await using var missing = new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new());
-        Assert.Throws<ArgumentException>(() => new MockServerService(env, config, wrong));
-        Assert.Throws<ArgumentException>(() => new MockServerService(env, config, missing));
+        var repo = new DoubleServerV2Repo();
+        Assert.Equal("env", Assert.Throws<ArgumentNullException>(() => new MockServerService(null!, config)).ParamName);
+        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new MockServerService(env, (ConfigService)null!)).ParamName);
+        Assert.Equal("modules", Assert.Throws<ArgumentNullException>(() => new MockServerService(env, (ServerModules)null!)).ParamName);
+        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new ServerModules(null!, repo, repo, _ => new())).ParamName);
+        Assert.Equal("summaries", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, null!, repo, _ => new())).ParamName);
+        Assert.Equal("roles", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, null!, _ => new())).ParamName);
+        Assert.Equal("login", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, repo, null!)).ParamName);
+        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new WorldContext(null!, 1)).ParamName);
+        using var disposedConfig = new ConfigService(env);
+        disposedConfig.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => new MockServerService(env, disposedConfig));
+        Assert.Throws<ObjectDisposedException>(() => Modules(disposedConfig));
+        Assert.Throws<ObjectDisposedException>(() => new WorldContext(disposedConfig, 1));
+        using var disposedEnv = ConfigTestFixture.CreateEnv(serverDirectory: directory);
+        disposedEnv.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => new MockServerService(disposedEnv, config));
+        Assert.False(Directory.Exists(directory));
         Assert.False(config.IsDisposed);
-        Assert.False(other.IsDisposed);
     }
 
     /// <summary>为三个真实 Actor 注册同一无字段处理器契约，配置仅由 Context 提供。</summary>
-    private static ServerModules Modules(ConfigService config) => new(new DoubleServerV2Repo(), new DoubleServerV2Repo(),
+    private static ServerModules Modules(ConfigService config) => new(config, new DoubleServerV2Repo(), new DoubleServerV2Repo(),
         _ => new ActorHandlers<LoginContext>().Register<DataReadConfig, BasicCfg>(new DoubleConfigHandler<LoginContext>()),
         _ => new ActorHandlers<RoleContext>().Register<DataReadConfig, BasicCfg>(new DoubleConfigHandler<RoleContext>()),
-        _ => new ActorHandlers<WorldContext>().Register<DataReadConfig, BasicCfg>(new DoubleConfigHandler<WorldContext>()), config: config);
+        _ => new ActorHandlers<WorldContext>().Register<DataReadConfig, BasicCfg>(new DoubleConfigHandler<WorldContext>()));
 
     /// <summary>测试读取已加载配置，不在消息中携带服务或操作委托。</summary>
     private sealed record DataReadConfig : IActorRequest<BasicCfg>;

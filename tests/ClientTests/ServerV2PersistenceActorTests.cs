@@ -12,7 +12,8 @@ using Rpg.ServerV2.Runtime;
 namespace ClientTests;
 
 /// <summary>验证 openspec/specs/server-v2-storage 的 INIT 屏障、保存回合、分片隔离与重试。</summary>
-public sealed class ServerV2PersistenceActorTests
+[Trait("Runtime", "Godot")]
+public sealed class ServerV2PersistenceActorTests : ServerV2ModuleTests
 {
     /// <summary>加载完成前不执行 Handler，其他角色分片不受影响；未启动分片不被 Flush 激活。</summary>
     [Fact]
@@ -91,7 +92,7 @@ public sealed class ServerV2PersistenceActorTests
     {
         var repo = new DoubleRoleRepo { FailSave = true };
         var accounts = new DoubleAccountRepo();
-        await using var modules = new ServerModules(accounts, repo, _ => LoginHandlers(), _ => RoleHandlers());
+        await using var modules = new ServerModules(Config, accounts, repo, _ => LoginHandlers(), _ => RoleHandlers());
         await modules.Role(10).Ask(new DataWriteRole(Sample("失败角色")));
         await modules.Role(11).Ask(new DataWriteRole(Sample("成功角色")));
         var account = modules.Login("alice");
@@ -115,7 +116,7 @@ public sealed class ServerV2PersistenceActorTests
         {
             var repo = new RepoAccountRoleSummary(directory);
             await repo.SaveAsync(new("alice", [new(1, "文件摘要", 1, RoleGender.Male, 1, [])]));
-            await using (var actor = new LoginActor("alice", repo, LoginHandlers()))
+            await using (var actor = new LoginActor(Config, "alice", repo, LoginHandlers()))
             {
                 Assert.Equal("文件摘要", await actor.Ref.Ask(new DataReadSummary()));
                 await actor.Ref.Ask(new DataWriteSummary("新摘要"));
@@ -127,13 +128,13 @@ public sealed class ServerV2PersistenceActorTests
                 await actor.Ref.Ask(new DataWriteSummary("新摘要"));
                 await actor.Ref.Ask(new DataFlush());
             }
-            await using var reopened = new LoginActor("alice", repo, LoginHandlers());
+            await using var reopened = new LoginActor(Config, "alice", repo, LoginHandlers());
             Assert.Equal("新摘要", await reopened.Ref.Ask(new DataReadSummary()));
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
     /// <summary>构造独立测试模块，不引入真实业务。</summary>
-    private static ServerModules Modules(IRoleRepo repo) => new(new DoubleServerV2Repo(), repo, _ => LoginHandlers(), _ => RoleHandlers());
+    private ServerModules Modules(IRoleRepo repo) => new(Config, new DoubleServerV2Repo(), repo, _ => LoginHandlers(), _ => RoleHandlers());
     /// <summary>每个角色单独冻结其读写处理器表。</summary>
     internal static ActorHandlers<RoleContext> RoleHandlers() => new ActorHandlers<RoleContext>()
         .Register<DataReadRole, DataRoleSnapshot>(new DoubleReadRoleHandler()).Register<DataWriteRole, DataRoleTables>(new DoubleWriteRoleHandler());
