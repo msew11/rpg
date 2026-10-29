@@ -1,7 +1,5 @@
 using System;
 using System.Linq;
-using System.Numerics;
-using System.Globalization;
 using Rpg.Net.Message;
 using Rpg.Server.Entity;
 using Rpg.Server.Context;
@@ -12,7 +10,7 @@ namespace Rpg.Server.Handler.World;
 public sealed class DropItemHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public DropItemRt Handle(WorldContext cache, global::Rpg.Net.Message.DropItem request)
+    public DropItemRt Handle(WorldContext cache, DropItem request)
     {
         var response = new DropItemRt { RoleId = request.RoleId, InstanceId = request.InstanceId };
         try

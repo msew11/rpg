@@ -25,7 +25,7 @@ public partial class ActorView : Node2D
     private readonly Sprite2D _offWeapon = new()
         { Name = "Weapon", Centered = false, TextureFilter = TextureFilterEnum.Nearest };
     /// <summary>当前解析后的身体动作，与逻辑请求独立。</summary>
-    private Rpg.Const.RoleMotion _motion;
+    private Const.RoleMotion _motion;
     /// <summary>身体、头、副手、主手在角色内排序的节点。</summary>
     private Node2D[] _parts = [];
     /// <summary>上次读取的快照，用来区分动作变化和普通位置变化。</summary>

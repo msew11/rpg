@@ -26,7 +26,7 @@ public partial class PointerFeedbackSmoke : Node
             RoleTestData.Seed(main.ServerDirectory);
             AddChild(main);
             await Frames();
-            var cursor = main.GetNode<Rpg.UI.PointerCursor>("PointerCursor");
+            var cursor = main.GetNode<UI.PointerCursor>("PointerCursor");
             var normal = cursor.CurrentTexture;
             Check(normal.GetSize() == new Vector2(51, 44), "指针未放大至约 125%");
             // 文本输入鼠标素材场景：真实悬停及编辑不得破坏密码或普通指针恢复。
@@ -143,7 +143,7 @@ public partial class PointerFeedbackSmoke : Node
             Click(point);
             var pending = Circles(main).Single();
             // 操作系统菜单的真实返回按钮，覆盖光圈尚未结束的世界清理。
-            var hud = main.FindChildren("*", "Control", true, false).OfType<Rpg.UI.GameHud>().Single();
+            var hud = main.FindChildren("*", "Control", true, false).OfType<UI.GameHud>().Single();
             hud.FindChildren("*", "Button", true, false).OfType<Button>().Single(node => node.Text == "系统")
                 .EmitSignal(Button.SignalName.Pressed);
             hud.GetNode("SystemMenuOverlay").FindChildren("*", "Button", true, false).OfType<Button>()

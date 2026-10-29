@@ -1,9 +1,5 @@
 using System;
-using System.Linq;
-using System.Numerics;
-using System.Globalization;
 using Rpg.Net.Message;
-using Rpg.Server.Entity;
 using Rpg.Server.Context;
 
 namespace Rpg.Server.Handler.World;
@@ -12,7 +8,7 @@ namespace Rpg.Server.Handler.World;
 public sealed class PickupItemHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public PickupItemRt Handle(WorldContext cache, global::Rpg.Net.Message.PickupItem request)
+    public PickupItemRt Handle(WorldContext cache, PickupItem request)
     {
         try
         {

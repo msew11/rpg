@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
-using Rpg.Const;
-using Rpg.Net;
 using Rpg.Net.Message;
 using Rpg.Services;
 using Rpg.World.Utils;

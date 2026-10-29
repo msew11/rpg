@@ -14,7 +14,6 @@ using System.Collections.Generic;
 using Rpg.Session.Data;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
-using Rpg.World;
 using Rpg.World.Utils;
 using Rpg.World.Views;
 
@@ -201,7 +200,7 @@ public partial class ClientSmoke : Node
             var volume = tabs.FindChildren("*", "HSlider", true, false).OfType<HSlider>().Single();
             volume.Value = 40;
             saveButtons[1].EmitSignal(Button.SignalName.Pressed);
-            var persistedSystem = new SettingService(new EnvService(temporary), new Rpg.Services.LogService(Console.WriteLine));
+            var persistedSystem = new SettingService(new EnvService(temporary), new LogService(Console.WriteLine));
             if (persistedSystem.Width != 1600 || Math.Abs(persistedSystem.MasterVolume - 0.4f) > 0.001f)
                 throw new InvalidOperationException("显示或声音设置未保存");
             var secondBar = tabs.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
@@ -303,7 +302,7 @@ public partial class ClientSmoke : Node
             authority.Position.WithRevision(GameServices.Session.Role.Revision + 1);
             authority.Position.X += 13;
             authority.Position.AcknowledgedAction++;
-            GameServices.EventBus.Publish(new Rpg.Net.Message.RoleStateNotice { State = authority });
+            GameServices.EventBus.Publish(new Net.Message.RoleStateNotice { State = authority });
             GameServices.World.Tick(0);
             if (GameServices.World.RolePosition != GameServices.Session.Role.Position)
                 throw new InvalidOperationException("HUD 离树后主动推送未同步到世界");
@@ -311,7 +310,7 @@ public partial class ClientSmoke : Node
             authority.Position.WithRevision(GameServices.Session.Role.Revision + 1);
             authority.Position.X += 17;
             authority.Position.AcknowledgedAction++;
-            GameServices.EventBus.Publish(new Rpg.Net.Message.MoveRt
+            GameServices.EventBus.Publish(new Net.Message.MoveRt
             {
                 Success = true, RoleId = authority.Position.RoleId,
                 ActionId = authority.Position.AcknowledgedAction, Position = authority.Position

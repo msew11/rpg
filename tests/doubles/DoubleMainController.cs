@@ -1,6 +1,5 @@
 using Rpg.Config;
 using System;
-using Rpg.Services;
 using Rpg.UI;
 
 namespace Rpg.Tests.Doubles;

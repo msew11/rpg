@@ -1,11 +1,7 @@
 using System;
-using System.Linq;
 using System.Numerics;
-using System.Globalization;
 using Rpg.Net.Message;
-using Rpg.Server.Entity;
 using Rpg.Server.Context;
-using Rpg.Server.EntityCache;
 
 namespace Rpg.Server.Handler.World;
 
@@ -13,7 +9,7 @@ namespace Rpg.Server.Handler.World;
 public sealed class SelectRoleHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public SelectRoleRt Handle(WorldContext cache, global::Rpg.Net.Message.SelectRole request)
+    public SelectRoleRt Handle(WorldContext cache, SelectRole request)
     {
         var response = new SelectRoleRt { RoleId = request.RoleId };
         try

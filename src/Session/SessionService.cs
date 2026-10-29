@@ -173,7 +173,7 @@ public sealed class SessionService : Service
     }
 
     /// <summary>提交穿戴或卸下，不预先改变背包与装备；实例零表示卸下目标槽位。</summary>
-    public void EquipItem(long instanceId, Rpg.Const.EquipmentSlot slot, long expectedBagRevision, long expectedEquipmentRevision, int? targetBagSlot = null)
+    public void EquipItem(long instanceId, EquipmentSlot slot, long expectedBagRevision, long expectedEquipmentRevision, int? targetBagSlot = null)
     {
         EnsureActive();
         if (!HasRole) throw new InvalidOperationException("请先进入角色");

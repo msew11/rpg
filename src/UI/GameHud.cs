@@ -5,7 +5,6 @@ using System.Linq;
 using Rpg.Services;
 using Rpg.Net.Message;
 using Rpg.Settings.Data;
-using Rpg.Const;
 using Rpg.Config;
 
 namespace Rpg.UI;

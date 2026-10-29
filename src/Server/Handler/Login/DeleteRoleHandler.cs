@@ -1,9 +1,6 @@
 using System;
 using System.Linq;
-using System.Numerics;
-using System.Globalization;
 using Rpg.Net.Message;
-using Rpg.Server.Entity;
 using Rpg.Server.Context;
 
 namespace Rpg.Server.Handler.Login;
@@ -12,7 +9,7 @@ namespace Rpg.Server.Handler.Login;
 public sealed class DeleteRoleHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public DeleteRoleRt Handle(LoginContext cache, global::Rpg.Net.Message.DeleteRole request)
+    public DeleteRoleRt Handle(LoginContext cache, DeleteRole request)
     {
         var response = new DeleteRoleRt();
         try

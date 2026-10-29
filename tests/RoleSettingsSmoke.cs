@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using Rpg.Services;
-using Rpg.Settings.Data;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
 

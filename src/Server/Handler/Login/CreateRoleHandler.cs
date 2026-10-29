@@ -1,7 +1,5 @@
 using System;
 using System.Linq;
-using System.Numerics;
-using System.Globalization;
 using Rpg.Net.Message;
 using Rpg.Server.Entity;
 using Rpg.Server.Context;
@@ -12,7 +10,7 @@ namespace Rpg.Server.Handler.Login;
 public sealed class CreateRoleHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public CreateRoleRt Handle(LoginContext cache, global::Rpg.Net.Message.CreateRole request)
+    public CreateRoleRt Handle(LoginContext cache, CreateRole request)
     {
         var response = new CreateRoleRt();
         try

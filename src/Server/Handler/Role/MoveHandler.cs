@@ -1,9 +1,6 @@
 using System;
-using System.Linq;
 using System.Numerics;
-using System.Globalization;
 using Rpg.Net.Message;
-using Rpg.Server.Entity;
 using Rpg.Server.Context;
 using Rpg.Server.EntityCache;
 
@@ -13,7 +10,7 @@ namespace Rpg.Server.Handler.Role;
 public sealed class MoveHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public MoveRt Handle(RoleContext cache, global::Rpg.Net.Message.Move request)
+    public MoveRt Handle(RoleContext cache, Move request)
     {
         var response = new MoveRt { RoleId = request.RoleId, ActionId = request.ActionId };
         try

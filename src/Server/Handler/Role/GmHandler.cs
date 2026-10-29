@@ -1,9 +1,6 @@
 using System;
-using System.Linq;
-using System.Numerics;
 using System.Globalization;
 using Rpg.Net.Message;
-using Rpg.Server.Entity;
 using Rpg.Server.Context;
 
 namespace Rpg.Server.Handler.Role;
@@ -12,7 +9,7 @@ namespace Rpg.Server.Handler.Role;
 public sealed class GmHandler
 {
     /// <summary>只处理已准备的实体缓存并返回响应，不执行 IO。</summary>
-    public GmRt Handle(RoleContext cache, global::Rpg.Net.Message.Gm request)
+    public GmRt Handle(RoleContext cache, Gm request)
     {
         var response = new GmRt { RoleId = request.RoleId, Command = request.Command };
         try
