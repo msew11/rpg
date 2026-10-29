@@ -15,7 +15,7 @@ public sealed class ServerV2StorageTests : IDisposable
 {
     /// <summary>每例独立的系统临时目录，不触碰实际存档。</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-v2-storage-" + Guid.NewGuid());
-    /// <summary>验证 server-v2-account 入口拒绝契约：空快照在回滚恢复及文件写入前失败。</summary>
+    /// <summary>验证 server-v2-account 入口拒绝契约：空角色快照及空账号在文件操作前失败。</summary>
     [Fact]
     public async Task NullSnapshotsAreRejectedBeforePendingRecoveryOrWrites()
     {
@@ -25,7 +25,7 @@ public sealed class ServerV2StorageTests : IDisposable
         var roles = new RepoRole(_directory);
         var accounts = new RepoAccountRoleSummary(_directory);
         await Assert.ThrowsAsync<ArgumentNullException>(async () => await roles.SaveAsync(10, null!, DataRoleTables.All));
-        Assert.Throws<ArgumentNullException>(() => accounts.SaveAsync(null!));
+        Assert.Throws<ArgumentNullException>(() => accounts.SaveAsync(null!, []));
         Assert.Equal("未完成且无法解析的回滚记录", await File.ReadAllTextAsync(pending));
         Assert.Single(Directory.GetFiles(_directory));
     }
@@ -34,17 +34,38 @@ public sealed class ServerV2StorageTests : IDisposable
     public async Task MissingAccountStaysInMemoryAndSavedArrayUsesNormalizedName()
     {
         var repo = new RepoAccountRoleSummary(_directory);
-        Assert.Empty((await repo.LoadAsync(" Alice ")).Roles);
+        Assert.Empty(await repo.LoadAsync(" Alice "));
         Assert.False(Directory.Exists(_directory));
-        var data = new DataAccountRoleSummaries(" ALICE ", [new(8, "角色", -2, RoleGender.Unspecified, 0, [999])]);
-        await repo.SaveAsync(data);
+        ImmutableArray<DataRoleSummary> data = [new(8, "角色", -2, RoleGender.Unspecified, 0, [999])];
+        await repo.SaveAsync(" ALICE ", data);
         var path = Path.Combine(_directory, "alice.role_summary.json");
         using var json = JsonDocument.Parse(await File.ReadAllTextAsync(path));
         Assert.Equal(JsonValueKind.Array, json.RootElement.ValueKind);
         Assert.Equal(8, json.RootElement[0].GetProperty("roleId").GetInt64());
         Assert.Equal(0, json.RootElement[0].GetProperty("gender").GetInt32());
-        Assert.Equal(data.Roles[0].Name, (await repo.LoadAsync("alice")).Roles[0].Name);
+        Assert.Equal(data[0].Name, (await repo.LoadAsync("alice"))[0].Name);
         Assert.Single(Directory.GetFiles(_directory));
+    }
+    /// <summary>验证 server-v2-account 的路径安全契约：非法账号在读写前拒绝，不创建目录。</summary>
+    [Theory]
+    [InlineData("../outside")]
+    [InlineData("CON")]
+    [InlineData("name.")]
+    public async Task UnsafeAccountKeysFailBeforeAnyFileOperation(string username)
+    {
+        var repo = new RepoAccountRoleSummary(_directory);
+        await Assert.ThrowsAsync<ArgumentException>(async () => await repo.LoadAsync(username));
+        Assert.Throws<ArgumentException>(() => repo.SaveAsync(username, []));
+        Assert.False(Directory.Exists(_directory));
+    }
+    /// <summary>验证 server-v2-storage 的空表格式：默认不可变数组保存为 [] 并可重新加载。</summary>
+    [Fact]
+    public async Task DefaultAccountArrayIsSavedAsEmptyJsonArray()
+    {
+        var repo = new RepoAccountRoleSummary(_directory);
+        await repo.SaveAsync(" ALICE ", default);
+        Assert.Equal("[]", await File.ReadAllTextAsync(Path.Combine(_directory, "alice.role_summary.json")));
+        Assert.Empty(await repo.LoadAsync("alice"));
     }
     /// <summary>三表按角色加载，不做身份、重复实例、数值或关联校验。</summary>
     [Fact]
@@ -170,12 +191,42 @@ public sealed class ServerV2StorageTests : IDisposable
         role.AcceptSaved();
         Assert.Equal(DataRoleTables.None, role.DirtyTables);
         var summary = new DataRoleSummary(1, "原", 1, RoleGender.Male, 1, [1, 2]);
-        var account = new LoginContext(config, "alice", new("alice", [summary]));
-        account.ReplaceSummaries(new("alice", [summary with { EquippedItems = [1, 2] }]));
+        var account = new LoginContext(config, "alice", new([summary]));
+        var loginSnapshot = account.Snapshot();
+        Assert.Throws<ArgumentNullException>(() => account.Commit(null!));
+        Assert.Equal(loginSnapshot.Summaries, account.Summaries);
+        account.Commit(loginSnapshot with { Summaries = [summary with { EquippedItems = [1, 2] }] });
         Assert.False(account.SummariesDirty);
-        account.ReplaceSummaries(new("alice", [summary with { Name = "新" }]));
+        account.Commit(loginSnapshot with { Summaries = [summary with { Name = "新" }] });
         Assert.True(account.SummariesDirty);
-        account.ReplaceSummaries(new("alice", [summary]));
+        Assert.Equal("新", account.Snapshot().Summaries[0].Name);
+        Assert.Equal("原", loginSnapshot.Summaries[0].Name);
+        account.Commit(loginSnapshot);
+        Assert.False(account.SummariesDirty);
+        var updated = loginSnapshot with { Summaries = [summary with { Name = "保存后" }] };
+        account.Commit(updated);
+        account.AcceptSaved();
+        Assert.False(account.SummariesDirty);
+        account.Commit(loginSnapshot);
+        Assert.True(account.SummariesDirty);
+        account.Commit(updated);
+        Assert.False(account.SummariesDirty);
+    }
+    /// <summary>验证 server-v2-storage 的内容基线契约：默认数组与空表等价，恢复后取消待写。</summary>
+    [Fact]
+    [Trait("Runtime", "Godot")]
+    public void LoginDefaultSummaryArrayBehavesAsEmptyTable()
+    {
+        using var env = ConfigTestFixture.CreateEnv();
+        using var config = new Rpg.Config.ConfigService(env);
+        var account = new LoginContext(config, "alice", new(default));
+        Assert.Empty(account.Snapshot().Summaries);
+        account.Commit(new([]));
+        Assert.False(account.SummariesDirty);
+        account.Commit(new([new(1, "角色", 1, RoleGender.Male, 1, [])]));
+        Assert.True(account.SummariesDirty);
+        account.Commit(new(default));
+        Assert.Empty(account.Summaries);
         Assert.False(account.SummariesDirty);
     }
     /// <summary>建立不依赖配置或 Godot 的简单快照。</summary>

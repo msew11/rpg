@@ -20,14 +20,14 @@ internal sealed class LoginActor : ModuleActor<LoginContext>
     internal LoginActor(ConfigService config, string username, IAccountRoleSummaryRepo repo, ActorHandlers<LoginContext> handlers) : base(handlers)
     { _username = username; _repo = repo; _config = config; }
     /// <summary>首次消息进入 INIT，完整加载后才发布工作区。</summary>
-    protected override async ValueTask<LoginContext> CreateContextAsync() => new(_config, _username, await _repo.LoadAsync(_username).ConfigureAwait(false));
+    protected override async ValueTask<LoginContext> CreateContextAsync() => new(_config, _username, new(await _repo.LoadAsync(_username).ConfigureAwait(false)));
     /// <summary>保存与业务同邮箱串行；仅成功后清除待写标记。</summary>
     protected override async ValueTask<object?> DispatchAsync(LoginContext context, object message)
     {
         if (message is not DataFlush) return await base.DispatchAsync(context, message).ConfigureAwait(false);
         if (context.SummariesDirty)
         {
-            await _repo.SaveAsync(context.Summaries).ConfigureAwait(false);
+            await _repo.SaveAsync(_username, context.Snapshot().Summaries).ConfigureAwait(false);
             context.AcceptSaved();
         }
         return true;

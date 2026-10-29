@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Collections.Concurrent;
 using MessageCodec = Rpg.ServerV2.Protocol.MessageCodec;
 using Rpg.Config;
@@ -68,7 +69,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         Assert.Equal(3, repo.SaveCount);
         await server.DisposeAsync();
         Assert.Equal(4, repo.SaveCount);
-        Assert.Equal("关闭补写", (await repo.LoadAsync("alice")).Roles[0].Name);
+        Assert.Equal("关闭补写", (await repo.LoadAsync("alice"))[0].Name);
         Assert.False(env.IsDisposed);
         Assert.False(config.IsDisposed);
     }
@@ -93,7 +94,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         server.Tick(5);
         await server.PeriodicFlush.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(2, repo.SaveCount);
-        Assert.Equal("等待重试", (await repo.LoadAsync("alice")).Roles[0].Name);
+        Assert.Equal("等待重试", (await repo.LoadAsync("alice"))[0].Name);
     }
     /// <summary>Net 的现有显式保存入口等待正在处理的请求，而不是只等字节入队。</summary>
     [Fact]
@@ -117,7 +118,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         Assert.False(Directory.Exists(_directory));
         release.SetResult();
         await flushing.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal("已接纳修改", (await repo.LoadAsync("alice")).Roles[0].Name);
+        Assert.Equal("已接纳修改", (await repo.LoadAsync("alice"))[0].Name);
     }
     /// <summary>默认宿主只加载 V2 子目录，保留登录占位；损坏 V2 文件走统一错误诊断。</summary>
     [Fact]
@@ -128,7 +129,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         Directory.CreateDirectory(_directory);
         await File.WriteAllTextAsync(Path.Combine(_directory, "alice.role_summary.json"), "旧数据不是有效 JSON");
         var v2 = Path.Combine(_directory, "v2");
-        await new RepoAccountRoleSummary(v2).SaveAsync(new("alice", []));
+        await new RepoAccountRoleSummary(v2).SaveAsync("alice", []);
         await using (var server = new MockServerService(env, config))
         {
             var id = server.OpenConnection();
@@ -183,9 +184,9 @@ public sealed class ServerV2SchedulingTests : IDisposable
         /// <summary>观察到的最大并发保存数。</summary>
         internal int MaximumConcurrent;
         /// <summary>加载真实文件。</summary>
-        public ValueTask<DataAccountRoleSummaries> LoadAsync(string username) => _inner.LoadAsync(username);
+        public ValueTask<ImmutableArray<DataRoleSummary>> LoadAsync(string username) => _inner.LoadAsync(username);
         /// <summary>计数后等待屏障，最终转发到真实仓库。</summary>
-        public async ValueTask SaveAsync(DataAccountRoleSummaries summaries)
+        public async ValueTask SaveAsync(string username, ImmutableArray<DataRoleSummary> summaries)
         {
             Interlocked.Increment(ref SaveCount);
             var concurrent = Interlocked.Increment(ref _concurrent);
@@ -195,7 +196,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
                 Entered.TrySetResult();
                 if (SaveRelease is not null) await SaveRelease.ConfigureAwait(false);
                 if (FailWrites) throw new IOException("模拟周期写入失败");
-                await _inner.SaveAsync(summaries).ConfigureAwait(false);
+                await _inner.SaveAsync(username, summaries).ConfigureAwait(false);
             }
             finally { Interlocked.Decrement(ref _concurrent); }
         }

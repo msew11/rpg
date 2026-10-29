@@ -46,7 +46,7 @@ V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Ne
 
 连接 ID 由服务端生成，不进入信封。连接断开即结束 Session，重连生成新 ID。同一账号的多个连接共享账号 Actor，各自保留身份与输出；重复登录限制、断线续接暂不定义。角色状态和地图状态不放进连接 Session。
 
-`protov2` 使用 `rpg.v2` package、`Rpg.ProtocolV2` C# 命名空间；生成文件位于 `src/ProtocolV2/Generated`，中文协议注释只修改 proto。每条消息使用四字段 EnvelopePb：generation、request_id、message_type、payload。请求编号非零、响应原样返回、通知为零；当前未注册业务通知。编号由客户端递增，切代次不断号，不承诺自动去重。
+`protov2` 使用 `rpg.v2` package、`Rpg.ProtocolV2` C# 命名空间；生成文件位于 `src/ProtocolV2/Generated`，中文协议注释只修改 proto。`login.proto` 收拢登录请求、响应、角色性别枚举和摘要结构；业务协议文件按请求与响应、推送、enum 与结构的顺序组织，当前登录没有推送。每条消息使用四字段 EnvelopePb：generation、request_id、message_type、payload。请求编号非零、响应原样返回、通知为零；当前未注册业务通知。编号由客户端递增，切代次不断号，不承诺自动去重。
 
 会话初始代次是 1。`ResetSession` 在服务端推进一代，保留账号并清空旧输出；Net 同步本连接的代次。网络适配需要以后为远程连接定义代次同步，当前只是进程内控制调用。旧代次请求和迟到结果丢弃，响应不得改用完成时最新代次。
 
@@ -59,7 +59,7 @@ Login 载荷首次包含 username/password。入口对 username 使用 Trim().To
 数据文件隔离在 `EnvService.ServerDirectory/v2`。JSON 使用 camelCase 与数字枚举：`<username>.role_summary.json` 是摘要数组；`<roleId>.role.json` 是角色对象；同角色的 `.item.json`、`.equipment.json` 是数组。摘要文件缺失得到内存空集合，不创建文件；角色三表全部必需，空表用 `[]`。不扫描或迁移旧存档，不执行字段完整性、数值、重复项、身份、关联或配置校验。JSON 无法解析、根 null 和 IO 错误使 INIT 失败，后续重新取得分片可重试。
 
 ```text
-LoginActor --> LoginContext --> Summaries + saved baseline + SummariesDirty
+LoginActor --> LoginContext --> DataLoginSnapshot(Summaries) + saved baseline + SummariesDirty
            --> Login/Storage/IAccountRoleSummaryRepo
 RoleActor  --> RoleContext  --> Role / Items / Equipments + saved baseline + DirtyTables
            --> Role/Storage/IRoleRepo
@@ -67,7 +67,9 @@ RoleActor  --> RoleContext  --> Role / Items / Equipments + saved baseline + Dir
 
 快照与数据模型放在所属模块的 `Data` 子目录，Context 放在模块根目录；仓库在该模块的 `Storage` 子目录。共用文件工具在 `Modules/Common/Storage`，公共 `RoleGender` 与固定 `DataFlush` 消息在 `Modules/Common/Data`，连接数据在 `Connections/Data`。仓库通过构造注入 Actor，只读写文件，不缓存业务状态。
 
-Handler 通过 `LoginContext.ReplaceSummaries(...)` 或 `RoleContext.Commit(DataRoleSnapshot)` 一次替换不可变数据。Context 属性不可直接赋值，按内容与上次保存基线比较；恢复原值自动取消待写。`DirtyTables` 分别跟踪 Role、Item、Equipment，摘要使用 `SummariesDirty`。Actor 在自己的邮箱回合内 await 仓库保存，仅成功后更新保存基线；失败保留最新内存与待写标记。保存期间同一 Actor 不执行下一回合，其他分片仍可工作。
+Login 与 Role 的 Context 统一通过 `Snapshot()` 取得不可变聚合快照，通过 `Commit(...)` 一次提交修改，参数分别为 `DataLoginSnapshot` 和 `DataRoleSnapshot`。登录快照直接包含 `Summaries : ImmutableArray<DataRoleSummary>`，Context 同样直接持有该数组，账号身份由 Actor/Context 的固定 Username 维护。`IAccountRoleSummaryRepo.LoadAsync(username)` 直接返回摘要数组，`SaveAsync(username, summaries)` 单独接收账号和数组，LoginActor 无需包装或解包。仓库入口规范化并检查账号路径；默认数组在 Context 和仓库写入入口按空数组处理，文件仍是摘要数组。Handler 可以用 `snapshot with { ... }` 构造候选数据，再提交给 Context。
+
+Context 属性不可直接赋值，按内容与上次保存基线比较；恢复原值自动取消待写。`DirtyTables` 分别跟踪 Role、Item、Equipment，摘要使用 `SummariesDirty`。Actor 在自己的邮箱回合内 await 仓库保存，仅成功后更新保存基线；失败保留最新内存与待写标记。保存期间同一 Actor 不执行下一回合，其他分片仍可工作。
 
 单文件同目录临时写入、刷盘后替换。角色一次修改多表时，先持久化 `<roleId>.pending.json` 原始字节回滚记录，全部替换后删除记录作为提交完成。下次读取或保存前先回滚未完成提交；恢复错误保留记录并阻止继续 IO。只从固定表名生成恢复路径，不把元数据当作路径。账号摘要与角色三表分别提交，本次不自动同步摘要，也不提供跨 Actor 事务。
 

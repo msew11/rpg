@@ -202,7 +202,7 @@ public sealed class ServerV2NetworkTests : ServerV2ModuleTests
         Assert.Equal("bob", server.Session(id).Username);
     }
 
-    /// <summary>账号键、文件名与不可变摘要快照使用同一身份，非法 Windows 名称在框架入口拒绝。</summary>
+    /// <summary>账号键与文件名使用同一身份，非法 Windows 名称在框架入口拒绝。</summary>
     [Theory]
     [InlineData("")]
     [InlineData("  ")]
@@ -217,10 +217,9 @@ public sealed class ServerV2NetworkTests : ServerV2ModuleTests
     public void AccountStorageContractRejectsUnsafeKeys(string username)
     {
         Assert.Throws<ArgumentException>(() => UsernameKey.Normalize(username));
-        var snapshot = new DataAccountRoleSummaries("  ALICE ", []);
-        Assert.Equal("alice", snapshot.Username);
-        Assert.Equal("alice.role_summary.json", UsernameKey.SummaryFileName(snapshot.Username));
-        Assert.Empty(snapshot.Roles);
+        Assert.Equal("alice", UsernameKey.Normalize("  ALICE "));
+        Assert.Equal("alice.role_summary.json", UsernameKey.SummaryFileName("  ALICE "));
+        Assert.Throws<ArgumentException>(() => UsernameKey.SummaryFileName(username));
         Assert.Throws<ArgumentException>(() => UsernameKey.Normalize(new string('a', 238)));
     }
 
@@ -262,7 +261,7 @@ public sealed class ServerV2NetworkTests : ServerV2ModuleTests
     internal static LoginRt LoginResponse(LoginContext context)
     {
         var response = new LoginRt();
-        foreach (var role in context.Summaries.Roles)
+        foreach (var role in context.Summaries)
         {
             var summary = new RoleSummaryPb
             { RoleId = role.RoleId, Name = role.Name, Level = role.Level, Gender = (RoleGenderPb)role.Gender, HeadId = role.HeadId };
@@ -314,7 +313,7 @@ public sealed class ServerV2NetworkTests : ServerV2ModuleTests
         {
             entered.TrySetResult();
             await release.ConfigureAwait(false);
-            context.ReplaceSummaries(new(context.Username,
+            context.Commit(new(
                 [new DataRoleSummary(101, "账号角色", 7, Rpg.ServerV2.Modules.Common.Data.RoleGender.Female, 9, [31, 42])]));
             return ServerV2NetworkTests.LoginResponse(context);
         }

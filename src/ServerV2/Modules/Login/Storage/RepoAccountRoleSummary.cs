@@ -15,21 +15,20 @@ public sealed class RepoAccountRoleSummary : IAccountRoleSummaryRepo
     /// <summary>绑定专用目录，读取前不创建文件夹。</summary>
     public RepoAccountRoleSummary(string directory) => _directory = Path.GetFullPath(directory);
     /// <summary>只有文件或目录不存在时返回空摘要，其他 IO 错误继续传播。</summary>
-    public async ValueTask<DataAccountRoleSummaries> LoadAsync(string username)
+    public async ValueTask<ImmutableArray<DataRoleSummary>> LoadAsync(string username)
     {
-        var key = UsernameKey.Normalize(username);
+        var fileName = UsernameKey.SummaryFileName(username);
         try
         {
-            var roles = await StorageJson.ReadAsync<ImmutableArray<DataRoleSummary>>(Path.Combine(_directory, UsernameKey.SummaryFileName(key))).ConfigureAwait(false);
-            return new(key, roles);
+            return await StorageJson.ReadAsync<ImmutableArray<DataRoleSummary>>(Path.Combine(_directory, fileName)).ConfigureAwait(false);
         }
-        catch (FileNotFoundException) { return new(key, []); }
-        catch (DirectoryNotFoundException) { return new(key, []); }
+        catch (FileNotFoundException) { return []; }
+        catch (DirectoryNotFoundException) { return []; }
     }
     /// <summary>仅写数组，账号身份固定来自安全文件名。</summary>
-    public ValueTask SaveAsync(DataAccountRoleSummaries summaries)
+    public ValueTask SaveAsync(string username, ImmutableArray<DataRoleSummary> summaries)
     {
-        System.ArgumentNullException.ThrowIfNull(summaries);
-        return StorageJson.WriteAsync(Path.Combine(_directory, UsernameKey.SummaryFileName(summaries.Username)), StorageJson.Encode(summaries.Roles));
+        var fileName = UsernameKey.SummaryFileName(username);
+        return StorageJson.WriteAsync(Path.Combine(_directory, fileName), StorageJson.Encode(summaries.IsDefault ? [] : summaries));
     }
 }

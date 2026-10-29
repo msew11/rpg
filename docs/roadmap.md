@@ -8,7 +8,7 @@
 
 - [x] V2 协议直达 Handler：登录直接使用 Login/LoginRt，移除中间 DTO 与路由转换；明确协议对象独占约定，保持存档模型、邮箱、会话及默认未实现行为。
 
-- [x] V2 Actor 数据读写：账号摘要与角色三表在 INIT 按需加载，Context 自动跟踪快照差异，Actor 邮箱内保存；仓库归各自模块，多表回滚恢复，周期与显式保存、关闭补写及失败重试已覆盖。不做业务数据校验，不迁移旧存档，不建立跨 Actor 事务。
+- [x] V2 Actor 数据读写：账号摘要与角色三表在 INIT 按需加载，Login/Role 统一使用 DataLoginSnapshot/DataRoleSnapshot 与 Snapshot()/Commit(...)，登录摘要从仓库到快照均直接使用不可变数组，账号身份单独传入仓库，Context 自动跟踪快照差异，Actor 邮箱内保存；仓库归各自模块，多表回滚恢复，周期与显式保存、关闭补写及失败重试已覆盖。不做业务数据校验，不迁移旧存档，不建立跨 Actor 事务。
 
 - [x] 服务端 Actor：独立异步串行邮箱及 INIT/RUN/STOP，Ask/Tell 和回调；启动 LoginActor 摘要缓存，Role/World 按 ID 初始化，Role 通过 MapId Ask 世界；独立角色工作副本与地图串行事务、摘要消息同步、共同落地和正常关闭停止。移除全局实体缓存和仓库延迟缓存，覆盖邮箱顺序、分片故障、停止与现有游戏流程。
 

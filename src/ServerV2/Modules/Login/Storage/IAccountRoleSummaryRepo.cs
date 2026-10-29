@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Threading.Tasks;
 using Rpg.ServerV2.Modules.Login.Data;
 
@@ -7,7 +8,7 @@ namespace Rpg.ServerV2.Modules.Login.Storage;
 public interface IAccountRoleSummaryRepo
 {
     /// <summary>加载指定规范账号的全部角色摘要，不扫描其他账号。</summary>
-    ValueTask<DataAccountRoleSummaries> LoadAsync(string username);
+    ValueTask<ImmutableArray<DataRoleSummary>> LoadAsync(string username);
     /// <summary>以账号为边界保存完整摘要，不拆成按角色命名的摘要文件。</summary>
-    ValueTask SaveAsync(DataAccountRoleSummaries summaries);
+    ValueTask SaveAsync(string username, ImmutableArray<DataRoleSummary> summaries);
 }

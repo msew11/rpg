@@ -39,7 +39,7 @@ public sealed class ServerV2WriteBackTests : ServerV2ModuleTests
         Assert.False(Directory.Exists(_directory));
         release.SetResult();
         await Task.WhenAll(work, saving).WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal("已接纳修改", (await repo.LoadAsync("alice")).Roles[0].Name);
+        Assert.Equal("已接纳修改", (await repo.LoadAsync("alice"))[0].Name);
         if (!closing)
         {
             await server.ReceiveAsync(connection, LoginPacket());
@@ -62,7 +62,7 @@ public sealed class ServerV2WriteBackTests : ServerV2ModuleTests
         await Assert.ThrowsAsync<AggregateException>(() => server.StopAsync());
         Assert.Equal(ActorState.STOP, role.State);
         Assert.Equal(ActorState.STOP, login.State);
-        Assert.Equal("保存成功", (await accounts.LoadAsync("alice")).Roles[0].Name);
+        Assert.Equal("保存成功", (await accounts.LoadAsync("alice"))[0].Name);
         Assert.Throws<ObjectDisposedException>(() => server.OpenConnection());
     }
     /// <summary>磁盘缺表导致 INIT 失败，修复后同目录重建 Actor 并完整恢复三表。</summary>
@@ -102,7 +102,7 @@ public sealed class ServerV2WriteBackTests : ServerV2ModuleTests
         {
             entered?.TrySetResult();
             if (release is not null) await release.ConfigureAwait(false);
-            context.ReplaceSummaries(new(context.Username, [new(1, "已接纳修改", 1, Rpg.ServerV2.Modules.Common.Data.RoleGender.Male, 1, [])]));
+            context.Commit(new([new(1, "已接纳修改", 1, Rpg.ServerV2.Modules.Common.Data.RoleGender.Male, 1, [])]));
             return ServerV2NetworkTests.LoginResponse(context);
         }
     }

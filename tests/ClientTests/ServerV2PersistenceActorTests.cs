@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Rpg.ServerV2.Hosting;
 using Rpg.ServerV2.Modules.Common.Data;
 using Rpg.ServerV2.Modules.Login.Data;
@@ -115,7 +116,7 @@ public sealed class ServerV2PersistenceActorTests : ServerV2ModuleTests
         try
         {
             var repo = new RepoAccountRoleSummary(directory);
-            await repo.SaveAsync(new("alice", [new(1, "文件摘要", 1, RoleGender.Male, 1, [])]));
+            await repo.SaveAsync("alice", [new(1, "文件摘要", 1, RoleGender.Male, 1, [])]);
             await using (var actor = new LoginActor(Config, "alice", repo, LoginHandlers()))
             {
                 Assert.Equal("文件摘要", await actor.Ref.Ask(new DataReadSummary()));
@@ -171,13 +172,13 @@ public sealed class ServerV2PersistenceActorTests : ServerV2ModuleTests
     {
         /// <summary>通过 Context 更新摘要，不访问仓库。</summary>
         public ValueTask<bool> HandleAsync(LoginContext context, DataWriteSummary request)
-        { context.ReplaceSummaries(new(context.Username, [new(1, request.Name, 1, RoleGender.Male, 1, [])])); return ValueTask.FromResult(context.SummariesDirty); }
+        { context.Commit(new([new(1, request.Name, 1, RoleGender.Male, 1, [])])); return ValueTask.FromResult(context.SummariesDirty); }
     }
     /// <summary>账号已加载摘要读取契约的替身。</summary>
     private sealed class DoubleReadSummaryHandler : IActorHandler<LoginContext, DataReadSummary, string>
     {
         /// <summary>返回首个摘要名称。</summary>
-        public ValueTask<string> HandleAsync(LoginContext context, DataReadSummary request) => ValueTask.FromResult(context.Summaries.Roles[0].Name);
+        public ValueTask<string> HandleAsync(LoginContext context, DataReadSummary request) => ValueTask.FromResult(context.Summaries[0].Name);
     }
     /// <summary>提供可控加载、保存阻塞及错误的角色仓库契约替身。</summary>
     internal sealed class DoubleRoleRepo : IRoleRepo
@@ -231,8 +232,8 @@ public sealed class ServerV2PersistenceActorTests : ServerV2ModuleTests
         /// <summary>写回次数。</summary>
         internal int SaveCount;
         /// <summary>每个账号从空摘要开始。</summary>
-        public ValueTask<DataAccountRoleSummaries> LoadAsync(string username) => ValueTask.FromResult(new DataAccountRoleSummaries(username, []));
+        public ValueTask<ImmutableArray<DataRoleSummary>> LoadAsync(string username) => ValueTask.FromResult(ImmutableArray<DataRoleSummary>.Empty);
         /// <summary>统计保存，不执行文件 IO。</summary>
-        public ValueTask SaveAsync(DataAccountRoleSummaries summaries) { Interlocked.Increment(ref SaveCount); return ValueTask.CompletedTask; }
+        public ValueTask SaveAsync(string username, ImmutableArray<DataRoleSummary> summaries) { Interlocked.Increment(ref SaveCount); return ValueTask.CompletedTask; }
     }
 }

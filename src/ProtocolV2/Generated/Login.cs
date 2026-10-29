@@ -24,20 +24,47 @@ namespace Rpg.ProtocolV2 {
     static LoginReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "Cgtsb2dpbi5wcm90bxIGcnBnLnYyGhJyb2xlX3N1bW1hcnkucHJvdG8iKwoF",
-            "TG9naW4SEAoIdXNlcm5hbWUYASABKAkSEAoIcGFzc3dvcmQYAiABKAkiLwoH",
-            "TG9naW5SdBIkCgVyb2xlcxgBIAMoCzIVLnJwZy52Mi5Sb2xlU3VtbWFyeVBi",
-            "QhGqAg5ScGcuUHJvdG9jb2xWMmIGcHJvdG8z"));
+            "Cgtsb2dpbi5wcm90bxIGcnBnLnYyIisKBUxvZ2luEhAKCHVzZXJuYW1lGAEg",
+            "ASgJEhAKCHBhc3N3b3JkGAIgASgJIi8KB0xvZ2luUnQSJAoFcm9sZXMYASAD",
+            "KAsyFS5ycGcudjIuUm9sZVN1bW1hcnlQYiKMAQoNUm9sZVN1bW1hcnlQYhIP",
+            "Cgdyb2xlX2lkGAEgASgDEgwKBG5hbWUYAiABKAkSDQoFbGV2ZWwYAyABKAUS",
+            "JAoGZ2VuZGVyGAQgASgOMhQucnBnLnYyLlJvbGVHZW5kZXJQYhIPCgdoZWFk",
+            "X2lkGAUgASgFEhYKDmVxdWlwcGVkX2l0ZW1zGAYgAygFKmIKDFJvbGVHZW5k",
+            "ZXJQYhIeChpST0xFX0dFTkRFUl9QQl9VTlNQRUNJRklFRBAAEhcKE1JPTEVf",
+            "R0VOREVSX1BCX01BTEUQARIZChVST0xFX0dFTkRFUl9QQl9GRU1BTEUQAkIR",
+            "qgIOUnBnLlByb3RvY29sVjJiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { global::Rpg.ProtocolV2.RoleSummaryReflection.Descriptor, },
-          new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
+          new pbr::FileDescriptor[] { },
+          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rpg.ProtocolV2.RoleGenderPb), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.Login), global::Rpg.ProtocolV2.Login.Parser, new[]{ "Username", "Password" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.LoginRt), global::Rpg.ProtocolV2.LoginRt.Parser, new[]{ "Roles" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.LoginRt), global::Rpg.ProtocolV2.LoginRt.Parser, new[]{ "Roles" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.RoleSummaryPb), global::Rpg.ProtocolV2.RoleSummaryPb.Parser, new[]{ "RoleId", "Name", "Level", "Gender", "HeadId", "EquippedItems" }, null, null, null, null)
           }));
     }
     #endregion
 
   }
+  #region Enums
+  /// <summary>
+  /// 摘要展示所用的角色性别。
+  /// </summary>
+  public enum RoleGenderPb {
+    /// <summary>
+    /// 未指定性别。
+    /// </summary>
+    [pbr::OriginalName("ROLE_GENDER_PB_UNSPECIFIED")] Unspecified = 0,
+    /// <summary>
+    /// 男性身体。
+    /// </summary>
+    [pbr::OriginalName("ROLE_GENDER_PB_MALE")] Male = 1,
+    /// <summary>
+    /// 女性身体。
+    /// </summary>
+    [pbr::OriginalName("ROLE_GENDER_PB_FEMALE")] Female = 2,
+  }
+
+  #endregion
+
   #region Messages
   /// <summary>
   /// 首次定位账号分片的登录请求；不在其他账号请求重复提交 username。
@@ -467,6 +494,401 @@ namespace Rpg.ProtocolV2 {
             break;
           case 10: {
             roles_.AddEntriesFrom(ref input, _repeated_roles_codec);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 账号下单个角色的展示摘要，不包含私有玩法数据。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class RoleSummaryPb : pb::IMessage<RoleSummaryPb>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<RoleSummaryPb> _parser = new pb::MessageParser<RoleSummaryPb>(() => new RoleSummaryPb());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<RoleSummaryPb> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.ProtocolV2.LoginReflection.Descriptor.MessageTypes[2]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleSummaryPb() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleSummaryPb(RoleSummaryPb other) : this() {
+      roleId_ = other.roleId_;
+      name_ = other.name_;
+      level_ = other.level_;
+      gender_ = other.gender_;
+      headId_ = other.headId_;
+      equippedItems_ = other.equippedItems_.Clone();
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleSummaryPb Clone() {
+      return new RoleSummaryPb(this);
+    }
+
+    /// <summary>Field number for the "role_id" field.</summary>
+    public const int RoleIdFieldNumber = 1;
+    private long roleId_;
+    /// <summary>
+    /// 全局角色身份。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long RoleId {
+      get { return roleId_; }
+      set {
+        roleId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "name" field.</summary>
+    public const int NameFieldNumber = 2;
+    private string name_ = "";
+    /// <summary>
+    /// 显示名称。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Name {
+      get { return name_; }
+      set {
+        name_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "level" field.</summary>
+    public const int LevelFieldNumber = 3;
+    private int level_;
+    /// <summary>
+    /// 当前等级。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Level {
+      get { return level_; }
+      set {
+        level_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "gender" field.</summary>
+    public const int GenderFieldNumber = 4;
+    private global::Rpg.ProtocolV2.RoleGenderPb gender_ = global::Rpg.ProtocolV2.RoleGenderPb.Unspecified;
+    /// <summary>
+    /// 基础身体性别。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.ProtocolV2.RoleGenderPb Gender {
+      get { return gender_; }
+      set {
+        gender_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "head_id" field.</summary>
+    public const int HeadIdFieldNumber = 5;
+    private int headId_;
+    /// <summary>
+    /// 性别内头型编号。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int HeadId {
+      get { return headId_; }
+      set {
+        headId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "equipped_items" field.</summary>
+    public const int EquippedItemsFieldNumber = 6;
+    private static readonly pb::FieldCodec<int> _repeated_equippedItems_codec
+        = pb::FieldCodec.ForInt32(50);
+    private readonly pbc::RepeatedField<int> equippedItems_ = new pbc::RepeatedField<int>();
+    /// <summary>
+    /// 已穿戴物品的配置编号，仅供展示。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<int> EquippedItems {
+      get { return equippedItems_; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as RoleSummaryPb);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(RoleSummaryPb other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RoleId != other.RoleId) return false;
+      if (Name != other.Name) return false;
+      if (Level != other.Level) return false;
+      if (Gender != other.Gender) return false;
+      if (HeadId != other.HeadId) return false;
+      if(!equippedItems_.Equals(other.equippedItems_)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RoleId != 0L) hash ^= RoleId.GetHashCode();
+      if (Name.Length != 0) hash ^= Name.GetHashCode();
+      if (Level != 0) hash ^= Level.GetHashCode();
+      if (Gender != global::Rpg.ProtocolV2.RoleGenderPb.Unspecified) hash ^= Gender.GetHashCode();
+      if (HeadId != 0) hash ^= HeadId.GetHashCode();
+      hash ^= equippedItems_.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (Name.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Name);
+      }
+      if (Level != 0) {
+        output.WriteRawTag(24);
+        output.WriteInt32(Level);
+      }
+      if (Gender != global::Rpg.ProtocolV2.RoleGenderPb.Unspecified) {
+        output.WriteRawTag(32);
+        output.WriteEnum((int) Gender);
+      }
+      if (HeadId != 0) {
+        output.WriteRawTag(40);
+        output.WriteInt32(HeadId);
+      }
+      equippedItems_.WriteTo(output, _repeated_equippedItems_codec);
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (Name.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Name);
+      }
+      if (Level != 0) {
+        output.WriteRawTag(24);
+        output.WriteInt32(Level);
+      }
+      if (Gender != global::Rpg.ProtocolV2.RoleGenderPb.Unspecified) {
+        output.WriteRawTag(32);
+        output.WriteEnum((int) Gender);
+      }
+      if (HeadId != 0) {
+        output.WriteRawTag(40);
+        output.WriteInt32(HeadId);
+      }
+      equippedItems_.WriteTo(ref output, _repeated_equippedItems_codec);
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RoleId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(RoleId);
+      }
+      if (Name.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Name);
+      }
+      if (Level != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Level);
+      }
+      if (Gender != global::Rpg.ProtocolV2.RoleGenderPb.Unspecified) {
+        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Gender);
+      }
+      if (HeadId != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(HeadId);
+      }
+      size += equippedItems_.CalculateSize(_repeated_equippedItems_codec);
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(RoleSummaryPb other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RoleId != 0L) {
+        RoleId = other.RoleId;
+      }
+      if (other.Name.Length != 0) {
+        Name = other.Name;
+      }
+      if (other.Level != 0) {
+        Level = other.Level;
+      }
+      if (other.Gender != global::Rpg.ProtocolV2.RoleGenderPb.Unspecified) {
+        Gender = other.Gender;
+      }
+      if (other.HeadId != 0) {
+        HeadId = other.HeadId;
+      }
+      equippedItems_.Add(other.equippedItems_);
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 18: {
+            Name = input.ReadString();
+            break;
+          }
+          case 24: {
+            Level = input.ReadInt32();
+            break;
+          }
+          case 32: {
+            Gender = (global::Rpg.ProtocolV2.RoleGenderPb) input.ReadEnum();
+            break;
+          }
+          case 40: {
+            HeadId = input.ReadInt32();
+            break;
+          }
+          case 50:
+          case 48: {
+            equippedItems_.AddEntriesFrom(input, _repeated_equippedItems_codec);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 18: {
+            Name = input.ReadString();
+            break;
+          }
+          case 24: {
+            Level = input.ReadInt32();
+            break;
+          }
+          case 32: {
+            Gender = (global::Rpg.ProtocolV2.RoleGenderPb) input.ReadEnum();
+            break;
+          }
+          case 40: {
+            HeadId = input.ReadInt32();
+            break;
+          }
+          case 50:
+          case 48: {
+            equippedItems_.AddEntriesFrom(ref input, _repeated_equippedItems_codec);
             break;
           }
         }

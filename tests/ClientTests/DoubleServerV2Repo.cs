@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Rpg.ServerV2.Modules.Role.Data;
 using Rpg.ServerV2.Modules.Login.Data;
 using Rpg.ServerV2.Modules.Login;
@@ -11,9 +12,9 @@ namespace ClientTests;
 internal sealed class DoubleServerV2Repo : IAccountRoleSummaryRepo, IRoleRepo
 {
     /// <summary>返回指定账号的空基线。</summary>
-    public ValueTask<DataAccountRoleSummaries> LoadAsync(string username) => ValueTask.FromResult(new DataAccountRoleSummaries(username, []));
+    public ValueTask<ImmutableArray<DataRoleSummary>> LoadAsync(string username) => ValueTask.FromResult(ImmutableArray<DataRoleSummary>.Empty);
     /// <summary>接纳框架测试的摘要写入，不持久化。</summary>
-    public ValueTask SaveAsync(DataAccountRoleSummaries summaries) => ValueTask.CompletedTask;
+    public ValueTask SaveAsync(string username, ImmutableArray<DataRoleSummary> summaries) => ValueTask.CompletedTask;
     /// <summary>身份测试只需独立的角色基线。</summary>
     public ValueTask<DataRoleSnapshot> LoadAsync(long roleId) => ValueTask.FromResult(new DataRoleSnapshot(new DataRole { RoleId = roleId }, [], []));
     /// <summary>接纳框架测试的三表写入。</summary>

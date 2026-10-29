@@ -31,7 +31,7 @@ public sealed class ServerV2ConfigTests
         foreach (var actor in new[] { secondModules.Login("alice"), secondModules.Role(10), secondModules.World(1) })
             Assert.Same(secondConfig.Basic.Value, await actor.Ask(new DataReadConfig()));
 
-        ModuleContext[] contexts = [new LoginContext(firstConfig, "alice", new("alice", [])),
+        ModuleContext[] contexts = [new LoginContext(firstConfig, "alice", new([])),
             new RoleContext(firstConfig, 10, new(new() { RoleId = 10 }, [], [])), new WorldContext(firstConfig, 1)];
         Assert.All(contexts, context => Assert.Same(firstConfig, context.Config));
         await first.DisposeAsync();
