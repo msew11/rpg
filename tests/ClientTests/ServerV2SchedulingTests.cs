@@ -107,7 +107,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         var release = ServerV2PersistenceActorTests.Signal();
         var repo = new RepoAccountRoleSummary(Path.Combine(_directory, "v2"));
         var modules = new ServerModules(repo, new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
-            .Register<DataLogin, DataLoginResult>(new ServerV2WriteBackTests.DoubleMutatingLoginHandler(entered, release.Task)));
+            .Register<Login, LoginRt>(new ServerV2WriteBackTests.DoubleMutatingLoginHandler(entered, release.Task)));
         using var server = new MockServerService(env, config, modules);
         using var net = new NetService(server, events, log);
         net.Send(new Login { Username = "alice" });

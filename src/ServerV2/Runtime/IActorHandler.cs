@@ -2,8 +2,8 @@ using System.Threading.Tasks;
 
 namespace Rpg.ServerV2.Runtime;
 
-/// <summary>只处理独占内存上下文与数据请求，不执行 IO 或访问其他 Actor 状态。</summary>
-public interface IActorHandler<in TContext, in TRequest, TReply> where TRequest : IActorRequest<TReply>
+/// <summary>处理独占上下文与请求，不执行 IO；协议请求入队后和回复返回后分别移交使用权。</summary>
+public interface IActorHandler<in TContext, in TRequest, TReply>
 {
     /// <summary>当前回合的类型化处理入口。</summary>
     ValueTask<TReply> HandleAsync(TContext context, TRequest request);

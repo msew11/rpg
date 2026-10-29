@@ -33,7 +33,7 @@ public abstract class BaseActor : IAsyncDisposable
     protected BaseActor() => Ref = new(this);
 
     /// <summary>类型化发送请求，调用方延续不占用 Actor 回合。</summary>
-    internal async Task<TReply> Ask<TReply>(IActorRequest<TReply> request)
+    internal async Task<TReply> Ask<TReply>(object request)
     {
         ArgumentNullException.ThrowIfNull(request);
         var completion = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);

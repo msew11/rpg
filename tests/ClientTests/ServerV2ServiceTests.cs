@@ -2,7 +2,6 @@ using Rpg.Config;
 using Rpg.Net;
 using Rpg.ProtocolV2;
 using Rpg.ServerV2.Hosting;
-using Rpg.ServerV2.Modules.Login.Data;
 using Rpg.ServerV2.Modules.Login;
 using Rpg.ServerV2.Modules;
 using Rpg.ServerV2.Runtime;
@@ -27,7 +26,7 @@ public sealed class ServerV2ServiceTests : IDisposable
         using var events = new EventBusService();
         using var log = new LogService(Console.WriteLine);
         var modules = successfulHandler ? new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
-            .Register<DataLogin, DataLoginResult>(new ServerV2NetworkTests.DoubleLoginHandler())) : null;
+            .Register<Login, LoginRt>(new ServerV2NetworkTests.DoubleLoginHandler())) : null;
         using var server = new MockServerService(env, config, modules);
         using var net = new NetService(server, events, log);
         Assert.Same(config, server.Config);

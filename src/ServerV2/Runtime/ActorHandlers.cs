@@ -14,7 +14,6 @@ public sealed class ActorHandlers<TContext>
 
     /// <summary>注册请求及回复契约，重复消息类型明确报错。</summary>
     public ActorHandlers<TContext> Register<TRequest, TReply>(IActorHandler<TContext, TRequest, TReply> handler)
-        where TRequest : IActorRequest<TReply>
     {
         ArgumentNullException.ThrowIfNull(handler);
         EnsureMutable();
@@ -50,7 +49,6 @@ public sealed class ActorHandlers<TContext>
     }
     /// <summary>保持请求与回复类型关联的适配器。</summary>
     private sealed class RequestEntry<TRequest, TReply>(IActorHandler<TContext, TRequest, TReply> handler) : IEntry
-        where TRequest : IActorRequest<TReply>
     {
         /// <summary>执行注册时确定的请求处理器。</summary>
         public async ValueTask<object?> HandleAsync(TContext context, object message) =>

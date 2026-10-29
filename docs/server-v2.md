@@ -6,7 +6,7 @@ V2 在 `src/ServerV2` 独立开发，现有客户端默认仍使用旧 Server。
 
 `Runtime` 只负责类型化 Ask/Tell、串行邮箱、INIT → RUN → STOP 与唯一分片目录。每个 Actor 是可异步等待的任务，不独占 OS 线程。首次消息触发初始化；跨 await 不进入下一回合。业务错误不会终止邮箱，初始化失败拒绝全部等待者，Tell 错误逐一通知诊断观察者。
 
-调用方只取得 `ActorRef`；消息采用不可变数据记录，不传工作委托、Actor 上下文、可写集合或 protobuf 对象。模块继承 `ModuleActor<TContext>`，自己创建上下文，并在创建 Actor 时冻结专用 `ActorHandlers<TContext>`。Handler 接收上下文与请求，不做文件或网络 IO；跨 Actor 协调在所属 Actor 边界进行，不形成循环 Ask。
+调用方只取得 `ActorRef`。协议请求直接进入邮箱，Handler 直接返回协议回复，例如 `Ask<LoginRt>(login)`；内部请求仍可实现 `IActorRequest<TReply>` 推断回复类型。可变协议对象由单次请求独占：发送方入队后不再修改请求，Handler 返回后不再修改回复，不共享 Context 中的可写状态。内部消息使用独立或不可变数据，不传工作委托和 Actor 上下文。模块继承 `ModuleActor<TContext>`，自己创建上下文，并在创建 Actor 时冻结专用 `ActorHandlers<TContext>`。Handler 接收上下文与请求，不做文件或网络 IO；跨 Actor 协调在所属 Actor 边界进行，不形成循环 Ask。
 
 `ActorDirectory<TKey>` 在短锁中唯一创建对象，不在创建时初始化。失败分片在后续获取时可以重建。目录关闭拒绝新创建并等待现有邮箱排空；停止前仍需由宿主先排空外部请求，避免过早关闭下游。
 
@@ -17,7 +17,7 @@ V2 在 `src/ServerV2` 独立开发，现有客户端默认仍使用旧 Server。
 | `Hosting` | MockServerService 生命周期、配置依赖与纯 .NET ServerRuntime 装配 |
 | `Connections` | 连接 ID、会话代次、账号绑定、每连接串行入口和输出队列 |
 | `Protocol` | 显式协议方向表、protobuf 编解码、统一错误 |
-| `Routing` | 从入口或 Session 定位 Actor，转换独立内部消息和响应 |
+| `Routing` | 从入口或 Session 定位 Actor，直接投递协议并附带响应的会话绑定元数据 |
 | `Runtime` | 通用邮箱、ActorRef、处理器契约与唯一分片目录 |
 | `Modules/Login` | 按规范 username 独占账号摘要；Storage 子目录负责账号文件仓库 |
 | `Modules/Role` | 按 RoleId 独占角色、物品、装备快照；Storage 子目录负责角色三表仓库 |
@@ -67,6 +67,6 @@ Handler 通过 `LoginContext.ReplaceSummaries(...)` 或 `RoleContext.Commit(Data
 
 `MockServerService.FlushAsync()` 捕获各连接当前队尾屏障，等待先前已接纳请求，再保存已启动分片；不启动未收消息的分片。角色组完成后保存账号组，各组内并行，独立失败继续其他分片，最后汇总。各保存轮次串行衔接，失败不阻止下一次重试。V2 传输实现 `IServerWriteBackTransport`，所以 `NetService.FlushServerWrites()` 会先发送 Net 已排队消息，再同步等待服务端保存；即使周期禁用也生效。
 
-增加功能时，先在 protov2 加协议并显式登记方向，在 Routing 转换成不可变内部消息，再在所属模块注册该 Actor 专用 Handler。Handler 只处理内存；需要跨 Actor 协调时覆盖模块的 DispatchAsync，通过 ActorRef 交换数据，不把委托或上下文放进消息。加载与持久化从 Actor 初始化及宿主调度边界接入，不塞进 Handler。
+增加功能时，先在 protov2 加协议并显式登记方向，在所属模块注册以协议请求与回复为类型参数的 Handler，由 Routing 直接投递。登录链路为 `Login → LoginActor → LoginHandler → LoginRt`；路由规范化账号键定位分片，原请求字段保留。Handler 只处理内存，并负责组装协议回复；Context 中的持久化 Data 模型继续独立，不引入登录请求或结果的中间 DTO。需要跨 Actor 协调时覆盖模块的 DispatchAsync，通过 ActorRef 交换数据，不把委托或上下文放进消息。加载与持久化从 Actor 初始化及宿主调度边界接入，不塞进 Handler。
 
 关闭顺序：停止外部接纳 → 等待连接请求和已有保存轮次 → 最终保存 → 停止角色分片 → 地图分片 → 账号分片。保存失败仍完成停止并向调用方抛错，不静默吞掉失败；进程仍存活时可通过显式 Flush 修复重试。强制中断、邮箱容量与背压、真实认证、角色归属校验和跨 Actor 事务由后续目标分别确定。

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Google.Protobuf;
 using Rpg.ProtocolV2;
+using Rpg.ServerV2.Connections.Data;
 using Rpg.ServerV2.Hosting;
 using Rpg.ServerV2.Modules.Common.Data;
 using Rpg.ServerV2.Modules.Login.Data;
@@ -16,6 +17,30 @@ namespace ClientTests;
 /// <summary>验证 openspec/specs/server-v2-network、server-v2-account 的真实字节与身份边界。</summary>
 public sealed class ServerV2NetworkTests
 {
+    /// <summary>验证 server-v2-runtime：路由和邮箱直接传递原协议实例，回复类型错误不影响后续回合。</summary>
+    [Fact]
+    public async Task ProtocolRequestAndReplyPassDirectlyThroughRouterAndActor()
+    {
+        var seen = new ConcurrentQueue<(string Account, Login Request)>();
+        var reply = new LoginRt { Roles = { new RoleSummaryPb { RoleId = 101, Name = "直接回复" } } };
+        await using var modules = new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ =>
+            new ActorHandlers<LoginContext>().Register<Login, LoginRt>(new DoubleProtocolHandler(seen, reply)));
+        var router = new Rpg.ServerV2.Routing.RequestRouter(modules);
+        var request = new Login { Username = "  ALICE ", Password = "原始密码" };
+        var result = await router.RouteAsync(new DataSessionSnapshot(new DataConnectionId(Guid.NewGuid()), 1, null), request);
+        Assert.Same(reply, result.Message);
+        Assert.Equal("alice", result.BindUsername);
+        Assert.True(seen.TryDequeue(out var observed));
+        Assert.Equal("alice", observed.Account);
+        Assert.Same(request, observed.Request);
+        Assert.Equal("  ALICE ", observed.Request.Username);
+        Assert.Equal("原始密码", observed.Request.Password);
+
+        var actor = modules.Login("alice");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => actor.Ask<string>(new Login()));
+        Assert.Same(reply, await actor.Ask<LoginRt>(new Login()));
+    }
+
     /// <summary>相同规范账号共用 Actor，不同连接仍隔离输出和登录绑定。</summary>
     [Fact]
     public async Task ConnectionsShareAccountShardButKeepSeparateSessionsAndPackets()
@@ -105,7 +130,7 @@ public sealed class ServerV2NetworkTests
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var server = new ServerRuntime(new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
-            .Register<DataLogin, DataLoginResult>(new DoubleSummaryHandler(entered, release.Task))));
+            .Register<Login, LoginRt>(new DoubleSummaryHandler(entered, release.Task))));
         var id = server.OpenConnection();
         var work = server.ReceiveAsync(id, LoginPacket("alice", 11));
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -227,10 +252,36 @@ public sealed class ServerV2NetworkTests
         }));
     /// <summary>显式注册测试登录及不携带 username 的账号请求。</summary>
     private static ActorHandlers<LoginContext> LoginHandlers(DoubleLoginHandler handler) => new ActorHandlers<LoginContext>()
-        .Register<DataLogin, DataLoginResult>(handler).Register<DataReadAccount, string>(new DoubleAccountHandler());
+        .Register<Login, LoginRt>(handler).Register<DataReadAccount, string>(new DoubleAccountHandler());
     /// <summary>序列化真实 V2 登录包。</summary>
     private static byte[] LoginPacket(string username, ulong requestId, ulong generation = 1) =>
         MessageCodec.Encode(new Login { Username = username, Password = "secret" }, generation, requestId, true);
+
+    /// <summary>测试处理器自行组装协议回复，路由不再承担摘要投影。</summary>
+    internal static LoginRt LoginResponse(LoginContext context)
+    {
+        var response = new LoginRt();
+        foreach (var role in context.Summaries.Roles)
+        {
+            var summary = new RoleSummaryPb
+            { RoleId = role.RoleId, Name = role.Name, Level = role.Level, Gender = (RoleGenderPb)role.Gender, HeadId = role.HeadId };
+            if (!role.EquippedItems.IsDefault) summary.EquippedItems.AddRange(role.EquippedItems);
+            response.Roles.Add(summary);
+        }
+        return response;
+    }
+
+    /// <summary>观察原协议请求和所属账号，直接返回预置协议回复以验证传递契约。</summary>
+    private sealed class DoubleProtocolHandler(ConcurrentQueue<(string Account, Login Request)> seen, LoginRt reply)
+        : IActorHandler<LoginContext, Login, LoginRt>
+    {
+        /// <summary>记录实际收到的实例，测试完成移交后不再修改请求与回复。</summary>
+        public ValueTask<LoginRt> HandleAsync(LoginContext context, Login request)
+        {
+            seen.Enqueue((context.Username, request));
+            return ValueTask.FromResult(reply);
+        }
+    }
 
     /// <summary>验证后续账号操作只使用服务端会话，不重复携带 username。</summary>
     private sealed record DataReadAccount : IActorRequest<string>;
@@ -242,29 +293,29 @@ public sealed class ServerV2NetworkTests
     }
     /// <summary>无认证业务的内存替身，仅服务成功、失败与迟到结果契约。</summary>
     internal sealed class DoubleLoginHandler(TaskCompletionSource? entered = null, Task? release = null)
-        : IActorHandler<LoginContext, DataLogin, DataLoginResult>
+        : IActorHandler<LoginContext, Login, LoginRt>
     {
         /// <summary>明确模拟阻塞和失败，不读取密码或文件。</summary>
-        public async ValueTask<DataLoginResult> HandleAsync(LoginContext context, DataLogin request)
+        public async ValueTask<LoginRt> HandleAsync(LoginContext context, Login request)
         {
             if (context.Username == "blocked") { entered?.TrySetResult(); if (release is not null) await release.ConfigureAwait(false); }
             if (context.Username == "denied") throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "测试拒绝登录");
             if (context.Username == "crash") throw new InvalidOperationException("处理器意外失败");
-            return new(context.Summaries.Roles);
+            return ServerV2NetworkTests.LoginResponse(context);
         }
     }
     /// <summary>验证账号摘要内部数据到协议的投影与正常关闭排空，不实现认证。</summary>
     private sealed class DoubleSummaryHandler(TaskCompletionSource entered, Task release)
-        : IActorHandler<LoginContext, DataLogin, DataLoginResult>
+        : IActorHandler<LoginContext, Login, LoginRt>
     {
         /// <summary>等待回合屏障后接纳不可变摘要，并返回本账号快照。</summary>
-        public async ValueTask<DataLoginResult> HandleAsync(LoginContext context, DataLogin request)
+        public async ValueTask<LoginRt> HandleAsync(LoginContext context, Login request)
         {
             entered.TrySetResult();
             await release.ConfigureAwait(false);
             context.ReplaceSummaries(new(context.Username,
                 [new DataRoleSummary(101, "账号角色", 7, Rpg.ServerV2.Modules.Common.Data.RoleGender.Female, 9, [31, 42])]));
-            return new(context.Summaries.Roles);
+            return ServerV2NetworkTests.LoginResponse(context);
         }
     }
     /// <summary>只用于角色身份契约的不可变请求。</summary>

@@ -5,7 +5,6 @@ using Rpg.ProtocolV2;
 using Rpg.ServerV2.Connections.Data;
 using Rpg.ServerV2.Connections;
 using Rpg.ServerV2.Modules.Common.Data;
-using Rpg.ServerV2.Modules.Login.Data;
 using Rpg.ServerV2.Modules.Login;
 using Rpg.ServerV2.Modules;
 using Rpg.ServerV2.Protocol;
@@ -13,7 +12,7 @@ using Rpg.ServerV2.Runtime;
 
 namespace Rpg.ServerV2.Routing;
 
-/// <summary>把已解码请求映射到模块消息，账号身份始终取自入口或服务端会话。</summary>
+/// <summary>把已解码协议直接路由到模块，账号身份始终取自入口或服务端会话。</summary>
 internal sealed class RequestRouter
 {
     /// <summary>借用宿主持有的唯一分片目录。</summary>
@@ -29,16 +28,7 @@ internal sealed class RequestRouter
         string username;
         try { username = UsernameKey.Normalize(login.Username); }
         catch (ArgumentException error) { throw new ServerRequestException(ErrorCodePb.InvalidRequest, error.Message); }
-        var result = await _modules.Login(username).Ask(new DataLogin(login.Password)).ConfigureAwait(false);
-        var response = new LoginRt();
-        if (!result.Roles.IsDefault)
-            foreach (var role in result.Roles)
-            {
-                var summary = new RoleSummaryPb
-                { RoleId = role.RoleId, Name = role.Name, Level = role.Level, Gender = (RoleGenderPb)role.Gender, HeadId = role.HeadId };
-                if (!role.EquippedItems.IsDefault) summary.EquippedItems.AddRange(role.EquippedItems);
-                response.Roles.Add(summary);
-            }
+        var response = await _modules.Login(username).Ask<LoginRt>(login).ConfigureAwait(false);
         return new(response, username);
     }
 

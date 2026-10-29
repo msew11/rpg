@@ -28,7 +28,7 @@ public sealed class ServerV2WriteBackTests : IDisposable
         var release = ServerV2PersistenceActorTests.Signal();
         var repo = new RepoAccountRoleSummary(_directory);
         var modules = new ServerModules(repo, new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
-            .Register<DataLogin, DataLoginResult>(new DoubleMutatingLoginHandler(entered, release.Task)));
+            .Register<Login, LoginRt>(new DoubleMutatingLoginHandler(entered, release.Task)));
         await using var server = new ServerRuntime(modules);
         var connection = server.OpenConnection();
         var work = server.ReceiveAsync(connection, LoginPacket());
@@ -94,15 +94,15 @@ public sealed class ServerV2WriteBackTests : IDisposable
     internal static byte[] LoginPacket() => MessageCodec.Encode(new Login { Username = " Alice ", Password = "unused" }, 1, 1, true);
     /// <summary>存储链路测试 Handler，只修改 Context。</summary>
     internal sealed class DoubleMutatingLoginHandler(TaskCompletionSource? entered = null, Task? release = null)
-        : IActorHandler<LoginContext, DataLogin, DataLoginResult>
+        : IActorHandler<LoginContext, Login, LoginRt>
     {
         /// <summary>可控阻塞后提交摘要，用于验证请求与保存的先后顺序。</summary>
-        public async ValueTask<DataLoginResult> HandleAsync(LoginContext context, DataLogin request)
+        public async ValueTask<LoginRt> HandleAsync(LoginContext context, Login request)
         {
             entered?.TrySetResult();
             if (release is not null) await release.ConfigureAwait(false);
             context.ReplaceSummaries(new(context.Username, [new(1, "已接纳修改", 1, Rpg.ServerV2.Modules.Common.Data.RoleGender.Male, 1, [])]));
-            return new(context.Summaries.Roles);
+            return ServerV2NetworkTests.LoginResponse(context);
         }
     }
     /// <summary>仅移除本例创建的独立临时文件。</summary>
