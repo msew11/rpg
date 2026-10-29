@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
+using Rpg.Config;
 using Rpg.ServerV2.Modules.Common.Data;
 using Rpg.ServerV2.Modules.Login.Storage;
 using Rpg.ServerV2.Modules.Login;
@@ -15,6 +16,8 @@ namespace Rpg.ServerV2.Modules;
 /// <summary>持有三类分片目录，只负责模块装配和身份校验。</summary>
 internal sealed class ServerModules : IAsyncDisposable
 {
+    /// <summary>本组分片借用的统一配置；纯内存框架测试可省略。</summary>
+    internal ConfigService? Config { get; }
     /// <summary>按规范账号键的分片目录。</summary>
     private readonly ActorDirectory<string> _login;
     /// <summary>按全局角色身份的分片目录。</summary>
@@ -25,11 +28,12 @@ internal sealed class ServerModules : IAsyncDisposable
     /// <summary>每次创建 Actor 时构造专用注册表，工厂不在消息中流转。</summary>
     internal ServerModules(IAccountRoleSummaryRepo summaries, IRoleRepo roles, Func<string, ActorHandlers<LoginContext>> login,
         Func<long, ActorHandlers<RoleContext>>? role = null, Func<int, ActorHandlers<WorldContext>>? world = null,
-        Action<Exception>? report = null)
+        Action<Exception>? report = null, ConfigService? config = null)
     {
-        _login = new(key => new LoginActor(key, summaries, login(key)), report);
-        _role = new(id => new RoleActor(id, roles, role?.Invoke(id) ?? new()), report);
-        _world = new(id => new WorldActor(id, world?.Invoke(id) ?? new()), report);
+        Config = config;
+        _login = new(key => new LoginActor(key, summaries, login(key), config), report);
+        _role = new(id => new RoleActor(id, roles, role?.Invoke(id) ?? new(), config), report);
+        _world = new(id => new WorldActor(id, world?.Invoke(id) ?? new(), config), report);
     }
     /// <summary>规范化后定位账号分片，不预加载其他账号。</summary>
     internal ActorRef Login(string username) => _login.Get(UsernameKey.Normalize(username));

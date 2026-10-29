@@ -1,10 +1,12 @@
 using System.Linq;
+using Rpg.Config;
+using Rpg.ServerV2.Modules.Common;
 using Rpg.ServerV2.Modules.Login.Data;
 
 namespace Rpg.ServerV2.Modules.Login;
 
 /// <summary>单个账号 Actor 的独占内存上下文，不包含连接认证状态。</summary>
-public sealed class LoginContext
+public sealed class LoginContext : ModuleContext
 {
     /// <summary>当前分片的规范账号身份。</summary>
     public string Username { get; }
@@ -15,7 +17,7 @@ public sealed class LoginContext
     /// <summary>当前摘要与保存基线是否不同。</summary>
     public bool SummariesDirty { get; private set; }
     /// <summary>用所属 Actor 完整加载的摘要建立基线，不执行 IO。</summary>
-    internal LoginContext(string username, DataAccountRoleSummaries? summaries = null)
+    internal LoginContext(string username, DataAccountRoleSummaries? summaries = null, ConfigService? config = null) : base(config)
     { Username = username; Summaries = _saved = summaries ?? new(username, []); }
     /// <summary>仅在所属回合接纳新快照，以本 Context 的固定账号键持有数据。</summary>
     public void ReplaceSummaries(DataAccountRoleSummaries summaries)

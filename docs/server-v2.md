@@ -22,6 +22,8 @@ V2 在 `src/ServerV2` 独立开发，现有客户端默认仍使用旧 Server。
 | `Modules/Login` | 按规范 username 独占账号摘要；Storage 子目录负责账号文件仓库 |
 | `Modules/Role` | 按 RoleId 独占角色、物品、装备快照；Storage 子目录负责角色三表仓库 |
 | `Modules/World` | 按正整数 MapId 的独占状态边界 |
+| `Modules/<模块>/Handler` | 所属模块的业务处理器，直接使用协议请求与回复 |
+| `Modules/Common` | 模块共用的 Context 配置入口，以及 Data、Storage 子目录 |
 | `Modules/Common/Storage` | 共用 JSON 编解码与单文件原子替换；不持有业务状态 |
 
 ```text
@@ -30,7 +32,7 @@ NetService --> V2 transport --> connection queue --> codec --> router
 NetService <-- connection output queue <-- response codec <-- result
 ```
 
-`MockServerService(EnvService, ConfigService)` 借用环境与配置并拥有 Runtime。后续业务通过构造注入同一个 `ConfigService`，不访问 `GameServices`。默认 `LoginHandler` 显式返回 NotImplemented；测试成功不代表认证已实现。
+`MockServerService(EnvService, ConfigService)` 借用环境与配置并拥有 Runtime。配置经模块装配和 Actor 传入 Context，LoginContext、RoleContext、WorldContext 继承 `Modules/Common/ModuleContext`，Handler 统一通过 `context.Config` 读取，例如 `context.Config.Basic.Value`、`context.Config.Item.Items`。Handler 不持有 ConfigService 字段或配置构造参数，也不访问全局服务。不同服务使用各自注入的实例；Config 属性不可替换，配置释放后读取会失败。Context、Actor 和 MockServerService 都不释放借用的配置，配置所有者应在 Net 关闭后释放。纯内存框架测试可以省略内部装配的配置，但访问 Config 明确报错；MockServerService 始终要求模块与自身使用同一配置实例。默认 `LoginHandler` 显式返回 NotImplemented；测试成功不代表认证已实现。
 
 V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Net 接管服务，负责序列化、排队、固定帧拉取输出及释放；传输只关闭自己绑定的连接。Env 与 Config 的所有者在 Net 释放后再释放它们。当前 `GameServices.Initialize()` 的旧构造仍运行旧业务；不增加全局 MockServer 注册。
 
@@ -67,6 +69,6 @@ Handler 通过 `LoginContext.ReplaceSummaries(...)` 或 `RoleContext.Commit(Data
 
 `MockServerService.FlushAsync()` 捕获各连接当前队尾屏障，等待先前已接纳请求，再保存已启动分片；不启动未收消息的分片。角色组完成后保存账号组，各组内并行，独立失败继续其他分片，最后汇总。各保存轮次串行衔接，失败不阻止下一次重试。V2 传输实现 `IServerWriteBackTransport`，所以 `NetService.FlushServerWrites()` 会先发送 Net 已排队消息，再同步等待服务端保存；即使周期禁用也生效。
 
-增加功能时，先在 protov2 加协议并显式登记方向，在所属模块注册以协议请求与回复为类型参数的 Handler，由 Routing 直接投递。登录链路为 `Login → LoginActor → LoginHandler → LoginRt`；路由规范化账号键定位分片，原请求字段保留。Handler 只处理内存，并负责组装协议回复；Context 中的持久化 Data 模型继续独立，不引入登录请求或结果的中间 DTO。需要跨 Actor 协调时覆盖模块的 DispatchAsync，通过 ActorRef 交换数据，不把委托或上下文放进消息。加载与持久化从 Actor 初始化及宿主调度边界接入，不塞进 Handler。
+增加功能时，先在 protov2 加协议并显式登记方向，在所属模块的 `Handler` 目录新增以协议请求与回复为类型参数的 Handler 并注册，由 Routing 直接投递。登录链路为 `Login → LoginActor → LoginHandler → LoginRt`；路由规范化账号键定位分片，原请求字段保留。Handler 只处理内存，并负责组装协议回复；Context 中的持久化 Data 模型继续独立，不引入登录请求或结果的中间 DTO。需要跨 Actor 协调时覆盖模块的 DispatchAsync，通过 ActorRef 交换数据，不把委托或上下文放进消息。加载与持久化从 Actor 初始化及宿主调度边界接入，不塞进 Handler。
 
 关闭顺序：停止外部接纳 → 等待连接请求和已有保存轮次 → 最终保存 → 停止角色分片 → 地图分片 → 账号分片。保存失败仍完成停止并向调用方抛错，不静默吞掉失败；进程仍存活时可通过显式 Flush 修复重试。强制中断、邮箱容量与背压、真实认证、角色归属校验和跨 Actor 事务由后续目标分别确定。

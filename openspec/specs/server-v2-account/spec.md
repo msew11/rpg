@@ -21,7 +21,7 @@ V2 SHALL 对登录 username 去除首尾空白并转不变小写，以同一规�
 - **THEN** 成功连接定位原账号分片，失败连接不建立绑定且账号请求被拒绝
 
 ### Requirement: 账号摘要与服务依赖
-账号摘要存储 SHALL 以 username.role_summary.json 表示该账号全部角色摘要，不以角色 ID 分散存储账号摘要。V2 服务入口 SHALL 实现客户端 Service 契约，持有构造注入的 EnvService 与 ConfigService；NetService SHALL 拥有入口并管理其字节收发与释放。摘要真实读写 SHALL 遵循 server-v2-storage；旧数据迁移及客户端默认入口切换 SHALL 留待业务迁移。
+账号摘要存储 SHALL 以 username.role_summary.json 表示该账号全部角色摘要，不以角色 ID 分散存储账号摘要。V2 服务入口 SHALL 实现客户端 Service 契约，持有构造注入的 EnvService 与 ConfigService；NetService SHALL 拥有入口并管理其字节收发与释放。业务处理器 SHALL 通过所属 Actor 的上下文读取该服务借用的配置，不自行持有配置依赖或访问全局配置；不同服务的配置 SHALL 隔离，配置释放后读取 SHALL 失败。摘要真实读写 SHALL 遵循 server-v2-storage；旧数据迁移及客户端默认入口切换 SHALL 留待业务迁移。
 
 #### Scenario: 框架装配
 - **WHEN** 通过 NetService 创建 V2 服务链路并收发登录消息后释放 NetService
@@ -30,3 +30,7 @@ V2 SHALL 对登录 username 去除首尾空白并转不变小写，以同一规�
 #### Scenario: 摘要契约
 - **WHEN** 为规范账号加载及保存摘要
 - **THEN** 内存数据包含账号键与摘要集合，文件名是账号键加 .role_summary.json，文件只保存该账号摘要数组
+
+#### Scenario: 上下文配置入口
+- **WHEN** 两个服务使用不同配置实例执行账号、角色、地图处理器
+- **THEN** 各处理器从上下文读取所属服务的同一配置实例，互不串用；停止服务不释放配置，配置所有者释放后再次读取明确失败

@@ -1,11 +1,13 @@
 using System.Collections.Immutable;
 using System.Linq;
+using Rpg.Config;
+using Rpg.ServerV2.Modules.Common;
 using Rpg.ServerV2.Modules.Role.Data;
 
 namespace Rpg.ServerV2.Modules.Role;
 
 /// <summary>角色分片独占的三表状态及上次保存基线，不执行 IO。</summary>
-public sealed class RoleContext
+public sealed class RoleContext : ModuleContext
 {
     /// <summary>全局角色身份，不以连接 ID 代替。</summary>
     public long RoleId { get; }
@@ -20,7 +22,7 @@ public sealed class RoleContext
     /// <summary>相对于保存基线发生变化的表。</summary>
     public DataRoleTables DirtyTables { get; private set; }
     /// <summary>由所属 Actor 用完整加载结果建立基线。</summary>
-    internal RoleContext(long roleId, DataRoleSnapshot snapshot)
+    internal RoleContext(long roleId, DataRoleSnapshot snapshot, ConfigService? config = null) : base(config)
     {
         RoleId = roleId;
         Role = snapshot.Role;

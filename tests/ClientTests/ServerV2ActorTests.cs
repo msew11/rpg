@@ -6,6 +6,14 @@ namespace ClientTests;
 /// <summary>验证 openspec/specs/server-v2-runtime 的顺序、隔离、故障及排空停止。</summary>
 public sealed class ServerV2ActorTests
 {
+    /// <summary>验证 server-v2-account：纯内存框架未装配配置时明确失败，不回退到全局服务。</summary>
+    [Fact]
+    public void UnconfiguredContextRejectsConfigReads()
+    {
+        var context = new Rpg.ServerV2.Modules.World.WorldContext(1);
+        Assert.Throws<InvalidOperationException>(() => context.Config);
+    }
+
     /// <summary>初始化屏障前不执行消息，跨 await 仍串行，Ask 回调在调用方执行。</summary>
     [Fact]
     public async Task InitializationSerializesTellAskAndDrainsBeforeStop()

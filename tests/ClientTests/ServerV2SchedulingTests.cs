@@ -27,7 +27,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
         var repo = new DoubleTrackingRepo(Path.Combine(_directory, "v2"));
-        var modules = new ServerModules(repo, new DoubleServerV2Repo(), _ => ServerV2PersistenceActorTests.LoginHandlers());
+        var modules = new ServerModules(repo, new DoubleServerV2Repo(), _ => ServerV2PersistenceActorTests.LoginHandlers(), config: config);
         await using var server = new MockServerService(env, config, modules);
         var actor = modules.Login("alice");
         await actor.Ask(new ServerV2PersistenceActorTests.DataWriteSummary("第一轮"));
@@ -79,7 +79,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
         var repo = new DoubleTrackingRepo(Path.Combine(_directory, "v2")) { FailWrites = true };
-        var modules = new ServerModules(repo, new DoubleServerV2Repo(), _ => ServerV2PersistenceActorTests.LoginHandlers());
+        var modules = new ServerModules(repo, new DoubleServerV2Repo(), _ => ServerV2PersistenceActorTests.LoginHandlers(), config: config);
         await using var server = new MockServerService(env, config, modules);
         var errors = new ConcurrentQueue<Exception>();
         server.Error += errors.Enqueue;
@@ -107,7 +107,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         var release = ServerV2PersistenceActorTests.Signal();
         var repo = new RepoAccountRoleSummary(Path.Combine(_directory, "v2"));
         var modules = new ServerModules(repo, new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
-            .Register<Login, LoginRt>(new ServerV2WriteBackTests.DoubleMutatingLoginHandler(entered, release.Task)));
+            .Register<Login, LoginRt>(new ServerV2WriteBackTests.DoubleMutatingLoginHandler(entered, release.Task)), config: config);
         using var server = new MockServerService(env, config, modules);
         using var net = new NetService(server, events, log);
         net.Send(new Login { Username = "alice" });
@@ -154,7 +154,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
         var repo = new DoubleTrackingRepo(Path.Combine(_directory, "v2")) { FailWrites = true };
-        var modules = new ServerModules(repo, new DoubleServerV2Repo(), _ => ServerV2PersistenceActorTests.LoginHandlers());
+        var modules = new ServerModules(repo, new DoubleServerV2Repo(), _ => ServerV2PersistenceActorTests.LoginHandlers(), config: config);
         var server = new MockServerService(env, config, modules);
         var actor = modules.Login("alice");
         await actor.Ask(new ServerV2PersistenceActorTests.DataWriteSummary("无法保存"));

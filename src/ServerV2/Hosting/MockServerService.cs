@@ -6,6 +6,7 @@ using Rpg.ServerV2.Connections.Data;
 using Rpg.ServerV2.Connections;
 using Rpg.ServerV2.Modules.Login.Storage;
 using Rpg.ServerV2.Modules.Login;
+using Rpg.ServerV2.Modules.Login.Handler;
 using Rpg.ServerV2.Modules.Role.Storage;
 using Rpg.ServerV2.Modules;
 using Rpg.ServerV2.Runtime;
@@ -52,7 +53,9 @@ public sealed class MockServerService : Service, IAsyncDisposable
         _config = config;
         var directory = Path.Combine(Path.GetFullPath(env.ServerDirectory), "v2");
         modules ??= new ServerModules(new RepoAccountRoleSummary(directory), new RepoRole(directory), _ => new ActorHandlers<LoginContext>()
-            .Register<ProtocolV2.Login, ProtocolV2.LoginRt>(new LoginHandler(config)), report: Report);
+            .Register<ProtocolV2.Login, ProtocolV2.LoginRt>(new LoginHandler()), report: Report, config: config);
+        if (!ReferenceEquals(modules.Config, config))
+            throw new ArgumentException("V2 模块必须借用当前服务的同一配置实例", nameof(modules));
         _runtime = new(modules);
         _runtime.Error += Report;
     }
