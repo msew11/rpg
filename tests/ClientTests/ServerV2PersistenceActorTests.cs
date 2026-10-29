@@ -159,27 +159,27 @@ public sealed class ServerV2PersistenceActorTests : ServerV2ModuleTests
     private sealed class DoubleReadRoleHandler : IActorHandler<RoleContext, DataReadRole, DataRoleSnapshot>
     {
         /// <summary>返回不可变快照。</summary>
-        public ValueTask<DataRoleSnapshot> HandleAsync(RoleContext context, DataReadRole request) => ValueTask.FromResult(context.Snapshot());
+        public ValueTask<DataRoleSnapshot> HandleAsync(RoleContext context, DataReadRole request) => ValueTask.FromResult(context.Cache.Snapshot());
     }
     /// <summary>验证 Handler 统一提交入口的替身。</summary>
     private sealed class DoubleWriteRoleHandler : IActorHandler<RoleContext, DataWriteRole, DataRoleTables>
     {
         /// <summary>只修改内存，返回待写表。</summary>
         public ValueTask<DataRoleTables> HandleAsync(RoleContext context, DataWriteRole request)
-        { context.Commit(request.Snapshot); return ValueTask.FromResult(context.DirtyTables); }
+        { context.Cache.Commit(request.Snapshot); return ValueTask.FromResult(context.Cache.DirtyTables); }
     }
     /// <summary>账号摘要修改契约的替身。</summary>
     private sealed class DoubleWriteSummaryHandler : IActorHandler<LoginContext, DataWriteSummary, bool>
     {
         /// <summary>通过 Context 更新摘要，不访问仓库。</summary>
         public ValueTask<bool> HandleAsync(LoginContext context, DataWriteSummary request)
-        { context.Commit(new([new(1, request.Name, 1, RoleGender.Male, 1, [])])); return ValueTask.FromResult(context.SummariesDirty); }
+        { context.Cache.Commit(new([new(1, request.Name, 1, RoleGender.Male, 1, [])])); return ValueTask.FromResult(context.Cache.SummariesDirty); }
     }
     /// <summary>账号已加载摘要读取契约的替身。</summary>
     private sealed class DoubleReadSummaryHandler : IActorHandler<LoginContext, DataReadSummary, string>
     {
         /// <summary>返回首个摘要名称。</summary>
-        public ValueTask<string> HandleAsync(LoginContext context, DataReadSummary request) => ValueTask.FromResult(context.Summaries[0].Name);
+        public ValueTask<string> HandleAsync(LoginContext context, DataReadSummary request) => ValueTask.FromResult(context.Cache.Summaries.Value[0].Name);
     }
     /// <summary>提供可控加载、保存阻塞及错误的角色仓库契约替身。</summary>
     internal sealed class DoubleRoleRepo : IRoleRepo

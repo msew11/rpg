@@ -28,13 +28,15 @@ namespace Rpg.ProtocolV2 {
             "cmF0aW9uGAEgASgEEhIKCnJlcXVlc3RfaWQYAiABKAQSFAoMbWVzc2FnZV90",
             "eXBlGAMgASgJEg8KB3BheWxvYWQYBCABKAwiPQoHRXJyb3JSdBIhCgRjb2Rl",
             "GAEgASgOMhMucnBnLnYyLkVycm9yQ29kZVBiEg8KB21lc3NhZ2UYAiABKAkq",
-            "/wEKC0Vycm9yQ29kZVBiEh0KGUVSUk9SX0NPREVfUEJfVU5TUEVDSUZJRUQQ",
+            "7gIKC0Vycm9yQ29kZVBiEh0KGUVSUk9SX0NPREVfUEJfVU5TUEVDSUZJRUQQ",
             "ABIhCh1FUlJPUl9DT0RFX1BCX1VOS05PV05fTUVTU0FHRRABEiEKHUVSUk9S",
             "X0NPREVfUEJfV1JPTkdfRElSRUNUSU9OEAISIQodRVJST1JfQ09ERV9QQl9J",
             "TlZBTElEX1JFUVVFU1QQAxIjCh9FUlJPUl9DT0RFX1BCX05PVF9BVVRIRU5U",
             "SUNBVEVEEAQSIQodRVJST1JfQ09ERV9QQl9OT1RfSU1QTEVNRU5URUQQBRIg",
-            "ChxFUlJPUl9DT0RFX1BCX0lOVEVSTkFMX0VSUk9SEAZCEaoCDlJwZy5Qcm90",
-            "b2NvbFYyYgZwcm90bzM="));
+            "ChxFUlJPUl9DT0RFX1BCX0lOVEVSTkFMX0VSUk9SEAYSJQohRVJST1JfQ09E",
+            "RV9QQl9JTlZBTElEX0NSRURFTlRJQUxTEAcSIAocRVJST1JfQ09ERV9QQl9S",
+            "T0xFX05PVF9GT1VORBAIEiQKIEVSUk9SX0NPREVfUEJfUk9MRV9OQU1FX0NP",
+            "TkZMSUNUEAlCEaoCDlJwZy5Qcm90b2NvbFYyYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rpg.ProtocolV2.ErrorCodePb), }, null, new pbr::GeneratedClrTypeInfo[] {
@@ -78,6 +80,18 @@ namespace Rpg.ProtocolV2 {
     /// 处理器意外失败，具体诊断在服务端观察。
     /// </summary>
     [pbr::OriginalName("ERROR_CODE_PB_INTERNAL_ERROR")] InternalError = 6,
+    /// <summary>
+    /// 登录凭据不匹配。
+    /// </summary>
+    [pbr::OriginalName("ERROR_CODE_PB_INVALID_CREDENTIALS")] InvalidCredentials = 7,
+    /// <summary>
+    /// 当前账号不存在该可见角色。
+    /// </summary>
+    [pbr::OriginalName("ERROR_CODE_PB_ROLE_NOT_FOUND")] RoleNotFound = 8,
+    /// <summary>
+    /// 当前账号已有同名可见角色。
+    /// </summary>
+    [pbr::OriginalName("ERROR_CODE_PB_ROLE_NAME_CONFLICT")] RoleNameConflict = 9,
   }
 
   #endregion

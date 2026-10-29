@@ -102,7 +102,7 @@ public sealed class ServerV2WriteBackTests : ServerV2ModuleTests
         {
             entered?.TrySetResult();
             if (release is not null) await release.ConfigureAwait(false);
-            context.Commit(new([new(1, "已接纳修改", 1, Rpg.ServerV2.Modules.Common.Data.RoleGender.Male, 1, [])]));
+            context.Cache.Commit(new([new(1, "已接纳修改", 1, Rpg.ServerV2.Modules.Common.Data.RoleGender.Male, 1, [])]));
             return ServerV2NetworkTests.LoginResponse(context);
         }
     }

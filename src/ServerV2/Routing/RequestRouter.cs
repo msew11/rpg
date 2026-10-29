@@ -20,9 +20,18 @@ internal sealed class RequestRouter
     /// <summary>绑定当前运行实例的模块。</summary>
     internal RequestRouter(ServerModules modules) => _modules = modules;
 
-    /// <summary>首次登录从载荷定位账号，后续业务在对应协议加入时显式注册。</summary>
+    /// <summary>登录从载荷定位账号，创建和删除只从服务端会话定位账号。</summary>
     internal async Task<DataResponse> RouteAsync(DataSessionSnapshot session, IMessage request)
     {
+        if (request is CreateRole or DeleteRole)
+        {
+            if (session.Username is null) throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "连接尚未登录");
+            var account = _modules.Login(session.Username);
+            IMessage reply = request is CreateRole create
+                ? await account.Ask<CreateRoleRt>(create).ConfigureAwait(false)
+                : await account.Ask<DeleteRoleRt>((DeleteRole)request).ConfigureAwait(false);
+            return new(reply, session.Username);
+        }
         if (request is not ProtocolV2.Login login)
             throw new ServerRequestException(ErrorCodePb.UnknownMessage, "请求尚未注册路由");
         string username;

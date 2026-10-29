@@ -28,10 +28,10 @@ internal sealed class LoginActor : ModuleActor<LoginContext>
     protected override async ValueTask<object?> DispatchAsync(LoginContext context, object message)
     {
         if (message is not DataFlush) return await base.DispatchAsync(context, message).ConfigureAwait(false);
-        if (context.SummariesDirty)
+        if (context.Cache.SummariesDirty)
         {
-            await _repo.SaveAsync(_username, context.Snapshot().Summaries).ConfigureAwait(false);
-            context.AcceptSaved();
+            await _repo.SaveAsync(_username, context.Cache.Snapshot().Summaries).ConfigureAwait(false);
+            context.Cache.AcceptSaved();
         }
         return true;
     }

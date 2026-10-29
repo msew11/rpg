@@ -1,0 +1,60 @@
+using System;
+using System.Collections.Immutable;
+using System.Linq;
+using Rpg.ProtocolV2;
+using Rpg.ServerV2.Modules.Common.Cache;
+using Rpg.ServerV2.Modules.Common.Data;
+using Rpg.ServerV2.Modules.Login.Data;
+using Rpg.ServerV2.Protocol;
+
+namespace Rpg.ServerV2.Modules.Login.Cache;
+
+/// <summary>账号全部摘要及墓碑的独占工作区，内聚角色列表管理和保存比较。</summary>
+public sealed class DataCacheRoleSummary : DataCacheArray<DataRoleSummary>
+{
+    /// <summary>以完整加载结果建立基线，摘要装备列表按内容比较。</summary>
+    internal DataCacheRoleSummary(ImmutableArray<DataRoleSummary> value) : base(value, SummaryComparer.Instance) { }
+    /// <summary>提供按编号排序的未删除摘要，不返回可变集合。</summary>
+    public ImmutableArray<DataRoleSummary> Visible() => Value.Where(role => !role.IsDeleted).OrderBy(role => role.RoleId).ToImmutableArray();
+    /// <summary>所有校验成功后一次创建摘要，失败不修改数据或消耗编号。</summary>
+    public void Create(string requestedName, RoleGender gender, int headId)
+    {
+        var name = requestedName.Trim();
+        if (name.Length is < 1 or > 16 || name.Any(char.IsControl))
+            throw new ServerRequestException(ErrorCodePb.InvalidRequest, "角色名字需为 1 至 16 个字符，且不能包含控制字符");
+        if (gender is not (RoleGender.Male or RoleGender.Female) || headId is < 1 or > 74)
+            throw new ServerRequestException(ErrorCodePb.InvalidRequest, "性别或头型无效");
+        if (Value.Any(role => !role.IsDeleted && string.Equals(role.Name, name, StringComparison.OrdinalIgnoreCase)))
+            throw new ServerRequestException(ErrorCodePb.RoleNameConflict, "角色名字已存在");
+        var maximum = Value.Select(role => role.RoleId).DefaultIfEmpty(1002).Max();
+        if (maximum == long.MaxValue)
+            throw new ServerRequestException(ErrorCodePb.InvalidRequest, "角色编号已耗尽");
+        var summary = new DataRoleSummary(maximum + 1, name, 1,
+            gender, headId, []);
+        Commit(Value.Add(summary));
+    }
+    /// <summary>仅将属于本账号的可见摘要标记为墓碑，不触碰角色三表。</summary>
+    public void Delete(long roleId)
+    {
+        if (roleId <= 0)
+            throw new ServerRequestException(ErrorCodePb.InvalidRequest, "角色编号必须为正整数");
+        var index = -1;
+        for (var i = 0; i < Value.Length; i++)
+            if (Value[i] is { IsDeleted: false } role && role.RoleId == roleId) { index = i; break; }
+        if (index < 0) throw new ServerRequestException(ErrorCodePb.RoleNotFound, "角色不存在或已删除");
+        Commit(Value.SetItem(index, Value[index] with { IsDeleted = true }));
+    }
+    /// <summary>摘要中的嵌套不可变数组也按内容比较，避免重新构造导致误写。</summary>
+    private sealed class SummaryComparer : System.Collections.Generic.IEqualityComparer<DataRoleSummary>
+    {
+        /// <summary>无状态比较器。</summary>
+        internal static readonly SummaryComparer Instance = new();
+        /// <summary>比较展示字段与装备配置编号顺序。</summary>
+        public bool Equals(DataRoleSummary? left, DataRoleSummary? right) => ReferenceEquals(left, right) ||
+            left is not null && right is not null && left.RoleId == right.RoleId && left.Name == right.Name &&
+            left.Level == right.Level && left.Gender == right.Gender && left.HeadId == right.HeadId && left.IsDeleted == right.IsDeleted &&
+            (left.EquippedItems.IsDefault ? [] : left.EquippedItems).SequenceEqual(right.EquippedItems.IsDefault ? [] : right.EquippedItems);
+        /// <summary>身份哈希与内容相等契约兼容；当前仅用于顺序比较。</summary>
+        public int GetHashCode(DataRoleSummary value) => value.RoleId.GetHashCode();
+    }
+}

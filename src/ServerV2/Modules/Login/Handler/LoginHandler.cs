@@ -5,12 +5,16 @@ using Rpg.ServerV2.Runtime;
 
 namespace Rpg.ServerV2.Modules.Login.Handler;
 
-/// <summary>登录业务的明确接入点；框架版不内置演示账号或认证规则。</summary>
+/// <summary>验证演示凭据并返回当前账号的完整可见角色摘要。</summary>
 internal sealed class LoginHandler : IActorHandler<LoginContext, ProtocolV2.Login, LoginRt>
 {
-    /// <summary>尚未实现认证时返回明确失败，绝不把空实现当作登录成功。</summary>
+    /// <summary>账号使用规范分片键，密码原样匹配；失败不建立连接绑定。</summary>
     public ValueTask<LoginRt> HandleAsync(LoginContext context, ProtocolV2.Login request)
     {
-        throw new ServerRequestException(ErrorCodePb.NotImplemented, "V2 登录业务尚未实现");
+        if (context.Cache.Username != "demo" || request.Password != "demo")
+            throw new ServerRequestException(ErrorCodePb.InvalidCredentials, "用户名或密码错误");
+        var response = new LoginRt();
+        response.Roles.AddRange(RoleSummaries.Visible(context));
+        return ValueTask.FromResult(response);
     }
 }

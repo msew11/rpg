@@ -2,17 +2,17 @@
 
 ## 当前阶段：客户端基础纵切
 
-- [x] 并行 Server V2 框架：独立 protov2 四字段信封、统一错误与登录摘要协议；类型化 Actor 邮箱、按账号/角色/地图分片、连接会话与迟到结果隔离；MockServerService 借用 ConfigService 并由 NetService 持有，固定帧拉取输出。账号摘要使用 username.role_summary.json，真实认证和游戏业务仍待实现；当前客户端继续使用旧链路。结构与接入见 docs/server-v2.md。
+- [x] 并行 Server V2 框架：独立 protov2 四字段信封、统一错误与登录摘要协议；类型化 Actor 邮箱、按账号/角色/地图分片、连接会话与迟到结果隔离；MockServerService 借用 ConfigService 并由 NetService 持有，固定帧拉取输出。账号摘要使用 username.role_summary.json，真实认证和世界业务仍待实现，演示账号摘要业务见迁移条目；默认客户端继续使用旧链路。结构与接入见 docs/server-v2.md。
 
 - [x] V2 Handler 与配置入口：业务处理器归各模块 Handler 目录；Context.Config 统一提供宿主配置，处理器不保存配置依赖，多实例与释放边界保持隔离。必需配置、模块和账号摘要改为非空构造契约，缺失依赖及无效保存输入在入口拒绝，可选工厂一次补齐。
 
-- [x] V2 协议直达 Handler：登录直接使用 Login/LoginRt，移除中间 DTO 与路由转换；明确协议对象独占约定，保持存档模型、邮箱、会话及默认未实现行为。
+- [x] V2 协议直达 Handler：登录直接使用 Login/LoginRt，移除中间 DTO 与路由转换；明确协议对象独占约定，保持存档模型、邮箱和会话边界；账号业务接入见后续迁移条目。
 
-- [x] V2 Actor 数据读写：账号摘要与角色三表在 INIT 按需加载，Login/Role 统一使用 DataLoginSnapshot/DataRoleSnapshot 与 Snapshot()/Commit(...)，登录摘要从仓库到快照均直接使用不可变数组，账号身份单独传入仓库，Context 自动跟踪快照差异，Actor 邮箱内保存；仓库归各自模块，多表回滚恢复，周期与显式保存、关闭补写及失败重试已覆盖。不做业务数据校验，不迁移旧存档，不建立跨 Actor 事务。
+- [x] V2 Actor 数据读写：账号摘要与角色三表在 INIT 按需加载，Login/Role 统一使用 DataLoginSnapshot/DataRoleSnapshot 与 Snapshot()/Commit(...)，登录摘要从仓库到快照均直接使用不可变数组，账号身份单独传入仓库，Context 自动跟踪快照差异，Actor 邮箱内保存；仓库归各自模块，多表回滚恢复，周期与显式保存、关闭补写及失败重试已覆盖。存储层不做业务数据校验，不迁移旧存档，不建立跨 Actor 事务。
 
-- [x] V2 World 数据加载与写回：首次消息从已有配置取得固定规格，完整加载动态对象后发布 Context；独立不可变对象快照及内容比较的 DirtyChunks，跨块移动、空块删除与恢复原值；版本块文件先刷盘、清单原子提交，失败重试、孤立候选隔离、提交后清理诊断；保存固定 Role→World→Login，接入周期、显式屏障及关闭补写。覆盖初始化与保存隔离、真实 IO 故障和中断恢复；AOI、怪物行为、拾取、创角、首次入角及正式 World 业务仍待后续目标。
+- [x] V2 World 数据加载与写回：首次消息从已有配置取得固定规格，完整加载动态对象后发布 Context；独立不可变对象快照及内容比较的 DirtyChunks，跨块移动、空块删除与恢复原值；版本块文件先刷盘、清单原子提交，失败重试、孤立候选隔离、提交后清理诊断；保存固定 Role→World→Login，接入周期、显式屏障及关闭补写。覆盖初始化与保存隔离、真实 IO 故障和中断恢复；AOI、怪物行为、拾取、首次入角及正式 World 业务仍待后续目标；创角仅摘要接入见迁移条目。
 
-- [x] V2 Actor 内部协议：protov2/actor 按接收方组织并独立生成；Context.Actors 借用 ServerModules 的定位接口，Async Handler 经现有邮箱调用。已实现 Role→World 只读对象数量查询，覆盖类型匹配、目标错误、同回合等待、服务隔离和客户端拒绝；不改变默认未实现登录或存档。
+- [x] V2 Actor 内部协议：protov2/actor 按接收方组织并独立生成；Context.Actors 借用 ServerModules 的定位接口，Async Handler 经现有邮箱调用。已实现 Role→World 只读对象数量查询，覆盖类型匹配、目标错误、同回合等待、服务隔离和客户端拒绝；不改变存档及客户端协议隔离。
 
 - [x] 服务端 Actor：独立异步串行邮箱及 INIT/RUN/STOP，Ask/Tell 和回调；启动 LoginActor 摘要缓存，Role/World 按 ID 初始化，Role 通过 MapId Ask 世界；独立角色工作副本与地图串行事务、摘要消息同步、共同落地和正常关闭停止。移除全局实体缓存和仓库延迟缓存，覆盖邮箱顺序、分片故障、停止与现有游戏流程。
 
@@ -203,6 +203,10 @@
 - [x] 选角与创角人物由 2.4 倍缩小至 2 倍并增加底部留白；覆盖男女八方向、站立各帧及三种窗口尺寸，脚部完整且与旋转按钮至少相隔 12 个逻辑像素。
 
 - [x] 文本输入区接入配套 Edit.gsa 金色 I 形鼠标，沿用 Fetch 的导入方式，文本独立等比放大至 19×32 并同步原始热点；登录账号、密码及中间窄缝保持连续文本鼠标，覆盖真实悬停、编辑、双向划过和移出恢复。
+
+- [x] V2 首批业务迁移：demo/demo 登录、完整摘要列表、创建与删除墓碑；创建仅 summary，三表留待进入世界 lazy 创建。独立 V2 页面复用角色预览与命名/删除确认，缓存原子更新、单请求等待与代次隔离；只保存账号摘要，默认游戏保持旧 Server。
+
+- [x] V2 数据缓存职责收敛：Context 仅引用模块 Cache，Cache 组织各类 DataCache，数据管理及保存基线归数据缓存；仓库、邮箱与协议边界不变。
 
 ## 后续阶段（待确认）
 

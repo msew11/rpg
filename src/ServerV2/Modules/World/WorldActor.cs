@@ -36,10 +36,11 @@ internal sealed class WorldActor : ModuleActor<WorldContext>
     protected override async ValueTask<object?> DispatchAsync(WorldContext context, object message)
     {
         if (message is not DataFlush) return await base.DispatchAsync(context, message).ConfigureAwait(false);
-        if (context.DirtyChunks.Count != 0)
+        var dirty = context.Cache.DirtyChunks;
+        if (dirty.Count != 0)
         {
-            await _repo.SaveAsync(context.Layout, context.Snapshot(), context.DirtyChunks).ConfigureAwait(false);
-            context.AcceptSaved();
+            await _repo.SaveAsync(context.Cache.Layout, context.Cache.Snapshot(), dirty).ConfigureAwait(false);
+            context.Cache.AcceptSaved();
         }
         return true;
     }

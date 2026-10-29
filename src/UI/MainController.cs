@@ -57,7 +57,14 @@ public partial class MainController : Control
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;
             GameServices.EventBus.Error += OnNetworkError;
-            _subscriptions.Add(GameServices.EventBus.Subscribe<LoginRt>(OnLoggedIn));
+            if (GameServices.Net.MockServer is not null)
+            {
+                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.LoginRt>(_ => { if (_loginButton is not null) ShowRoles(); }));
+                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.CreateRoleRt>(_ => { if (_roleRequestPending) ShowRoles(); }));
+                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.DeleteRoleRt>(_ => { if (_roleRequestPending) ShowRoles(); }));
+                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.ErrorRt>(reply => OnNetworkError(new InvalidOperationException(reply.Message))));
+            }
+            else _subscriptions.Add(GameServices.EventBus.Subscribe<LoginRt>(OnLoggedIn));
             _subscriptions.Add(GameServices.EventBus.Subscribe<SelectRoleRt>(OnSelectedRole));
             _subscriptions.Add(GameServices.EventBus.Subscribe<CreateRoleRt>(OnCreatedRole));
             _subscriptions.Add(GameServices.EventBus.Subscribe<DeleteRoleRt>(OnDeletedRole));
@@ -151,8 +158,8 @@ public partial class MainController : Control
         _bgm?.PlayTrack("M001");
         var box = CenteredScreen("网络 RPG 客户端 · 模拟登录");
         box.AddChild(Label("演示账号：demo / demo", 15));
-        var username = new LineEdit { PlaceholderText = "用户名", Text = "demo", CustomMinimumSize = new Vector2(280, 36) };
-        var password = new LineEdit { PlaceholderText = "密码", Secret = true, Text = "demo" };
+        var username = new LineEdit { Name = "Username", PlaceholderText = "用户名", Text = "demo", CustomMinimumSize = new Vector2(280, 36) };
+        var password = new LineEdit { Name = "Password", PlaceholderText = "密码", Secret = true, Text = "demo" };
         // 让两个文本框之间的窄缝延续 I 形鼠标，保持原有间距和输入行为。
         var fields = new VBoxContainer { Name = "LoginFields", MouseDefaultCursorShape = Control.CursorShape.Ibeam };
         fields.AddThemeConstantOverride("separation", box.GetThemeConstant("separation"));
@@ -180,7 +187,7 @@ public partial class MainController : Control
         _bgm?.PlayTrack("M001");
         _screen = new CanvasLayer { Name = "ScreenLayer", Layer = 10 };
         AddChild(_screen);
-        var page = new RoleSelectionControl { Name = "RoleSelectionPage" };
+        var page = new RoleSelectionControl { Name = "RoleSelectionPage", CanEnterWorld = GameServices.Net.MockServer is null };
         page.EnterRequested += StartRole;
         page.CreateRequested += ShowCreateRole;
         page.DeleteRequested += ConfirmDeleteRole;
@@ -402,6 +409,7 @@ public partial class MainController : Control
     /// <summary>显示网络及事件监听错误，选角阶段失败时恢复可操作的角色列表。</summary>
     private void OnNetworkError(Exception error)
     {
+        GameServices.Session.CancelAccountRequest();
         if (_createPage is not null)
         {
             _roleRequestPending = false;

@@ -15,6 +15,10 @@ public sealed class SessionService : Service
 {
     /// <summary>本次启动绑定的网络。</summary>
     private readonly NetService _net;
+    /// <summary>显式 V2 传输只开放本批已迁移的账号操作。</summary>
+    private readonly bool _useV2;
+    /// <summary>独立 V2 客户端同一时刻只允许一个账号请求。</summary>
+    public bool AccountRequestPending => _login?.V2RequestPending == true;
     /// <summary>登录尝试时建立，由缓存自身处理响应的账号摘要。</summary>
     private LoginCache? _login;
     /// <summary>登录尝试时建立，选角后接纳状态的角色缓存。</summary>
@@ -52,6 +56,7 @@ public sealed class SessionService : Service
     {
         ArgumentNullException.ThrowIfNull(net);
         _net = net;
+        _useV2 = net.MockServer is not null;
         _generation = net.Generation;
     }
 
@@ -74,15 +79,22 @@ public sealed class SessionService : Service
     /// <summary>结束旧账号并在请求前隔离网络代次。</summary>
     public void Login(string username, string password)
     {
+        EnsureActive();
+        if (AccountRequestPending) throw new InvalidOperationException("请等待当前账号操作完成");
         Logout();
         ResetNetwork();
-        var login = new LoginCache();
+        var login = new LoginCache(_useV2);
         try
         {
             _role = new RoleCache();
             _map = new MapCache();
             _login = login;
-            _net.Send(new Login { Username = username, Password = password });
+            if (_useV2)
+            {
+                login.BeginV2Request<ProtocolV2.LoginRt>();
+                _net.Send(new ProtocolV2.Login { Username = username, Password = password });
+            }
+            else _net.Send(new Login { Username = username, Password = password });
         }
         catch
         {
@@ -100,6 +112,7 @@ public sealed class SessionService : Service
     public void SelectRole(long roleId)
     {
         EnsureActive();
+        if (_useV2) throw new NotSupportedException("进入世界待迁移");
         if (!IsLoggedIn) throw new InvalidOperationException("尚未登录");
         if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
         var role = RoleCache;
@@ -125,6 +138,15 @@ public sealed class SessionService : Service
     public void CreateRole(string name, RoleGender gender, int headId)
     {
         EnsureRoleList();
+        if (_useV2)
+        {
+            _login!.BeginV2Request<ProtocolV2.CreateRoleRt>();
+            try { _net.Send(new ProtocolV2.CreateRole { Name = name, Gender = gender switch
+                { RoleGender.Male => ProtocolV2.RoleGenderPb.Male, RoleGender.Female => ProtocolV2.RoleGenderPb.Female,
+                    _ => ProtocolV2.RoleGenderPb.Unspecified }, HeadId = headId }); }
+            catch { _login.CancelV2Request(); throw; }
+            return;
+        }
         _net.Send(new CreateRole { Name = name, Gender = gender switch
         {
             RoleGender.Male => RoleGenderPb.Male,
@@ -137,6 +159,13 @@ public sealed class SessionService : Service
     public void DeleteRole(long roleId)
     {
         EnsureRoleList();
+        if (_useV2)
+        {
+            _login!.BeginV2Request<ProtocolV2.DeleteRoleRt>();
+            try { _net.Send(new ProtocolV2.DeleteRole { RoleId = roleId }); }
+            catch { _login.CancelV2Request(); throw; }
+            return;
+        }
         _net.Send(new DeleteRole { RoleId = roleId });
     }
 
@@ -216,6 +245,7 @@ public sealed class SessionService : Service
     public void Logout()
     {
         EnsureActive();
+        if (_useV2) ResetNetwork();
         _map?.Dispose();
         _role?.Dispose();
         _login?.Dispose();
@@ -223,6 +253,9 @@ public sealed class SessionService : Service
         _role = null;
         _login = null;
     }
+
+    /// <summary>客户端网络或缓存异常释放 V2 请求等待，由 UI 展示错误。</summary>
+    internal void CancelAccountRequest() => _login?.CancelV2Request();
 
     /// <summary>更新服务拥有的代次，隔离先前消息。</summary>
     private void ResetNetwork()

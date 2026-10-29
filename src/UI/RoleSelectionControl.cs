@@ -22,6 +22,8 @@ public partial class RoleSelectionControl : RoleScreenControl
     private long _selectedId;
     /// <summary>选角列表仅允许一个条目被选中。</summary>
     private readonly ButtonGroup _selection = new();
+    /// <summary>独立 V2 验收阶段禁用进入世界，默认游戏继续允许选角。</summary>
+    public bool CanEnterWorld { get; init; } = true;
 
     /// <summary>从当前只读摘要建立右侧列表，第一名角色默认预览。</summary>
     public override void _Ready()
@@ -61,7 +63,8 @@ public partial class RoleSelectionControl : RoleScreenControl
         {
             if (_selectedId != 0) EnterRequested?.Invoke(_selectedId);
         });
-        enter.Disabled = _selectedId == 0;
+        enter.Disabled = !CanEnterWorld || _selectedId == 0;
+        if (!CanEnterWorld) enter.Text = "进入世界待迁移";
         Preview.Actions.AddChild(enter);
         BackButton.Name = "ReturnLogin";
         BackButton.Text = "返回登录";

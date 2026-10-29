@@ -30,6 +30,12 @@ enum ErrorCodePb {
   ERROR_CODE_PB_NOT_IMPLEMENTED = 5;
   // 处理器意外失败，具体诊断在服务端观察。
   ERROR_CODE_PB_INTERNAL_ERROR = 6;
+  // 登录凭据不匹配。
+  ERROR_CODE_PB_INVALID_CREDENTIALS = 7;
+  // 当前账号不存在该可见角色。
+  ERROR_CODE_PB_ROLE_NOT_FOUND = 8;
+  // 当前账号已有同名可见角色。
+  ERROR_CODE_PB_ROLE_NAME_CONFLICT = 9;
 }
 
 // 统一失败响应，通过信封关联原请求。

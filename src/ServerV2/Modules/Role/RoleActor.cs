@@ -29,10 +29,11 @@ internal sealed class RoleActor : ModuleActor<RoleContext>
     protected override async ValueTask<object?> DispatchAsync(RoleContext context, object message)
     {
         if (message is not DataFlush) return await base.DispatchAsync(context, message).ConfigureAwait(false);
-        if (context.DirtyTables != DataRoleTables.None)
+        var dirty = context.Cache.DirtyTables;
+        if (dirty != DataRoleTables.None)
         {
-            await _repo.SaveAsync(_roleId, context.Snapshot(), context.DirtyTables).ConfigureAwait(false);
-            context.AcceptSaved();
+            await _repo.SaveAsync(_roleId, context.Cache.Snapshot(), dirty).ConfigureAwait(false);
+            context.Cache.AcceptSaved();
         }
         return true;
     }

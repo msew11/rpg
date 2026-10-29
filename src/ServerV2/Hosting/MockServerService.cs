@@ -41,7 +41,7 @@ public sealed class MockServerService : Service, IAsyncDisposable
     /// <summary>意外处理失败与 Actor 通知错误的诊断，不包含完整请求载荷。</summary>
     public event Action<Exception>? Error;
 
-    /// <summary>公开构造只声明服务依赖；默认仅装配框架处理器。</summary>
+    /// <summary>公开构造只声明服务依赖，默认装配演示账号业务与内部只读查询。</summary>
     public MockServerService(EnvService env, ConfigService config)
     {
         ValidateDependencies(env, config);
@@ -49,7 +49,9 @@ public sealed class MockServerService : Service, IAsyncDisposable
         _config = config;
         var directory = Path.Combine(Path.GetFullPath(env.ServerDirectory), "v2");
         var modules = new ServerModules(config, new RepoAccountRoleSummary(directory), new RepoRole(directory), new RepoWorld(directory, Report), _ => new ActorHandlers<LoginContext>()
-            .Register<ProtocolV2.Login, ProtocolV2.LoginRt>(new LoginHandler()), report: Report);
+            .Register<ProtocolV2.Login, ProtocolV2.LoginRt>(new LoginHandler())
+            .Register<ProtocolV2.CreateRole, ProtocolV2.CreateRoleRt>(new CreateRoleHandler())
+            .Register<ProtocolV2.DeleteRole, ProtocolV2.DeleteRoleRt>(new DeleteRoleHandler()), report: Report);
         _runtime = CreateRuntime(modules);
     }
     /// <summary>验收注入已完整装配的模块，配置直接来自模块，避免重复传入与不一致。</summary>

@@ -15,7 +15,7 @@ public sealed class ServerV2ServiceTests : IDisposable
 {
     /// <summary>真实服务测试使用隔离存档，不依赖工作目录。</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-v2-service-" + Guid.NewGuid());
-    /// <summary>默认入口只报告未实现业务，成功链路由明确的内存测试处理器验证。</summary>
+    /// <summary>默认入口拒绝错误凭据，注入处理器验证固定帧分发及所有权。</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -36,7 +36,7 @@ public sealed class ServerV2ServiceTests : IDisposable
         var thread = Environment.CurrentManagedThreadId;
         using var success = events.Subscribe<LoginRt>(_ => { Assert.Equal(thread, Environment.CurrentManagedThreadId); messages++; });
         using var failure = events.Subscribe<ErrorRt>(message =>
-        { Assert.Equal(thread, Environment.CurrentManagedThreadId); Assert.Equal(ErrorCodePb.NotImplemented, message.Code); messages++; });
+        { Assert.Equal(thread, Environment.CurrentManagedThreadId); Assert.Equal(ErrorCodePb.InvalidCredentials, message.Code); messages++; });
         var errors = new List<Exception>();
         net.Error += errors.Add;
         net.Send(new Login { Username = " Alice ", Password = "not-validated" });

@@ -9,5 +9,5 @@ public sealed class GetWorldObjectCountHandler : IActorHandler<WorldContext, Get
 {
     /// <summary>直接返回内部协议回复，返回后不保留或修改该对象。</summary>
     public ValueTask<GetWorldObjectCountRt> HandleAsync(WorldContext context, GetWorldObjectCount request) =>
-        ValueTask.FromResult(new GetWorldObjectCountRt { Count = context.Objects.Length });
+        ValueTask.FromResult(new GetWorldObjectCountRt { Count = context.Cache.Objects.Value.Length });
 }

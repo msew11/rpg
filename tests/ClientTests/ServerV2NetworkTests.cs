@@ -261,7 +261,7 @@ public sealed class ServerV2NetworkTests : ServerV2ModuleTests
     internal static LoginRt LoginResponse(LoginContext context)
     {
         var response = new LoginRt();
-        foreach (var role in context.Summaries)
+        foreach (var role in context.Cache.Summaries.Value)
         {
             var summary = new RoleSummaryPb
             { RoleId = role.RoleId, Name = role.Name, Level = role.Level, Gender = (RoleGenderPb)role.Gender, HeadId = role.HeadId };
@@ -278,7 +278,7 @@ public sealed class ServerV2NetworkTests : ServerV2ModuleTests
         /// <summary>记录实际收到的实例，测试完成移交后不再修改请求与回复。</summary>
         public ValueTask<LoginRt> HandleAsync(LoginContext context, Login request)
         {
-            seen.Enqueue((context.Username, request));
+            seen.Enqueue((context.Cache.Username, request));
             return ValueTask.FromResult(reply);
         }
     }
@@ -289,7 +289,7 @@ public sealed class ServerV2NetworkTests : ServerV2ModuleTests
     private sealed class DoubleAccountHandler : IActorHandler<LoginContext, DataReadAccount, string>
     {
         /// <summary>从所属上下文返回不可变账号键。</summary>
-        public ValueTask<string> HandleAsync(LoginContext context, DataReadAccount request) => ValueTask.FromResult(context.Username);
+        public ValueTask<string> HandleAsync(LoginContext context, DataReadAccount request) => ValueTask.FromResult(context.Cache.Username);
     }
     /// <summary>无认证业务的内存替身，仅服务成功、失败与迟到结果契约。</summary>
     internal sealed class DoubleLoginHandler(TaskCompletionSource? entered = null, Task? release = null)
@@ -298,9 +298,9 @@ public sealed class ServerV2NetworkTests : ServerV2ModuleTests
         /// <summary>明确模拟阻塞和失败，不读取密码或文件。</summary>
         public async ValueTask<LoginRt> HandleAsync(LoginContext context, Login request)
         {
-            if (context.Username == "blocked") { entered?.TrySetResult(); if (release is not null) await release.ConfigureAwait(false); }
-            if (context.Username == "denied") throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "测试拒绝登录");
-            if (context.Username == "crash") throw new InvalidOperationException("处理器意外失败");
+            if (context.Cache.Username == "blocked") { entered?.TrySetResult(); if (release is not null) await release.ConfigureAwait(false); }
+            if (context.Cache.Username == "denied") throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "测试拒绝登录");
+            if (context.Cache.Username == "crash") throw new InvalidOperationException("处理器意外失败");
             return ServerV2NetworkTests.LoginResponse(context);
         }
     }
@@ -313,7 +313,7 @@ public sealed class ServerV2NetworkTests : ServerV2ModuleTests
         {
             entered.TrySetResult();
             await release.ConfigureAwait(false);
-            context.Commit(new(
+            context.Cache.Commit(new(
                 [new DataRoleSummary(101, "账号角色", 7, Rpg.ServerV2.Modules.Common.Data.RoleGender.Female, 9, [31, 42])]));
             return ServerV2NetworkTests.LoginResponse(context);
         }
@@ -326,12 +326,12 @@ public sealed class ServerV2NetworkTests : ServerV2ModuleTests
     private sealed class DoubleRoleHandler : IActorHandler<RoleContext, DataRoleIdentity, long>
     {
         /// <summary>返回所属角色身份。</summary>
-        public ValueTask<long> HandleAsync(RoleContext context, DataRoleIdentity request) => ValueTask.FromResult(context.RoleId);
+        public ValueTask<long> HandleAsync(RoleContext context, DataRoleIdentity request) => ValueTask.FromResult(context.Cache.RoleId);
     }
     /// <summary>地图上下文契约替身。</summary>
     private sealed class DoubleWorldHandler : IActorHandler<WorldContext, DataMapIdentity, int>
     {
         /// <summary>返回所属地图身份。</summary>
-        public ValueTask<int> HandleAsync(WorldContext context, DataMapIdentity request) => ValueTask.FromResult(context.MapId);
+        public ValueTask<int> HandleAsync(WorldContext context, DataMapIdentity request) => ValueTask.FromResult(context.Cache.MapId);
     }
 }

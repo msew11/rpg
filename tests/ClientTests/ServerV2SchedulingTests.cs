@@ -120,9 +120,9 @@ public sealed class ServerV2SchedulingTests : IDisposable
         await flushing.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal("已接纳修改", (await repo.LoadAsync("alice"))[0].Name);
     }
-    /// <summary>默认宿主只加载 V2 子目录，保留登录占位；损坏 V2 文件走统一错误诊断。</summary>
+    /// <summary>默认宿主只加载 V2 子目录，错误凭据被拒绝；损坏 V2 文件走统一错误诊断。</summary>
     [Fact]
-    public async Task DefaultServiceReadsV2DirectoryAndKeepsNotImplementedLogin()
+    public async Task DefaultServiceReadsV2DirectoryAndRejectsInvalidCredentials()
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
@@ -136,7 +136,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
             await server.ReceiveAsync(id, ServerV2WriteBackTests.LoginPacket());
             Assert.True(server.TryReadOutgoing(id, out var packet));
             var response = Assert.IsType<ErrorRt>(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false));
-            Assert.Equal(ErrorCodePb.NotImplemented, response.Code);
+            Assert.Equal(ErrorCodePb.InvalidCredentials, response.Code);
         }
         await File.WriteAllTextAsync(Path.Combine(v2, "alice.role_summary.json"), "{");
         await using var broken = new MockServerService(env, config);

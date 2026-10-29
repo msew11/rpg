@@ -174,7 +174,7 @@ public sealed class ServerV2ActorProtocolTests : ServerV2ModuleTests
         Assert.Equal("rpg.v2.Login", Login.Descriptor.FullName);
         await server.ReceiveAsync(connection, MessageCodec.Encode(new Login { Username = "alice" }, 1, 43, true));
         Assert.True(server.TryReadOutgoing(connection, out var packet));
-        Assert.Equal(ErrorCodePb.NotImplemented, Assert.IsType<ErrorRt>(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false)).Code);
+        Assert.Equal(ErrorCodePb.InvalidCredentials, Assert.IsType<ErrorRt>(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false)).Code);
         Assert.Null(server.Session(connection).Username);
     }
 
@@ -203,7 +203,7 @@ public sealed class ServerV2ActorProtocolTests : ServerV2ModuleTests
     private sealed class DoubleReadRoleIdHandler : IActorHandler<RoleContext, DataReadRoleId, long>
     {
         /// <summary>返回源分片身份以证明本回合已经执行。</summary>
-        public ValueTask<long> HandleAsync(RoleContext context, DataReadRoleId request) => ValueTask.FromResult(context.RoleId);
+        public ValueTask<long> HandleAsync(RoleContext context, DataReadRoleId request) => ValueTask.FromResult(context.Cache.RoleId);
     }
     /// <summary>为跨 await、目标异常与回合恢复契约提供确定性屏障。</summary>
     private sealed class DoubleBlockedWorldHandler(bool fail) : IActorHandler<WorldContext, GetWorldObjectCount, GetWorldObjectCountRt>

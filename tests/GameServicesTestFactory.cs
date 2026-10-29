@@ -8,6 +8,7 @@ using Rpg.Settings;
 using Rpg.World;
 using Rpg.World.Views;
 using Rpg.Utils;
+using Rpg.ServerV2.Hosting;
 
 namespace Rpg.Tests;
 
@@ -15,7 +16,13 @@ namespace Rpg.Tests;
 internal static class GameServicesTestFactory
 {
     /// <summary>以独立目录建立服务组，失败时回收测试创建的全部实例。</summary>
-    internal static IDisposable Register(EnvService env)
+    internal static IDisposable Register(EnvService env) => Register(env, false);
+
+    /// <summary>独立 V2 验收仍注册完整服务组，由 Net 拥有模拟服务端。</summary>
+    internal static IDisposable RegisterV2(EnvService env) => Register(env, true);
+
+    /// <summary>仅测试装配选择协议版本，生产无参启动保持旧链路。</summary>
+    private static IDisposable Register(EnvService env, bool useV2)
     {
         ArgumentNullException.ThrowIfNull(env);
         ObjectDisposedException.ThrowIf(env.IsDisposed, env);
@@ -31,7 +38,14 @@ internal static class GameServicesTestFactory
             created.Add(config);
             var setting = new SettingService(env, log);
             created.Add(setting);
-            var net = new NetService(env, eventBus, config, log);
+            NetService net;
+            if (useV2)
+            {
+                var server = new MockServerService(env, config);
+                created.Add(server);
+                net = new NetService(server, eventBus, log);
+            }
+            else net = new NetService(env, eventBus, config, log);
             created.Add(net);
             return Register(env, eventBus, config, setting, net);
         }

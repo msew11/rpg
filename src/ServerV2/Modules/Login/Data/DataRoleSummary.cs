@@ -10,5 +10,6 @@ namespace Rpg.ServerV2.Modules.Login.Data;
 /// <param name="Gender">展示性别。</param>
 /// <param name="HeadId">性别内头型编号。</param>
 /// <param name="EquippedItems">已穿戴物品的配置编号。</param>
+/// <param name="IsDeleted">摘要删除墓碑，保留编号；缺失时为未删除。</param>
 public sealed record DataRoleSummary(long RoleId, string Name, int Level, RoleGender Gender, int HeadId,
-    ImmutableArray<int> EquippedItems);
+    ImmutableArray<int> EquippedItems, bool IsDeleted = false);

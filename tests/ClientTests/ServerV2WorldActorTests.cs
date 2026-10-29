@@ -152,19 +152,19 @@ public sealed class ServerV2WorldActorTests : IDisposable
         var layout = Map(1);
         await using var locator = Modules(new DoubleServerV2Repo());
         var context = new WorldContext(_config, locator, layout, new([value]));
-        context.Commit(new([value with { }]));
-        Assert.Empty(context.DirtyChunks);
-        context.Commit(new([value with { X = 1100 }]));
-        Assert.True(Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0)).SetEquals(context.DirtyChunks));
-        context.Commit(new([value with { X = 2100 }]));
-        Assert.True(Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(2, 0)).SetEquals(context.DirtyChunks));
-        context.Commit(new([value with { }]));
-        Assert.Empty(context.DirtyChunks);
+        context.Cache.Commit(new([value with { }]));
+        Assert.Empty(context.Cache.DirtyChunks);
+        context.Cache.Commit(new([value with { X = 1100 }]));
+        Assert.True(Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0)).SetEquals(context.Cache.DirtyChunks));
+        context.Cache.Commit(new([value with { X = 2100 }]));
+        Assert.True(Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(2, 0)).SetEquals(context.Cache.DirtyChunks));
+        context.Cache.Commit(new([value with { }]));
+        Assert.Empty(context.Cache.DirtyChunks);
         var empty = new WorldContext(_config, locator, layout, new(default));
-        empty.Commit(new(default));
-        Assert.Empty(empty.Objects);
-        Assert.Empty(empty.DirtyChunks);
-        Assert.Throws<ArgumentNullException>(() => context.Commit(null!));
+        empty.Cache.Commit(new(default));
+        Assert.Empty(empty.Cache.Objects.Value);
+        Assert.Empty(empty.Cache.DirtyChunks);
+        Assert.Throws<ArgumentNullException>(() => context.Cache.Commit(null!));
         var repo = new DoubleWorldRepo(new RepoWorld(Storage));
         await using var modules = Modules(repo);
         var actor = modules.World(1);
@@ -385,14 +385,14 @@ public sealed class ServerV2WorldActorTests : IDisposable
     private sealed class DoubleReadWorldHandler : IActorHandler<WorldContext, DataReadWorld, DataWorldSnapshot>
     {
         /// <summary>不暴露可变 Context。</summary>
-        public ValueTask<DataWorldSnapshot> HandleAsync(WorldContext context, DataReadWorld request) => ValueTask.FromResult(context.Snapshot());
+        public ValueTask<DataWorldSnapshot> HandleAsync(WorldContext context, DataReadWorld request) => ValueTask.FromResult(context.Cache.Snapshot());
     }
     /// <summary>Commit 修改契约的无状态替身，不执行 IO。</summary>
     private sealed class DoubleWriteWorldHandler : IActorHandler<WorldContext, DataWriteWorld, ImmutableHashSet<DataWorldChunk>>
     {
         /// <summary>统一提交入口并返回不可变待写块。</summary>
         public ValueTask<ImmutableHashSet<DataWorldChunk>> HandleAsync(WorldContext context, DataWriteWorld request)
-        { context.Commit(request.Snapshot); return ValueTask.FromResult(context.DirtyChunks); }
+        { context.Cache.Commit(request.Snapshot); return ValueTask.FromResult(context.Cache.DirtyChunks); }
     }
     /// <summary>服务地图加载及邮箱保存契约，真实仓库外包可控屏障与故障。</summary>
     internal sealed class DoubleWorldRepo(IWorldRepo inner) : IWorldRepo

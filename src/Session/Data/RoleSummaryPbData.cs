@@ -36,6 +36,32 @@ public sealed record RoleSummaryPbData(long RoleId, string Name, int Level, Role
         return data;
     }
 
+    /// <summary>直接复制 V2 摘要，不构造或转发旧协议对象。</summary>
+    public static RoleSummaryPbData FromPb(ProtocolV2.RoleSummaryPb message)
+    {
+        if (message is null) throw new InvalidDataException("角色摘要协议不能为空");
+        var gender = message.Gender switch
+        {
+            ProtocolV2.RoleGenderPb.Male => RoleGender.Male,
+            ProtocolV2.RoleGenderPb.Female => RoleGender.Female,
+            _ => throw new InvalidDataException("角色摘要协议包含无效性别")
+        };
+        var data = new RoleSummaryPbData(message.RoleId, message.Name, message.Level, gender, message.HeadId)
+        { EquippedItems = message.EquippedItems };
+        data.Validate();
+        return data;
+    }
+
+    /// <summary>创建独立的 V2 摘要，持久化模型和可写协议集合均不共享。</summary>
+    public ProtocolV2.RoleSummaryPb ToV2Pb()
+    {
+        Validate();
+        var message = new ProtocolV2.RoleSummaryPb { RoleId = RoleId, Name = Name, Level = Level,
+            Gender = Gender == RoleGender.Male ? ProtocolV2.RoleGenderPb.Male : ProtocolV2.RoleGenderPb.Female, HeadId = HeadId };
+        message.EquippedItems.AddRange(EquippedItems);
+        return message;
+    }
+
     /// <summary>校验摘要并创建独立协议对象，每次调用均返回新实例。</summary>
     public RoleSummaryPb ToPb()
     {
