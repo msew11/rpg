@@ -1,4 +1,5 @@
-using Rpg.ServerV2.Storage;
+using System.Linq;
+using Rpg.ServerV2.Modules.Login.Data;
 
 namespace Rpg.ServerV2.Modules.Login;
 
@@ -9,14 +10,33 @@ public sealed class LoginContext
     public string Username { get; }
     /// <summary>本账号持有的不可变摘要快照。</summary>
     public DataAccountRoleSummaries Summaries { get; private set; }
-    /// <summary>建立空账号工作区，不推断账号是否存在、不执行 IO。</summary>
-    internal LoginContext(string username)
-    { Username = username; Summaries = new(username, []); }
-    /// <summary>仅在所属回合接纳同账号的新快照。</summary>
+    /// <summary>上次成功保存的不可变摘要基线。</summary>
+    private DataAccountRoleSummaries _saved;
+    /// <summary>当前摘要与保存基线是否不同。</summary>
+    public bool SummariesDirty { get; private set; }
+    /// <summary>用所属 Actor 完整加载的摘要建立基线，不执行 IO。</summary>
+    internal LoginContext(string username, DataAccountRoleSummaries? summaries = null)
+    { Username = username; Summaries = _saved = summaries ?? new(username, []); }
+    /// <summary>仅在所属回合接纳新快照，以本 Context 的固定账号键持有数据。</summary>
     public void ReplaceSummaries(DataAccountRoleSummaries summaries)
     {
         System.ArgumentNullException.ThrowIfNull(summaries);
-        if (summaries.Username != Username) throw new System.InvalidOperationException("账号摘要身份不符");
-        Summaries = summaries;
+        Summaries = new(Username, summaries.Roles);
+        SummariesDirty = !Summaries.Roles.SequenceEqual(_saved.Roles, SummaryComparer.Instance);
+    }
+    /// <summary>仓库成功后更新基线，失败时不得调用。</summary>
+    internal void AcceptSaved() { _saved = Summaries; SummariesDirty = false; }
+    /// <summary>摘要中的嵌套不可变数组也按内容比较，避免重新构造导致误写。</summary>
+    private sealed class SummaryComparer : System.Collections.Generic.IEqualityComparer<DataRoleSummary>
+    {
+        /// <summary>无状态比较器。</summary>
+        internal static readonly SummaryComparer Instance = new();
+        /// <summary>比较展示字段与装备配置编号顺序。</summary>
+        public bool Equals(DataRoleSummary? left, DataRoleSummary? right) => ReferenceEquals(left, right) ||
+            left is not null && right is not null && left.RoleId == right.RoleId && left.Name == right.Name &&
+            left.Level == right.Level && left.Gender == right.Gender && left.HeadId == right.HeadId &&
+            (left.EquippedItems.IsDefault ? [] : left.EquippedItems).SequenceEqual(right.EquippedItems.IsDefault ? [] : right.EquippedItems);
+        /// <summary>身份哈希与内容相等契约兼容；当前仅用于顺序比较。</summary>
+        public int GetHashCode(DataRoleSummary value) => value.RoleId.GetHashCode();
     }
 }

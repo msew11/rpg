@@ -1,3 +1,4 @@
+using Rpg.ServerV2.Connections.Data;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -7,7 +8,7 @@ using Rpg.ServerV2.Hosting;
 namespace Rpg.Net;
 
 /// <summary>Net 对 V2 服务的字节适配，后台只入服务端队列，接收监听只在 Tick 执行。</summary>
-internal sealed class MockServerV2Transport : INetTransport
+internal sealed class MockServerV2Transport : INetTransport, IServerWriteBackTransport
 {
     /// <summary>借用 Net 拥有的子服务，传输释放只关闭自己的连接。</summary>
     private readonly MockServerService _server;
@@ -30,10 +31,17 @@ internal sealed class MockServerV2Transport : INetTransport
     public void Tick(double delta)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _server.Tick(delta);
         for (var index = _pending.Count - 1; index >= 0; index--)
             if (_pending[index].IsCompleted)
             { var completed = _pending[index]; _pending.RemoveAt(index); completed.GetAwaiter().GetResult(); }
         while (_server.TryReadOutgoing(_connection, out var packet)) Received?.Invoke(packet);
+    }
+    /// <summary>同步桥接显式保存，等待服务器调用前已接纳请求；失败向 Net 调用方传播。</summary>
+    public void FlushServerWrites()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _server.FlushAsync().GetAwaiter().GetResult();
     }
     /// <summary>初次同步不推进，后续只接受紧邻的单调递增代次。</summary>
     public void ResetSession(long generation)

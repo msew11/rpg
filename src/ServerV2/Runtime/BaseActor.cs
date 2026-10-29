@@ -1,7 +1,7 @@
-using System;
-using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using System.Threading;
+using System;
 
 namespace Rpg.ServerV2.Runtime;
 
@@ -22,6 +22,8 @@ public abstract class BaseActor : IAsyncDisposable
     private int _state;
     /// <summary>初始化、运行或停止状态。</summary>
     public ActorState State => (ActorState)Volatile.Read(ref _state);
+    /// <summary>目录保存枚举只选择收到过消息的分片，不触发惰性初始化。</summary>
+    internal bool HasStarted { get { lock (_gate) return _loop is not null; } }
     /// <summary>对外唯一消息引用。</summary>
     public ActorRef Ref { get; }
     /// <summary>Tell 或初始化错误的诊断入口，观察者不得改变邮箱结果。</summary>

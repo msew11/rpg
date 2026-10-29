@@ -1,7 +1,7 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System;
 
 namespace Rpg.ServerV2.Runtime;
 
@@ -35,6 +35,12 @@ public sealed class ActorDirectory<TKey> : IAsyncDisposable where TKey : notnull
             _actors[key] = actor;
             return actor.Ref;
         }
+    }
+    /// <summary>取得已启动且未失败停止的分片引用，不创建或初始化分片。</summary>
+    internal ActorRef[] StartedRefs()
+    {
+        lock (_gate) return _actors.Values.Where(actor => actor.HasStarted && actor.State != ActorState.STOP)
+            .Select(actor => actor.Ref).ToArray();
     }
 
     /// <summary>阻止新分片并并行排空已有分片；重复调用等待同一任务。</summary>

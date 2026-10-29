@@ -1,31 +1,34 @@
 using Rpg.Config;
 using Rpg.Net;
 using Rpg.ProtocolV2;
-using Rpg.Services;
 using Rpg.ServerV2.Hosting;
-using Rpg.ServerV2.Modules;
+using Rpg.ServerV2.Modules.Login.Data;
 using Rpg.ServerV2.Modules.Login;
+using Rpg.ServerV2.Modules;
 using Rpg.ServerV2.Runtime;
+using Rpg.Services;
 
 namespace ClientTests;
 
 /// <summary>在真实引擎中验证 openspec/specs/server-v2-account 的配置借用、Net 收发与所有权。</summary>
 [Trait("Runtime", "Godot")]
-public sealed class ServerV2ServiceTests
+public sealed class ServerV2ServiceTests : IDisposable
 {
+    /// <summary>真实服务测试使用隔离存档，不依赖工作目录。</summary>
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-v2-service-" + Guid.NewGuid());
     /// <summary>默认入口只报告未实现业务，成功链路由明确的内存测试处理器验证。</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void NetOwnsV2ServiceAndPublishesOnlyDuringItsTick(bool successfulHandler)
     {
-        using var env = ConfigTestFixture.CreateEnv();
+        using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
         using var events = new EventBusService();
         using var log = new LogService(Console.WriteLine);
-        var modules = successfulHandler ? new ServerModules(_ => new ActorHandlers<LoginContext>()
+        var modules = successfulHandler ? new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
             .Register<DataLogin, DataLoginResult>(new ServerV2NetworkTests.DoubleLoginHandler())) : null;
-        using var server = new MockServerService(config, modules);
+        using var server = new MockServerService(env, config, modules);
         using var net = new NetService(server, events, log);
         Assert.Same(config, server.Config);
         Assert.Same(server, net.MockServer);
@@ -54,4 +57,6 @@ public sealed class ServerV2ServiceTests
         net.Dispose();
         server.Dispose();
     }
+    /// <summary>只清理本例分配的临时存档目录。</summary>
+    public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }
 }

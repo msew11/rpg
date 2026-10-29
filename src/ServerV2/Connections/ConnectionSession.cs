@@ -1,7 +1,8 @@
-using System;
 using System.Collections.Generic;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using System;
+using Rpg.ServerV2.Connections.Data;
 
 namespace Rpg.ServerV2.Connections;
 
@@ -48,6 +49,17 @@ internal sealed class ConnectionSession
             var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             if (!_requests.Writer.TryWrite(new((byte[])packet.Clone(), completion))) throw new ObjectDisposedException(nameof(ConnectionSession));
             _loop ??= Task.Run(RunAsync);
+            return completion.Task;
+        }
+    }
+    /// <summary>捕获当前队列尾部屏障，等待先前请求但不关闭连接、不切换代次。</summary>
+    internal Task BarrierAsync()
+    {
+        lock (_gate)
+        {
+            if (!_accepting || _loop is null) return _loop ?? Task.CompletedTask;
+            var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (!_requests.Writer.TryWrite(new(null, completion))) throw new ObjectDisposedException(nameof(ConnectionSession));
             return completion.Task;
         }
     }
@@ -113,7 +125,11 @@ internal sealed class ConnectionSession
     {
         await foreach (var delivery in _requests.Reader.ReadAllAsync().ConfigureAwait(false))
         {
-            try { await _process(this, delivery.Packet).ConfigureAwait(false); delivery.Completion.TrySetResult(); }
+            try
+            {
+                if (delivery.Packet is not null) await _process(this, delivery.Packet).ConfigureAwait(false);
+                delivery.Completion.TrySetResult();
+            }
             catch (Exception error) { delivery.Completion.TrySetException(error); }
         }
     }
@@ -121,5 +137,5 @@ internal sealed class ConnectionSession
     /// <summary>拒绝已经断开的连接继续操作。</summary>
     private void EnsureActive() => ObjectDisposedException.ThrowIf(!_active, this);
     /// <summary>一条已复制的请求与其处理完成句柄。</summary>
-    private sealed record Delivery(byte[] Packet, TaskCompletionSource Completion);
+    private sealed record Delivery(byte[]? Packet, TaskCompletionSource Completion);
 }

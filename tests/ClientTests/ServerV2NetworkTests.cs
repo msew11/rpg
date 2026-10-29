@@ -2,13 +2,14 @@ using System.Collections.Concurrent;
 using Google.Protobuf;
 using Rpg.ProtocolV2;
 using Rpg.ServerV2.Hosting;
-using Rpg.ServerV2.Modules;
+using Rpg.ServerV2.Modules.Common.Data;
+using Rpg.ServerV2.Modules.Login.Data;
 using Rpg.ServerV2.Modules.Login;
 using Rpg.ServerV2.Modules.Role;
 using Rpg.ServerV2.Modules.World;
+using Rpg.ServerV2.Modules;
 using Rpg.ServerV2.Protocol;
 using Rpg.ServerV2.Runtime;
-using Rpg.ServerV2.Storage;
 
 namespace ClientTests;
 
@@ -103,7 +104,7 @@ public sealed class ServerV2NetworkTests
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        await using var server = new ServerRuntime(new ServerModules(_ => new ActorHandlers<LoginContext>()
+        await using var server = new ServerRuntime(new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
             .Register<DataLogin, DataLoginResult>(new DoubleSummaryHandler(entered, release.Task))));
         var id = server.OpenConnection();
         var work = server.ReceiveAsync(id, LoginPacket("alice", 11));
@@ -202,7 +203,7 @@ public sealed class ServerV2NetworkTests
     public async Task RoleAndWorldModulesKeepSeparateIdentityAndFrozenHandlers()
     {
         var handlers = new ActorHandlers<RoleContext>().Register<DataRoleIdentity, long>(new DoubleRoleHandler());
-        await using var modules = new ServerModules(_ => LoginHandlers(new DoubleLoginHandler()),
+        await using var modules = new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => LoginHandlers(new DoubleLoginHandler()),
             _ => handlers, _ => new ActorHandlers<WorldContext>().Register<DataMapIdentity, int>(new DoubleWorldHandler()));
         var role = modules.Role(10);
         var world = modules.World(2);
@@ -219,7 +220,7 @@ public sealed class ServerV2NetworkTests
 
     /// <summary>明确组装无配置、无文件 IO 的框架验收实例。</summary>
     private static ServerRuntime CreateServer(ConcurrentDictionary<string, int>? created = null, DoubleLoginHandler? handler = null) =>
-        new(new ServerModules(username =>
+        new(new ServerModules(new DoubleServerV2Repo(), new DoubleServerV2Repo(), username =>
         {
             created?.AddOrUpdate(username, 1, (_, count) => count + 1);
             return LoginHandlers(handler ?? new DoubleLoginHandler());
@@ -262,7 +263,7 @@ public sealed class ServerV2NetworkTests
             entered.TrySetResult();
             await release.ConfigureAwait(false);
             context.ReplaceSummaries(new(context.Username,
-                [new DataRoleSummary(101, "账号角色", 7, Rpg.ServerV2.Modules.Login.RoleGender.Female, 9, [31, 42])]));
+                [new DataRoleSummary(101, "账号角色", 7, Rpg.ServerV2.Modules.Common.Data.RoleGender.Female, 9, [31, 42])]));
             return new(context.Summaries.Roles);
         }
     }

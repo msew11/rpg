@@ -1,7 +1,8 @@
-using System;
 using System.Threading.Tasks;
+using System;
 using Rpg.Config;
 using Rpg.ProtocolV2;
+using Rpg.ServerV2.Modules.Login.Data;
 using Rpg.ServerV2.Protocol;
 using Rpg.ServerV2.Runtime;
 

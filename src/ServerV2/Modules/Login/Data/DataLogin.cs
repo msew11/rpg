@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using Rpg.ServerV2.Runtime;
 
-namespace Rpg.ServerV2.Modules.Login;
+namespace Rpg.ServerV2.Modules.Login.Data;
 
 /// <summary>规范账号已经由路由确定，邮箱内只接收独立的凭据数据。</summary>
 /// <param name="Password">后续认证处理器所需的密码，不进入诊断文本。</param>

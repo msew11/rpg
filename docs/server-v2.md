@@ -19,10 +19,10 @@ V2 在 `src/ServerV2` 独立开发，现有客户端默认仍使用旧 Server。
 | `Protocol` | 显式协议方向表、protobuf 编解码、统一错误 |
 | `Routing` | 从入口或 Session 定位 Actor，转换独立内部消息和响应 |
 | `Runtime` | 通用邮箱、ActorRef、处理器契约与唯一分片目录 |
-| `Modules/Login` | 按规范 username 独占该账号的全部角色摘要 |
-| `Modules/Role` | 按正整数全局 RoleId 的独占状态边界 |
+| `Modules/Login` | 按规范 username 独占账号摘要；Storage 子目录负责账号文件仓库 |
+| `Modules/Role` | 按 RoleId 独占角色、物品、装备快照；Storage 子目录负责角色三表仓库 |
 | `Modules/World` | 按正整数 MapId 的独占状态边界 |
-| `Storage` | 账号摘要数据与 IO 接口契约，不实现文件读写 |
+| `Modules/Common/Storage` | 共用 JSON 编解码与单文件原子替换；不持有业务状态 |
 
 ```text
 NetService --> V2 transport --> connection queue --> codec --> router
@@ -30,9 +30,9 @@ NetService --> V2 transport --> connection queue --> codec --> router
 NetService <-- connection output queue <-- response codec <-- result
 ```
 
-`MockServerService(ConfigService)` 借用配置并拥有 Runtime。后续业务通过构造注入同一个 `ConfigService`，不访问 `GameServices`。默认 `LoginHandler` 显式返回 NotImplemented；测试成功不代表认证已实现。
+`MockServerService(EnvService, ConfigService)` 借用环境与配置并拥有 Runtime。后续业务通过构造注入同一个 `ConfigService`，不访问 `GameServices`。默认 `LoginHandler` 显式返回 NotImplemented；测试成功不代表认证已实现。
 
-V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Net 接管服务，负责序列化、排队、固定帧拉取输出及释放；传输只关闭自己绑定的连接。Config 的所有者在 Net 释放后再释放配置。当前 `GameServices.Initialize()` 的旧构造仍运行旧业务；不增加全局 MockServer 注册。
+V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Net 接管服务，负责序列化、排队、固定帧拉取输出及释放；传输只关闭自己绑定的连接。Env 与 Config 的所有者在 Net 释放后再释放它们。当前 `GameServices.Initialize()` 的旧构造仍运行旧业务；不增加全局 MockServer 注册。
 
 ## 身份和协议
 
@@ -46,10 +46,27 @@ V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Ne
 
 Login 载荷首次包含 username/password。入口对 username 使用 Trim().ToLowerInvariant()，拒绝 Windows 非法文件名及设备保留名，不做 Unicode 兼容折叠。成功后仅在代次仍有效时绑定 Session.Username；再次 Login 开始解除旧绑定，失败保持匿名。后续账号请求从 Session 取得 username，通过 RequestRouter 的账号路由进入同一分片，不重复提供账号键。
 
-## 摘要存储与后续扩展
+## 数据加载与写回
 
-`DataAccountRoleSummaries` 包含规范账号和不可变角色摘要集合；`IAccountRoleSummaryRepo` 以账号为加载、保存边界，约定文件名是 `username.role_summary.json`。没有真实仓库实现，不扫描旧 `<RoleId>.role_summary.json`。摘要数据与生成协议相互独立，不共享可写 protobuf 对象。
+数据文件隔离在 `EnvService.ServerDirectory/v2`。JSON 使用 camelCase 与数字枚举：`<username>.role_summary.json` 是摘要数组；`<roleId>.role.json` 是角色对象；同角色的 `.item.json`、`.equipment.json` 是数组。摘要文件缺失得到内存空集合，不创建文件；角色三表全部必需，空表用 `[]`。不扫描或迁移旧存档，不执行字段完整性、数值、重复项、身份、关联或配置校验。JSON 无法解析、根 null 和 IO 错误使 INIT 失败，后续重新取得分片可重试。
+
+```text
+LoginActor --> LoginContext --> Summaries + saved baseline + SummariesDirty
+           --> Login/Storage/IAccountRoleSummaryRepo
+RoleActor  --> RoleContext  --> Role / Items / Equipments + saved baseline + DirtyTables
+           --> Role/Storage/IRoleRepo
+```
+
+快照与数据模型放在所属模块的 `Data` 子目录，Context 放在模块根目录；仓库在该模块的 `Storage` 子目录。共用文件工具在 `Modules/Common/Storage`，公共 `RoleGender` 与固定 `DataFlush` 消息在 `Modules/Common/Data`，连接数据在 `Connections/Data`。仓库通过构造注入 Actor，只读写文件，不缓存业务状态。
+
+Handler 通过 `LoginContext.ReplaceSummaries(...)` 或 `RoleContext.Commit(DataRoleSnapshot)` 一次替换不可变数据。Context 属性不可直接赋值，按内容与上次保存基线比较；恢复原值自动取消待写。`DirtyTables` 分别跟踪 Role、Item、Equipment，摘要使用 `SummariesDirty`。Actor 在自己的邮箱回合内 await 仓库保存，仅成功后更新保存基线；失败保留最新内存与待写标记。保存期间同一 Actor 不执行下一回合，其他分片仍可工作。
+
+单文件同目录临时写入、刷盘后替换。角色一次修改多表时，先持久化 `<roleId>.pending.json` 原始字节回滚记录，全部替换后删除记录作为提交完成。下次读取或保存前先回滚未完成提交；恢复错误保留记录并阻止继续 IO。只从固定表名生成恢复路径，不把元数据当作路径。账号摘要与角色三表分别提交，本次不自动同步摘要，也不提供跨 Actor 事务。
+
+`MockServerService.Tick(delta)` 由 V2 传输在 Net Tick 中推进，沿用 `EnvService.ServerFlushIntervalSeconds`：默认 5 秒、0 禁用周期、改变后重新计时。周期保存留在后台，每服务最多一个周期任务；重复到期合并，错误进入服务诊断。
+
+`MockServerService.FlushAsync()` 捕获各连接当前队尾屏障，等待先前已接纳请求，再保存已启动分片；不启动未收消息的分片。角色组完成后保存账号组，各组内并行，独立失败继续其他分片，最后汇总。各保存轮次串行衔接，失败不阻止下一次重试。V2 传输实现 `IServerWriteBackTransport`，所以 `NetService.FlushServerWrites()` 会先发送 Net 已排队消息，再同步等待服务端保存；即使周期禁用也生效。
 
 增加功能时，先在 protov2 加协议并显式登记方向，在 Routing 转换成不可变内部消息，再在所属模块注册该 Actor 专用 Handler。Handler 只处理内存；需要跨 Actor 协调时覆盖模块的 DispatchAsync，通过 ActorRef 交换数据，不把委托或上下文放进消息。加载与持久化从 Actor 初始化及宿主调度边界接入，不塞进 Handler。
 
-关闭顺序：停止外部接纳 → 排空所有连接已接纳请求 → 停止角色分片 → 地图分片 → 账号分片。强制中断、邮箱容量与背压、真实认证、角色归属校验和真实磁盘事务由后续目标分别确定。
+关闭顺序：停止外部接纳 → 等待连接请求和已有保存轮次 → 最终保存 → 停止角色分片 → 地图分片 → 账号分片。保存失败仍完成停止并向调用方抛错，不静默吞掉失败；进程仍存活时可通过显式 Flush 修复重试。强制中断、邮箱容量与背压、真实认证、角色归属校验和跨 Actor 事务由后续目标分别确定。

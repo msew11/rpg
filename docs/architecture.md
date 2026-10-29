@@ -2,7 +2,7 @@
 
 ## 并行 Server V2 框架
 
-`src/ServerV2` 与 `protov2` 是独立重写的基础框架，当前默认客户端仍走旧 Server。V2 的 `MockServerService` 继承 `Service`，借用同次启动的 `ConfigService`；显式 V2 构造的 `NetService` 拥有并释放它，负责字节队列、固定帧收发和 EventBus 发布，不增加全局服务入口。内部按 Hosting、Connections、Protocol、Routing、Runtime、Modules 与 Storage 分类。LoginActor 改为按规范 username 分片，连接登录成功后绑定账号；Role/World 仍按身份分片。V2 信封仅含 generation、request_id、message_type、payload；账号摘要约定为 username.role_summary.json，暂不实现认证、游戏业务或真实存档。目录职责、扩展与生命周期见 [Server V2 框架](server-v2.md)。下文原有模拟服务端、协议与落地说明仍描述旧实现。
+`src/ServerV2` 与 `protov2` 是独立重写的基础框架，当前默认客户端仍走旧 Server。V2 的 `MockServerService` 继承 `Service`，借用同次启动的 `EnvService` 与 `ConfigService`；显式 V2 构造的 `NetService` 拥有并释放它，负责字节队列、固定帧收发和 EventBus 发布，不增加全局服务入口。内部按 Hosting、Connections、Protocol、Routing、Runtime、Modules 分类，数据归属各自 Data 子目录，存储接口和仓库归属各模块的 Storage 子目录，共用文件工具归 Modules/Common/Storage。LoginActor 改为按规范 username 分片，连接登录成功后绑定账号；Role/World 仍按身份分片。V2 信封仅含 generation、request_id、message_type、payload；账号摘要使用 username.role_summary.json，角色采用独立三表，文件隔离在 server/v2。INIT 完成加载后发布 Context；Context 跟踪当前快照与保存基线，Actor 在邮箱内 Flush，Repo 执行单文件原子替换与角色多表回滚恢复。周期沿用 Env 的间隔，Net 显式保存与关闭补写等待已接纳工作；暂不实现认证、游戏业务或跨 Actor 事务，也不新增业务数据校验。目录职责、扩展与生命周期见 [Server V2 框架](server-v2.md)。下文原有模拟服务端、协议与落地说明仍描述旧实现。
 
 ## 服务、数据和生命周期
 

@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
-using Rpg.ServerV2.Modules.Login;
 
-namespace Rpg.ServerV2.Storage;
+namespace Rpg.ServerV2.Modules.Login.Data;
 
 /// <summary>一个账号的全部角色摘要；对应 username.role_summary.json 的存储边界。</summary>
 public sealed class DataAccountRoleSummaries

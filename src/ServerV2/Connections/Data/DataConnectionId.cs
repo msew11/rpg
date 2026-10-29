@@ -1,6 +1,6 @@
 using System;
 
-namespace Rpg.ServerV2.Connections;
+namespace Rpg.ServerV2.Connections.Data;
 
 /// <summary>服务端分配的连接身份，不进入客户端协议，也不在重连时复用。</summary>
 /// <param name="Value">该连接的唯一标识。</param>

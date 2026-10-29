@@ -1,14 +1,15 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System;
+using Codec = Rpg.ServerV2.Protocol.MessageCodec;
 using Google.Protobuf;
 using Rpg.ProtocolV2;
+using Rpg.ServerV2.Connections.Data;
 using Rpg.ServerV2.Connections;
 using Rpg.ServerV2.Modules;
-using Rpg.ServerV2.Routing;
-using Codec = Rpg.ServerV2.Protocol.MessageCodec;
 using Rpg.ServerV2.Protocol;
+using Rpg.ServerV2.Routing;
 
 namespace Rpg.ServerV2.Hosting;
 
@@ -25,6 +26,8 @@ internal sealed class ServerRuntime : IAsyncDisposable
     internal RequestRouter Router { get; }
     /// <summary>停止任务一旦建立即不再接纳外部工作。</summary>
     private Task? _stopping;
+    /// <summary>所有保存轮次串行衔接，关闭等待最后一个已接纳保存。</summary>
+    private Task _flushTail = Task.CompletedTask;
     /// <summary>不影响请求结果的服务端诊断。</summary>
     internal event Action<Exception>? Error;
 
@@ -68,7 +71,24 @@ internal sealed class ServerRuntime : IAsyncDisposable
     internal Task StopAsync()
     {
         lock (_gate)
-            return _stopping ??= StopCoreAsync(_connections.Values.Select(session => session.DrainAsync()).ToArray());
+            return _stopping ??= StopCoreAsync(_connections.Values.Select(session => session.DrainAsync()).ToArray(), _flushTail);
+    }
+    /// <summary>同步捕获已接纳请求屏障，每次显式调用都执行独立的后续保存轮次。</summary>
+    internal Task FlushAsync()
+    {
+        lock (_gate)
+        {
+            EnsureAccepting();
+            var barriers = _connections.Values.Select(session => session.BarrierAsync()).ToArray();
+            return _flushTail = FlushCoreAsync(_flushTail, barriers);
+        }
+    }
+    /// <summary>上一轮失败不阻止重试；屏障后才枚举已经启动的 Actor。</summary>
+    private async Task FlushCoreAsync(Task previous, Task[] barriers)
+    {
+        try { await previous.ConfigureAwait(false); } catch { /* 上轮错误由该轮调用方观察。 */ }
+        await Task.WhenAll(barriers).ConfigureAwait(false);
+        await _modules.FlushAsync().ConfigureAwait(false);
     }
     /// <summary>等待有序停止。</summary>
     public ValueTask DisposeAsync() => new(StopAsync());
@@ -99,8 +119,16 @@ internal sealed class ServerRuntime : IAsyncDisposable
     }
 
     /// <summary>已接纳回合仍可以访问下游，完成后才关闭模块目录。</summary>
-    private async Task StopCoreAsync(Task[] pending)
-    { await Task.WhenAll(pending).ConfigureAwait(false); await _modules.DisposeAsync().ConfigureAwait(false); }
+    private async Task StopCoreAsync(Task[] pending, Task flushing)
+    {
+        try
+        {
+            await Task.WhenAll(pending).ConfigureAwait(false);
+            try { await flushing.ConfigureAwait(false); } catch { /* 最终保存会重试，先前错误由原调用方观察。 */ }
+            await _modules.FlushAsync().ConfigureAwait(false);
+        }
+        finally { await _modules.DisposeAsync().ConfigureAwait(false); }
+    }
     /// <summary>查找已有连接，不自动创建或恢复已断开会话。</summary>
     private ConnectionSession Find(DataConnectionId id) => _connections.TryGetValue(id, out var session)
         ? session : throw new InvalidOperationException("连接不存在或已结束");
