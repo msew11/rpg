@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System;
 using Rpg.Server.Modules.Common.Storage;
 using Rpg.Server.Modules.Role.Data;
-using Rpg.Server.Modules.Role;
 
 namespace Rpg.Server.Modules.Role.Storage;
 

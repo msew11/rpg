@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using Rpg.Protocol;
 using Rpg.Server.ActorProtocol;
 using Rpg.Server.Modules.World.Data;
 using Rpg.Server.Modules.World.Utils;

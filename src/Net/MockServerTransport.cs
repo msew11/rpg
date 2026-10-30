@@ -2,7 +2,6 @@ using Rpg.Server.Connections.Data;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Rpg.Server.Connections;
 using Rpg.Server.Hosting;
 
 namespace Rpg.Net;

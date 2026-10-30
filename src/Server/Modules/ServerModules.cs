@@ -3,8 +3,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System;
 using Rpg.Config;
-using Rpg.Server.ActorProtocol;
-using Rpg.Server.Modules.Common;
 using Rpg.Server.Modules.Role.Async;
 using Rpg.Server.Modules.World.Handler;
 using Rpg.Server.Modules.Common.Data;
@@ -28,7 +26,7 @@ internal sealed class ServerModules : IServerModules
     /// <summary>装配入口确定的统一配置，所有分片必须借用此实例。</summary>
     public ConfigService Config { get; }
     /// <summary>正式实例的专用共同落盘，注入存储验收保留原独立保存契约。</summary>
-    private readonly Modules.Common.Storage.RepoItemBatch? _itemBatch;
+    private readonly Common.Storage.RepoItemBatch? _itemBatch;
     /// <summary>按规范账号键的分片目录。</summary>
     private readonly ActorDirectory<string> _login;
     /// <summary>按全局角色身份的分片目录。</summary>

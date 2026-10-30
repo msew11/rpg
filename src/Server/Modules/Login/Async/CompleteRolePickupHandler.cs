@@ -1,5 +1,4 @@
 using System.Threading.Tasks;
-using Rpg.Protocol;
 using Rpg.Server.ActorProtocol;
 using Rpg.Server.Modules.Login.Utils;
 using Rpg.Server.Runtime;

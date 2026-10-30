@@ -3,8 +3,6 @@ using System;
 using Google.Protobuf;
 using Rpg.Protocol;
 using Rpg.Server.Connections.Data;
-using Rpg.Server.Connections;
-using Rpg.Server.Modules.Common.Data;
 using Rpg.Server.Modules.Login;
 using Rpg.Server.Modules;
 using Rpg.Server.Protocol;

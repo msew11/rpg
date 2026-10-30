@@ -1,6 +1,5 @@
 using System.Threading.Tasks;
 using Rpg.Server.Modules.Role.Data;
-using Rpg.Server.Modules.Role;
 
 namespace Rpg.Server.Modules.Role.Storage;
 

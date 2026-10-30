@@ -3,7 +3,6 @@ using System.IO;
 using System.Threading.Tasks;
 using Rpg.Server.Modules.Common.Storage;
 using Rpg.Server.Modules.Login.Data;
-using Rpg.Server.Modules.Login;
 
 namespace Rpg.Server.Modules.Login.Storage;
 
