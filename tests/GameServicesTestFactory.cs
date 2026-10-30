@@ -8,21 +8,15 @@ using Rpg.Settings;
 using Rpg.World;
 using Rpg.World.Views;
 using Rpg.Utils;
-using Rpg.ServerV2.Hosting;
+using Rpg.Server.Hosting;
 
 namespace Rpg.Tests;
 
 /// <summary>为 game-services 的隔离环境及替身传输验收组装实例，正式启动只走 Initialize。</summary>
 internal static class GameServicesTestFactory
 {
-    /// <summary>以独立目录建立服务组，失败时回收测试创建的全部实例。</summary>
-    internal static IDisposable Register(EnvService env) => Register(env, false);
-
-    /// <summary>独立 V2 验收注册完整服务组，统一持有模拟服务端。</summary>
-    internal static IDisposable RegisterV2(EnvService env) => Register(env, true);
-
-    /// <summary>仅测试装配选择进程内协议版本，生产无参启动使用 V2 TCP。</summary>
-    private static IDisposable Register(EnvService env, bool useV2)
+    /// <summary>隔离目录注册正式服务器与进程内字节传输。</summary>
+    internal static IDisposable Register(EnvService env)
     {
         ArgumentNullException.ThrowIfNull(env);
         ObjectDisposedException.ThrowIf(env.IsDisposed, env);
@@ -38,9 +32,9 @@ internal static class GameServicesTestFactory
             created.Add(config);
             var setting = new SettingService(env, log);
             created.Add(setting);
-            var server = useV2 ? MockServerService.CreateInProcess(env, config) : new MockServerService(env, config);
+            var server = MockServerService.CreateInProcess(env, config);
             created.Add(server);
-            var net = useV2 ? NetService.CreateInProcess(server, eventBus, log) : NetService.CreateLegacy(env, eventBus, config, log);
+            var net = NetService.CreateInProcess(server, eventBus, log);
             created.Add(net);
             return Register(env, eventBus, config, setting, server, net);
         }

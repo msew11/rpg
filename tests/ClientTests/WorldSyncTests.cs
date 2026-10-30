@@ -1,5 +1,5 @@
 using Rpg.Const;
-using Rpg.ProtocolV2;
+using Rpg.Protocol;
 using Rpg.Services;
 using Rpg.Session.Data;
 using Rpg.Tests;
@@ -8,7 +8,7 @@ using Godot;
 
 namespace ClientTests;
 
-/// <summary>对应 server-v2-movement：整批原子校验、缺口恢复、公开玩家插值与预测限流。</summary>
+/// <summary>对应 server-movement：整批原子校验、缺口恢复、公开玩家插值与预测限流。</summary>
 [Trait("Runtime", "Godot")]
 public sealed class WorldSyncTests : IDisposable
 {
@@ -18,7 +18,7 @@ public sealed class WorldSyncTests : IDisposable
     [Fact]
     public void InvalidBatchIsAtomicAndGapUsesOneResync()
     {
-        using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_root, Path.Combine(_root, "server")));
+        using var services = GameServicesTestFactory.Register(ConfigTestFixture.CreateEnv(_root, Path.Combine(_root, "server")));
         WorldFramePb? initial = null; EnterWorldRt? entered = null;
         using var frameListener = GameServices.EventBus.Subscribe<WorldUpdateNotice>(notice => initial ??= notice.Frame.Clone());
         using var entryListener = GameServices.EventBus.Subscribe<EnterWorldRt>(reply => entered = reply.Clone());
@@ -39,13 +39,12 @@ public sealed class WorldSyncTests : IDisposable
         GameServices.EventBus.Publish(new ResyncWorldRt { Frame = restored });
         Assert.Equal(4UL, session.WorldSequence); Assert.Single(session.RemoteRoles); Assert.False(session.ResyncMapIfNeeded());
         GameServices.EventBus.Publish(new WorldUpdateNotice { Frame = initial }); Assert.Equal(4UL, session.WorldSequence);
-        Assert.False(session.IsWorldReadOnly);
     }
-    /// <summary>对应 server-v2-ground-items 与 server-v2-items：对象及人物同帧原子接纳，位置装备可以一起变化。</summary>
+    /// <summary>对应 server-ground-items 与 server-items：对象及人物同帧原子接纳，位置装备可以一起变化。</summary>
     [Fact]
     public void ObjectDeltaAndPlayerGroupsCommitAtomically()
     {
-        using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_root, Path.Combine(_root, "server")));
+        using var services = GameServicesTestFactory.Register(ConfigTestFixture.CreateEnv(_root, Path.Combine(_root, "server")));
         WorldFramePb? initial = null; EnterWorldRt? entered = null;
         using var frameListener = GameServices.EventBus.Subscribe<WorldUpdateNotice>(notice => initial ??= notice.Frame.Clone());
         using var entryListener = GameServices.EventBus.Subscribe<EnterWorldRt>(reply => entered = reply.Clone());
@@ -89,7 +88,7 @@ public sealed class WorldSyncTests : IDisposable
     [Fact]
     public void PredictionCoalescesClicksAndReplaysNewerIntentAfterCorrection()
     {
-        using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_root, Path.Combine(_root, "server")));
+        using var services = GameServicesTestFactory.Register(ConfigTestFixture.CreateEnv(_root, Path.Combine(_root, "server")));
         var session = GameServices.Session; WorldFramePb? initial = null;
         using var initialListener = GameServices.EventBus.Subscribe<WorldUpdateNotice>(notice => initial ??= notice.Frame.Clone());
         session.Login("demo1", "123"); Pump(() => !session.AccountRequestPending);

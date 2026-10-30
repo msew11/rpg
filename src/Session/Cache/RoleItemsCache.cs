@@ -1,10 +1,10 @@
-using Rpg.ProtocolV2;
+using Rpg.Protocol;
 using Rpg.Services;
 using Rpg.Session.Data;
 
 namespace Rpg.Session.Cache;
 
-/// <summary>按 TCP 顺序验证并接纳 V2 完整物品，生命周期随账号。</summary>
+/// <summary>按 TCP 顺序验证并接纳 完整物品，生命周期随账号。</summary>
 internal sealed class RoleItemsCache : CacheBase
 {
     /// <summary>所属角色缓存。</summary>

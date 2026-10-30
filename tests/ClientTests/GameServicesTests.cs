@@ -2,10 +2,10 @@ using Rpg.Tests;
 using Rpg.Config;
 using Rpg.Settings;
 using Rpg.Net;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 using Rpg.Services;
 using Rpg.Session;
-using Rpg.Server;
+using MessageCodec = Rpg.Server.Protocol.MessageCodec;
 
 namespace ClientTests;
 
@@ -81,14 +81,16 @@ public sealed class GameServicesTests
             Assert.Equal(1000, GameServices.Config.Map.Items[1].Width);
             GameServices.Setting.SetResolution(1600, 900);
             Assert.True(File.Exists(Path.Combine(env.SettingsDirectory, "system.json")));
-            GameServices.Session.Login("demo", "demo");
-            GameServices.Net.Tick(0);
+            GameServices.Session.Login("demo1", "123");
+            PumpUntil(() => GameServices.Session.IsLoggedIn);
             Assert.True(GameServices.Session.IsLoggedIn);
             Assert.Empty(GameServices.Session.Roles);
             GameServices.Session.CreateRole("目录验收", Rpg.Const.RoleGender.Male, 1);
-            GameServices.Net.Tick(0);
+            PumpUntil(() => !GameServices.Session.AccountRequestPending);
             var created = Assert.Single(GameServices.Session.Roles);
-            GameServices.Net.Tick(5); // server-write-back：检测节点后核对注入的目录。
+            GameServices.Session.SelectRole(created.RoleId);
+            PumpUntil(() => GameServices.Session.HasRole);
+            GameServices.Net.FlushServerWrites();
             Assert.True(File.Exists(Path.Combine(env.ServerDirectory, $"{created.RoleId}.role.json")));
             lifetime.Dispose();
             Assert.True(env.IsDisposed);
@@ -100,6 +102,14 @@ public sealed class GameServicesTests
             Assert.Equal(1600, GameServices.Setting.Width);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    /// <summary>等待正式异步字节链路完成。</summary>
+    private static void PumpUntil(Func<bool> done)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!done() && DateTime.UtcNow < deadline) { GameServices.Net.Tick(0); Thread.Sleep(1); }
+        Assert.True(done());
     }
 
     /// <summary>验证 game-services 的早期配置失败与后续网络构造失败都会清理环境，允许重试。</summary>
@@ -120,107 +130,6 @@ public sealed class GameServicesTests
         using var nextEnv = ConfigTestFixture.CreateEnv(directory, Path.Combine(directory, "server"));
         using var next = GameServicesTestFactory.Register(nextEnv);
         Assert.Same(nextEnv, GameServices.Env);
-    }
-
-    /// <summary>验证 game-services 与 client-session 的非法登录摘要不会触发界面成功回调，且合法重试可恢复。</summary>
-    [Fact]
-    public void InvalidLoginStateStopsUiNotificationAndAllowsValidRetry()
-    {
-        using var eventBus = new EventBusService();
-        using var transport = new DoubleNetTransport();
-        var net = new NetService(transport, eventBus, new Rpg.Services.LogService(Console.WriteLine));
-        using var services = Register(net, eventBus);
-        var errors = new List<Exception>();
-        GameServices.EventBus.Error += errors.Add;
-        var notifications = 0;
-        using var ui = GameServices.EventBus.Subscribe<LoginRt>(_ => notifications++);
-        GameServices.Session.Login("demo", "demo");
-        net.Tick(0);
-        var generation = MessageCodec.ReadEnvelope(Assert.Single(transport.Sent)).Generation;
-        var invalid = new LoginRt { Success = true, Roles = { new RoleSummaryPb() } };
-        transport.Inject(MessageCodec.Encode(invalid, generation, false));
-        net.Tick(0);
-        Assert.Single(errors);
-        Assert.Equal(0, notifications);
-        Assert.False(GameServices.Session.IsLoggedIn);
-        Assert.Empty(GameServices.Session.Roles);
-        var valid = new LoginRt { Success = true, Roles = {
-            new RoleSummaryPb { RoleId = 1001, Name = "测试角色", Level = 1, Gender = RoleGenderPb.Male } } };
-        transport.Inject(MessageCodec.Encode(valid, generation, false));
-        net.Tick(0);
-        Assert.Equal(1, notifications);
-        Assert.True(GameServices.Session.IsLoggedIn);
-        Assert.Equal(1001, Assert.Single(GameServices.Session.Roles).RoleId);
-    }
-
-    /// <summary>验证 game-services 的业务先于界面就绪、切角隔离与离开角色保存布局场景。</summary>
-    [Fact]
-    public void CompleteServicesPrepareStateBeforeUiAndKeepRoleSettingsSeparate()
-    {
-        using var eventBus = new EventBusService();
-        var directory = Path.Combine(Path.GetTempPath(), "rpg-service-flow-" + Guid.NewGuid());
-        try
-        {
-            var serverDirectory = Path.Combine(directory, "server");
-            Rpg.Tests.RoleTestData.Seed(serverDirectory);
-            var server = new MockServer(serverDirectory, new Rpg.Server.Handler.Bag.BagRules(8, 5, []));
-            using var net = new NetService(new MockTransport(server), eventBus, new Rpg.Services.LogService(Console.WriteLine));
-            var env = ConfigTestFixture.CreateEnv(Path.Combine(directory, "settings"));
-            var setting = new SettingService(env, new Rpg.Services.LogService(Console.WriteLine));
-            using var services = GameServicesTestFactory.Register(env, eventBus, new ConfigService(env), setting, net);
-            var errors = new List<Exception>();
-            GameServices.EventBus.Error += errors.Add;
-            var observedLogin = false;
-            using var loginUi = GameServices.EventBus.Subscribe<LoginRt>(response =>
-            {
-                observedLogin = true;
-                Assert.True(response.Success);
-                Assert.True(GameServices.Session.IsLoggedIn);
-                Assert.Equal(2, GameServices.Session.Roles.Count);
-            });
-            var observedSelections = 0;
-            using var roleUi = GameServices.EventBus.Subscribe<SelectRoleRt>(response =>
-            {
-                observedSelections++;
-                Assert.True(GameServices.Session.HasRole);
-                GameServices.World.InitializeRole();
-                Assert.True(GameServices.World.HasRole);
-                Assert.Equal(response.RoleId, GameServices.World.ActorState!.RoleId);
-                Assert.Equal(GameServices.Session.Role.Position, GameServices.World.RolePosition);
-            });
-            GameServices.Session.Login("demo", "demo");
-            net.Tick(0);
-            Assert.True(observedLogin);
-            var roles = GameServices.Session.Roles;
-            GameServices.Session.SelectRole(1001);
-            net.Tick(0);
-            var world = GameServices.World;
-            var settingPath = setting.RolePath;
-            setting.SetHotbarVisible(2, true);
-            setting.SetHudPosition("portrait", 0.4f, 0.2f);
-            var updated = new RepoServerRole(serverDirectory).Load(1001).WithRole(new RepoServerRole(serverDirectory).Load(1001).Role.Value with { Health = 20 });
-            server.PublishRoleState(updated);
-            net.Tick(0);
-            Assert.Equal(20, GameServices.Session.Role.Health);
-            world.SyncRole();
-            world.Tick(0);
-            world.LeaveRole();
-            GameServices.Session.LeaveRole();
-            Assert.Same(roles, GameServices.Session.Roles);
-            Assert.False(world.HasWorld);
-            Assert.False(GameServices.Session.HasRole);
-            Assert.Throws<InvalidOperationException>(() => setting.IsHotbarVisible(2));
-            Assert.Equal(0.4f, SettingsTestFixture.ReadRole(Path.Combine(directory, "settings"), 1001).HudPositions["portrait"].X);
-            Assert.True(File.Exists(settingPath));
-            GameServices.Session.SelectRole(1002);
-            net.Tick(0);
-            Assert.False(setting.IsHotbarVisible(2));
-            Assert.Same(world, GameServices.World);
-            Assert.Same(roles, GameServices.Session.Roles);
-            Assert.Equal(2, observedSelections);
-            Assert.Empty(errors);
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
     /// <summary>验证 game-services 的整体清理：网络关闭失败后仍保存布局并使其他服务失效。</summary>
@@ -308,7 +217,7 @@ public sealed class GameServicesTests
         Assert.Empty(transport.Sent);
         GameServices.Net.Tick(0);
         var generation = MessageCodec.ReadEnvelope(Assert.Single(transport.Sent)).Generation;
-        transport.Inject(MessageCodec.Encode(new LoginRt { Success = true }, generation, false));
+        transport.Inject(MessageCodec.Encode(new LoginRt(), generation, 1, false));
         Assert.Equal(0, delivered);
         GameServices.Net.Tick(0);
         Assert.Equal(1, delivered);
@@ -431,25 +340,25 @@ public sealed class GameServicesTests
     public void ExplicitNetworksKeepRequestQueuesAndShareEventBusService()
     {
         using var eventBus = new EventBusService();
-        Assert.Throws<InvalidOperationException>(() => new SessionService(GameServices.Net, new LoginRt { Success = true }));
+        Assert.Throws<InvalidOperationException>(() => new SessionService(GameServices.Net));
         using var globalTransport = new DoubleNetTransport();
         using var services = Register(new NetService(globalTransport, eventBus, new Rpg.Services.LogService(Console.WriteLine)), eventBus);
         Assert.Same(eventBus, GameServices.EventBus);
-        using var globalSession = new SessionService(GameServices.Net, new LoginRt { Success = true });
+        using var globalSession = new SessionService(GameServices.Net);
         using var isolatedTransport = new DoubleNetTransport();
         using var isolated = new NetService(isolatedTransport, GameServices.EventBus, new Rpg.Services.LogService(Console.WriteLine));
-        using var isolatedSession = new SessionService(isolated, new LoginRt { Success = true });
-        globalSession.SelectRole(1001);
-        isolatedSession.SelectRole(1002);
+        using var isolatedSession = new SessionService(isolated);
+        globalSession.Login("demo1", "123");
+        isolatedSession.Login("demo2", "123");
         GameServices.Net.Tick(0);
         Assert.Empty(isolatedTransport.Sent);
         isolated.Tick(0);
-        var globalRequest = Assert.IsType<SelectRole>(MessageCodec.ReadPayload(
+        var globalRequest = Assert.IsType<Login>(MessageCodec.ReadPayload(
             MessageCodec.ReadEnvelope(Assert.Single(globalTransport.Sent)), true));
-        var isolatedRequest = Assert.IsType<SelectRole>(MessageCodec.ReadPayload(
+        var isolatedRequest = Assert.IsType<Login>(MessageCodec.ReadPayload(
             MessageCodec.ReadEnvelope(Assert.Single(isolatedTransport.Sent)), true));
-        Assert.Equal(1001, globalRequest.RoleId);
-        Assert.Equal(1002, isolatedRequest.RoleId);
+        Assert.Equal("demo1", globalRequest.Username);
+        Assert.Equal("demo2", isolatedRequest.Username);
         Assert.Same(eventBus, GameServices.EventBus);
     }
 
@@ -458,22 +367,22 @@ public sealed class GameServicesTests
     public void OldGlobalSessionCannotOperateOrResetRestartedNetwork()
     {
         using var oldServices = Register(new DoubleNetTransport());
-        using var oldSession = new SessionService(GameServices.Net, new LoginRt { Success = true });
+        using var oldSession = new SessionService(GameServices.Net);
         oldServices.Dispose();
         using var transport = new DoubleNetTransport();
         using var currentServices = Register(transport);
         var currentEvents = GameServices.EventBus;
-        using var currentSession = new SessionService(GameServices.Net, new LoginRt { Success = true });
-        currentSession.SelectRole(1002);
+        using var currentSession = new SessionService(GameServices.Net);
+        currentSession.Login("demo2", "123");
         Assert.Throws<ObjectDisposedException>(() => oldSession.SelectRole(1001));
         Assert.Throws<ObjectDisposedException>(() => oldSession.LeaveRole());
         Assert.Throws<ObjectDisposedException>(() => oldSession.SubmitMove(1, Godot.Vector2.Zero));
         oldSession.Dispose();
         oldServices.Dispose();
         GameServices.Net.Tick(0);
-        var request = Assert.IsType<SelectRole>(MessageCodec.ReadPayload(
+        var request = Assert.IsType<Login>(MessageCodec.ReadPayload(
             MessageCodec.ReadEnvelope(Assert.Single(transport.Sent)), true));
-        Assert.Equal(1002, request.RoleId);
+        Assert.Equal("demo2", request.Username);
         Assert.Same(currentEvents, GameServices.EventBus);
     }
 
@@ -488,9 +397,9 @@ public sealed class GameServicesTests
         GameServices.Net.Send(new Login());
         using (var isolatedTransport = new DoubleNetTransport())
         using (var isolated = new NetService(isolatedTransport, GameServices.EventBus, new Rpg.Services.LogService(Console.WriteLine)))
-        using (var session = new SessionService(isolated, new LoginRt { Success = true }))
+        using (var session = new SessionService(isolated))
         {
-            session.SelectRole(1002);
+            session.Login("demo2", "123");
             isolated.Tick(0);
             Assert.Single(isolatedTransport.Sent);
             Assert.Empty(globalTransport.Sent);
@@ -518,8 +427,8 @@ public sealed class GameServicesTests
         secondNet.Error += netErrors.Add;
         using var failing = eventBus.Subscribe<LoginRt>(_ => throw new IOException("监听失败"));
         using var observer = eventBus.Subscribe<LoginRt>(_ => calls++);
-        firstTransport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
-        secondTransport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
+        firstTransport.Inject(MessageCodec.Encode(new LoginRt(), 1, 1, false));
+        secondTransport.Inject(MessageCodec.Encode(new LoginRt(), 1, 1, false));
         GameServices.Net.Tick(0);
         secondNet.Tick(0);
         Assert.Equal(2, calls);

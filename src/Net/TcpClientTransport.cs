@@ -8,8 +8,8 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using Rpg.ServerV2.Hosting;
-using Codec = Rpg.ServerV2.Protocol.MessageCodec;
+using Rpg.Server.Hosting;
+using Codec = Rpg.Server.Protocol.MessageCodec;
 
 namespace Rpg.Net;
 

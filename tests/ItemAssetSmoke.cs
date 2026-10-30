@@ -5,8 +5,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using Rpg.Const;
-using Rpg.Server;
-using Rpg.Server.Entity;
+using Rpg.Server.Modules.Role.Storage;
+using Rpg.Server.Modules.Role.Data;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
@@ -25,16 +25,17 @@ public partial class ItemAssetSmoke : Node
         {
             var serverDirectory = Path.Combine(directory, "server");
             RoleTestData.Seed(serverDirectory);
-            var repo = new RepoServerRole(serverDirectory);
-            repo.Save(repo.Load(1001).WithItems(Enumerable.Concat(Enumerable.Range(1013, 6).Select((id, index) => new ItemEntity(index + 1, id, index, 1)).ToArray(), [new ItemEntity(7, 1012, EquipmentSlot.MainHand)]), 8));
+            var repo = new RepoRole(serverDirectory);
+            RoleTestData.SetItems(serverDirectory, 1001, Enumerable.Concat(Enumerable.Range(1013, 6).Select((id, index) => new DataItem(index + 1, id, index, 1)).ToArray(), [new DataItem(7, 1012, EquipmentSlot.MainHand)]), 8);
             main = new DoubleMainController { SettingsDirectory = Path.Combine(directory, "settings"),
                 ServerDirectory = serverDirectory, EnvFilePath = Path.Combine(directory, ".env") };
             AddChild(main);
-            GameServices.Session.Login("demo", "demo");
+            GameServices.Session.Login("demo1", "123");
             await Until(() => GameServices.Session.IsLoggedIn);
-            GameServices.Session.SelectRole(1001);
             var selection = Stopwatch.StartNew();
-            GameServices.Net.Tick(0);
+            ((Button)main.FindChild("SelectRole1001", true, false)).EmitSignal(Button.SignalName.Pressed);
+            ((Button)main.FindChild("EnterRole", true, false)).EmitSignal(Button.SignalName.Pressed);
+            await Until(() => GameServices.World.HasRole);
             selection.Stop();
             Check(GameServices.World.HasRole, "选角未建立世界");
             var assets = GameServices.Items;
@@ -64,8 +65,8 @@ public partial class ItemAssetSmoke : Node
             main.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text == "返回角色选择").EmitSignal(Button.SignalName.Pressed);
             await Frames();
-            GameServices.Session.SelectRole(1002);
-            GameServices.Net.Tick(0);
+            ((Button)main.FindChild("SelectRole1002", true, false)).EmitSignal(Button.SignalName.Pressed);
+            ((Button)main.FindChild("EnterRole", true, false)).EmitSignal(Button.SignalName.Pressed);
             await Frames();
             Check(GameServices.Session.RoleId == 1002 && GameServices.World.HasRole, "空包角色未成功进入");
             Check(ReferenceEquals(catalog, assets.Catalog) && assets.CatalogLoadCount == 1 &&
@@ -110,6 +111,7 @@ public partial class ItemAssetSmoke : Node
     /// <summary>推进布局和延迟删除，使开包比较使用相同条件。</summary>
     private async Task Frames()
     {
+        await SmokeNetwork.WaitForAccount(this);
         for (var index = 0; index < 4; index++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }
 

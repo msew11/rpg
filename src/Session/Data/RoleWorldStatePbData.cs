@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Rpg.Config.Data;
 using Godot;
 using Rpg.Const;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 
 namespace Rpg.Session.Data;
 
@@ -27,18 +27,8 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
     /// <summary>最近接纳的私有角色版本。</summary>
     public long RoleRevision { get; init; } = Revision;
 
-    /// <summary>校验并组合世界状态与独立返回的私有角色领域。</summary>
-    public static RoleWorldStatePbData FromPb(RoleWorldStatePb message, RolePb role, IReadOnlyDictionary<int, ItemCfg> definitions)
-    {
-        if (message?.Profile is null || message.Status is null || message.Position is null || message.Equipment is null)
-            throw new InvalidDataException("角色世界状态缺少资料、状态、位置或装备");
-        return FromParts(RoleWorldProfilePbData.FromPb(message.Profile),
-            RoleWorldStatusPbData.FromPb(message.Status), RoleWorldPositionPbData.FromPb(message.Position),
-            RolePbData.FromPb(role), RoleWorldEquipmentPbData.FromPb(message.Equipment, definitions));
-    }
-
-    /// <summary>直接组合 V2 根身份和公开、私有字段。</summary>
-    public static RoleWorldStatePbData FromPb(ProtocolV2.RoleWorldStatePb message, ProtocolV2.RolePb role, IReadOnlyDictionary<int, ItemCfg> definitions)
+    /// <summary>组合根身份和公开、私有字段。</summary>
+    public static RoleWorldStatePbData FromPb(global::Rpg.Protocol.RoleWorldStatePb message, global::Rpg.Protocol.RolePb role, IReadOnlyDictionary<int, ItemCfg> definitions)
     {
         if (message?.Profile is null || message.Status is null || message.Position is null || message.Equipment is null || message.RoleId <= 0)
             throw new InvalidDataException("角色世界状态不完整");
@@ -66,9 +56,10 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
     /// <summary>仅序列化可见世界状态，绝不包含经验和背包容量。</summary>
     public RoleWorldStatePb ToPb() => new()
     {
+        RoleId = RoleId,
         Profile = new RoleWorldProfilePbData(RoleId, Name, Level, Gender, HeadId, ProfileRevision).ToPb(),
         Status = new RoleWorldStatusPbData(RoleId, Health, MaxHealth, Mana, MaxMana, StatusRevision).ToPb(),
-        Position = new RoleWorldPositionPbData(RoleId, MapId, Position, PositionRevision, AcknowledgedAction).ToPb(),
+        Position = new RoleWorldPositionPbData(RoleId, MapId, Position, PositionRevision, AcknowledgedAction) { Target = Target, Speed = Speed }.ToPb(),
         Equipment = Equipment.ToPb()
     };
 

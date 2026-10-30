@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using Rpg.Net;
 using Rpg.Const;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 using Rpg.Services;
 using Rpg.Session.Cache;
 using Rpg.Session.Data;
@@ -15,36 +15,28 @@ public sealed class SessionService : Service
 {
     /// <summary>本次启动绑定的网络。</summary>
     private readonly NetService _net;
-    /// <summary>显式 V2 传输使用账号管理与只读世界进入协议。</summary>
-    private readonly bool _useV2;
-    /// <summary>独立 V2 客户端同一时刻只允许一个账号请求。</summary>
-    public bool AccountRequestPending => _login?.V2RequestPending == true;
+    /// <summary>客户端同一时刻只允许一个账号请求。</summary>
+    public bool AccountRequestPending => _login?.RequestPending == true;
     /// <summary>登录尝试时建立，由缓存自身处理响应的账号摘要。</summary>
     private LoginCache? _login;
     /// <summary>登录尝试时建立，选角后接纳状态的角色缓存。</summary>
     private RoleCache? _role;
     /// <summary>当前角色独立地图缓存，与 RoleCache 平级。</summary>
     private MapCache? _map;
-    /// <summary>V2 完整响应的缓存阶段协调者，随账号释放。</summary>
+    /// <summary>完整响应的缓存阶段协调者，随账号释放。</summary>
     private WorldEntryCache? _entry;
     /// <summary>统一世界同步缓存。</summary>
     private WorldSyncCache? _sync;
-    /// <summary>账号内 V2 物品组合接纳入口。</summary>
+    /// <summary>账号内物品组合接纳入口。</summary>
     private RoleItemsCache? _items;
     /// <summary>首帧后才可提交移动。</summary>
-    public bool CanMove => HasRole && (!_useV2 || _sync?.Sequence > 0);
+    public bool CanMove => HasRole && (_sync?.Sequence > 0);
     /// <summary>当前公开远端角色。</summary>
     public IReadOnlyDictionary<long, DataPublicRole> RemoteRoles => _sync?.Roles ?? System.Collections.Frozen.FrozenDictionary<long, DataPublicRole>.Empty;
     /// <summary>当前世界帧序号。</summary>
     public ulong WorldSequence => _sync?.Sequence ?? 0;
     /// <summary>当前权威时间。</summary>
     public long ServerTimeMs => _sync?.ServerTimeMs ?? 0;
-    /// <summary>是否使用 V2 权威同步。</summary>
-    public bool UsesWorldFrames => _useV2;
-    /// <summary>当前传输是否禁用角色物品写入。</summary>
-    public bool IsWorldReadOnly => !_net.CanWriteItems;
-    /// <summary>当前传输是否支持地面物品交互。</summary>
-    public bool CanWriteGroundItems => _net.CanWriteItems;
     /// <summary>当前账号拥有的网络代次。</summary>
     private long _generation;
 
@@ -77,24 +69,7 @@ public sealed class SessionService : Service
         ArgumentNullException.ThrowIfNull(net);
         ObjectDisposedException.ThrowIf(net.IsDisposed, net);
         _net = net;
-        _useV2 = net.IsV2;
         _generation = net.Generation;
-    }
-
-    /// <summary>从独立网络和已有响应建立账号，用于隔离协议测试。</summary>
-    internal SessionService(NetService net, LoginRt response) : this(net)
-    {
-        ArgumentNullException.ThrowIfNull(response);
-        if (!response.Success) throw new InvalidOperationException("登录成功后才能建立账号");
-        var login = new LoginCache(response);
-        try
-        {
-            ResetNetwork();
-            _role = new RoleCache();
-            _map = new MapCache();
-            _login = login;
-        }
-        catch { _map?.Dispose(); _role?.Dispose(); login.Dispose(); throw; }
     }
 
     /// <summary>结束旧账号并在请求前隔离网络代次。</summary>
@@ -104,27 +79,23 @@ public sealed class SessionService : Service
         if (AccountRequestPending) throw new InvalidOperationException("请等待当前账号操作完成");
         Logout();
         ResetNetwork();
-        var login = new LoginCache(_useV2);
+        var login = new LoginCache();
         try
         {
             _role = new RoleCache();
             _map = new MapCache();
             _login = login;
-            if (_useV2) { _entry = new WorldEntryCache(login, _role, _map); _sync = new WorldSyncCache(_role, _map); _items = new RoleItemsCache(login, _role); }
-            if (_useV2)
-            {
-                login.BeginV2Request<ProtocolV2.LoginRt>();
-                _net.Send(new ProtocolV2.Login { Username = username, Password = password });
-            }
-            else _net.Send(new Login { Username = username, Password = password });
+            _entry = new WorldEntryCache(login, _role, _map); _sync = new WorldSyncCache(_role, _map); _items = new RoleItemsCache(login, _role);
+            login.BeginRequest<global::Rpg.Protocol.LoginRt>();
+            _net.Send(new global::Rpg.Protocol.Login { Username = username, Password = password });
         }
         catch
         {
             _items?.Dispose();
-        _sync?.Dispose();
+            _sync?.Dispose();
             _entry?.Dispose();
             _items = null;
-        _sync = null;
+            _sync = null;
             _entry = null;
             _map?.Dispose();
             _map = null;
@@ -140,40 +111,27 @@ public sealed class SessionService : Service
     public void SelectRole(long roleId)
     {
         EnsureActive();
-        if (_useV2)
-        {
-            if (!IsLoggedIn) throw new InvalidOperationException("尚未登录");
-            if (AccountRequestPending) throw new InvalidOperationException("请等待当前账号操作完成");
-            if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
-            ResetNetwork();
-            _login!.BeginV2Request<ProtocolV2.EnterWorldRt>();
-            _sync!.Reset();
-            _entry!.Begin(roleId);
-            try { _net.Send(new ProtocolV2.EnterWorld { RoleId = roleId }); }
-            catch { CancelAccountRequest(); throw; }
-            return;
-        }
         if (!IsLoggedIn) throw new InvalidOperationException("尚未登录");
+        if (AccountRequestPending) throw new InvalidOperationException("请等待当前账号操作完成");
         if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
-        var role = RoleCache;
-        if (HasRole) _login!.RefreshRole(role.State);
         ResetNetwork();
-        role.Reset(roleId);
-        _map?.Reset(roleId);
-        _net.Send(new SelectRole { RoleId = roleId });
+        _login!.BeginRequest<global::Rpg.Protocol.EnterWorldRt>();
+        _sync!.Reset();
+        _entry!.Begin(roleId);
+        try { _net.Send(new global::Rpg.Protocol.EnterWorld { RoleId = roleId }); }
+        catch { CancelAccountRequest(); throw; }
     }
 
-    /// <summary>清理角色数据与在途消息，V2 提交离开世界并保留账号摘要。</summary>
+    /// <summary>清理角色数据与在途消息，提交离开世界并保留账号摘要。</summary>
     public void LeaveRole()
     {
         EnsureActive();
         if (_role is not null && RoleId == 0) return;
-        if (HasRole && !_useV2) _login!.RefreshRole(RoleCache.State);
         _sync?.Reset();
         _entry?.Cancel();
-        _login?.CancelV2Request();
+        _login?.CancelRequest();
         ResetNetwork();
-        if (_useV2 && IsLoggedIn) _net.Send(new ProtocolV2.LeaveWorld());
+        if (IsLoggedIn) _net.Send(new global::Rpg.Protocol.LeaveWorld());
         _role?.Reset();
         _map?.Reset();
     }
@@ -182,35 +140,20 @@ public sealed class SessionService : Service
     public void CreateRole(string name, RoleGender gender, int headId)
     {
         EnsureRoleList();
-        if (_useV2)
-        {
-            _login!.BeginV2Request<ProtocolV2.CreateRoleRt>();
-            try { _net.Send(new ProtocolV2.CreateRole { Name = name, Gender = gender switch
-                { RoleGender.Male => ProtocolV2.RoleGenderPb.Male, RoleGender.Female => ProtocolV2.RoleGenderPb.Female,
-                    _ => ProtocolV2.RoleGenderPb.Unspecified }, HeadId = headId }); }
-            catch { _login.CancelV2Request(); throw; }
-            return;
-        }
-        _net.Send(new CreateRole { Name = name, Gender = gender switch
-        {
-            RoleGender.Male => RoleGenderPb.Male,
-            RoleGender.Female => RoleGenderPb.Female,
-            _ => RoleGenderPb.Unspecified
-        }, HeadId = headId });
+        _login!.BeginRequest<global::Rpg.Protocol.CreateRoleRt>();
+        try { _net.Send(new global::Rpg.Protocol.CreateRole { Name = name, Gender = gender switch
+            { RoleGender.Male => global::Rpg.Protocol.RoleGenderPb.Male, RoleGender.Female => global::Rpg.Protocol.RoleGenderPb.Female,
+                _ => global::Rpg.Protocol.RoleGenderPb.Unspecified }, HeadId = headId }); }
+        catch { _login.CancelRequest(); throw; }
     }
 
     /// <summary>在选角列表提交删除指定角色。</summary>
     public void DeleteRole(long roleId)
     {
         EnsureRoleList();
-        if (_useV2)
-        {
-            _login!.BeginV2Request<ProtocolV2.DeleteRoleRt>();
-            try { _net.Send(new ProtocolV2.DeleteRole { RoleId = roleId }); }
-            catch { _login.CancelV2Request(); throw; }
-            return;
-        }
-        _net.Send(new DeleteRole { RoleId = roleId });
+        _login!.BeginRequest<global::Rpg.Protocol.DeleteRoleRt>();
+        try { _net.Send(new global::Rpg.Protocol.DeleteRole { RoleId = roleId }); }
+        catch { _login.CancelRequest(); throw; }
     }
 
     /// <summary>仅允许已认证且未选角的当前会话管理角色。</summary>
@@ -225,97 +168,66 @@ public sealed class SessionService : Service
     {
         EnsureActive();
         if (!CanMove) throw new InvalidOperationException("首份世界快照后才能提交移动");
-        if (_useV2) { _net.Send(new ProtocolV2.Move { ActionId = checked((ulong)actionId), Target = new() { X = target.X, Y = target.Y } }); return; }
-        _net.Send(new Move { RoleId = RoleId, ActionId = actionId, X = target.X, Y = target.Y });
+        _net.Send(new global::Rpg.Protocol.Move { ActionId = checked((ulong)actionId), Target = new() { X = target.X, Y = target.Y } });
     }
 
     /// <summary>提交去除开头斜杠的 GM 文本，最终参数与身份由服务端验证。</summary>
     public void SendGm(string command)
     {
         EnsureActive();
-        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
-        if (_useV2) { _net.Send(new ProtocolV2.Gm { Command = command }); return; }
-        _net.Send(new Gm { RoleId = RoleId, Command = command });
+        _net.Send(new global::Rpg.Protocol.Gm { Command = command });
     }
 
-    /// <summary>提交整份物品拖放；V2 按最新状态执行，旧链路保留版本条件。</summary>
-    public void MoveItem(long instanceId, int targetSlotIndex, long expectedRevision)
+    /// <summary>提交整份物品拖放；按最新状态执行，不预判旧状态。</summary>
+    public void MoveItem(long instanceId, int targetSlotIndex)
     {
         EnsureActive();
-        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
-        if (_useV2) { _net.Send(new ProtocolV2.MoveItem { InstanceId = instanceId, TargetSlotIndex = targetSlotIndex }); return; }
-        _net.Send(new MoveItem { RoleId = RoleId, InstanceId = instanceId,
-            TargetSlotIndex = targetSlotIndex, ExpectedRevision = expectedRevision });
+        _net.Send(new global::Rpg.Protocol.MoveItem { InstanceId = instanceId, TargetSlotIndex = targetSlotIndex });
     }
 
     /// <summary>提交穿戴或卸下，不预先改变背包与装备；实例零表示卸下目标槽位。</summary>
-    public void EquipItem(long instanceId, EquipmentSlot slot, long expectedBagRevision, long expectedEquipmentRevision, int? targetBagSlot = null)
+    public void EquipItem(long instanceId, EquipmentSlot slot, int? targetBagSlot = null)
     {
         EnsureActive();
-        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
-        if (_useV2)
-        {
-            var v2 = new ProtocolV2.EquipItem { InstanceId = instanceId, Slot = (ProtocolV2.EquipmentSlotPb)slot };
-            if (targetBagSlot is { } target) v2.TargetBagSlot = target;
-            _net.Send(v2); return;
-        }
-        var request = new EquipItem { RoleId = RoleId, InstanceId = instanceId,
-            Slot = (EquipmentSlotPb)slot, ExpectedBagRevision = expectedBagRevision, ExpectedEquipmentRevision = expectedEquipmentRevision };
-        if (targetBagSlot is { } index) request.TargetBagSlot = index;
-        _net.Send(request);
+        var message = new global::Rpg.Protocol.EquipItem { InstanceId = instanceId, Slot = (global::Rpg.Protocol.EquipmentSlotPb)slot };
+        if (targetBagSlot is { } target) message.TargetBagSlot = target;
+        _net.Send(message);
     }
 
     /// <summary>请求丢弃或销毁指定数量，不预先修改背包和地图缓存。</summary>
-    public void DropItem(long instanceId, int count, long expectedRevision, bool destroy = false, Vector2? position = null)
+    public void DropItem(long instanceId, int count, bool destroy = false, Vector2? position = null)
     {
         EnsureActive();
-        if (!CanWriteGroundItems) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
-        if (_useV2)
-        {
-            var v2 = new ProtocolV2.DropItem { InstanceId = instanceId, Count = count, Destroy = destroy };
-            if (position is { } target) { v2.DropX = target.X; v2.DropY = target.Y; }
-            _net.Send(v2); return;
-        }
-        var request = new DropItem { RoleId = RoleId, InstanceId = instanceId, Count = count, ExpectedRevision = expectedRevision, Destroy = destroy };
-        if (position is { } point) { request.DropX = point.X; request.DropY = point.Y; }
-        _net.Send(request);
+        var message = new global::Rpg.Protocol.DropItem { InstanceId = instanceId, Count = count, Destroy = destroy };
+        if (position is { } target) { message.DropX = target.X; message.DropY = target.Y; }
+        _net.Send(message);
     }
 
     /// <summary>绑定已经提交的走近移动，服务端决定何时可以整份拾取。</summary>
-    internal void PickupItem(Guid objectId, long objectRevision, long moveActionId)
+    internal void PickupItem(Guid objectId, long moveActionId)
     {
         EnsureActive();
-        if (!CanWriteGroundItems) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
-        if (_useV2) { _net.Send(new ProtocolV2.PickupItem { ObjectId = objectId.ToString("N"), MoveActionId = checked((ulong)moveActionId) }); return; }
-        _net.Send(new PickupItem { RoleId = RoleId, ObjectId = objectId.ToString("N"),
-            ExpectedObjectRevision = objectRevision, ExpectedBagRevision = Bag.Revision, MoveActionId = moveActionId });
+        _net.Send(new global::Rpg.Protocol.PickupItem { ObjectId = objectId.ToString("N"), MoveActionId = checked((ulong)moveActionId) });
     }
 
     /// <summary>只为已发现缺口且没有在途请求的当前地图申请一次快照。</summary>
     public bool ResyncMapIfNeeded()
     {
         EnsureActive();
-        if (_useV2)
-        {
-            if (!HasRole || _sync is not { NeedsResync: true, ResyncPending: false }) return false;
-            _net.Send(new ProtocolV2.ResyncWorld()); _sync.ResyncPending = true; return true;
-        }
-        if (!HasRole || _map is not { NeedsResync: true, ResyncPending: false }) return false;
-        _net.Send(new ResyncMapAoi { RoleId = RoleId, MapId = Role.MapId });
-        _map.MarkResyncPending();
-        return true;
+        if (!HasRole || _sync is not { NeedsResync: true, ResyncPending: false }) return false;
+        _net.Send(new global::Rpg.Protocol.ResyncWorld()); _sync.ResyncPending = true; return true;
     }
 
     /// <summary>释放账号缓存，保留服务本身供重新登录。</summary>
     public void Logout()
     {
         EnsureActive();
-        if (_useV2) ResetNetwork();
+        ResetNetwork();
         _items?.Dispose();
         _sync?.Dispose();
         _entry?.Dispose();
@@ -330,8 +242,8 @@ public sealed class SessionService : Service
         _login = null;
     }
 
-    /// <summary>客户端网络或缓存异常释放 V2 请求等待，由 UI 展示错误。</summary>
-    internal void CancelAccountRequest() { _entry?.Cancel(); _login?.CancelV2Request(); }
+    /// <summary>客户端网络或缓存异常释放 请求等待，由 UI 展示错误。</summary>
+    internal void CancelAccountRequest() { _entry?.Cancel(); _login?.CancelRequest(); }
 
     /// <summary>更新服务拥有的代次，隔离先前消息。</summary>
     private void ResetNetwork()

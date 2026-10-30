@@ -4,10 +4,10 @@
 TBD - created by archiving change data-driven-rpg-client. Update Purpose after archive.
 ## Requirements
 ### Requirement: 模拟登录与选角
-客户端 SHALL 通过请求协议将用户名和密码交给模拟服务端；成功后 LoginRt 返回当前未删除角色的 RoleSummaryPb 列表（允许为空），包含角色 ID、名称、等级、性别、头型及 equipped_items 展示配置 ID；全新存档首次登录 SHALL 返回空角色列表，不自动生成演示角色，登录缓存此时在缓存阶段完成认证；SessionService 可在请求前建立未认证的空缓存，失败时展示错误且不建立有效账号会话。SessionService SHALL 直接持有 LoginCache 与 RoleCache。选角 SHALL 复用该会话并在请求前清空角色数据、隔离旧网络代次，SelectRoleRt 成功时并列返回可见 RoleWorldStatePb、私有 RolePb 与 BagPb，全部有效后才初始化缓存、世界和界面；失败时只清理角色数据，保留账号会话和登录摘要。
+客户端 SHALL 通过请求协议将用户名和密码交给模拟服务端；成功后 LoginRt 返回当前未删除角色的 RoleSummaryPb 列表（允许为空），包含角色 ID、名称、等级、性别、头型及 equipped_items 展示配置 ID；全新存档首次登录 SHALL 返回空角色列表，不自动生成演示角色，登录缓存此时在缓存阶段完成认证；SessionService 可在请求前建立未认证的空缓存，失败时展示错误且不建立有效账号会话。SessionService SHALL 直接持有 LoginCache 与 RoleCache。选角 SHALL 复用该会话并在请求前清空角色数据、隔离旧网络代次，EnterWorldRt 成功时并列返回可见 RoleWorldStatePb、私有 RolePb 与 BagPb，全部有效后才初始化缓存、世界和界面；失败时只清理角色数据，保留账号会话和登录摘要。
 
 #### Scenario: 演示账号登录
-- **WHEN** 输入 `demo/demo`
+- **WHEN** 输入 `demo1/123` 或 `demo2/123`（本机服务器模式使用 `admin/123`）
 - **THEN** 在 SessionService 内建立账号状态，LoginCache 保存 RoleSummaryPbData 列表供选角界面读取，RoleCache 尚未初始化；登录协议不返回生命、魔力、经验、坐标、版本或移动确认序号等世界状态
 
 #### Scenario: 首次登录为空列表
@@ -16,7 +16,7 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 
 #### Scenario: 选角加载世界状态
 - **WHEN** 登录后选择角色
-- **THEN** SelectRoleRt 返回该角色最新的可见世界状态、私有 Role 数据及背包，经验和背包扩容不出现在世界状态中
+- **THEN** EnterWorldRt 返回该角色最新的可见世界状态、私有 Role 数据及背包，经验和背包扩容不出现在世界状态中
 
 #### Scenario: 错误凭据
 - **WHEN** 凭据不匹配演示账号
@@ -50,16 +50,14 @@ LoginCache SHALL 继承 CacheBase，由 SessionService 创建并持有，允许�
 - **THEN** LoginCache 自身完成数据转换并进入已认证状态，普通 UI 监听读取完整摘要，服务没有协议订阅
 
 ### Requirement: 会话缓存权威数据
-SessionService SHALL 直接持有 RoleCache，由其维护角色数据，不设置 DataCache 中间容器或独立 BagCache。协议纯数据结构 SHALL 重新组装成独立的同名 PbData 数据类，不保留可变 protobuf 对象引用；所有 PbData 类 SHALL 位于 Session/Data，并在各自文件内提供 FromPb 与 ToPb 双向转换方法，转换时校验数据，输出新的协议对象。RoleWorldProfilePb、RoleWorldStatusPb、RoleWorldPositionPb、RoleWorldEquipmentPb 与私有 RolePb 分别转为不可变 PbData 存入 RoleCache，供当前玩家读取本地组合快照；登录摘要 RoleSummaryPb 转为 RoleSummaryPbData 存入 LoginCache。响应及推送 SHALL 先通过缓存监听按当前角色身份和各部分最后接纳的信封版本更新，再通知普通监听；世界更新仍经 Action。
-
-本地组合快照 SHALL 保存角色 ID、名称、等级、生命、魔力、经验、性别、逻辑位置、装备及各部分权威版本和确认序号，位置仅保存一份；转回 RoleWorldStatePb 时不得包含私有玩法数据。完整世界推送 SHALL 仅合并资料、生命魔力与位置的较新部分；当前玩家装备 SHALL 只通过选角及私有 RoleItemsChangedNotice 与背包一起原子接纳，独立公开装备推送或后续完整世界推送不得单独覆盖本人装备；RoleChangedNotice SHALL 仅合并私有玩法数据；MoveRt SHALL 只合并位置并核对移动确认序号。无效消息 SHALL 不改变缓存。
+SessionService SHALL 持有账号、角色及地图缓存，独立不可变 PbData 与 protobuf 对象隔离。进入响应 SHALL 完整校验身份、私有角色、物品、公开装备与地图后原子接纳。世界帧 SHALL 检查序号连续性并原子更新本人位置、地图和远端公开角色；本人装备仅随进入或 RoleItemsChangedNotice 与背包共同接纳。普通监听在缓存阶段成功后执行，世界更新经 Action。MoveRt 只确认 action_id，不包含位置。
 
 #### Scenario: 状态更新
 - **WHEN** 服务端返回较新的角色位置状态
 - **THEN** 缓存先更新且世界协调器收到可转换为 Action 的消息通知
 
 #### Scenario: 过期状态与其他角色
-- **WHEN** 收到旧版本或其他角色状态
+- **WHEN** 收到旧世界帧或其他角色的私有状态
 - **THEN** 当前角色缓存不会被回滚或替换
 
 #### Scenario: 协议与缓存数据隔离
@@ -70,33 +68,21 @@ SessionService SHALL 直接持有 RoleCache，由其维护角色数据，不设�
 - **WHEN** 将有效 PbData 通过 ToPb 转回协议结构
 - **THEN** 世界 ToPb 仅保留可见字段、独立装备并使用当前权威 Position，不包含私有背包，私有数据由 ToRolePb 单独输出；返回对象均与原数据隔离
 
-#### Scenario: 交错局部更新
-- **WHEN** 资料、生命魔力、位置与私有 Role 推送按不同顺序到达，随后收到较旧完整世界快照
-- **THEN** 四部分独立保留较新值，UI 读取一致的本地组合状态
-
-#### Scenario: 私有领域独立更新
-- **WHEN** 可见生命魔力与私有 Role 数据交错到达，随后收到旧完整世界快照
-- **THEN** 各部分保留较新值，世界状态不覆盖经验或背包扩容
-
 #### Scenario: 选角缺少私有领域
 - **WHEN** 成功选角响应缺少 RolePb、背包或公开装备，或各部分角色 ID 与响应不符
 - **THEN** 拒绝整份响应，不留下部分角色或背包缓存
 
-#### Scenario: 主动位置纠偏
-- **WHEN** 收到当前角色更高版本的位置推送，移动确认序号未增加
-- **THEN** 角色缓存和世界坐标采用新位置
-
 #### Scenario: 本人物品通知先于普通监听
 - **WHEN** 收到本人的较新完整物品通知
-- **THEN** 先检查身份、两侧内容、版本及跨列表唯一性，全部成功才发布两侧新快照，普通监听读取同次提交的背包与装备
+- **THEN** 先检查身份、两侧内容及跨列表唯一性，全部成功才发布两侧新快照，普通监听读取同次提交的背包与装备
 
 #### Scenario: 本人物品版本回退与冲突
-- **WHEN** 收到旧物品提交、较新提交中公开配置 ID 与私有穿戴实例不一致
+- **WHEN** 收到旧代次物品提交、当前提交中公开配置 ID 与私有穿戴实例不一致
 - **THEN** 旧提交整份忽略；穿戴不一致报告错误；均不留下部分背包或装备替换
 
 #### Scenario: 本人的公开装备消息交错
-- **WHEN** 本人物品变更前后交错收到包含本人较新装备的公开独立或完整世界推送
-- **THEN** 本人装备只随私有组合通知更新；其他较新世界领域仍可独立更新，不产生物品短暂重复或消失
+- **WHEN** 本人物品变更前后交错收到包含本人较新装备的世界帧公开增量或全量
+- **THEN** 本人装备只随私有组合通知更新；世界帧仍更新有效位置、地图和远端角色，不产生物品短暂重复或消失
 
 #### Scenario: 组合消息中一侧非法
 - **WHEN** 较新本人物品通知中装备或背包非法，或实例重复或公开配置 ID 与私有穿戴实例不一致

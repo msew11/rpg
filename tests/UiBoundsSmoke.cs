@@ -361,6 +361,7 @@ public partial class UiBoundsSmoke : Node
     /// <summary>推进网络及多轮容器布局。</summary>
     private async Task Frames()
     {
+        await SmokeNetwork.WaitForAccount(this);
         for (var index = 0; index < 4; index++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }

@@ -65,7 +65,7 @@ public partial class PointerFeedbackSmoke : Node
             }
             Click(gapPoint);
             await Frames();
-            Check(edits.All(edit => edit.Text == "demo") && !main.FindChildren("*", "Button", true, false)
+            Check(edits[0].Text == "demo1" && edits[1].Text == "123" && !main.FindChildren("*", "Button", true, false)
                 .OfType<Button>().Single(button => button.Text == "登录").Disabled, "窄缝点击改变文本或提交了登录");
             using (var motion = new InputEventMouseMotion { Position = new Vector2(10, 10), GlobalPosition = new Vector2(10, 10) })
                 GetViewport().PushInput(motion, true);
@@ -188,6 +188,7 @@ public partial class PointerFeedbackSmoke : Node
     /// <summary>等待协议收发、布局和延迟释放完成。</summary>
     private async Task Frames()
     {
+        await SmokeNetwork.WaitForAccount(this);
         for (var i = 0; i < 4; i++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }

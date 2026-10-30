@@ -281,6 +281,7 @@ public partial class ItemCatalogSmoke : Node
     /// <summary>等待协议收发及后续布局。</summary>
     private async Task Frames()
     {
+        await SmokeNetwork.WaitForAccount(this);
         for (var i = 0; i < 3; i++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
         await Frame();
         await Frame();

@@ -4,7 +4,7 @@ using Godot;
 using Rpg.Const;
 using Rpg.Config;
 using Rpg.Services;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 using Rpg.Session;
 using Rpg.World;
 using Rpg.World.Actions;
@@ -27,15 +27,11 @@ public partial class ActorAnimationSmoke : Node
             var config = GameServices.Config;
             var repo = new AnimationService();
             var net = GameServices.Net;
-            LoginRt? loginResponse = null;
-            using var login = GameServices.EventBus.Subscribe<LoginRt>(response =>
-            {
-                Check(response.Success, response.Error);
-                loginResponse = response;
-            });
-            net.Send(new Login { Username = "demo", Password = "demo" });
-            net.Tick(0);
-            using var session = new SessionService(net, loginResponse!);
+            var session = GameServices.Session;
+            session.Login("demo1", "123");
+            var loginDeadline = DateTime.UtcNow.AddSeconds(5);
+            while (!session.IsLoggedIn && DateTime.UtcNow < loginDeadline)
+                { net.Tick(0); await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
             Check(session.LoginCache.Roles.Count == 2, "登录未返回预先准备的两个角色");
             var actor = new ActorView();
             AddChild(actor);
@@ -44,8 +40,11 @@ public partial class ActorAnimationSmoke : Node
             var total = 0;
             foreach (var summary in session.LoginCache.Roles)
             {
+                if (session.HasRole) session.LeaveRole();
                 session.SelectRole(summary.RoleId);
-                net.Tick(0);
+                var enterDeadline = DateTime.UtcNow.AddSeconds(5);
+                while (!session.HasRole && DateTime.UtcNow < enterDeadline)
+                    { net.Tick(0); await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
                 Check(session.RoleCache.IsInitialized, "选角未初始化角色世界状态");
                 var role = session.Role;
                 var world = new WorldManager();
@@ -97,7 +96,7 @@ public partial class ActorAnimationSmoke : Node
                     Check(actor.Position == IsometricProjection.ToScreen(state.Position), "角色逻辑位置未投影");
                     Check(body.Position == -resource.Anchor, "动画没有使用原始定位点");
                     var before = state;
-                    await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                    { net.Tick(0); await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
                     Check(before == world.ActorState, "动画播放反向修改了世界状态");
                 }
             }

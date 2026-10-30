@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Godot;
-using Rpg.Server;
+using Rpg.Server.Modules.Role.Storage;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
@@ -33,8 +33,8 @@ public partial class GroundItemDropSmoke : Node
             items.Add(new JsonObject { ["id"] = 2000, ["name"] = "验收堆叠", ["category"] = 1, ["subCategory"] = 2, ["relatedId"] = 1012, ["maxStack"] = 10 });
             File.WriteAllText(Path.Combine(config, "item.json"), items.ToJsonString());
             RoleTestData.Seed(server);
-            var repo = new RepoServerRole(server);
-            repo.Save(repo.Load(1001).WithItems([new(1, 2000, 0, 5), new(2, 1012, 1, 1)], 3));
+            var repo = new RepoRole(server);
+            RoleTestData.SetItems(server, 1001, [new(1, 2000, 0, 5), new(2, 1012, 1, 1)], 3);
             main = await StartMain(directory, config);
             var bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
             var grid = (GridContainer)bag.FindChild("BagGrid", true, false);
@@ -173,14 +173,14 @@ public partial class GroundItemDropSmoke : Node
             await Frames();
             Check(!dialog.Visible, "关闭背包未关闭数量确认");
             Check(GameServices.Session.Bag.Items.Single().Count == 4, "关闭数量窗修改背包");
-            GameServices.Net.Tick(5);
-            var saved = repo.Load(1001);
+            await GameServices.MockServer.FlushAsync();
+            var saved = (await repo.LoadAsync(1001));
             anchorToggle.ButtonPressed = true; await Frames();
             Check(File.ReadAllText(Path.Combine(directory, ".env")).Contains("RPG_SHOW_ENTITY_ANCHORS=true"),
                 "开启锚点未保存 .env");
             main.QueueFree(); await Frames(); main = null;
             main = await StartMain(directory, config);
-            Check(GameServices.Session.Bag.Revision > 0 && GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.Count)).SequenceEqual(saved.BagItems.Select(item => (item.InstanceId, item.Count))), "重启后背包未恢复");
+            Check(GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.Count)).SequenceEqual(saved.Items.Select(item => (item.InstanceId, item.Count))), "重启后背包未恢复");
             Check(GameServices.Session.Map!.Objects.Count == 2, "重启后地图未恢复");
             view = main.FindChildren("*", "Node", true, false).OfType<GroundItemsView>().Single();
             overlay = main.FindChildren("*", "Node", true, false).OfType<GroundItemOverlayControl>().Single();
@@ -192,14 +192,13 @@ public partial class GroundItemDropSmoke : Node
                 view.GetChildren().OfType<Node2D>().All(node => node.GetNode<EntityAnchorView>("EntityAnchor").Visible),
                 "重启未恢复锚点开关或实体标记");
             using var moveOut = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true };
-            GameServices.World.HandleInput(moveOut, new Vector2(23000, 23000));
-            GameServices.Net.Tick(100);
-            await Frames();
+            GameServices.World.HandleInput(moveOut, new Vector2(17440, 16016));
+            await Until(() => GameServices.Session.Map!.Objects.Count == 0);
             Check(GameServices.Session.Map.Objects.Count == 0 && view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 0, "离开 AOI 未移除地面表现");
             using var moveBack = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true };
             GameServices.World.HandleInput(moveBack, new Vector2(ground.X, ground.Y));
-            GameServices.Net.Tick(100);
-            await Frames();
+            await Until(() => GameServices.Session.Map!.Objects.Count == 2);
+            await Until(() => GameServices.Session.Role.Position.DistanceTo(new Vector2(ground.X, ground.Y)) < 3);
             Check(view.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 2, "再次进入 AOI 未恢复表现");
             // 对应部分/全部销毁与模式冻结，真实点击确认后地面数量始终不变。
             bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
@@ -320,8 +319,18 @@ public partial class GroundItemDropSmoke : Node
     /// <summary>等待网络收发、拖放状态和 GUI 布局。</summary>
     private async Task Frames()
     {
-        for (var index = 0; index < 4; index++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+        await SmokeNetwork.WaitForAccount(this);
+        for (var index = 0; index < 8; index++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+    }
+
+    /// <summary>等待真实权威时钟完成移动及世界帧发布，保留超时失败。</summary>
+    private async Task Until(Func<bool> done)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(12);
+        while (!done() && DateTime.UtcNow < deadline) await Frames();
+        Check(done(), "等待权威世界状态超时");
+        await Frames();
     }
 
     /// <summary>将验收失败转换为场景非零退出。</summary>

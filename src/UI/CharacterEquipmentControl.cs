@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Rpg.Const;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 using Rpg.Services;
 using Rpg.Session.Data;
 
@@ -12,8 +12,8 @@ namespace Rpg.UI;
 /// <summary>角色窗口的五行装备布局，双手位于预览下方，状态只取会话快照。</summary>
 public partial class CharacterEquipmentControl : VBoxContainer
 {
-    /// <summary>V2 页面自身拥有的消息监听。</summary>
-    private readonly System.Collections.Generic.List<IDisposable> _v2Subscriptions = new();
+    /// <summary>页面自身拥有的消息监听。</summary>
+    private readonly System.Collections.Generic.List<IDisposable> _subscriptions = new();
 
     /// <summary>跨窗口物品操作的背包控件。</summary>
     public BagControl Bag { get; init; } = null!;
@@ -27,8 +27,6 @@ public partial class CharacterEquipmentControl : VBoxContainer
     /// <summary>服务器错误在角色窗口内即时可见。</summary>
     private readonly Label _status = new() { Name = "EquipmentStatus", Visible = false,
         AutowrapMode = TextServer.AutowrapMode.WordSmart };
-    /// <summary>窗口拥有的响应监听。</summary>
-    private IDisposable? _subscription;
     /// <summary>避免位置推送重复解析装备图标和预览资源。</summary>
     private RoleWorldEquipmentPbData? _lastEquipment;
     /// <summary>仅外观相关角色字段变化时刷新站立预览。</summary>
@@ -64,15 +62,8 @@ public partial class CharacterEquipmentControl : VBoxContainer
         AddSlot(hands, EquipmentSlot.MainHand, "主手");
         AddSlot(hands, EquipmentSlot.OffHand, "副手");
         AddChild(_status);
-        if (GameServices.Session.IsWorldReadOnly) { _status.Text = "V2 装备仅供只读展示"; _status.Visible = true; }
-        _subscription = GameServices.EventBus.Subscribe<EquipItemRt>(response =>
-        {
-            if (response.RoleId != GameServices.Session.RoleId) return;
-            _status.Text = response.Success ? "" : response.Error;
-            _status.Visible = !response.Success;
-        });
-        _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.EquipItemRt>(_ => { _status.Text = ""; _status.Hide(); }));
-        _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.ErrorRt>(error => { _status.Text = error.Message; _status.Show(); }));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.Protocol.EquipItemRt>(_ => { _status.Text = ""; _status.Hide(); }));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.Protocol.ErrorRt>(error => { _status.Text = error.Message; _status.Show(); }));
         Refresh();
     }
 
@@ -123,8 +114,7 @@ public partial class CharacterEquipmentControl : VBoxContainer
     /// <summary>离开角色回收窗口自己的协议监听。</summary>
     public override void _ExitTree()
     {
-        foreach (var subscription in _v2Subscriptions) subscription.Dispose();
-        _v2Subscriptions.Clear();
-        _subscription?.Dispose(); _subscription = null;
+        foreach (var subscription in _subscriptions) subscription.Dispose();
+        _subscriptions.Clear();
     }
 }

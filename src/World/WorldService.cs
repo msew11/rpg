@@ -91,12 +91,8 @@ public sealed class WorldService : Service
         ThrowIfDisposed();
         if (!_session.CanMove || _world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
         var action = new MoveAction(++_nextActionId, MapUtils.Clamp(RequireMap(), logicalPosition));
-        if (_session.UsesWorldFrames)
-        {
-            _pendingMove = action; _intentions.Clear(); _intentions[action.ActionId] = action;
-            SendPendingMove();
-        }
-        else _session.SubmitMove(action.ActionId, action.Destination);
+        _pendingMove = action; _intentions.Clear(); _intentions[action.ActionId] = action;
+        SendPendingMove();
         _world.Enqueue(action);
         return true;
     }
@@ -105,21 +101,16 @@ public sealed class WorldService : Service
     public void PickupItem(Guid objectId)
     {
         ThrowIfDisposed();
-        if (!_session.CanWriteGroundItems) return;
         if (_world is null || MapObjects is not { } map || !map.Objects.TryGetValue(objectId, out var item) || item.MonsterTypeId is not null)
             throw new InvalidOperationException("地面物品已不存在");
         var action = new MoveAction(++_nextActionId, new Vector2(item.X, item.Y));
-        if (_session.UsesWorldFrames)
-        {
-            _pendingMove = action; _intentions.Clear(); _intentions[action.ActionId] = action;
-            SendPendingMove(force: true);
-        }
-        else _session.SubmitMove(action.ActionId, action.Destination);
+        _pendingMove = action; _intentions.Clear(); _intentions[action.ActionId] = action;
+        SendPendingMove(force: true);
         _world.Enqueue(action);
-        _session.PickupItem(item.ObjectId, item.Revision, action.ActionId);
+        _session.PickupItem(item.ObjectId, action.ActionId);
     }
 
-    /// <summary>依据当前 ECS 地面物品选取分散落点；狭小地图交给服务端旧路径处理。</summary>
+    /// <summary>依据当前 ECS 地面物品选取分散落点；狭小地图交给服务端选点规则处理。</summary>
     public Vector2? SelectGroundDropPosition()
     {
         ThrowIfDisposed();
@@ -185,7 +176,7 @@ public sealed class WorldService : Service
     {
         ThrowIfDisposed();
         if (_world is null) return;
-        if (_session.UsesWorldFrames && _session.HasRole)
+        if (_session.HasRole)
         {
             _sendCooldown = Math.Max(0, _sendCooldown - delta); SendPendingMove();
             _sinceFrame += delta;
@@ -256,7 +247,7 @@ public sealed class WorldService : Service
         _setting.SelectRole(_session.RoleId);
         _map = map;
         ResetMovement();
-        var world = new WorldManager(() => _session.UsesWorldFrames ? (int)_session.Role.Speed : _env.MovementSpeed);
+        var world = new WorldManager(() => (int)_session.Role.Speed);
         world.Enqueue(new InitializeWorldAction(_map!));
         world.Enqueue(new InitializeRoleAction(_session.Role));
         _lastMapSnapshot = _session.Map;

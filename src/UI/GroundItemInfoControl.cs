@@ -63,7 +63,7 @@ public partial class GroundItemInfoControl : PanelContainer
     {
         if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
         {
-            if (Rpg.Services.GameServices.Session.CanWriteGroundItems) PickupRequested?.Invoke(ObjectId);
+            PickupRequested?.Invoke(ObjectId);
             AcceptEvent();
         }
     }

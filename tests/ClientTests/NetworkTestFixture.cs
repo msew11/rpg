@@ -1,79 +1,61 @@
-using Rpg.Services;
+using Rpg.Config;
 using Rpg.Net;
-using Rpg.Net.Message;
-using Rpg.Server;
+using Rpg.Services;
 using Rpg.Session;
 using Rpg.Session.Cache;
 using Rpg.Session.Data;
+using Rpg.Server.Hosting;
 
 namespace ClientTests;
 
-/// <summary>通过真实字节链路和可清理存储服务 client-network、mock-server、client-session 验收。</summary>
+/// <summary>为 client-actor-presentation 验收提供正式异步字节与角色缓存。</summary>
 internal sealed class NetworkTestFixture : IDisposable
 {
-    /// <summary>是否由此实例负责删除测试存储。</summary>
-    private readonly bool _ownsDirectory;
-    /// <summary>本夹具借用的事件域。</summary>
-    private readonly EventBusService _eventBus;
-    /// <summary>当前夹具的隔离存档目录。</summary>
-    public string DirectoryPath { get; }
-    /// <summary>测试可调用主动推送入口的独立服务端。</summary>
-    public MockServer Server { get; }
-    /// <summary>真实队列与事件网络服务。</summary>
+    /// <summary>此夹具拥有的存档根。</summary>
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-actor-network-" + Guid.NewGuid());
+    /// <summary>独立服务器所借用的环境。</summary>
+    private readonly EnvService _env;
+    /// <summary>此夹具拥有的服务器。</summary>
+    private readonly MockServerService _server;
+    /// <summary>独立的正式网络。</summary>
     public NetService Net { get; }
-    /// <summary>登录成功后建立的账号会话，未登录或失败时为空。</summary>
-    public SessionService? Session { get; private set; }
-    /// <summary>当前账号会话持有的登录摘要缓存。</summary>
-    public LoginCache LoginCache => Session!.LoginCache;
-    /// <summary>观察可诊断网络错误。</summary>
-    public List<Exception> Errors { get; } = [];
-
-    /// <summary>使用独立或借用目录；仅显式指定时准备已有角色存档。</summary>
-    public NetworkTestFixture(EventBusService eventBus, string? directory = null, bool seedRoles = false,
-        Func<int>? movementSpeed = null)
+    /// <summary>账号和角色缓存。</summary>
+    public SessionService Session { get; }
+    /// <summary>准备存档并借用外层已注册的配置和事件域。</summary>
+    internal NetworkTestFixture(EventBusService events, bool seedRoles = false)
     {
-        _eventBus = eventBus;
-        _ownsDirectory = directory is null;
-        DirectoryPath = directory ?? Path.Combine(Path.GetTempPath(), "rpg-network-" + Guid.NewGuid());
-        if (seedRoles) Rpg.Tests.RoleTestData.Seed(DirectoryPath);
-        Server = new MockServer(DirectoryPath, new Rpg.Server.Handler.Bag.BagRules(8, 5, []),
-            movementSpeed: movementSpeed);
-        Net = new NetService(new MockTransport(Server), eventBus, new Rpg.Services.LogService(Console.WriteLine));
-        Net.Error += Errors.Add;
-        _eventBus.Error += Errors.Add;
+        if (seedRoles) Rpg.Tests.RoleTestData.Seed(_directory);
+        _env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
+        _server = MockServerService.CreateInProcess(_env, GameServices.Config);
+        Net = NetService.CreateInProcess(_server, events, GameServices.Log);
+        Session = new SessionService(Net);
     }
-
-    /// <summary>结束旧账号后提交登录，成功才创建会话并从缓存读取摘要。</summary>
-    public (bool Success, string Error, IReadOnlyList<RoleSummaryPbData> Roles) Login(string username = "demo", string password = "demo")
+    /// <summary>认证后返回不可变摘要。</summary>
+    public (bool Success, string Error, IReadOnlyList<RoleSummaryPbData> Roles) Login(string username = "demo1", string password = "123")
     {
-        Session?.Dispose();
-        Session = null;
-        Net.ResetSession();
-        LoginRt? response = null;
-        using var subscription = _eventBus.Subscribe<LoginRt>(message => response = message);
-        Net.Send(new Login { Username = username, Password = password });
-        Net.Tick(0);
-        Assert.NotNull(response);
-        if (response.Success) Session = new SessionService(Net, response);
-        return (response.Success, response.Error, Session?.LoginCache.Roles ?? []);
+        Session.Login(username, password);
+        PumpUntil(() => !Session.AccountRequestPending);
+        return (Session.IsLoggedIn, "", Session.Roles);
     }
-
-    /// <summary>通过已有账号会话选角并验证响应初始化角色缓存。</summary>
+    /// <summary>等完整进入响应接纳后返回角色会话。</summary>
     public SessionService SelectRole(long roleId)
     {
-        var session = Session ?? throw new InvalidOperationException("测试应先成功登录");
-        session.SelectRole(roleId);
-        Net.Tick(0);
-        Assert.True(session.RoleCache.IsInitialized);
-        return session;
+        Session.SelectRole(roleId);
+        PumpUntil(() => !Session.AccountRequestPending);
+        Assert.True(Session.HasRole);
+        return Session;
     }
-
-    /// <summary>先释放所有通信资源，再删除自己创建的隔离目录。</summary>
+    /// <summary>异步回复只由客户端固定帧发布。</summary>
+    private void PumpUntil(Func<bool> done)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!done() && DateTime.UtcNow < deadline) { Net.Tick(0); Thread.Sleep(1); }
+        Assert.True(done());
+    }
+    /// <summary>先结束缓存和连接，再释放独立服务器。</summary>
     public void Dispose()
     {
-        Session?.Dispose();
-        _eventBus.Error -= Errors.Add;
-        Net.Dispose();
-        if (_ownsDirectory && Directory.Exists(DirectoryPath)) Directory.Delete(DirectoryPath, true);
+        Session.Dispose(); Net.Dispose(); _server.Dispose(); _env.Dispose();
+        if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
     }
 }

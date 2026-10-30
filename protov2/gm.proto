@@ -1,7 +1,0 @@
-syntax = "proto3";
-package rpg.v2;
-option csharp_namespace = "Rpg.ProtocolV2";
-// 当前控制角色的开发命令。
-message Gm { string command = 1; }
-// 成功内存提交反馈，物品由完整通知同步。
-message GmRt { int64 role_id = 1; string command = 2; string message = 3; }

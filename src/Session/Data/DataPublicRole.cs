@@ -10,7 +10,7 @@ public sealed record DataPublicRole(long RoleId, RoleWorldProfilePbData Profile,
     RoleWorldPositionPbData Position, RoleWorldEquipmentPbData Equipment)
 {
     /// <summary>全量公开信息一次验证并复制。</summary>
-    public static DataPublicRole FromPb(ProtocolV2.RoleWorldStatePb value, IReadOnlyDictionary<int, ItemCfg> items)
+    public static DataPublicRole FromPb(global::Rpg.Protocol.RoleWorldStatePb value, IReadOnlyDictionary<int, ItemCfg> items)
     {
         if (value is null || value.RoleId <= 0) throw new InvalidDataException("公开角色身份无效");
         return new(value.RoleId, RoleWorldProfilePbData.FromPb(value.Profile, value.RoleId),

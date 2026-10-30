@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 using Rpg.Services;
 using Rpg.World.Utils;
 using Rpg.World.Views;
@@ -14,7 +14,7 @@ public partial class MainController : Control
 {
     /// <summary>本次启动拥有的常驻服务释放句柄。</summary>
     private IDisposable? _servicesLifetime;
-    /// <summary>独立 V2 场景接管系统关闭，以便保存失败时保留页面。</summary>
+    /// <summary>主场景接管系统关闭，以便保存失败时保留页面。</summary>
     private bool _quitPolicyManaged;
     /// <summary>场景结束时恢复原有 SceneTree 关闭策略。</summary>
     private bool _previousAutoAcceptQuit;
@@ -65,29 +65,17 @@ public partial class MainController : Control
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;
             GameServices.EventBus.Error += OnNetworkError;
-            if (GameServices.Net.IsV2)
-            {
-                _previousAutoAcceptQuit = GetTree().AutoAcceptQuit;
-                _quitPolicyManaged = true;
-                GetTree().AutoAcceptQuit = false;
-                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.LoginRt>(_ => { if (_loginButton is not null) ShowRoles(); }));
-                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.CreateRoleRt>(_ => { if (_roleRequestPending) ShowRoles(); }));
-                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.DeleteRoleRt>(_ => { if (_roleRequestPending) ShowRoles(); }));
-                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.EnterWorldRt>(OnEnteredWorld));
-                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.SessionKickedNotice>(notice => ReturnToLogin(notice.Message)));
-                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.ErrorRt>(reply => OnNetworkError(new InvalidOperationException(reply.Message))));
-            }
-            else _subscriptions.Add(GameServices.EventBus.Subscribe<LoginRt>(OnLoggedIn));
-            _subscriptions.Add(GameServices.EventBus.Subscribe<SelectRoleRt>(OnSelectedRole));
-            _subscriptions.Add(GameServices.EventBus.Subscribe<CreateRoleRt>(OnCreatedRole));
-            _subscriptions.Add(GameServices.EventBus.Subscribe<DeleteRoleRt>(OnDeletedRole));
-            _subscriptions.Add(GameServices.EventBus.Subscribe<MoveRt>(OnMoved));
-            _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStateNotice>(OnRoleNotice));
-            _subscriptions.Add(GameServices.EventBus.Subscribe<RoleProfileNotice>(OnProfileNotice));
-            _subscriptions.Add(GameServices.EventBus.Subscribe<RolePositionNotice>(OnPositionNotice));
-            _subscriptions.Add(GameServices.EventBus.Subscribe<MapAoiNotice>(OnMapNotice));
-            _subscriptions.Add(GameServices.EventBus.Subscribe<PickupItemRt>(OnPickedUp));
-            _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.PickupItemResultNotice>(result =>
+            _previousAutoAcceptQuit = GetTree().AutoAcceptQuit;
+            _quitPolicyManaged = true;
+            GetTree().AutoAcceptQuit = false;
+            _subscriptions.Add(GameServices.EventBus.Subscribe<global::Rpg.Protocol.LoginRt>(_ => { if (_loginButton is not null) ShowRoles(); }));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<global::Rpg.Protocol.CreateRoleRt>(_ => { if (_roleRequestPending) ShowRoles(); }));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<global::Rpg.Protocol.DeleteRoleRt>(_ => { if (_roleRequestPending) ShowRoles(); }));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<global::Rpg.Protocol.EnterWorldRt>(OnEnteredWorld));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<global::Rpg.Protocol.SessionKickedNotice>(notice => ReturnToLogin(notice.Message)));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<global::Rpg.Protocol.ErrorRt>(reply => OnNetworkError(new InvalidOperationException(reply.Message))));
+
+            _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.Protocol.PickupItemResultNotice>(result =>
             {
                 if (result.RoleId != GameServices.Session.RoleId) return;
                 if (result.Success) UiSoundPlayer.Play(this, 1001);
@@ -146,7 +134,6 @@ public partial class MainController : Control
     /// <summary>图标或 UI 信息框拾取均使用同一世界服务入口。</summary>
     private void RequestPickup(Guid objectId)
     {
-        if (!GameServices.Session.CanWriteGroundItems) return;
         try { GameServices.World.PickupItem(objectId); }
         catch (Exception error) { _hud?.ShowNetworkError(error.Message); }
     }
@@ -204,9 +191,9 @@ public partial class MainController : Control
         if (flush) GameServices.Net.DisconnectClient();
         _bgm?.PlayTrack("M001");
         var box = CenteredScreen("网络 RPG 客户端 · 模拟登录");
-        box.AddChild(Label(GameServices.Net.IsV2 ? "服务器：admin / 123；客户端：demo1、demo2 / 123" : "演示账号：demo / demo", 15));
-        var username = new LineEdit { Name = "Username", PlaceholderText = "用户名", Text = GameServices.Net.IsV2 ? (GameServices.Net.UsesTcp && _connectionOptions.HostServer ? "admin" : "demo1") : "demo", CustomMinimumSize = new Vector2(280, 36) };
-        var password = new LineEdit { Name = "Password", PlaceholderText = "密码", Secret = true, Text = GameServices.Net.IsV2 ? "123" : "demo" };
+        box.AddChild(Label("服务器：admin / 123；客户端：demo1、demo2 / 123", 15));
+        var username = new LineEdit { Name = "Username", PlaceholderText = "用户名", Text = GameServices.Net.UsesTcp && _connectionOptions.HostServer ? "admin" : "demo1", CustomMinimumSize = new Vector2(280, 36) };
+        var password = new LineEdit { Name = "Password", PlaceholderText = "密码", Secret = true, Text = "123" };
         // 让两个文本框之间的窄缝延续 I 形鼠标，保持原有间距和输入行为。
         var fields = new VBoxContainer { Name = "LoginFields", MouseDefaultCursorShape = Control.CursorShape.Ibeam };
         fields.AddThemeConstantOverride("separation", box.GetThemeConstant("separation"));
@@ -319,23 +306,6 @@ public partial class MainController : Control
         dialog.PopupCentered();
     }
 
-    /// <summary>缓存先更新列表，成功返回选角，失败恢复当前创建草稿。</summary>
-    private void OnCreatedRole(CreateRoleRt response)
-    {
-        if (_createPage is null || !_roleRequestPending) return;
-        _roleRequestPending = false;
-        if (response.Success) ShowRoles();
-        else _createPage.SetBusy(false, response.Error);
-    }
-
-    /// <summary>删除响应后从缓存重建列表并显示失败信息。</summary>
-    private void OnDeletedRole(DeleteRoleRt response)
-    {
-        if (!_roleRequestPending || _createPage is not null) return;
-        _roleRequestPending = false;
-        ShowRoles(response.Success ? "" : response.Error);
-    }
-
     /// <summary>由已有账号会话重置角色缓存并提交选角，成功响应前不创建世界。</summary>
     private void StartRole(long roleId)
     {
@@ -347,38 +317,14 @@ public partial class MainController : Control
             foreach (var node in _screen.FindChildren("*", "Button", true, false)) ((Button)node).Disabled = true;
     }
 
-    /// <summary>登录业务处理完成后切换页面，失败时保留登录界面。</summary>
-    private void OnLoggedIn(LoginRt response)
-    {
-        if (_loginButton is null) return;
-        _loginButton.Disabled = false;
-        if (!response.Success) { _feedback!.Text = response.Error; return; }
-        UiSoundPlayer.Play(this, 1005);
-        ShowRoles();
-    }
-
-    /// <summary>缓存初始化成功后创建世界；选角失败只重置角色数据并保留账号会话。</summary>
-    private void OnSelectedRole(SelectRoleRt response)
-    {
-        if (!GameServices.Session.IsLoggedIn || response.RoleId != GameServices.Session.RoleId) return;
-        if (!response.Success)
-        {
-            if (GameServices.Session.IsLoggedIn) ShowRoles(response.Error);
-            else ShowLogin();
-            return;
-        }
-        if (!GameServices.Session.HasRole) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
-        PresentEnteredWorld();
-    }
-
-    /// <summary>完整 V2 缓存接纳后复用世界展示，不构造旧响应。</summary>
-    private void OnEnteredWorld(ProtocolV2.EnterWorldRt response)
+    /// <summary>完整缓存接纳后建立正式世界展示。</summary>
+    private void OnEnteredWorld(global::Rpg.Protocol.EnterWorldRt response)
     {
         if (!_roleRequestPending || !GameServices.Session.HasRole || response.State.RoleId != GameServices.Session.RoleId) return;
         PresentEnteredWorld();
     }
 
-    /// <summary>两个入口共用物品素材预热和世界节点创建。</summary>
+    /// <summary>进入成功后预热物品素材并创建世界节点。</summary>
     private void PresentEnteredWorld()
     {
         _roleRequestPending = false;
@@ -389,46 +335,6 @@ public partial class MainController : Control
         UiSoundPlayer.Play(this, 1005);
         GameServices.World.InitializeRole();
         BuildRoleWorld();
-    }
-
-    /// <summary>缓存处理成功移动响应后，提交世界同步操作。</summary>
-    private void OnMoved(MoveRt response)
-    {
-        if (response.Success && response.RoleId == GameServices.Session.RoleId)
-            GameServices.World.SyncRole();
-    }
-
-    /// <summary>缓存处理当前角色推送后，同步世界，不依赖 HUD 生命周期。</summary>
-    private void OnRoleNotice(RoleStateNotice notice)
-    {
-        if (notice.State?.Profile?.RoleId == GameServices.Session.RoleId)
-            GameServices.World.SyncRole();
-    }
-
-    /// <summary>资料推送写入缓存后同步世界角色外观。</summary>
-    private void OnProfileNotice(RoleProfileNotice notice)
-    {
-        if (notice.Profile?.RoleId == GameServices.Session.RoleId) GameServices.World.SyncRole();
-    }
-
-    /// <summary>位置推送写入缓存后同步世界坐标。</summary>
-    private void OnPositionNotice(RolePositionNotice notice)
-    {
-        if (notice.Position?.RoleId == GameServices.Session.RoleId) GameServices.World.SyncRole();
-    }
-
-    /// <summary>拾取最终结果只显示反馈，两侧状态已由原缓存通知维护。</summary>
-    private void OnPickedUp(PickupItemRt response)
-    {
-        if (response.RoleId != GameServices.Session.RoleId) return;
-        if (response.Success) UiSoundPlayer.Play(this, 1001);
-        _hud?.ShowNetworkError(response.Success ? "" : response.Error);
-    }
-
-    /// <summary>地图缓存已处理通知后，只协调缺口重同步，不处理对象数据。</summary>
-    private void OnMapNotice(MapAoiNotice notice)
-    {
-        if (notice.RoleId == GameServices.Session.RoleId) GameServices.Session.ResyncMapIfNeeded();
     }
 
     /// <summary>为服务已经初始化的世界建立地图、角色、摄像机与 HUD 表现。</summary>
@@ -446,7 +352,7 @@ public partial class MainController : Control
         _worldVisual.AddChild(_groundItems);
         _groundOverlay = new GroundItemOverlayControl(_groundItems) { Name = "GroundItemOverlay" };
         AddChild(_groundOverlay);
-        if (GameServices.Session.CanWriteGroundItems) _groundOverlay.PickupRequested += RequestPickup;
+        _groundOverlay.PickupRequested += RequestPickup;
         _actor = new ActorView { Name = "ActorView", ZIndex = 1, Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
         _worldVisual.AddChild(_actor);
         _actor.Present(GameServices.World.ActorState!);
@@ -485,11 +391,11 @@ public partial class MainController : Control
         GetTree().Quit();
     }
 
-    /// <summary>离开角色或 V2 账号前同步落地；失败保留当前页面并提供重试反馈。</summary>
+    /// <summary>离开角色或 账号前同步落地；失败保留当前页面并提供重试反馈。</summary>
     private bool TryFlushBeforeLeavingRole(bool includeAccount = false)
     {
         if (_servicesLifetime is null || !GameServices.Session.HasRole &&
-            !(includeAccount && GameServices.Session.UsesWorldFrames && GameServices.Session.IsLoggedIn)) return true;
+            !(includeAccount && GameServices.Session.IsLoggedIn)) return true;
         try
         {
             GameServices.Net.FlushServerWrites();

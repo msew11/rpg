@@ -38,9 +38,9 @@ public sealed class MultiMapConfigTests : IDisposable
         using var services = GameServicesTestFactory.Register(Env());
         Assert.False(GameServices.World.HasWorld);
         var session = GameServices.Session;
-        session.Login("demo", "demo"); GameServices.Net.Tick(0);
-        session.CreateRole("第二张地图", Rpg.Const.RoleGender.Male, 1); GameServices.Net.Tick(0);
-        session.SelectRole(Assert.Single(session.Roles).RoleId); GameServices.Net.Tick(0);
+        session.Login("demo1", "123"); PumpUntil(() => !session.AccountRequestPending);
+        session.CreateRole("第二张地图", Rpg.Const.RoleGender.Male, 1); PumpUntil(() => !session.AccountRequestPending);
+        session.SelectRole(Assert.Single(session.Roles).RoleId); PumpUntil(() => !session.AccountRequestPending);
         Assert.Equal(2, session.Role.MapId); Assert.Equal(2, session.Map!.MapId);
         GameServices.World.InitializeRole();
         Assert.Equal(200, GameServices.World.MapConfig.Width);
@@ -50,6 +50,14 @@ public sealed class MultiMapConfigTests : IDisposable
         GameServices.World.LeaveRole(); session.LeaveRole();
         Assert.Null(GameServices.World.MapObjects); Assert.Null(session.Map);
         Assert.Throws<InvalidOperationException>(() => GameServices.World.MapConfig);
+    }
+
+    /// <summary>等待正式服务器异步回复，不依赖同步模拟响应。</summary>
+    private static void PumpUntil(Func<bool> done)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!done() && DateTime.UtcNow < deadline) { GameServices.Net.Tick(0); Thread.Sleep(1); }
+        Assert.True(done());
     }
 
     /// <summary>重复地图身份和不存在的初始地图都在启动阶段诊断。</summary>

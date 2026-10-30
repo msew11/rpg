@@ -1,191 +1,98 @@
 syntax = "proto3";
 package rpg;
-option csharp_namespace = "Rpg.Net.Message";
+option csharp_namespace = "Rpg.Protocol";
+import "role.proto";
 
+// 基于最新格子执行移动、合并或交换。
+message MoveItem {
+  int64 instance_id = 1;
+  int32 target_slot_index = 2;
+}
 
-// 角色持有的基础道具实例，不重复传递静态配置。
+message MoveItemRt {
+  int64 role_id = 1;
+  int64 instance_id = 2;
+  int32 target_slot_index = 3;
+}
+
+// 正实例穿戴，零卸下当前槽位。
+message EquipItem {
+  int64 instance_id = 1;
+  EquipmentSlotPb slot = 2;
+  optional int32 target_bag_slot = 3;
+}
+
+message EquipItemRt {
+  int64 role_id = 1;
+  EquipmentSlotPb slot = 2;
+}
+
+// 按最新持有数量丢弃或销毁，落点成对可选。
+message DropItem {
+  int64 instance_id = 1;
+  int32 count = 2;
+  bool destroy = 3;
+  optional float drop_x = 4;
+  optional float drop_y = 5;
+}
+
+message DropItemRt {
+  int64 role_id = 1;
+  int64 instance_id = 2;
+  string object_id = 3;
+}
+
+// 接纳已经提交的走近动作，最终结果另行通知。
+message PickupItem {
+  string object_id = 1;
+  uint64 move_action_id = 2;
+}
+
+message PickupItemRt {
+  int64 role_id = 1;
+  string object_id = 2;
+  uint64 move_action_id = 3;
+}
+
+// 本人完整物品与装备一起接纳，不带物品版本。
+message RoleItemsChangedNotice {
+  int64 role_id = 1;
+  BagPb bag = 2;
+  RoleWorldEquipmentPb equipment = 3;
+}
+
+// 只表示最终成功与失败，明确取消不推送。
+message PickupItemResultNotice {
+  int64 role_id = 1;
+  string object_id = 2;
+  uint64 move_action_id = 3;
+  bool success = 4;
+}
+
+// 完整私有物品集合。
+message BagPb {
+  // 包括背包与已穿戴实例，空格不存记录。
+  repeated ItemPb items = 1;
+}
+
+// 一份角色私有物品实例。
 message ItemPb {
-  // 角色内唯一且不复用的实例编号。
+  // 角色内稳定且不复用的实例编号。
   int64 instance_id = 1;
   // 道具配置编号。
   int32 item_id = 2;
-  // 从零开始、按行排列的格子编号。
+  // 背包格编号，已穿戴固定零。
   int32 slot_index = 3;
-  // 当前堆叠数量，装备为一。
+  // 当前数量。
   int32 count = 4;
-  // 是否正在穿戴；穿戴时 slot_index 固定为 0。
+  // 是否已穿戴。
   bool equipped = 5;
-  // 道具类型专属的实例扩展数据。
+  // 物品类型扩展。
   oneof payload {
     EquipmentPb equipment = 6;
   }
 }
 
-// 当前玩家持有的全部私有物品，包含穿戴实例；空格不存记录。
-message BagPb {
-  // 当前持有的全部物品实例。
-  repeated ItemPb items = 2;
-}
-
-// 仅向本人交付同次提交的完整背包与装备。
-message RoleItemsChangedNotice {
-  // 快照所属角色。
-  int64 role_id = 1;
-  // 最新完整背包快照。
-  BagPb bag = 2;
-  // 同一次物品提交的完整装备快照。
-  RoleWorldEquipmentPb equipment = 3;
-}
-
-// 将当前角色的一份道具移动至目标格，由服务端决定合并或交换。
-message MoveItem {
-  // 必须与当前选中角色一致。
-  int64 role_id = 1;
-  // 被拖动的道具实例编号。
-  int64 instance_id = 2;
-  // 从零开始的目标格子编号。
-  int32 target_slot_index = 3;
-  // 拖动开始时的背包版本，过期请求不得执行。
-  int64 expected_revision = 4;
-}
-
-// 移动执行结果，成功变更另经完整背包推送更新缓存。
-message MoveItemRt {
-  // 请求所属角色。
-  int64 role_id = 1;
-  // 请求的源实例编号。
-  int64 instance_id = 2;
-  // 请求的目标格子。
-  int32 target_slot_index = 3;
-  // 是否执行成功，拖回原格视为成功的无操作。
-  bool success = 4;
-  // 失败原因。
-  string error = 5;
-}
-
-// 从背包丢弃指定数量；普通丢弃可携带客户端提议的落点。
-message DropItem {
-  // 当前角色身份。
-  int64 role_id = 1;
-  // 背包中稳定实例编号。
-  int64 instance_id = 2;
-  // 本次丢弃的正整数数量。
-  int32 count = 3;
-  // 拿起时的背包版本，用于拒绝过期与重放请求。
-  int64 expected_revision = 4;
-  // 为真时直接销毁指定数量，不生成地面对象；默认仍为普通丢弃。
-  bool destroy = 5;
-  // 客户端选出的逻辑像素落点；旧请求缺省时由服务端沿用原有选点。
-  optional float drop_x = 6;
-  optional float drop_y = 7;
-}
-
-// 丢弃响应，两侧状态仍经已有背包及 AOI 通知交付。
-message DropItemRt {
-  // 请求所属角色。
-  int64 role_id = 1;
-  // 被丢弃的源实例。
-  int64 instance_id = 2;
-  // 是否成功提交两侧内存。
-  bool success = 3;
-  // 失败原因。
-  string error = 4;
-  // 成功创建的地面对象 GUID，直接销毁时为空。
-  string object_id = 5;
-}
-
-// 绑定当前移动意图，进入服务端拾取距离后整份取回背包。
-message PickupItem {
-  // 当前角色身份。
-  int64 role_id = 1;
-  // 地面对象稳定 GUID。
-  string object_id = 2;
-  // 点击时的对象版本。
-  int64 expected_object_revision = 3;
-  // 点击时的背包版本。
-  int64 expected_bag_revision = 4;
-  // 已先提交的走近移动序号。
-  int64 move_action_id = 5;
-}
-
-// 最终拾取结果，状态仍由背包及 AOI 通知交付。
-message PickupItemRt {
-  // 请求所属角色。
-  int64 role_id = 1;
-  // 请求的地面对象。
-  string object_id = 2;
-  // 关联移动序号，区分先后操作。
-  int64 move_action_id = 3;
-  // 是否整份转移成功。
-  bool success = 4;
-  // 失败或取消原因。
-  string error = 5;
-}
-
-// 装备实例的扩展载荷，后续加入装备属性。
+// 装备实例扩展，本批无额外网络字段。
 message EquipmentPb {
-}
-
-// 与业务装备槽位保持一致的稳定传输编号。
-enum EquipmentSlotPb {
-  // 未指定槽位，不能作为有效目标。
-  EQUIPMENT_SLOT_PB_UNSPECIFIED = 0;
-  // 主手武器。
-  EQUIPMENT_SLOT_PB_MAIN_HAND = 1;
-  // 副手武器或盾牌。
-  EQUIPMENT_SLOT_PB_OFF_HAND = 2;
-  // 头部。
-  EQUIPMENT_SLOT_PB_HEAD = 3;
-  // 面部。
-  EQUIPMENT_SLOT_PB_FACE = 4;
-  // 身体。
-  EQUIPMENT_SLOT_PB_BODY = 5;
-  // 项链。
-  EQUIPMENT_SLOT_PB_NECKLACE = 6;
-  // 手部。
-  EQUIPMENT_SLOT_PB_HANDS = 7;
-  // 第一枚戒指。
-  EQUIPMENT_SLOT_PB_RING1 = 8;
-  // 裤子。
-  EQUIPMENT_SLOT_PB_LEGS = 9;
-  // 第二枚戒指。
-  EQUIPMENT_SLOT_PB_RING2 = 10;
-  // 鞋子。
-  EQUIPMENT_SLOT_PB_FEET = 11;
-}
-
-// 正实例编号表示从背包装备，零表示卸下目标装备槽。
-message EquipItem {
-  // 必须与当前角色一致。
-  int64 role_id = 1;
-  // 背包实例编号，零表示卸下。
-  int64 instance_id = 2;
-  // 明确指定主手或副手。
-  EquipmentSlotPb slot = 3;
-  // 物品拿起时的本人物品提交版本。
-  int64 expected_bag_revision = 4;
-  // 卸下可指定格子，缺省自动选择首个空格。
-  optional int32 target_bag_slot = 5;
-  // 拿起时的独立装备版本。
-  int64 expected_equipment_revision = 6;
-}
-
-// 穿脱结果，成功状态经完整 RoleItemsChangedNotice 交付。
-message EquipItemRt {
-  // 请求所属角色。
-  int64 role_id = 1;
-  // 请求操作的装备槽位。
-  EquipmentSlotPb slot = 2;
-  // 是否完成原子转移。
-  bool success = 3;
-  // 失败原因，供界面显示。
-  string error = 4;
-}
-
-// 可公开的完整穿戴状态，不依赖私有背包。
-message RoleWorldEquipmentPb {
-  // 穿戴者身份。
-  int64 role_id = 1;
-  // 已穿戴道具的 item.json 配置编号，空列表表示全部卸下。
-  repeated int32 equipped_items = 3;
 }

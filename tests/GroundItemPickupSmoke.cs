@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Godot;
 using Rpg.Utils;
-using Rpg.Server;
+using Rpg.Server.Modules.Role.Storage;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
@@ -32,8 +32,8 @@ public partial class GroundItemPickupSmoke : Node
             definitions.Add(new JsonObject { ["id"] = 2000, ["name"] = "拾取验收", ["category"] = 1, ["subCategory"] = 2, ["relatedId"] = 1012, ["maxStack"] = 10 });
             File.WriteAllText(Path.Combine(config, "item.json"), definitions.ToJsonString());
             RoleTestData.Seed(server);
-            var repo = new RepoServerRole(server);
-            repo.SaveBag(repo.Load(1001).WithItems([new(1, 1012, 0, 1), new(2, 2000, 1, 5)], 3));
+            var repo = new RepoRole(server);
+            RoleTestData.SetItems(server, 1001, [new(1, 1012, 0, 1), new(2, 2000, 1, 5)], 3);
             main = await StartMain(directory, config);
             var bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
             var grid = (GridContainer)bag.FindChild("BagGrid", true, false);
@@ -65,7 +65,7 @@ public partial class GroundItemPickupSmoke : Node
             MouseButtonAt(point, true);
             Check(cursor.CurrentTexture != openHand, "按下未显示 Fetch 握手");
             MouseButtonAt(point, false);
-            GameServices.Net.Tick(2); GameServices.World.Tick(2); await Frames();
+            await Until(() => GameServices.Session.Map!.Objects.Count == 0);
             Check(GameServices.Session.Map!.Objects.Count == 0 && GameServices.Session.Bag.Items.Any(item => item.ItemId == 1012), "近距离点击没有拾回背包");
             Check(!cursor.IsItemHovering && groundView.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 0, "拾取后仍残留 Fetch 或地面表现");
             Check(!main.FindChildren("*", "Node", true, false).OfType<GroundClickView>().Any(), "点击物品同时触发普通点地反馈");
@@ -111,14 +111,14 @@ public partial class GroundItemPickupSmoke : Node
             // 移远后再点击，须先走近，不能点击瞬间远程取物。
             var item = GameServices.Session.Map!.Objects.Values.Single();
             GameServices.World.HandleInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true }, new Vector2(item.X + 300, item.Y));
-            GameServices.Net.Tick(2); GameServices.World.Tick(2); await Frames();
+            await Until(() => GameServices.Session.Role.Position.DistanceTo(new Vector2(item.X + 300, item.Y)) < 3);
             icon = groundView.FindChildren("GroundItemIcon", "TextureRect", true, false).OfType<TextureRect>().Single();
             point = PixelPoint(icon, true); Motion(point); await Frames();
             MouseButtonAt(point, true); MouseButtonAt(point, false); await Frames();
             Check(GameServices.Session.Map.Objects.Count == 1 && GameServices.World.RoleTarget is not null, "远处没有走近就拾取");
             GameServices.Net.Tick(0.2); await Frames();
             Check(GameServices.Session.Map.Objects.Count == 1, "超出服务端拾取距离仍成功");
-            GameServices.Net.Tick(2); GameServices.World.Tick(2); await Frames();
+            await Until(() => GameServices.Session.Map!.Objects.Count == 0);
             Check(GameServices.Session.Map.Objects.Count == 0 && GameServices.Session.Bag.Items.Any(item => item.ItemId == 1012), "走近后没有自动拾取");
 
             // 单件修改不影响多件数量窗口，失败反馈留在 HUD。
@@ -133,10 +133,10 @@ public partial class GroundItemPickupSmoke : Node
             icon = groundView.FindChildren("GroundItemIcon", "TextureRect", true, false).OfType<TextureRect>().Single();
             point = PixelPoint(icon, true); Motion(point); await Frames();
             MouseButtonAt(point, true); MouseButtonAt(point, false);
-            GameServices.Net.Tick(2); GameServices.World.Tick(2); await Frames();
-            Check(GameServices.Session.Map.Objects.Count == 1 && ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("背包空间不足"), "背包满未保留地面物品和反馈");
-            GameServices.Net.Tick(5);
-            var savedTotal = repo.Load(1001).BagItems.Sum(item => item.Count);
+            await Until(() => ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("拾取失败"));
+            Check(GameServices.Session.Map.Objects.Count == 1 && ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("拾取失败"), "背包满未保留地面物品和反馈");
+            await GameServices.MockServer.FlushAsync();
+            var savedTotal = (await repo.LoadAsync(1001)).Items.Sum(item => item.Count);
             main.QueueFree(); await Frames(); main = null;
             main = await StartMain(directory, config);
             Check(GameServices.Session.Bag.Items.Sum(item => item.Count) == savedTotal && GameServices.Session.Map!.Objects.Count == 1, "重启未恢复拾取和失败后的完整状态");
@@ -208,9 +208,19 @@ public partial class GroundItemPickupSmoke : Node
     /// <summary>等待网络收发、拖放状态和 GUI 布局。</summary>
     private async Task Frames()
     {
-        for (var index = 0; index < 4; index++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+        await SmokeNetwork.WaitForAccount(this);
+        for (var index = 0; index < 8; index++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
         // 指针在地面表现之前更新，需要完成两次处理帧后再读取反馈。
         for (var index = 0; index < 3; index++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+    }
+
+    /// <summary>等待真实权威时钟完成移动及世界帧发布，保留超时失败。</summary>
+    private async Task Until(Func<bool> done)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(12);
+        while (!done() && DateTime.UtcNow < deadline) await Frames();
+        Check(done(), "等待权威世界状态超时");
+        await Frames();
     }
 
     /// <summary>将验收失败转换为场景非零退出。</summary>

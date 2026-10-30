@@ -6,7 +6,7 @@ using Rpg.Session.Data;
 
 namespace Rpg.Session.Cache;
 
-/// <summary>缓存阶段协调 V2 完整进入响应，所有候选验证完成前不修改任何业务缓存。</summary>
+/// <summary>缓存阶段协调完整进入响应，所有候选验证完成前不修改任何业务缓存。</summary>
 internal sealed class WorldEntryCache : CacheBase
 {
     /// <summary>当前账号摘要与唯一在途状态。</summary>
@@ -22,18 +22,18 @@ internal sealed class WorldEntryCache : CacheBase
     internal WorldEntryCache(LoginCache login, RoleCache role, MapCache map)
     {
         _login = login; _role = role; _map = map;
-        Subscribe<ProtocolV2.SessionKickedNotice>(_ => Cancel());
-        Subscribe<ProtocolV2.EnterWorldRt>(OnEntered);
-        Subscribe<ProtocolV2.ErrorRt>(_ => Cancel());
+        Subscribe<global::Rpg.Protocol.SessionKickedNotice>(_ => Cancel());
+        Subscribe<global::Rpg.Protocol.EnterWorldRt>(OnEntered);
+        Subscribe<global::Rpg.Protocol.ErrorRt>(_ => Cancel());
     }
     /// <summary>发送请求前记录预期身份。</summary>
     internal void Begin(long roleId) => PendingRoleId = roleId;
     /// <summary>失败及页面切换取消等待，保留已接纳的缓存。</summary>
     internal void Cancel() => PendingRoleId = 0;
     /// <summary>完整转换角色、背包、地图及摘要，最后连续提交无失败的赋值。</summary>
-    private void OnEntered(ProtocolV2.EnterWorldRt reply)
+    private void OnEntered(global::Rpg.Protocol.EnterWorldRt reply)
     {
-        if (PendingRoleId == 0 || !_login.IsLoggedIn || !_login.ExpectsV2<ProtocolV2.EnterWorldRt>()) return;
+        if (PendingRoleId == 0 || !_login.IsLoggedIn || !_login.Expects<global::Rpg.Protocol.EnterWorldRt>()) return;
         try
         {
             var config = GameServices.Config;
@@ -57,7 +57,7 @@ internal sealed class WorldEntryCache : CacheBase
             _map.AcceptEntry(map);
             _login.AcceptEntry(summaries);
         }
-        finally { Cancel(); _login.CancelV2Request(); }
+        finally { Cancel(); _login.CancelRequest(); }
     }
     /// <summary>账号生命周期结束时丢弃在途身份。</summary>
     protected override void OnDispose() => Cancel();

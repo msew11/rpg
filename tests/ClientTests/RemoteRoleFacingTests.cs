@@ -5,7 +5,7 @@ using Rpg.World;
 
 namespace ClientTests;
 
-/// <summary>验证 openspec/specs/server-v2-movement 的远程停止朝向、独立状态与可见生命周期。</summary>
+/// <summary>验证 openspec/specs/server-movement 的远程停止朝向、独立状态与可见生命周期。</summary>
 [Trait("Runtime", "Godot")]
 public sealed class RemoteRoleFacingTests
 {

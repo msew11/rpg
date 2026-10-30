@@ -3,7 +3,7 @@ using Rpg.Net;
 
 namespace ClientTests;
 
-/// <summary>验证 openspec/specs/server-v2-hosting 的长度边界和完整消息分帧。</summary>
+/// <summary>验证 openspec/specs/server-hosting 的长度边界和完整消息分帧。</summary>
 public sealed class TcpFramingTests
 {
     /// <summary>连续帧逐个还原，末尾正常关闭不产生空业务包。</summary>

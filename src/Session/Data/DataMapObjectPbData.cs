@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 
 namespace Rpg.Session.Data;
 
@@ -14,30 +14,16 @@ namespace Rpg.Session.Data;
 /// <param name="Count">地面数量，怪物时为零。</param>
 public sealed record DataMapObjectPbData(Guid ObjectId, long Revision, float X, float Y, string? MonsterTypeId, int ItemId, int Count)
 {
-    /// <summary>验证互斥载荷并复制；坐标所属块由 AOI 状态检查。</summary>
-    public static DataMapObjectPbData FromPb(MapObjectPb value)
+    /// <summary>直接校验并复制 地图结构。</summary>
+    public static DataMapObjectPbData FromPb(global::Rpg.Protocol.MapObjectPb value)
     {
         if (!Guid.TryParseExact(value.ObjectId, "N", out var id) || id == Guid.Empty || value.Revision <= 0 ||
             !float.IsFinite(value.X) || !float.IsFinite(value.Y)) throw new InvalidDataException("地图对象身份、版本或位置无效");
         return value.PayloadCase switch
         {
-            MapObjectPb.PayloadOneofCase.Monster when !string.IsNullOrWhiteSpace(value.Monster.MonsterTypeId) =>
+            global::Rpg.Protocol.MapObjectPb.PayloadOneofCase.Monster when !string.IsNullOrWhiteSpace(value.Monster.MonsterTypeId) =>
                 new(id, value.Revision, value.X, value.Y, value.Monster.MonsterTypeId, 0, 0),
-            MapObjectPb.PayloadOneofCase.GroundItem when value.GroundItem.ItemId > 0 && value.GroundItem.Count > 0 =>
-                new(id, value.Revision, value.X, value.Y, null, value.GroundItem.ItemId, value.GroundItem.Count),
-            _ => throw new InvalidDataException("地图对象载荷无效")
-        };
-    }
-    /// <summary>直接校验并复制 V2 地图结构。</summary>
-    public static DataMapObjectPbData FromPb(ProtocolV2.MapObjectPb value)
-    {
-        if (!Guid.TryParseExact(value.ObjectId, "N", out var id) || id == Guid.Empty || value.Revision <= 0 ||
-            !float.IsFinite(value.X) || !float.IsFinite(value.Y)) throw new InvalidDataException("地图对象身份、版本或位置无效");
-        return value.PayloadCase switch
-        {
-            ProtocolV2.MapObjectPb.PayloadOneofCase.Monster when !string.IsNullOrWhiteSpace(value.Monster.MonsterTypeId) =>
-                new(id, value.Revision, value.X, value.Y, value.Monster.MonsterTypeId, 0, 0),
-            ProtocolV2.MapObjectPb.PayloadOneofCase.GroundItem when value.GroundItem.ItemId > 0 && value.GroundItem.Count > 0 =>
+            global::Rpg.Protocol.MapObjectPb.PayloadOneofCase.GroundItem when value.GroundItem.ItemId > 0 && value.GroundItem.Count > 0 =>
                 new(id, value.Revision, value.X, value.Y, null, value.GroundItem.ItemId, value.GroundItem.Count),
             _ => throw new InvalidDataException("地图对象载荷无效")
         };

@@ -694,6 +694,7 @@ public partial class BagGmSmoke : Node
     /// <summary>等待网络队列、GUI 布局和延迟释放。</summary>
     private async Task Frames()
     {
+        await SmokeNetwork.WaitForAccount(this);
         for (var index = 0; index < 4; index++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }

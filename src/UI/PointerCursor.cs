@@ -120,7 +120,7 @@ public partial class PointerCursor : Node
         var dragging = _focused && GetTree().GetNodesInGroup("HudEditOverlays")
             .OfType<HudEditOverlay>().Any(overlay => overlay.IsVisibleInTree() && overlay.Dragging);
         var hovering = _focused && GetViewport().GuiGetHoveredControl() is HudEditOverlay overlay && overlay.IsVisibleInTree();
-        var itemHover = _focused && (!Rpg.Services.GameServices.IsInitialized || Rpg.Services.GameServices.Session.CanWriteGroundItems) && GetTree().GetNodesInGroup("GroundItemViews")
+        var itemHover = _focused && GetTree().GetNodesInGroup("GroundItemViews")
             .OfType<GroundItemsView>().Any(view => view.HoveredObjectId is not null);
         var windows = GetTree().GetNodesInGroup("WindowDragControls").OfType<WindowDragControl>();
         var resizeHandles = GetTree().GetNodesInGroup("ChatResizeHandles").OfType<ChatResizeHandle>();

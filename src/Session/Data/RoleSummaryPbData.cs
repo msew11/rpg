@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using Rpg.Const;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 
 namespace Rpg.Session.Data;
 
@@ -20,14 +20,14 @@ public sealed record RoleSummaryPbData(long RoleId, string Name, int Level, Role
         init => _equippedItems = Array.AsReadOnly((value ?? throw new InvalidDataException("摘要装备列表不能为空")).ToArray());
     }
 
-    /// <summary>校验并复制协议摘要，不保留可变协议对象。</summary>
-    public static RoleSummaryPbData FromPb(RoleSummaryPb message)
+    /// <summary>复制正式账号摘要。</summary>
+    public static RoleSummaryPbData FromPb(global::Rpg.Protocol.RoleSummaryPb message)
     {
         if (message is null) throw new InvalidDataException("角色摘要协议不能为空");
         var gender = message.Gender switch
         {
-            RoleGenderPb.Male => RoleGender.Male,
-            RoleGenderPb.Female => RoleGender.Female,
+            global::Rpg.Protocol.RoleGenderPb.Male => RoleGender.Male,
+            global::Rpg.Protocol.RoleGenderPb.Female => RoleGender.Female,
             _ => throw new InvalidDataException("角色摘要协议包含无效性别")
         };
         var data = new RoleSummaryPbData(message.RoleId, message.Name, message.Level, gender, message.HeadId)
@@ -36,42 +36,12 @@ public sealed record RoleSummaryPbData(long RoleId, string Name, int Level, Role
         return data;
     }
 
-    /// <summary>直接复制 V2 摘要，不构造或转发旧协议对象。</summary>
-    public static RoleSummaryPbData FromPb(ProtocolV2.RoleSummaryPb message)
-    {
-        if (message is null) throw new InvalidDataException("角色摘要协议不能为空");
-        var gender = message.Gender switch
-        {
-            ProtocolV2.RoleGenderPb.Male => RoleGender.Male,
-            ProtocolV2.RoleGenderPb.Female => RoleGender.Female,
-            _ => throw new InvalidDataException("角色摘要协议包含无效性别")
-        };
-        var data = new RoleSummaryPbData(message.RoleId, message.Name, message.Level, gender, message.HeadId)
-        { EquippedItems = message.EquippedItems };
-        data.Validate();
-        return data;
-    }
-
-    /// <summary>创建独立的 V2 摘要，持久化模型和可写协议集合均不共享。</summary>
-    public ProtocolV2.RoleSummaryPb ToV2Pb()
+    /// <summary>创建独立的 摘要，持久化模型和可写协议集合均不共享。</summary>
+    public global::Rpg.Protocol.RoleSummaryPb ToPb()
     {
         Validate();
-        var message = new ProtocolV2.RoleSummaryPb { RoleId = RoleId, Name = Name, Level = Level,
-            Gender = Gender == RoleGender.Male ? ProtocolV2.RoleGenderPb.Male : ProtocolV2.RoleGenderPb.Female, HeadId = HeadId };
-        message.EquippedItems.AddRange(EquippedItems);
-        return message;
-    }
-
-    /// <summary>校验摘要并创建独立协议对象，每次调用均返回新实例。</summary>
-    public RoleSummaryPb ToPb()
-    {
-        Validate();
-        var message = new RoleSummaryPb
-        {
-            RoleId = RoleId, Name = Name, Level = Level,
-            HeadId = HeadId,
-            Gender = Gender == RoleGender.Male ? RoleGenderPb.Male : RoleGenderPb.Female
-        };
+        var message = new global::Rpg.Protocol.RoleSummaryPb { RoleId = RoleId, Name = Name, Level = Level,
+            Gender = Gender == RoleGender.Male ? global::Rpg.Protocol.RoleGenderPb.Male : global::Rpg.Protocol.RoleGenderPb.Female, HeadId = HeadId };
         message.EquippedItems.AddRange(EquippedItems);
         return message;
     }

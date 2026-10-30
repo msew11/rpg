@@ -5,7 +5,7 @@ using System.Linq;
 using Rpg.Config.Data;
 using Rpg.Const;
 using Rpg.Net;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 using Rpg.Utils;
 
 namespace Rpg.Session.Data;
@@ -34,23 +34,14 @@ public sealed class RoleWorldEquipmentPbData
     /// <summary>本地初始空展示；不用于容忍协议缺失。</summary>
     internal static RoleWorldEquipmentPbData Empty(long roleId) => new(roleId, 0, new());
 
-    /// <summary>仅从公开配置编号验证槽位唯一性与双手规则。</summary>
-    public static RoleWorldEquipmentPbData FromPb(RoleWorldEquipmentPb message,
-        IReadOnlyDictionary<int, ItemCfg> definitions)
-    {
-        if (message is null || message.RoleId <= 0 || message.GetRevision() < 0)
-            throw new InvalidDataException("装备协议缺少有效身份或信封版本");
-        return FromItems(message.RoleId, message.GetRevision(), message.EquippedItems, definitions);
-    }
-
-    /// <summary>从 V2 公开装备直接构建不可变展示。</summary>
-    public static RoleWorldEquipmentPbData FromPb(ProtocolV2.RoleWorldEquipmentPb message, long roleId, IReadOnlyDictionary<int, ItemCfg> definitions)
+    /// <summary>从 公开装备直接构建不可变展示。</summary>
+    public static RoleWorldEquipmentPbData FromPb(global::Rpg.Protocol.RoleWorldEquipmentPb message, long roleId, IReadOnlyDictionary<int, ItemCfg> definitions)
     {
         if (message is null || roleId <= 0) throw new InvalidDataException("公开装备身份无效");
         return FromItems(roleId, 0, message.EquippedItems, definitions);
     }
 
-    /// <summary>两个协议版本共用配置及双手展示规则。</summary>
+    /// <summary>校验正式公开装备配置与双手展示规则。</summary>
     internal static RoleWorldEquipmentPbData FromItems(long roleId, long revision, IEnumerable<int> ids, IReadOnlyDictionary<int, ItemCfg> definitions)
     {
         var items = ids.Select(id => EquipmentDisplayData.FromItemId(id, definitions))
@@ -80,8 +71,8 @@ public sealed class RoleWorldEquipmentPbData
     /// <summary>只输出身份和配置编号，不输出私有实例或推导槽位。</summary>
     public RoleWorldEquipmentPb ToPb()
     {
-        var message = new RoleWorldEquipmentPb { RoleId = RoleId };
+        var message = new RoleWorldEquipmentPb { };
         message.EquippedItems.AddRange(EquippedItems);
-        return message.WithRevision(Revision);
+        return message;
     }
 }

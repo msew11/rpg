@@ -1,0 +1,216 @@
+# Server 框架
+
+## 第四批角色物品迁移
+
+默认链路已开放 `Gm`、`MoveItem`、`EquipItem`，原始业务协议经 Login 校验当前控制角色归属，再进入 Role。三个开发账号都能对当前角色执行 `/item`。规则先构造并校验完整三表候选，再提交；无预期版本、物品业务版本、请求重放缓存或自动重试。失败保留实例编号和持有关系。
+
+`gm.proto` 新增 `Gm/GmRt`；`bag.proto` 新增移动、穿脱请求回复和 `RoleItemsChangedNotice`（完整私有背包及公开装备）；`role.proto` 新增装备槽枚举及 `RoleEquipmentUpdatePb`；`world.proto` 的增量增加 `equipped_roles=5`；`actor/role.proto` 增加 `GetRoleItems/GetRoleItemsRt`。本人通知先于成功回复，按 TCP 顺序验证后接纳；选角摘要同步实际装备。公开投影版本独立于移动状态，World 可在同帧发送位置与装备，也支持静止换装。
+
+运行时的单实例物品信号量在邮箱外获取，覆盖物品操作、本人输出和保存。内部调用仅为完成已执行操作保留结果，对外按原连接与控制绑定过滤。地面操作与保存使用同一入口，行为见下一节。
+
+
+`src/Server` 是唯一正式服务器，客户端与回归共用 `proto/`。正式存档根为 `user://server`；首次启动把已有 `server/v2` 文件和子目录提升到根目录，不覆盖目标，成功后移除空目录。
+
+## 第四批地面物品迁移
+
+`bag.proto` 新增 `DropItem(instance_id=1,count=2,destroy=3,optional drop_x=4,optional drop_y=5)`、`DropItemRt(role_id=1,instance_id=2,object_id=3)`；`PickupItem(object_id=1,move_action_id=2)`、`PickupItemRt(role_id=1,object_id=2,move_action_id=3)`；`PickupItemResultNotice(role_id=1,object_id=2,move_action_id=3,success=4)`。最后一条仅表达完成成败，不携带错误字符串。
+
+`map.proto` 的 `MapAoiDeltaPb` 新增 `upserted_objects=4`、`removed_object_ids=5`；`actor/role.proto` 的 `AdvanceRoleRt` 新增 `pickup_ready=2`，新增 `CompleteRolePickup/CompleteRolePickupRt(result=1)`，空结果表示未到达或已取消。`actor/world.proto` 新增直接 `CreateGroundItem/GetGroundItem/RemoveGroundItem` 及回复：创建携带配置数量和角色权威位置、可选落点；查询携带对象和角色权威位置；删除只携带对象编号。
+
+内部新增消息的完整字段如下，空请求或回复不带字段：
+
+| proto | 消息 | 字段及编号 |
+| --- | --- | --- |
+| `actor/role.proto` | `CompleteRolePickup` | 空 |
+| `actor/role.proto` | `CompleteRolePickupRt` | `PickupItemResultNotice result=1` |
+| `actor/world.proto` | `CreateGroundItem` | `int32 item_id=1`、`int32 count=2`、`RoleWorldPositionPb position=3`、`optional float drop_x=4`、`optional float drop_y=5` |
+| `actor/world.proto` | `CreateGroundItemRt` | `MapObjectPb object=1` |
+| `actor/world.proto` | `GetGroundItem` | `string object_id=1`、`RoleWorldPositionPb position=2` |
+| `actor/world.proto` | `GetGroundItemRt` | `MapObjectPb object=1` |
+| `actor/world.proto` | `RemoveGroundItem` | `string object_id=1` |
+| `actor/world.proto` | `RemoveGroundItemRt` | 空 |
+
+Role 先建立合法持有候选，再调用 World；World 独占校验地图、实际距离与落点，禁止反向 Ask Role。拾取请求立即回复，时钟保持 pending 调度，在一瓦片内进入共享物品入口完成；成功先推完整本人物品再推最终通知。新有效移动、离开、切角、断线和接管静默取消；背包变化不取消，到达按最新容量处理。客户端强制走近移动先入队，再发拾取，后续限流不重放旧目标。
+
+World 保存观察者可见对象基线，交集发送增删，新进入完整块、离开隐式删除；对象变化通过块索引标记静止观察者。WorldSyncCache 验证完整世界候选，再一起接纳地图和人物，允许同帧位置及装备变化。
+
+正式实例使用 `items.pending.json` 专用单批次回滚：在邮箱内捕获已变化三表、账号摘要和地图；记录将要替换文件的原始字节，写完全部领域后删除记录。地图候选块先写、旧块整批完成后清理；未完成批次在任何业务读取前恢复，失败保留内存和待写。共同保存不嵌套角色 pending；成功仅接纳捕获值，新移动仍待写。进入角色前若存在地面待写，先完成批次，避免角色单侧提前落地。周期 0 禁用定时，正常关闭补写；强杀可丢失未落盘业务，但恢复不会产生物品副本或丢失一侧。
+
+## Actor 运行时
+
+`Runtime` 只负责类型化 Ask/Tell、串行邮箱、INIT → RUN → STOP 与唯一分片目录。每个 Actor 是可异步等待的任务，不独占 OS 线程。首次消息触发初始化；跨 await 不进入下一回合。业务错误不会终止邮箱，初始化失败拒绝全部等待者，Tell 错误逐一通知诊断观察者。
+
+调用方只取得 `ActorRef`。协议请求直接进入邮箱，Handler 直接返回协议回复，例如 `Ask<LoginRt>(login)`；非 proto 的运行时请求仍可实现 `IActorRequest<TReply>` 推断回复类型。可变协议对象由单次请求独占：发送方入队后不再修改请求，接收 Handler 返回后不留存并修改回复，不共享 Context 中的可写状态。内部消息不传工作委托、Repo 或 Actor 上下文。模块继承 `ModuleActor<TContext>`，自己创建上下文，并在创建 Actor 时冻结专用 `ActorHandlers<TContext>`。Handler 接收上下文与请求，不做文件或网络 IO；跨 Actor 协调在所属模块的 Async Handler 中通过 Context.Actors 进行。跨 await 仍占源 Actor 同一串行回合；禁止同 Actor 自身 Ask 和循环等待，当前不提供死锁检测。
+
+`ActorDirectory<TKey>` 在短锁中唯一创建对象，不在创建时初始化。失败分片在后续获取时可以重建。目录关闭拒绝新创建并等待现有邮箱排空；停止前仍需由宿主先排空外部请求，避免过早关闭下游。
+
+## 目录职责与数据流
+
+| 目录 | 负责的事 |
+| --- | --- |
+| `Hosting` | GameServices 持有的 MockServerService 与可空服务器实例、独立 MockServer、TCP 监听与 ServerRuntime 装配 |
+| `Connections` | 连接 ID、会话代次、账号与当前角色绑定、每连接串行入口和输出队列 |
+| `Protocol` | 显式协议方向表、protobuf 编解码、统一错误 |
+| `ActorProtocol/Generated` | 由 proto/actor 生成的内部消息，不进入客户端编解码注册表 |
+| `Routing` | 从入口或 Session 定位 Actor，直接投递协议并附带响应的会话绑定元数据 |
+| `Runtime` | 通用邮箱、ActorRef、处理器契约与唯一分片目录 |
+| `Modules/Login` | 按规范 username 独占账号摘要；Storage 子目录负责账号文件仓库 |
+| `Modules/Role` | 按 RoleId 独占 RoleCache 及三表数据缓存；Storage 子目录负责角色三表仓库 |
+| `Modules/World` | 按 MapId 独占 WorldCache、配置规格和对象缓存；Data 保存独立模型，Storage 负责分块清单仓库 |
+| `Modules/<模块>/Handler` | 所属模块的业务处理器，直接使用协议请求与回复 |
+| `Modules/<模块>/Async` | 与 Handler 平级的跨 Actor 业务步骤，共用 IActorHandler/ActorHandlers 注册分发 |
+| `Modules/Common` | ModuleContext 的 Config/Actors 借用入口及 IActorLocator，以及 Cache、Data、Storage 子目录 |
+| `Modules/Common/Storage` | 共用 JSON 编解码、单文件原子替换及物品专用共同落盘仓库；不持有业务缓存 |
+
+```text
+NetService --> transport --> connection queue --> codec --> router
+                                                        --> account Actor --> Handler
+NetService <-- connection output queue <-- response codec <-- result
+```
+
+`MockServerService(EnvService, ConfigService)` 仅校验并保存依赖，Server 初始为空。服务器模式登录时创建普通 MockServer，监听成功后交付持有；纯客户端不创建实例。内部注入构造只接收 `EnvService` 和非空 `ServerModules`，配置直接取自模块，消除重复传递配置造成的不一致。模块装配入口要求有效 ConfigService、账号/角色/地图三种非空仓库与登录处理器工厂；可选的角色/地图工厂及诊断回调在这里一次补齐，内部直接调用。
+
+配置经模块装配和 Actor 必填构造参数传入 Context。LoginContext、RoleContext、WorldContext 继承 `Modules/Common/ModuleContext`，Handler 统一通过 `context.Config` 读取，例如 `context.Config.Basic.Value`、`context.Config.Item.Items`。Handler 不持有 ConfigService 字段或配置构造参数，也不访问全局服务。Config 在构造时保证非空，不再支持省略配置的测试装配；账号 Context 也必须接收完整的加载摘要。模块集成测试使用真实配置并在 Godot 宿主执行，通用邮箱和文件仓库测试仍可独立运行。
+
+不同服务使用各自注入的配置实例；Config 属性不可替换，配置释放后读取会失败。Context、Actor 和 MockServerService 都不释放借用的配置，配置所有者应在 Net 和 MockServerService 均关闭后释放。默认 LoginHandler 验证 admin、demo1、demo2 / 123，规范账号键参与匹配、密码原样匹配；正式认证尚未实现。创建和删除摘要归同一 LoginActor，成功回复完整可见列表，失败使用 ErrorRt。
+
+`ServerModules` 拥有目录、身份定位和生命周期，并实现窄 `IActorLocator`：`Login(string)`、`Role(long)`、`World(int)` 仅返回 `ActorRef`。三个 Actor 和 Context 均由构造必需注入此依赖，Context 通过只读 `Actors` 借用，不负责释放，不使用全局 locator 或可空回填。只定位分片不触发 INIT。不同服务的 Context 只定位本服务目录；目录工厂在 Get 时才执行，因此装配中可以捕获所属 ServerModules。
+
+空请求、回复回调、保存快照在各自公开入口拒绝，避免入队或文件 IO 后才发现缺失。内部非空依赖不再逐层兜底；匿名账号、尚未启动或停止的任务、通知无回复、连接屏障无载荷、无效代次及回滚原文件缺失仍以可空值表达。JSON 根 null 的读取检查与已释放状态检查属于边界契约，继续保留。
+
+显式接入方式是 `new NetService(mockServerService, eventBus, log)`，使用真实 TCP。`GameServices.Initialize()` 在 Setting 之后、Net 之前创建空的 `MockServerService`，公开只读 `GameServices.MockServer`，统一在 Net 之后、Setting 之前释放。Net 与传输只借用该服务；单独释放 Net 只关闭玩家连接，服务器仍监听和调度。内部 `NetService.CreateInProcess(...)` 只服务显式回归。所有 Service 构造依赖使用非空类型并检查空值与释放状态，不在服务内访问 GameServices。
+
+## 身份和协议
+
+连接 ID 由服务端生成，不进入信封。连接断开即结束 Session，重连生成新 ID。同一账号的多个连接共享账号 Actor，各自保留身份与输出；重复登录限制、断线续接暂不定义。角色状态和地图状态不放进连接 Session。
+
+外部 `proto` 使用 `rpg` package、`Rpg.Protocol` C# 命名空间；生成文件位于 `src/Protocol/Generated`，中文协议注释只修改 proto。`login.proto` 收拢账号请求及响应，导入 `role.proto` 的性别枚举与摘要；`role.proto` 还保存公开状态和本人私有角色结构，`bag.proto` 保存完整私有物品，`map.proto` 保存初始范围，`world.proto` 保存 EnterWorld/EnterWorldRt；业务协议文件按请求与响应、推送、enum 与结构的顺序组织，账号撤销使用 SessionKickedNotice 推送。每条外部消息使用四字段 EnvelopePb：generation、request_id、message_type、payload。请求编号非零、响应原样返回、通知为零；已注册 SessionKickedNotice 和 WorldUpdateNotice。编号由客户端递增，切代次不断号，不承诺自动去重。
+
+内部源放 `proto/actor`，按接收方模块分文件，当前只有 `world.proto` 和 `role.proto`，不预建空 login/common 文件。全部使用 `syntax = "proto3"`、`package rpg.actor`、`csharp_namespace = "Rpg.Server.ActorProtocol"`，允许导入根目录的角色、背包与地图共享结构。请求使用动作名、响应追加 `Rt`、结构与枚举使用 `Pb`；文件顺序为请求响应→推送→枚举结构，无内容部分省略。生成文件在 `src/Server/ActorProtocol/Generated`；rpg.csproj 的外部 Protobuf 通配排除 proto/actor/**/*.proto，内部 ProtoRoot 为 `proto`，内部逻辑文件路径为 `actor/role.proto`、`actor/world.proto`，共享结构仅生成编译一次、GrpcServices 为 None；生成 C# 排除默认 Compile 通配，由 Grpc.Tools 纳入编译。生成 C# 与 Godot UID 一并提交，不手改生成文件。
+
+第一版进程内直接移交 proto，不经客户端信封或额外序列化，不增加中间 C# 请求结果包装或逐请求接口绑定。完整类型名如 `rpg.actor.GetWorldObjectCount`；MessageCodec 显式登记外部 Login/CreateRole/DeleteRole/EnterWorld 及对应回复和 ErrorRt，内部消息由客户端投递时返回 UnknownMessage。持久化继续使用独立 Data，不用 proto 落盘。
+
+最小只读链路为 `GetRoleWorldObjectCount → Role/Async/GetRoleWorldObjectCountHandler → World/Handler/GetWorldObjectCountHandler`。Role 从当前 `Role.MapId` 定位，World 返回 `Objects.Length`，再由 Role 返回 `GetRoleWorldObjectCountRt.Count`：
+
+```csharp
+var reply = await context.Actors.World(context.Cache.Role.Value.MapId)
+    .Ask<GetWorldObjectCountRt>(new GetWorldObjectCount());
+```
+
+目标初始化与处理错误传播到源调用者。默认 Role/World 注册对应处理器；显式提供注册工厂时保持调用者控制，不隐式追加示例。此查询不修改存档或保存基线，不扩展通知框架。
+
+会话初始代次是 1。`ResetSession` 在服务端推进一代，保留账号和当前角色绑定并清空旧输出；Net 同步本连接的代次。TCP 请求携带更高代次时直接采用，允许跳号；不增加握手业务消息。旧代次请求和迟到结果丢弃，响应不得改用完成时最新代次。
+
+有效信封内的未知消息、错误方向、损坏载荷和明确处理失败返回关联 ErrorRt；无法解析信封或零请求编号因不能形成有效响应关联，返回调用方错误。意外 Handler 错误另外进入服务诊断，不回传异常堆栈或请求凭据。
+
+Login 载荷首次包含 username/password。入口对 username 使用 Trim().ToLowerInvariant()，拒绝 Windows 非法文件名及设备保留名，不做 Unicode 兼容折叠。成功后仅在代次仍有效时绑定 Session.Username；再次 Login 开始解除账号和角色绑定，失败保持匿名。后续账号请求从 Session 取得 username，通过 RequestRouter 的账号路由进入同一分片，不重复提供账号键。
+
+## 数据加载与写回
+
+数据文件隔离在 `EnvService.ServerDirectory`。JSON 使用 camelCase 与数字枚举：`<username>.role_summary.json` 是摘要数组；`<roleId>.role.json` 是角色对象；同角色的 `.item.json`、`.equipment.json` 是数组。摘要文件缺失得到内存空集合，不创建文件；角色三表全部不存在时建立尚未建档工作区，部分缺失拒绝 INIT；已有空表用 `[]`。存储层不执行字段完整性、数值、重复项、身份、关联或配置校验；Login 的 DataCacheRoleSummary 校验新建名称、外观和删除归属。JSON 无法解析、根 null 和 IO 错误使 INIT 失败，后续重新取得分片可重试。
+
+```text
+LoginContext --> LoginCache --> DataCacheRoleSummary --> 摘要数组及墓碑
+RoleContext  --> RoleCache  --> DataCacheRole / DataCacheItem / DataCacheEquipment --> 三表数据
+WorldContext --> WorldCache --> DataCacheWorldObject --> 动态对象数组
+Actor --> 模块 Cache.Snapshot() --> Repo --> 成功后 Cache.AcceptSaved()
+```
+
+Context 只引用所属模块 Cache，并继承 `ModuleContext` 的 Config/Actors 借用入口，不展开数据或转发 Commit。模块根目录保留 Context，`Cache` 子目录放可变工作区及各类 DataCache，`Data` 放不可变数据和仓库导出快照，`Storage` 放仓库。共性 `DataCache<T>`、`DataCacheArray<T>` 在 `Modules/Common/Cache` 管理当前值、成功保存基线、提交及内容比较；共用文件工具在 `Modules/Common/Storage`，公共性别与保存消息在 `Modules/Common/Data`。
+
+模块 Cache 组织子缓存和固定身份，提供 `Snapshot()/Commit(...)` 聚合导出及提交。Snapshot 仅是不可变传输值，不是运行时工作区。Handler 可以通过 `context.Cache.Role.Commit(...)` 修改单表，也可以构造 `DataRoleSnapshot` 一次提交三表；数组默认值按空数组处理。DataCache 的 Value 只读，只能通过 Commit 替换；直接修改子缓存立即反映模块的 DirtyTables、SummariesDirty 或 DirtyChunks，恢复基线取消待写。摘要创建、删除、可见排序和嵌套装备内容比较归 `DataCacheRoleSummary`；Handler 负责读取协议、调用缓存并映射回复。
+
+仓库构造注入 Actor，只读写文件，不持有业务状态。账号仓库直接加载/保存摘要数组，账号键独立传入。单分片保存和首次建档在自己的邮箱回合内 await 仓库；正式批次按上节捕获并接受实际保存值。保存成功后才更新基线；失败保留内存及待写状态。同一 Actor 保存期间不执行下一回合，其他分片仍可工作。不可变导出不会因工作区后续提交而改变，不跨 Actor 共享可变 Cache。
+
+单文件同目录临时写入、刷盘后替换。角色一次修改多表时，先持久化 `<roleId>.pending.json` 原始字节回滚记录，全部替换后删除记录作为提交完成。下次读取或保存前先回滚未完成提交；恢复错误保留记录并阻止继续 IO。只从固定表名生成恢复路径，不把元数据当作路径。独立仓库仍只提交所属领域，不自动同步摘要；正式宿主共同落盘使用上节专用批次；进入业务显式根据实际角色同步摘要。
+
+监听成功后由 MockServer 的独立后台时钟推进保存检测；无监听的进程内测试可手动 Tick，沿用 `EnvService.ServerFlushIntervalSeconds`：默认 5 秒、0 禁用周期、改变后重新计时。周期保存留在后台，每服务最多一个周期任务；重复到期合并，错误进入服务诊断。
+
+`MockServerService.FlushAsync()` 捕获各连接当前队尾屏障，等待先前已接纳请求，再保存已启动分片；不启动未收消息的分片。角色组完成后保存地图组，再保存账号组，各组内并行，独立失败继续其他分片，最后汇总。各保存轮次串行衔接，失败不阻止下一次重试。传输实现 `IServerWriteBackTransport`，所以 `NetService.FlushServerWrites()` 会先发送 Net 已排队消息，再同步等待服务端保存；即使周期禁用也生效。
+
+### World 地图存储
+
+WorldActor 的 INIT 先从借用的 `ConfigService.Map.Items` 取得条目，复制为 `DataWorldLayout(MapId, Width, Height, TileSize, ChunkSizeTiles)`，再等待 `IWorldRepo.LoadAsync(layout)` 完整加载。未知地图在仓库 IO 前失败；同地图只初始化一次，失败后重新取得分片可重试。Context 在加载成功后才发布，不重新读取配置 JSON。
+
+`Modules/World/Data` 的 `DataWorldObject` 独立保存 `Guid ObjectId`、`Revision`、逻辑像素 `X/Y`、`MonsterTypeId`、`ItemId`、`Count`。`DataWorldSnapshot` 直接持有 `ImmutableArray<DataWorldObject>`；`DataWorldChunk` 是不可变块坐标。它们不引用旧实体或协议，不增加对象编号重复、数值范围、载荷组合和道具配置检查，也不调用旧版 ChunkAt/Validate。
+
+`WorldContext.Cache` 引用 `WorldCache`，后者固定持有 MapId、Layout，Objects 引用 `DataCacheWorldObject`。对象缓存 Commit 替换完整数组，DirtyChunks 由该缓存比较产生。默认数组视为空；比较按 `floor(逻辑坐标 / (TileSize × ChunkSizeTiles))` 分组，将块内对象逐项按内容与保存基线比较，保留块内顺序，不使用 ImmutableArray 的引用相等。对象移出和移入的块都待写，反复修改只写最终值，恢复基线取消待写。所有对象常驻内存，提供对象数量、初始九块、世界对象增量与地面物品直接操作；怪物只展示，无行为。
+
+默认 `RepoWorld` 接收 根目录与服务诊断回调，不持有 Context 或业务缓存。存档布局为：
+
+```text
+EnvService.ServerDirectory/maps/<mapId>/manifest.json
+EnvService.ServerDirectory/maps/<mapId>/chunks/<x>_<y>.<commitId>.json
+```
+
+JSON 使用 camelCase，当前 `formatVersion` 为 1。清单保存 `formatVersion`、`mapId`、完整 `layout`、`commitId` 和 `chunks`；各引用只有整数 `x/y` 与 GUID `commitId`。块文件保存 `formatVersion`、`mapId`、`x/y`、`commitId` 和 `objects`。文件名使用 GUID 的 N 格式，恢复时从坐标及编号重新生成路径，存档不提供任意引用路径。读取检查必需结构、版本、地图与块身份及配置布局一致性；根 null、缺失引用块、JSON 和 IO 错误使 INIT 失败。清单缺失只得到空内存地图，未修改不创建目录或文件，孤立候选不加载。
+
+保存仅处理 DirtyChunks：非空变化块先写入新提交编号文件，经同目录临时写入和刷盘完成；未变化块复用旧引用，空块删除引用。全部候选就绪后原子替换清单作为唯一提交点。此前任何失败保留旧清单、最新内存和待写标记；WorldActor 在 DataFlush 回合直接 await 仓库，成功才接受基线，不向自身 Ask。保存期间本 Actor 的后续消息等待，其他地图仍可继续。
+
+提交后只删除名称严格符合本仓库格式的无引用块，未知文件保留。清理失败进入诊断，诊断监听错误也不撤销已提交结果；后续成功写回会再次清理。仓库依赖同地图邮箱串行调用，不提供多进程写者协调、跨 Actor 事务。
+
+增加外部功能时，先在 proto 加协议并显式登记方向，在所属模块的 `Handler` 目录新增以协议请求与回复为类型参数的 Handler 并注册，由 Routing 直接投递。登录链路为 `Login → LoginActor → LoginHandler → LoginRt`；路由规范化账号键定位分片，原请求字段保留。Handler 只处理内存，并负责组装协议回复；DataCache 持有的持久化 Data 模型继续独立，不引入登录请求或结果的中间 DTO。内部协议放 proto/actor，不注册客户端方向表。需要跨 Actor 协调时在所属模块 `Async` 目录实现 Handler，通过 Context.Actors 定位并使用现有 ActorRef Ask/Tell 邮箱交换数据，不把委托或上下文放进消息。DispatchAsync 保留保存等基础设施边界，不承载业务编排。加载与持久化从 Actor 初始化及宿主调度边界接入，不塞进 Handler。
+
+关闭顺序：停止外部接纳 → 等待连接请求和已有保存轮次 → 最终保存 → 停止角色分片 → 地图分片 → 账号分片。保存失败仍完成停止并向调用方抛错，不静默吞掉失败；进程仍存活时可通过显式 Flush 修复重试。强制中断、邮箱容量与背压、真实认证及跨 Actor 事务由后续目标分别确定；进入的账号归属检查已经实现。
+
+
+## 登录与角色列表迁移
+
+默认入口与独立验收使用同一正式服务器。独立手工入口：
+
+```powershell
+godot-mono --path . res://tests/server_role_management.tscn
+```
+
+使用 admin/123、demo1/123 或 demo2/123 登录；username 沿用 Trim().ToLowerInvariant()，密码原样匹配。LoginRt、CreateRoleRt、DeleteRoleRt 都只返回按 role_id 升序的完整可见 roles，不含 success/error。统一 ErrorRt 新增 InvalidCredentials、RoleNotFound、RoleNameConflict；非法输入沿用 InvalidRequest。创建和删除从连接 Session 取得账号，不接受载荷账号键。
+
+创建由 LoginCache.Summaries.ValidateCreation(...) 校验，LoginActor 在同一串行回合通过账号仓库取得全服唯一编号，交给 Handler 调用 Summaries.Create(...) 一次提交 summary，回合结束清除暂存编号；删除由 Delete(...) 标记墓碑。名称去首尾空白后为 1–16 个 UTF-16 字符、无控制字符，当前未删除名称忽略大小写唯一；性别为男女，服务端头型 1–74，页面为 9–72；初始等级 1，装备为空。DataRoleSummary 的 IsDeleted 默认为 false，删除不物理移除摘要。不同账号列表、三表身份隔离，旧数据不迁移。
+
+所有账号通过同一 RoleIdGenerator 取得正 int64 编号，全新目录从 1003 递增；账号和连接模式不参与计算。RepoRoleIdSequence 在 role_id_sequence.json 保存已预留上界，每次最多预留 256 个编号，使用独占 .lock 文件保护预留，先刷盘并原子替换再发号；生成器用异步互斥锁串行发放。重启跳过未用编号段，删除不归还编号，摘要丢失也不复用已发放编号，不承诺连续。预留 IO 仅在 Actor 基础设施中发生，Handler 仍只操作内存。损坏或非法编号文件、预留失败、int64 耗尽均拒绝创建，不回退重置；可恢复 IO 故障可以重试。同数据目录不支持多个服务器共享业务存档运行；唯一性范围为这一套完整数据目录。编号文件不可单独删除或回滚；原账号区间数据须整套清除后使用新规则。
+
+创建、删除不启动 RoleActor/WorldActor，不产生角色三表或地图文件。摘要沿用周期、显式 Flush、关闭补写和失败重试；成功响应表示内存提交，强杀可能丢失未落地变更。进入世界先检查未删除账号归属，再加载或首次创建三表；既有版本子目录在启动时提升。
+
+独立场景通过测试工厂注册完整服务组，GameServices 统一拥有 服务，Net 仅借用，Session 和 LoginCache 直接使用正式协议。每个客户端仅一个账号或进入操作在途；缓存完整验证并原子替换后才通知页面，失败保留列表与命名草稿并解除等待，返回登录切换代次。角色页面复用现有预览，进入按钮启用，世界在首份全量帧后支持移动，物品窗口支持当前已实现的操作。自动验收入口为 tests/server_role_management_smoke.tscn，tools/check.ps1 -Tests 会运行真实鼠标按钮流程。
+
+## 进入世界与初始展示
+
+独立场景仍为 `tests/server_role_management.tscn`。默认 F5 的 `scenes/main.tscn` 使用 TCP。手动流程：选择服务器模式admin/123或纯客户端demo1/123登录 → 创建角色并预览 → 进入游戏 → 查看地图、人物、生命魔力与角色窗口、操作背包装备 → 系统菜单返回角色选择 → 切角或再次进入 → 关闭后重新运行场景恢复。移动、物品变更、拾取及聊天 GM 已开放；本地窗口、图鉴、HUD 与设置可用。
+
+第二批进入操作是 `EnterWorld(role_id)`，回复 `EnterWorldRt(state, role, bag, map)`。公开 state 根节点只保存一份角色编号，profile/status/position/equipment 分别表示公开资料、生命魔力、权威地图逻辑位置和装备配置编号；role 保存经验及背包扩容，bag 包括背包和已穿戴的私有实例。EnterWorldRt.map仍为完整初始范围，第三批的WorldFramePb负责世界序号、移动确认、AOI差集和全量重同步。对象自身 revision 沿用存储含义，object_id 使用 GUID N 格式。新增文件不使用 `_data` 后缀。
+
+消息流固定 `连接会话 → LoginActor → PrepareRole → RoleActor → GetWorldEntrySnapshot → WorldActor`，响应反向返回。Login 在任何角色定位前检查正数编号及未删除摘要归属，并先保存待写账号摘要，防止摘要丢失造成编号复用。Role INIT 完整加载已有三表；三表全部不存在时只建立尚未建档的 RoleCache，普通查询、定位和 Flush 不创建数据。只有可信 PrepareRole 根据摘要与配置建立候选：生命100、魔力60、经验0、升级经验500、扩容0、物品装备为空、NextInstanceId为1；初始地图取配置，男性(16016,16016)、女性(16144,16080)，按地图边缘裁剪。初始空表也全部待写，保存成功才接受基线；失败保留候选和脏状态，修复后可显式 Flush 或重新进入重试。
+
+已有角色不重置生命、位置或物品。部分缺表、损坏和 null 拒绝初始化，修复文件后重新请求可重建分片；已加载且可解析但业务字段非法的数据在进入投影时拒绝，不覆盖源数据，修复文件并重启后重新加载。全部三表丢失后会按首次进入重建，不增设初始化标记。地图由配置规格返回中心及周围八块，按边缘裁剪、包含空块；空地图只读进入不生成地图文件。地图失败时已完成的角色建档保留供修复重试。
+
+Login 根据准备后的实际公开状态同步摘要，本次回复的客户端缓存也立即同步自己的摘要。调用链没有 Role → Login 的反向 Ask。后续装备等操作须在该业务内同步受影响数据，不依赖返回选角修正。
+
+响应完成时仅在原代次仍有效的短锁内绑定或替换 Session.RoleId；失败保留原绑定，再次认证或断开清除绑定。代次重置只隔离旧结果，不产生退出或离线事件；同账号不同角色可同时在线，同角色新连接接管旧控制并撤销旧认证；控制切换经C#邮箱屏障串行，迟到解绑不影响新绑定。
+
+Session 的 WorldEntryCache 在 Cache 阶段直接将正式协议转成现有不可变展示数据，完整校验角色身份、物品与公开装备、地图规格/九块/对象及摘要候选后才连续提交；普通 UI 监听看到完整缓存。失败保留已有列表及已接纳世界并解除等待，返回登录释放缓存且切换代次。
+
+返回选角、返回登录、菜单退出和 系统关闭共用现有本地写回能力，失败时保留页面并显示错误供重试。成功后清理客户端世界、角色及地图，隔离旧结果；返回选角在新代次发送 LeaveWorld，服务器回复 LeaveWorldRt，保留账号认证和TCP连接并解除角色控制及在线成员，下一次AOI发布通知其他玩家移除。请求不携带角色或账号字段，已认证重复离开成功，未认证拒绝，不影响其他连接控制的角色。不发送网络保存或退出补同步消息，不停止共享 Actor。真实传输没有本地写回能力时不发送保存消息，服务端自行周期、失败重试和关闭补写。强杀允许丢失未落盘变更。
+
+自动验收 `tests/server_world_entry_smoke.tscn` 通过真实鼠标覆盖进入、地图人物 HUD、GM/背包装备/地面物品交互、返回、切角、重启及保存失败后页面/系统关闭保留与修复重试，已纳入 `tools/check.ps1 -Tests`。角色管理烟测还覆盖尚未进入世界时，返回登录及系统关闭也执行本地写回，失败保留选角页并显示错误、修复后重新返回。字节与文件测试覆盖归属先于建档、部分缺失/损坏、首次保存失败重试、已有实例/地图对象不改写、九块边缘及迟到绑定；客户端测试覆盖跨领域原子校验、最新状态写入和旧代次隔离。
+
+## TCP 托管与登录配置
+
+默认登录可选服务器模式（端口）或纯客户端（字面 IP 和端口），初始 7777 / 127.0.0.1。服务器模式的本机玩家也通过真实 TCP；返回登录或认证失败不关闭监听，相同配置重试复用服务器，修改模式或监听端口须确认后关闭原服务器。应用退出排空并保存。
+
+TCP 为四字节大端长度加 EnvelopePb，单包 4 MiB；每连接输出最多 64 包或 8 MiB，全实例 64 MiB。后台 IO 只排队，固定帧分发事件。连接五秒、请求十五秒超时，失败后手动重试。本地显式写回先等待后台收到此前请求响应再 Flush，纯客户端没有此能力。业务协议不增加连接配置或会话隔离字段。
+
+
+## 多人移动与世界同步
+
+`WorldCoordinator` 使用单调时钟，后台20Hz等待一个完整逻辑轮次、10Hz合并公开变化，不补排延迟Tick。只推进正在移动、控制改变或投影重试的角色。Role在自己的邮箱物化旧目标到接收时刻，再接受更大action_id；坐标写入Role表，目标、速度和确认保存在 Movement，公开投影版本独立保存，均不落盘。投影失败保留最新状态重试，不撤销已接纳意图。静止角色速度变化同样生成完整位置组。
+
+公开信息归World的不可变角色缓存，角色块及观察块索引只标记受影响观察者。投影本身不能建立在线身份；注册、解绑、接管由运行时C#消息进入Role/World邮箱。首次可见与全量重同步返回RoleWorldStatePb，持续移动只返回角色编号和RoleWorldPositionPb。完整位置组展平map_id/x/y，并包含可空target和speed。地图进入空块显式发送，交集块复用；玩家不进入MapObjectPb。
+
+六个源协议变更：`proto/role.proto`位置组及MoveTargetPb/RolePositionUpdatePb；`map.proto`地图差集；`world.proto`移动、重同步和世界帧；`login.proto`踢出通知；`actor/role.proto`权威推进；`actor/world.proto`公开投影、批量观察及快照。第一层公开分组沿用RoleWorldXxxPb；不新增VisibleRolePb、world_session_id或Actor控制protobuf。内部协议不注册外部编解码。
+
+`DataActorCall` 是不可序列化的邮箱元数据，保存连接/代次/认证及控制版本。执行前、跨Actor投递和输出边界检查目录；Handler接收原proto，Context.Call仅供可信运行时值。批量世界构建附带原观察者映射并逐个输出校验；已分配的旧帧序号按原身份消耗占位，不重新查询最新连接或绑定。客户端更高generation支持跳号且保留有效角色控制，低代次忽略。LeaveWorld、断线、重新认证、成功切角或删除清除匹配控制；主动返回登录关闭玩家TCP而保留本地服务器，被踢返回登录保留TCP；返回选角通过LeaveWorld停止移动、撤销控制并移除世界成员，账号和TCP连接继续有效，重复离开幂等。
+
+EnterWorldRt后紧接sequence=1全量帧，后者接纳后才能移动。WorldSyncCache完整验证本人、地图与其他公开角色后原子提交，发现缺口暂停增量并只发一个ResyncWorld，全量可跨过缺口。重复及旧帧忽略。WorldService点击立即预测，最多20Hz发送合并的最新目标，权威确认后重放较新意图；远端100ms插值缓冲、最多100ms外推且不越过目标，经Action更新独立ECS玩家实体并复用ActorView。踢出在缓存阶段撤销数据，UI清理人物和预测回登录，TCP及本地服务器继续运行。
+
+权威坐标沿用周期、失败重试及关闭保存。关闭先取消后台时钟，再排空TCP和已接纳调度，物化停止并通过专用批次共同保存角色、地图与账号。重启不恢复目标、在线、控制或同步序号。纯客户端无本地 Flush 能力，服务器独立保存；物品、装备、拾取及 GM 走相同 TCP 业务链路。
+
+容量工具为 `tests/server_load.tscn`，参数 `--count 1000 --warmup 10 --seconds 60 --out <绝对JSON路径>`；`--dense` 切换同区诊断。该工具创建独立临时账号摘要和三表，使用真实socket、后台持续读取推送，完成后清理。输出CPU、内存、GC、字节、队列、逻辑轮次、帧年龄及动作确认P95。普通回归运行小规模单元/真实TCP及双Godot进程场景，千连接单独运行；密集区不作为分组容量基线。

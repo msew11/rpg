@@ -1,151 +1,111 @@
-using Rpg.Net;
-using Rpg.Net.Message;
-using Rpg.Server;
-using Rpg.Server.Entity;
-using Rpg.Server.EntityCache;
-using Rpg.Server.Handler.Bag;
-using Rpg.Tests;
-using Rpg.Services;
+using Rpg.Protocol;
+using Rpg.Server.Hosting;
+using Rpg.Server.Modules.Common.Data;
+using Rpg.Server.Modules.Login.Data;
+using Rpg.Server.Modules.Login.Storage;
+using Rpg.Server.Modules.Login;
+using Rpg.Server.Modules.Role.Data;
+using Rpg.Server.Modules.Role.Storage;
+using Rpg.Server.Modules.Role;
+using Rpg.Server.Modules;
+using Rpg.Server.Protocol;
+using Rpg.Server.Runtime;
 
 namespace ClientTests;
 
-/// <summary>验证 openspec/specs/server-write-back 的延迟合并、禁用、重试、墓碑及关闭落地。</summary>
-public sealed class ServerWriteBackTests : IDisposable
+/// <summary>验证 openspec/specs/server-storage 的真实文件、显式屏障和关闭补写集成。</summary>
+[Trait("Runtime", "Godot")]
+public sealed class ServerWriteBackTests : ServerModuleTests
 {
-    /// <summary>本次验收独占的存档目录。</summary>
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-write-back-" + Guid.NewGuid());
-
-    /// <summary>多次修改只落最终领域；恢复原值与空检测都不产生文件写入。</summary>
-    [Fact]
-    public void CoalescesDomainsAndSkipsUnchangedFiles()
+    /// <summary>本例独占存档目录。</summary>
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-server-write-back-" + Guid.NewGuid());
+    /// <summary>显式保存和关闭都等待已接纳但尚未修改内存的请求。</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AcceptedRequestCompletesBeforeExplicitOrFinalSave(bool closing)
     {
-        var disk = new RepoServerRole(_directory);
-        var original = disk.Create("合并测试", ServerRoleGender.Male, 1);
-        var writes = new List<string>();
-        using var server = new MockServer(_directory, new BagRules(8, 5, []), (path, _) => writes.Add(path));
-        Enter(server, original.Role.Value.RoleId);
-        server.PublishRolePosition(20, original.Role.Value.Y);
-        server.PublishRolePosition(30, original.Role.Value.Y);
-        Assert.Equal(original, disk.Load(original.Role.Value.RoleId));
-        Assert.Empty(writes);
-        server.Flush();
-        Assert.Equal(disk.GetRolePath(original.Role.Value.RoleId), Assert.Single(writes));
-        Assert.Equal(30, disk.Load(original.Role.Value.RoleId).Role.Value.X);
-        writes.Clear();
-        server.PublishRolePosition(40, original.Role.Value.Y);
-        server.PublishRolePosition(30, original.Role.Value.Y);
-        server.Flush();
-        server.Flush();
-        Assert.Empty(writes);
-    }
-
-    /// <summary>某角色写入失败不阻止其他角色，失败快照保持可读并允许重试。</summary>
-    [Fact]
-    public void FlushFailureRetainsDirtyStateAndContinuesOtherRoles()
-    {
-        var disk = new RepoServerRole(_directory);
-        var first = disk.Create("首个", ServerRoleGender.Male, 1);
-        var second = disk.Create("另一个", ServerRoleGender.Female, 1);
-        using var server = new MockServer(_directory, new BagRules(8, 5, []));
-        Enter(server, first.Role.Value.RoleId);
-        server.PublishRoleStatus(first.Role.Value with { Health = 10 });
-        server.ResetSession(1);
-        Enter(server, second.Role.Value.RoleId);
-        server.PublishRoleStatus(second.Role.Value with { Health = 20 });
-        using (var locked = new FileStream(disk.GetRolePath(first.Role.Value.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
-            Assert.Throws<AggregateException>(() => server.Flush());
-        Assert.Equal(100, disk.Load(first.Role.Value.RoleId).Role.Value.Health);
-        Assert.Equal(20, disk.Load(second.Role.Value.RoleId).Role.Value.Health);
-        server.Flush();
-        Assert.Equal(10, disk.Load(first.Role.Value.RoleId).Role.Value.Health);
-    }
-
-    /// <summary>创建、删除及编号在缓存中立即可见，墓碑落地后重启不恢复或复用。</summary>
-    [Fact]
-    public void CachedCreationDeletionAndIdsSurviveFlush()
-    {
-        using var server = new MockServer(_directory, new BagRules(8, 5, []));
-        server.ResetSession(1);
-        var replies = new List<Google.Protobuf.IMessage>();
-        server.Outgoing += packet => replies.Add(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false));
-        Send(server, new Login { Username = "demo", Password = "demo" });
-        Send(server, new CreateRole { Name = "首个", HeadId = 1, Gender = RoleGenderPb.Male });
-        var first = Assert.Single(replies.OfType<CreateRoleRt>().Last().Roles).RoleId;
-        Send(server, new DeleteRole { RoleId = first });
-        Assert.True(replies.OfType<DeleteRoleRt>().Last().Success);
-        Send(server, new CreateRole { Name = "另一个", HeadId = 1, Gender = RoleGenderPb.Female });
-        var second = Assert.Single(replies.OfType<CreateRoleRt>().Last().Roles).RoleId;
-        Assert.True(second > first);
+        var entered = ServerPersistenceActorTests.Signal();
+        var release = ServerPersistenceActorTests.Signal();
+        var repo = new RepoAccountRoleSummary(_directory);
+        var modules = new ServerModules(Config, repo, new DoubleServerRepo(), new DoubleServerRepo(), _ => new ActorHandlers<LoginContext>()
+            .Register<Login, LoginRt>(new DoubleMutatingLoginHandler(entered, release.Task)));
+        await using var server = new ServerRuntime(modules);
+        var connection = server.OpenConnection();
+        var work = server.ReceiveAsync(connection, LoginPacket());
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var saving = closing ? server.StopAsync() : server.FlushAsync();
+        Assert.False(saving.IsCompleted);
         Assert.False(Directory.Exists(_directory));
-        server.Flush();
-        var disk = new RepoServerRole(_directory);
-        Assert.Equal(second, Assert.Single(disk.List()).Role.Value.RoleId);
-        Assert.True(disk.Create("重启创建", ServerRoleGender.Male, 1).Role.Value.RoleId > second);
+        release.SetResult();
+        await Task.WhenAll(work, saving).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("已接纳修改", (await repo.LoadAsync("alice"))[0].Name);
+        if (!closing)
+        {
+            await server.ReceiveAsync(connection, LoginPacket());
+            Assert.Equal("alice", server.Session(connection).Username);
+        }
     }
-
-    /// <summary>即使未选角也按周期落地；0 禁用，调整重新计时，关闭强制补写。</summary>
+    /// <summary>失败释放仍停止分片且不丢回滚文件，成功角色继续提交。</summary>
     [Fact]
-    public void TimerWorksWithoutSelectionAndZeroDisablesUntilClose()
+    public async Task ShutdownReportsFailureButStopsActorsAndPersistsIndependentAccount()
     {
-        var interval = 5;
-        var server = new MockServer(_directory, new BagRules(8, 5, []), flushInterval: () => interval);
-        using var transport = new MockTransport(server);
-        transport.ResetSession(1);
-        transport.Send(MessageCodec.Encode(new Login { Username = "demo", Password = "demo" }, 1, true));
-        transport.Send(MessageCodec.Encode(new CreateRole { Name = "定时测试", HeadId = 1, Gender = RoleGenderPb.Male }, 1, true));
-        server.Tick(4.9);
-        Assert.False(Directory.Exists(_directory));
-        server.Tick(0.1);
-        Assert.Single(Directory.GetFiles(_directory, "*.role.json"));
-        interval = 0;
-        transport.Send(MessageCodec.Encode(new CreateRole { Name = "禁用测试", HeadId = 1, Gender = RoleGenderPb.Male }, 1, true));
-        server.Tick(100);
-        Assert.Single(Directory.GetFiles(_directory, "*.role.json"));
-        interval = 10;
-        server.Tick(9);
-        Assert.Single(Directory.GetFiles(_directory, "*.role.json"));
-        server.Tick(1);
-        Assert.Equal(2, Directory.GetFiles(_directory, "*.role.json").Length);
-        interval = 0;
-        transport.Send(MessageCodec.Encode(new CreateRole { Name = "关闭测试", HeadId = 1, Gender = RoleGenderPb.Male }, 1, true));
-        server.ResetSession(2);
-        server.Tick(100);
-        Assert.Equal(2, Directory.GetFiles(_directory, "*.role.json").Length);
-        transport.Dispose();
-        Assert.Equal(3, new RepoServerRole(_directory).List().Count);
+        var repo = new ServerPersistenceActorTests.DoubleRoleRepo { FailSave = true };
+        var accounts = new RepoAccountRoleSummary(_directory);
+        var modules = new ServerModules(Config, accounts, repo, new DoubleServerRepo(), _ => ServerPersistenceActorTests.LoginHandlers(),
+            _ => ServerPersistenceActorTests.RoleHandlers());
+        var server = new ServerRuntime(modules);
+        var role = modules.Role(10);
+        var login = modules.Login("alice");
+        await role.Ask(new ServerPersistenceActorTests.DataWriteRole(ServerStorageTests.Sample() with { Role = new() { Name = "待写" } }));
+        await login.Ask(new ServerPersistenceActorTests.DataWriteSummary("保存成功"));
+        await Assert.ThrowsAsync<AggregateException>(() => server.StopAsync());
+        Assert.Equal(ActorState.STOP, role.State);
+        Assert.Equal(ActorState.STOP, login.State);
+        Assert.Equal("保存成功", (await accounts.LoadAsync("alice"))[0].Name);
+        Assert.Throws<ObjectDisposedException>(() => server.OpenConnection());
     }
-
-    /// <summary>验证 openspec/specs/server-write-back 的离角显式落地：周期未到时仍写盘，重置会话后可读。</summary>
+    /// <summary>磁盘缺表导致 INIT 失败，修复后同目录重建 Actor 并完整恢复三表。</summary>
     [Fact]
-    public void LeavingRoleFlushesBeforeSessionReset()
+    public async Task RepairingMissingFileAllowsActorReinitializationAndRoleRoundTrip()
     {
-        using var eventBus = new EventBusService();
-        var server = new MockServer(_directory, new BagRules(8, 5, []), flushInterval: () => 0);
-        using var net = new NetService(new MockTransport(server), eventBus, new LogService(Console.WriteLine));
-        net.Send(new Login { Username = "demo", Password = "demo" });
-        net.Tick(0);
-        net.Send(new CreateRole { Name = "离角落地", HeadId = 1, Gender = RoleGenderPb.Male });
-        Assert.False(Directory.Exists(_directory));
-
-        net.FlushServerWrites();
-        net.ResetSession();
-        Assert.Equal("离角落地", Assert.Single(new RepoServerRole(_directory).List()).Role.Value.Name);
+        var repo = new RepoRole(_directory);
+        await repo.SaveAsync(10, ServerStorageTests.Sample(), DataRoleTables.All);
+        File.Delete(Path.Combine(_directory, "10.item.json"));
+        await using var modules = new ServerModules(Config, new DoubleServerRepo(), repo, new DoubleServerRepo(), _ => new(), _ => ServerPersistenceActorTests.RoleHandlers());
+        var failed = modules.Role(10);
+        await Assert.ThrowsAsync<FileNotFoundException>(() => failed.Ask(new ServerPersistenceActorTests.DataReadRole()));
+        await File.WriteAllTextAsync(Path.Combine(_directory, "10.item.json"), "[]");
+        var actor = modules.Role(10);
+        Assert.NotSame(failed, actor);
+        var loaded = await actor.Ask(new ServerPersistenceActorTests.DataReadRole());
+        var changed = loaded with
+        {
+            Role = loaded.Role with { Name = "新角色", NextInstanceId = 2 },
+            Items = [new(1, 999, 0, 1)], Equipments = [new() { InstanceId = 1 }]
+        };
+        Assert.Equal(DataRoleTables.All, await actor.Ask(new ServerPersistenceActorTests.DataWriteRole(changed)));
+        await modules.FlushAsync();
+        var restored = await repo.LoadAsync(10);
+        Assert.Equal(changed.Role, restored.Role);
+        Assert.Equal(changed.Items.ToArray(), restored.Items.ToArray());
+        Assert.Equal(changed.Equipments.ToArray(), restored.Equipments.ToArray());
     }
-
-    /// <summary>通过正式协议进入角色 Actor。</summary>
-    private static void Enter(MockServer server, long id)
+    /// <summary>序列化测试请求，不增添正式业务协议。</summary>
+    internal static byte[] LoginPacket() => MessageCodec.Encode(new Login { Username = " Alice ", Password = "unused" }, 1, 1, true);
+    /// <summary>存储链路测试 Handler，只修改 Context。</summary>
+    internal sealed class DoubleMutatingLoginHandler(TaskCompletionSource? entered = null, Task? release = null)
+        : IActorHandler<LoginContext, Login, LoginRt>
     {
-        server.ResetSession(1);
-        Send(server, new Login { Username = "demo", Password = "demo" });
-        Send(server, new SelectRole { RoleId = id });
+        /// <summary>可控阻塞后提交摘要，用于验证请求与保存的先后顺序。</summary>
+        public async ValueTask<LoginRt> HandleAsync(LoginContext context, Login request)
+        {
+            entered?.TrySetResult();
+            if (release is not null) await release.ConfigureAwait(false);
+            context.Cache.Commit(new([new(1, "已接纳修改", 1, Rpg.Server.Modules.Common.Data.RoleGender.Male, 1, [])]));
+            return ServerNetworkTests.LoginResponse(context);
+        }
     }
-
-    /// <summary>使用当前默认连接代次发送测试消息。</summary>
-    private static void Send(MockServer server, Google.Protobuf.IMessage request) => server.Receive(MessageCodec.Encode(request, 1, true));
-
-    /// <summary>移除本次验收独占文件。</summary>
-    public void Dispose()
-    {
-        if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
-    }
+    /// <summary>仅移除本例创建的独立临时文件。</summary>
+    public override void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); base.Dispose(); }
 }

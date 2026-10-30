@@ -1,5 +1,5 @@
 using System.IO;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 
 namespace Rpg.Session.Data;
 
@@ -13,22 +13,12 @@ namespace Rpg.Session.Data;
 public sealed record ItemPbData(long InstanceId, int ItemId, int SlotIndex, int Count,
     bool Equipped = false, bool HasEquipment = false)
 {
-    /// <summary>复制基础字段与 oneof 类型，不保存可变协议引用。</summary>
-    public static ItemPbData FromPb(ItemPb message)
+    /// <summary>直接验证并复制 结构，身份来自完整状态根节点。</summary>
+    public static ItemPbData FromPb(global::Rpg.Protocol.ItemPb message)
     {
         if (message is null) throw new InvalidDataException("物品协议不能为空");
         var value = new ItemPbData(message.InstanceId, message.ItemId, message.SlotIndex,
-            message.Count, message.Equipped, message.PayloadCase == ItemPb.PayloadOneofCase.Equipment);
-        value.Validate();
-        return value;
-    }
-
-    /// <summary>直接验证并复制 V2 结构，身份来自完整状态根节点。</summary>
-    public static ItemPbData FromPb(ProtocolV2.ItemPb message)
-    {
-        if (message is null) throw new InvalidDataException("物品协议不能为空");
-        var value = new ItemPbData(message.InstanceId, message.ItemId, message.SlotIndex,
-            message.Count, message.Equipped, message.PayloadCase == ProtocolV2.ItemPb.PayloadOneofCase.Equipment);
+            message.Count, message.Equipped, message.PayloadCase == global::Rpg.Protocol.ItemPb.PayloadOneofCase.Equipment);
         value.Validate();
         return value;
     }

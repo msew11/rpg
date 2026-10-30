@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Collections.Frozen;
-using Rpg.ProtocolV2;
+using Rpg.Protocol;
 using Rpg.Services;
 using Rpg.Session.Data;
 

@@ -28,9 +28,10 @@ public partial class MovementPerformance : Node
             };
             RoleTestData.Seed(main.ServerDirectory);
             AddChild(main);
-            GameServices.Session.Login("demo", "demo");
+            GameServices.Session.Login("demo1", "123");
             await Until(() => GameServices.Session.IsLoggedIn);
-            GameServices.Session.SelectRole(1001);
+            ((Button)main.FindChild("SelectRole1001", true, false)).EmitSignal(Button.SignalName.Pressed);
+            ((Button)main.FindChild("EnterRole", true, false)).EmitSignal(Button.SignalName.Pressed);
             await Until(() => GameServices.World.HasRole);
             GD.Print($"ENTER world_ms={clock.Elapsed.TotalMilliseconds:F2} renderer={RenderingServer.GetCurrentRenderingMethod()}");
             await Measure("entry", 60, false);

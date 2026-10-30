@@ -1,184 +1,101 @@
 syntax = "proto3";
 package rpg;
-option csharp_namespace = "Rpg.Net.Message";
-
+option csharp_namespace = "Rpg.Protocol";
 import "role.proto";
 import "bag.proto";
+import "map.proto";
 
-// 提交带序号的移动意图。
-message Move {
-  // 当前角色 ID。
+// 进入当前账号拥有的角色。
+message EnterWorld {
+  // 要进入的角色编号。
   int64 role_id = 1;
-  // 当前会话递增的移动序号。
-  int64 action_id = 2;
-  // 目标逻辑横坐标。
-  float x = 3;
-  // 目标逻辑纵坐标。
-  float y = 4;
 }
 
-// 延迟移动确认，内存提交成功后返回。
-message MoveRt {
-  // 是否成功。
-  bool success = 1;
-  // 失败原因。
-  string error = 2;
-  // 请求的角色 ID。
-  int64 role_id = 3;
-  // 请求的移动序号。
-  int64 action_id = 4;
-  // 成功后的权威角色位置。
-  RoleWorldPositionPb position = 5;
-}
-
-// 服务端主动提交内存的角色状态。
-message RoleStateNotice {
-  // 最新权威快照。
+// 进入成功所需完整初始数据。
+message EnterWorldRt {
+  // 完整公开状态。
   RoleWorldStatePb state = 1;
+  // 本人私有玩法数据。
+  RolePb role = 2;
+  // 本人完整私有物品。
+  BagPb bag = 3;
+  // 初始可见范围。
+  MapAoiSnapshotPb map = 4;
 }
 
-// 主动提交的角色资料。
-message RoleProfileNotice {
-  // 最新权威资料。
-  RoleWorldProfilePb profile = 1;
+// 离开当前连接控制的角色世界，保留账号认证和连接。
+message LeaveWorld {
 }
 
-// 主动提交的角色位置。
-message RolePositionNotice {
-  // 最新权威位置。
-  RoleWorldPositionPb position = 1;
+// 角色控制及在线成员已解除；重复离开同样成功。
+message LeaveWorldRt {
 }
 
-// 主动提交的可见生命与魔力状态。
-message RoleStatusNotice {
-  // 最新权威状态。
-  RoleWorldStatusPb status = 1;
+// 向当前绑定角色提交目标。
+message Move {
+  // 客户端递增动作编号。
+  uint64 action_id = 1;
+  // 期望移动目标。
+  MoveTargetPb target = 2;
 }
 
-// 当前玩家私有的角色玩法数据变更。
-message RoleChangedNotice {
-  // 最新私有角色领域。
-  RolePb role = 1;
+// 请求处理完成，权威进度由世界帧确认。
+message MoveRt {
+  // 原请求动作编号。
+  uint64 action_id = 1;
 }
 
-// 一块逻辑坐标，不包含地图身份。
-message MapChunkCoordPb {
-  // 横向块坐标。
-  int32 x = 1;
-  // 纵向块坐标。
-  int32 y = 2;
+// 请求当前角色完整观察状态。
+message ResyncWorld {
 }
-// 怪物的基础存储载荷，行为另行扩展。
-message MapMonsterPb {
-  // 怪物类型标识。
-  string monster_type_id = 1;
+
+// 全量重同步回复。
+message ResyncWorldRt {
+  // 仅允许全量快照。
+  WorldFramePb frame = 1;
 }
-// 地面道具的基础存储载荷。
-message MapGroundItemPb {
-  // 道具配置编号。
-  int32 item_id = 1;
-  // 合法堆叠数量。
-  int32 count = 2;
+
+// 服务器主动世界更新。
+message WorldUpdateNotice {
+  // 本次有序世界帧。
+  WorldFramePb frame = 1;
 }
-// 独立动态对象，更新始终携带完整状态。
-message MapObjectPb {
-  // 稳定的无连字符 GUID。
-  string object_id = 1;
-  // 对象自身的递增版本。
-  int64 revision = 2;
-  // 逻辑横坐标。
-  float x = 3;
-  // 逻辑纵坐标。
-  float y = 4;
-  // 两类载荷互斥。
-  oneof payload {
-    MapMonsterPb monster = 5;
-    MapGroundItemPb ground_item = 6;
-  }
-}
-// 一块完整对象快照，允许空列表。
-message MapChunkPb {
-  // 所属块坐标。
-  MapChunkCoordPb coordinate = 1;
-  // 完整对象列表。
-  repeated MapObjectPb objects = 2;
-}
-// 客户端计算归属所需的服务器地图规格。
-message MapLayoutPb {
-  // 横向格子数。
-  int32 width = 1;
-  // 纵向格子数。
-  int32 height = 2;
-  // 逻辑格子边长。
-  int32 tile_size = 3;
-  // AOI 块单边格子数。
-  int32 chunk_size_tiles = 4;
-}
-// 当前订阅完整快照，可跨过增量缺口恢复。
-message MapAoiSnapshotPb {
-  // 数值地图身份。
-  int32 map_id = 1;
-  // 观察者角色身份。
-  int64 role_id = 2;
-  // 此观察者实际发送的消息序号。
-  int64 sequence = 3;
-  // 分块规格。
-  MapLayoutPb layout = 4;
-  // 权威位置所在块。
-  MapChunkCoordPb center = 5;
-  // 完整有效九块或边缘裁剪范围。
-  repeated MapChunkPb chunks = 6;
-}
-// 一次可原子应用的范围及对象增量。
-message MapAoiDeltaPb {
-  // 最新中心块。
-  MapChunkCoordPb center = 1;
-  // 新进入块的完整快照。
-  repeated MapChunkPb entered_chunks = 2;
-  // 离开订阅范围的块。
-  repeated MapChunkCoordPb left_chunks = 3;
-  // 保留块中的新增或更新对象。
-  repeated MapObjectPb upsert_objects = 4;
-  // 保留块中移出或删除的对象身份。
-  repeated string removed_object_ids = 5;
-}
-// 初次快照或后续连续增量。
-message MapAoiNotice {
-  // 观察者角色身份。
-  int64 role_id = 1;
-  // 当前地图身份。
-  int32 map_id = 2;
-  // 会话内观察者消息序号。
-  int64 sequence = 3;
-  // 全量与增量互斥。
+
+// 观察者的权威世界帧。
+message WorldFramePb {
+  // 当前观察流递增编号。
+  uint64 sequence = 1;
+  // 服务器单调时间。
+  int64 server_time_ms = 2;
+  // 已处理的最新移动动作。
+  uint64 acknowledged_action = 3;
+  // 观察者本人位置。
+  RolePositionUpdatePb self = 4;
+  // 全量或增量更新。
   oneof update {
-    MapAoiSnapshotPb snapshot = 4;
-    MapAoiDeltaPb delta = 5;
+    WorldSnapshotPb snapshot = 5;
+    WorldDeltaPb delta = 6;
   }
 }
-// 仅申请当前权威范围，不允许客户端指定远处块。
-message ResyncMapAoi {
-  // 当前角色身份。
-  int64 role_id = 1;
-  // 当前地图身份。
-  int32 map_id = 2;
-}
-// 重同步结果，成功时替换整个 AOI。
-message ResyncMapAoiRt {
-  // 是否成功。
-  bool success = 1;
-  // 错误说明。
-  string error = 2;
-  // 请求角色身份。
-  int64 role_id = 3;
-  // 请求地图身份。
-  int32 map_id = 4;
-  // 成功时的完整快照。
-  MapAoiSnapshotPb snapshot = 5;
+
+// 当前地图和其他可见玩家的完整快照。
+message WorldSnapshotPb {
+  // 完整地图范围。
+  MapAoiSnapshotPb map = 1;
+  // 其他玩家完整公开状态。
+  repeated RoleWorldStatePb roles = 2;
 }
 
-// 供可见范围内其他观察者独立更新装备，不包含私有物品。
-message RoleEquipmentNotice {
-  // 穿戴者的最新完整装备，缺失载荷非法。
-  RoleWorldEquipmentPb equipment = 1;
+// 本轮合并的观察变化。
+message WorldDeltaPb {
+  // 地图范围差集。
+  MapAoiDeltaPb map = 1;
+  // 新进入玩家。
+  repeated RoleWorldStatePb entered_roles = 2;
+  // 已离开玩家编号。
+  repeated int64 left_role_ids = 3;
+  // 持续可见玩家的位置组。
+  repeated RolePositionUpdatePb moved_roles = 4;
+  // 持续可见角色的装备变化。
+  repeated RoleEquipmentUpdatePb equipped_roles = 5;
 }

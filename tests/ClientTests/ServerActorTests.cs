@@ -1,275 +1,109 @@
 using System.Collections.Concurrent;
-using Google.Protobuf;
-using Rpg.Net;
-using Rpg.Net.Message;
-using Rpg.Server;
-using Rpg.Server.Actors;
-using Rpg.Server.Entity;
-using Rpg.Server.EntityCache;
-using Rpg.Server.Handler.Bag;
+using Rpg.Server.Runtime;
 
 namespace ClientTests;
 
-/// <summary>验证 openspec/specs/server-actors 的串行、初始化、回调、故障和有序停止。</summary>
+/// <summary>验证 openspec/specs/server-runtime 的顺序、隔离、故障及排空停止。</summary>
 public sealed class ServerActorTests
 {
-    /// <summary>INIT 不调用业务，Tell 与 Ask 共用邮箱，Stop 排空且后续投递失败。</summary>
+    /// <summary>验证 server-runtime：无效请求在接纳入口拒绝，不启动 Actor 或进入 Handler。</summary>
     [Fact]
-    public async Task InitializationOrdersTellAskCallbackAndStop()
+    public async Task NullRequestIsRejectedBeforeActorInitialization()
+    {
+        await using var actor = new DoubleActor(Task.CompletedTask);
+        await Assert.ThrowsAsync<ArgumentNullException>(() => actor.Ref.Ask<int>(null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => actor.Ref.Ask(new DataRead(), null!));
+        Assert.Throws<ArgumentNullException>(() => actor.Ref.Tell(null!));
+        Assert.Equal(ActorState.INIT, actor.State);
+        Assert.False(actor.HasStarted);
+    }
+
+    /// <summary>初始化屏障前不执行消息，跨 await 仍串行，Ask 回调在调用方执行。</summary>
+    [Fact]
+    public async Task InitializationSerializesTellAskAndDrainsBeforeStop()
     {
         var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var actor = new DoubleActor(ready.Task);
-        actor.Tell(2);
-        var reply = actor.Ask<int>(3);
+        actor.Ref.Tell(new DataAdd(2));
+        var reply = actor.Ref.Ask(new DataRead());
         var callback = 0;
-        var callbackTask = actor.Ask<int>(4, value => callback = value);
-        Assert.Equal(ActorState.INIT, actor.State);
+        var callbackTask = actor.Ref.Ask(new DataRead(), value => callback = value);
+        var stopping = actor.StopAsync();
         Assert.False(reply.IsCompleted);
-        Assert.Empty(actor.Handled);
-        var stopped = actor.StopAsync();
-        Assert.Throws<ObjectDisposedException>(() => actor.Tell(5));
+        Assert.Equal(ActorState.INIT, actor.State);
+        Assert.Throws<ObjectDisposedException>(() => actor.Ref.Tell(new DataAdd(1)));
         ready.SetResult();
-        Assert.Equal(5, await reply.WaitAsync(TimeSpan.FromSeconds(10)));
-        await callbackTask.WaitAsync(TimeSpan.FromSeconds(10));
-        await stopped.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Equal(9, callback);
-        Assert.Equal(new[] { 2, 3, 4 }, actor.Handled);
+        Assert.Equal(2, await reply.WaitAsync(TimeSpan.FromSeconds(5)));
+        await callbackTask;
+        await stopping;
+        Assert.Equal(2, callback);
         Assert.Equal(ActorState.STOP, actor.State);
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => actor.Ask<int>(1));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => actor.Ref.Ask(new DataRead()));
     }
 
-    /// <summary>多发送者竞争时同一 Actor 不会重入，独立 Actor 不受阻塞邮箱影响。</summary>
+    /// <summary>通知和请求失败可观察，初始化失败让全部等待者收到原始错误。</summary>
     [Fact]
-    public async Task ConcurrentSendersSerializeWhileOtherActorContinues()
-    {
-        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        await using var blocked = new DoubleActor(ready.Task);
-        await using var free = new DoubleActor(Task.CompletedTask);
-        var waiting = blocked.Ask<int>(1);
-        Assert.Equal(7, await free.Ask<int>(7).WaitAsync(TimeSpan.FromSeconds(10)));
-        Assert.False(waiting.IsCompleted);
-        ready.SetResult();
-        await waiting;
-        var responses = await Task.WhenAll(Enumerable.Range(0, 64).Select(_ => Task.Run(() => free.Ask<int>(1))));
-        Assert.Equal(71, responses.Max());
-        Assert.Equal(1, free.MaxConcurrent);
-    }
-
-    /// <summary>初始化失败使全部等待者收到原始诊断，业务及 Tell 失败不终止正常 Actor。</summary>
-    [Fact]
-    public async Task FailuresPropagateAndBusinessFailureDoesNotStopMailbox()
+    public async Task ErrorsDoNotStrandWaitersOrOtherActors()
     {
         var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var failed = new DoubleActor(ready.Task);
-        var first = failed.Ask<int>(1);
-        var second = failed.Ask<int>(2);
-        ready.SetException(new InvalidDataException("初始化存档损坏"));
-        Assert.Equal("初始化存档损坏", (await Assert.ThrowsAsync<InvalidDataException>(() => first)).Message);
-        await Assert.ThrowsAsync<InvalidDataException>(() => second);
+        var one = failed.Ref.Ask(new DataRead());
+        var two = failed.Ref.Ask(new DataRead());
+        ready.SetException(new InvalidDataException("坏数据"));
+        Assert.Equal("坏数据", (await Assert.ThrowsAsync<InvalidDataException>(() => one)).Message);
+        await Assert.ThrowsAsync<InvalidDataException>(() => two);
         await failed.StopAsync();
-        Assert.Equal(ActorState.STOP, failed.State);
-        Assert.Equal("初始化存档损坏", (await Assert.ThrowsAsync<InvalidDataException>(() => failed.Ask<int>(3))).Message);
-        Assert.Empty(failed.Handled);
-
-        await using var actor = new DoubleActor(Task.CompletedTask);
+        await Assert.ThrowsAsync<InvalidDataException>(() => failed.Ref.Ask(new DataRead()));
+        await using var good = new DoubleActor(Task.CompletedTask);
         var errors = new ConcurrentQueue<Exception>();
-        actor.Error += errors.Enqueue;
-        actor.Tell(-1);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => actor.Ask<int>(-1));
-        Assert.Equal(4, await actor.Ask<int>(4));
+        good.Error += _ => throw new InvalidOperationException("观察者失败");
+        good.Error += errors.Enqueue;
+        good.Ref.Tell(new DataAdd(-1));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => good.Ref.Ask(new DataRead(true)));
+        Assert.Equal(0, await good.Ref.Ask(new DataRead()));
         Assert.Single(errors);
-        Assert.Equal(ActorState.RUN, actor.State);
     }
 
-    /// <summary>测试替身只服务于邮箱顺序与故障契约，不包含游戏业务。</summary>
-    private sealed class DoubleActor(Task initialization) : BaseActor
+    /// <summary>同键并发获取只创建一个 Actor，未使用分片不初始化，停止后目录拒绝创建。</summary>
+    [Fact]
+    public async Task DirectoryCreatesOneLazyShardAndAllowsIndependentProgress()
     {
-        /// <summary>已完成处理的消息顺序。</summary>
-        internal ConcurrentQueue<int> Handled { get; } = new();
-        /// <summary>累计处理值。</summary>
+        var count = 0;
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var directory = new ActorDirectory<int>(id =>
+        { Interlocked.Increment(ref count); return new DoubleActor(id == 1 ? ready.Task : Task.CompletedTask); });
+        var refs = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(() => directory.Get(1))));
+        Assert.All(refs, actor => Assert.Same(refs[0], actor));
+        Assert.Equal(1, count);
+        Assert.Equal(ActorState.INIT, refs[0].State);
+        var waiting = refs[0].Ask(new DataRead());
+        Assert.Equal(0, await directory.Get(2).Ask(new DataRead()).WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(waiting.IsCompleted);
+        ready.SetResult();
+        await waiting;
+        await directory.StopAsync();
+        Assert.Throws<ObjectDisposedException>(() => directory.Get(3));
+    }
+
+    /// <summary>测试通知只携带增量，不携带操作委托。</summary>
+    private sealed record DataAdd(int Value) : IActorNotification;
+    /// <summary>测试请求只携带是否模拟失败的标记。</summary>
+    private sealed record DataRead(bool Fail = false) : IActorRequest<int>;
+    /// <summary>服务于邮箱契约的测试替身，模拟可等待初始化。</summary>
+    private sealed class DoubleActor(Task ready) : BaseActor
+    {
+        /// <summary>邮箱独占的累计值。</summary>
         private int _value;
-        /// <summary>当前并发进入处理器的数量。</summary>
-        private int _concurrent;
-        /// <summary>实际观察到的最高并发。</summary>
-        internal int MaxConcurrent { get; private set; }
-        /// <summary>初始化屏障保持 INIT 可观察。</summary>
-        protected override async ValueTask InitializeAsync() => await initialization.ConfigureAwait(false);
-        /// <summary>跨 await 的回合仍不允许下一条消息进入。</summary>
+        /// <summary>等待初始化屏障。</summary>
+        protected override async ValueTask InitializeAsync() => await ready.ConfigureAwait(false);
+        /// <summary>回合跨越异步延续，仍保持消息顺序。</summary>
         protected override async ValueTask<object?> ReceiveAsync(object message)
         {
-            var value = (int)message;
-            if (value < 0) throw new InvalidOperationException("业务拒绝");
-            MaxConcurrent = Math.Max(MaxConcurrent, Interlocked.Increment(ref _concurrent));
             await Task.Yield();
-            _value += value;
-            Handled.Enqueue(value);
-            Interlocked.Decrement(ref _concurrent);
-            return _value;
+            if (message is DataAdd add)
+            { if (add.Value < 0) throw new InvalidOperationException("无效增量"); _value += add.Value; return null; }
+            if (message is DataRead { Fail: false }) return _value;
+            throw new InvalidOperationException("回合失败");
         }
     }
-}
-
-/// <summary>验证 openspec/specs/server-actors、mock-server 的身份加载和地图共同状态。</summary>
-public sealed class ServerActorShardTests : IDisposable
-{
-    /// <summary>每例独立的存档根目录。</summary>
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-actors-" + Guid.NewGuid());
-    /// <summary>本测试使用的无物品规则。</summary>
-    private readonly BagRules _rules = new(8, 5, []);
-
-    /// <summary>角色客户端请求、Ask 和 Tell 均按身份启动，地图被两个角色共享且不重复加载。</summary>
-    [Fact]
-    public async Task AskTellInitializeOnlyTheirShardAndShareMap()
-    {
-        var disk = new RepoServerRole(_directory);
-        var first = disk.Create("首个角色", ServerRoleGender.Male, 1);
-        var second = disk.Create("另一个角色", ServerRoleGender.Female, 1);
-        using var server = new MockServer(_directory, _rules);
-        var one = server.GetRoleActor(first.Role.Value.RoleId);
-        var two = server.GetRoleActor(second.Role.Value.RoleId);
-        Assert.Same(one, server.GetRoleActor(first.Role.Value.RoleId));
-        Assert.Equal(ActorState.INIT, one.State);
-        one.Tell(new DataRoleWork(first.Role.Value.RoleId, cache =>
-        {
-            cache.Commit(cache.EntityCache.WithRole(cache.EntityCache.Role.Value with { Health = 17 }), 1);
-            return true;
-        }));
-        var reply = await one.Ask<DataRoleResult>(new DataRoleWork(first.Role.Value.RoleId, cache => cache.EntityCache.Role.Value.Health));
-        Assert.Equal(17, reply.Response);
-        Assert.Equal(ActorState.RUN, one.State);
-        Assert.Equal(ActorState.INIT, two.State);
-        Assert.Equal(ActorState.RUN, server.GetWorldActor(1).State);
-        Assert.Same(server.GetWorldActor(1), server.GetWorldActor(1));
-        await two.Ask<DataRoleResult>(new DataRoleWork(second.Role.Value.RoleId, cache => cache.EntityCache.Role.Value.Health));
-        Assert.Equal(100, disk.Load(first.Role.Value.RoleId).Role.Value.Health);
-        server.Flush();
-        Assert.Equal(17, disk.Load(first.Role.Value.RoleId).Role.Value.Health);
-    }
-
-    /// <summary>坏角色初始化失败不终止登录或其他角色，修复后可新建分片重试。</summary>
-    [Fact]
-    public async Task CorruptRoleDoesNotStopOtherShardsAndCanRetry()
-    {
-        var disk = new RepoServerRole(_directory);
-        var first = disk.Create("故障角色", ServerRoleGender.Male, 1);
-        var second = disk.Create("正常角色", ServerRoleGender.Female, 1);
-        var path = disk.GetItemPath(first.Role.Value.RoleId);
-        var original = File.ReadAllText(path);
-        File.WriteAllText(path, "{");
-        using var server = new MockServer(_directory, _rules);
-        var failed = server.GetRoleActor(first.Role.Value.RoleId);
-        await Assert.ThrowsAsync<InvalidDataException>(() => failed.Ask<DataRoleResult>(new DataRoleWork(first.Role.Value.RoleId, _ => true)));
-        var other = server.GetRoleActor(second.Role.Value.RoleId);
-        await other.Ask<DataRoleResult>(new DataRoleWork(second.Role.Value.RoleId, _ => true));
-        Assert.Equal(ActorState.RUN, other.State);
-        Assert.Equal("{", File.ReadAllText(path));
-        File.WriteAllText(path, original);
-        var retried = server.GetRoleActor(first.Role.Value.RoleId);
-        Assert.NotSame(failed, retried);
-        await retried.Ask<DataRoleResult>(new DataRoleWork(first.Role.Value.RoleId, _ => true));
-        Assert.Equal(ActorState.RUN, retried.State);
-    }
-
-    /// <summary>mock-server：初始化失败角色仍能只读角色单例完成删除，不重读损坏物品。</summary>
-    [Fact]
-    public async Task DeletingFailedShardDoesNotReloadCorruptItems()
-    {
-        var disk = new RepoServerRole(_directory);
-        var role = disk.Create("可删除故障", ServerRoleGender.Male, 1);
-        File.WriteAllText(disk.GetItemPath(role.Role.Value.RoleId), "{");
-        using var server = new MockServer(_directory, _rules);
-        var actor = server.GetRoleActor(role.Role.Value.RoleId);
-        await Assert.ThrowsAsync<InvalidDataException>(() => actor.Ask<DataRoleResult>(new DataRoleWork(role.Role.Value.RoleId, _ => true)));
-        var replies = new List<IMessage>();
-        server.ResetSession(1);
-        server.Outgoing += packet => replies.Add(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false));
-        server.Receive(MessageCodec.Encode(new Login { Username = "demo", Password = "demo" }, 1, true));
-        server.Receive(MessageCodec.Encode(new DeleteRole { RoleId = role.Role.Value.RoleId }, 1, true));
-        Assert.True(Assert.Single(replies.OfType<DeleteRoleRt>()).Success);
-        server.Flush();
-        Assert.Empty(disk.ListSummaries());
-        Assert.Equal("{", File.ReadAllText(disk.GetItemPath(role.Role.Value.RoleId)));
-    }
-
-    /// <summary>server-actors：地图初始化失败仍保留新建角色，修复后可以从磁盘重试选角。</summary>
-    [Fact]
-    public void FailedMapInitializationKeepsNewRolePending()
-    {
-        var mapDirectory = Path.Combine(_directory, "maps", "1");
-        Directory.CreateDirectory(mapDirectory);
-        var manifest = Path.Combine(mapDirectory, "manifest.json");
-        File.WriteAllText(manifest, "{");
-        using var server = new MockServer(_directory, _rules);
-        var replies = new List<IMessage>();
-        server.ResetSession(1);
-        server.Outgoing += packet => replies.Add(MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), false));
-        void Send(IMessage request) => server.Receive(MessageCodec.Encode(request, 1, true));
-        Send(new Login { Username = "demo", Password = "demo" });
-        Send(new CreateRole { Name = "保留新角色", HeadId = 1, Gender = RoleGenderPb.Male });
-        var id = Assert.Single(replies.OfType<CreateRoleRt>().Last().Roles).RoleId;
-        Send(new SelectRole { RoleId = id });
-        Assert.False(replies.OfType<SelectRoleRt>().Last().Success);
-        server.Flush();
-        Assert.Equal(id, Assert.Single(new RepoServerRole(_directory).List()).Role.Value.RoleId);
-        Assert.Equal("{", File.ReadAllText(manifest));
-        File.Delete(manifest);
-        Send(new SelectRole { RoleId = id });
-        Assert.True(replies.OfType<SelectRoleRt>().Last().Success);
-    }
-
-    /// <summary>世界工作副本和查询快照不泄露可写状态，停止排空全部 Actor。</summary>
-    [Fact]
-    public async Task WorldSnapshotsRemainStableAndTransportStopsActors()
-    {
-        var disk = new RepoServerRole(_directory);
-        var role = disk.Create("停止角色", ServerRoleGender.Male, 1);
-        var server = new MockServer(_directory, _rules);
-        using var transport = new MockTransport(server);
-        transport.ResetSession(1);
-        transport.Send(MessageCodec.Encode(new Login { Username = "demo", Password = "demo" }, 1, true));
-        transport.Send(MessageCodec.Encode(new SelectRole { RoleId = role.Role.Value.RoleId }, 1, true));
-        var actor = server.GetRoleActor(role.Role.Value.RoleId);
-        var world = server.GetWorldActor(1);
-        var before = server.GetMap(1);
-        var value = server.CreateMapObject(1, new MapObjectEntity { X = 100, Y = 100, MonsterTypeId = "test" });
-        Assert.Empty(before.Objects);
-        Assert.Equal(value, Assert.Single(server.GetMap(1).Objects).Value);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => actor.Ask<DataRoleResult>(new DataRoleWork(role.Role.Value.RoleId + 1, _ => true)));
-        transport.Dispose();
-        Assert.Equal(ActorState.STOP, actor.State);
-        Assert.Equal(ActorState.STOP, world.State);
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => actor.Ask<DataRoleResult>(new DataRoleWork(role.Role.Value.RoleId, _ => true)));
-    }
-
-    /// <summary>server-actors、mock-server：地图路由使用角色副本，失败不会污染角色的移动队列或 AOI 序号。</summary>
-    [Fact]
-    public async Task FailedWorldWorkPreservesRoleSessionAndMailboxRouting()
-    {
-        var role = new RepoServerRole(_directory).Create("隔离角色", ServerRoleGender.Male, 1);
-        var id = role.Role.Value.RoleId;
-        using var server = new MockServer(_directory, _rules);
-        var actor = server.GetRoleActor(id);
-        var selected = await actor.Ask<DataRoleResult>(new DataRoleRequest(id, new SelectRole { RoleId = id }));
-        Assert.True(Assert.IsType<SelectRoleRt>(selected.Response).Success);
-        Assert.IsType<MapAoiNotice>(Assert.Single(selected.Notices));
-        var moved = await actor.Ask<DataRoleResult>(new DataRoleRequest(id, new Move { RoleId = id, ActionId = 1, X = 16100, Y = 16100 }));
-        Assert.True(Assert.IsType<MoveRt>(moved.Response).Success);
-        var before = moved.Role.Session;
-        Assert.Single(before.Moves);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => actor.Ask<DataRoleResult>(new DataRoleWorldWork(id, context =>
-        {
-            Assert.NotSame(before, context.Role.Session);
-            context.Role.Session.Moves.Clear();
-            context.Role.Session.Aoi!.Snapshot(context.EntityCache.Map, 0, 0);
-            throw new InvalidOperationException("地图事务拒绝");
-        })));
-        var resynced = await actor.Ask<DataRoleResult>(new DataRoleRequest(id, new ResyncMapAoi { RoleId = id, MapId = 1 }));
-        Assert.True(Assert.IsType<ResyncMapAoiRt>(resynced.Response).Success);
-        Assert.Single(resynced.Role.Session.Moves);
-        Assert.Equal(((MapAoiNotice)selected.Notices[0]).Sequence + 1, ((ResyncMapAoiRt)resynced.Response!).Snapshot.Sequence);
-        Assert.Equal(ActorState.RUN, actor.State);
-    }
-
-    /// <summary>只清理本测试独占目录。</summary>
-    public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }
 }

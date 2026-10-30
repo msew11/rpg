@@ -1,5 +1,5 @@
 using Rpg.Config.Data;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 using Rpg.Session.Data;
 using Rpg.World;
 using Rpg.World.Actions;
@@ -46,10 +46,10 @@ public sealed class WorldMapEntityTests
     {
         var chunk = new MapChunkPb { Coordinate = new() { X = 0, Y = 0 } };
         chunk.Objects.AddRange(objects);
-        var snapshot = new MapAoiSnapshotPb { MapId = 1, RoleId = 1, Sequence = sequence,
+        var snapshot = new MapAoiSnapshotPb { MapId = 1,
             Layout = new() { Width = 2, Height = 2, TileSize = 32, ChunkSizeTiles = 2 },
             Center = new() { X = 0, Y = 0 } };
         snapshot.Chunks.Add(chunk);
-        return DataMapAoiSnapshotPbData.FromPb(snapshot);
+        return DataMapAoiSnapshotPbData.FromPb(snapshot, 1);
     }
 }

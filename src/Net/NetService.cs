@@ -1,4 +1,3 @@
-using Rpg.Server.Map;
 using Rpg.Config;
 using System;
 using System.Collections.Generic;
@@ -6,10 +5,8 @@ using System.Diagnostics;
 using System.Linq;
 using Google.Protobuf;
 using Rpg.Services;
-using Rpg.Server;
-using Rpg.Server.Handler.Bag;
-using Rpg.ServerV2.Hosting;
-using V2Codec = Rpg.ServerV2.Protocol.MessageCodec;
+using Rpg.Server.Hosting;
+using ProtocolCodec = Rpg.Server.Protocol.MessageCodec;
 
 namespace Rpg.Net;
 
@@ -20,14 +17,8 @@ public sealed class NetService : Service
     internal LogService Log { get; }
     /// <summary>当前使用的可替换传输。</summary>
     private INetTransport _transport;
-    /// <summary>协议版本由装配指定，不依赖本地服务器是否存在。</summary>
-    public bool IsV2 { get; private set; }
     /// <summary>当前连接是否由登录界面配置。</summary>
     public bool UsesTcp => _transport is TcpClientTransport;
-    /// <summary>当前是否支持移动；多人移动接入后启用。</summary>
-    public bool CanMove => true;
-    /// <summary>未迁移的物品、装备和 GM 写操作能力。</summary>
-    public bool CanWriteItems => true;
     /// <summary>主动返回登录时结束玩家连接，监听服务器继续运行；被踢流程不调用。</summary>
     public void DisconnectClient()
     {
@@ -37,9 +28,9 @@ public sealed class NetService : Service
         var transport = new TcpClientTransport(tcp.ServerService); transport.ResetSession(_generation);
         _transport = transport; _transport.Received += OnReceived;
     }
-    /// <summary>借用已装配的服务器服务，创建默认 V2 TCP 网络，不启动服务器。</summary>
+    /// <summary>借用已装配的服务器服务，创建默认 TCP 网络，不启动服务器。</summary>
     public NetService(MockServerService mockServer, EventBusService eventBus, LogService log)
-        : this(CreateTcpTransport(mockServer, eventBus, log), eventBus, log) { IsV2 = true; }
+        : this(CreateTcpTransport(mockServer, eventBus, log), eventBus, log) { }
     /// <summary>先验证借用依赖，再创建传输，避免失败时遗留资源。</summary>
     private static INetTransport CreateTcpTransport(MockServerService mockServer, EventBusService eventBus, LogService log)
     {
@@ -87,17 +78,6 @@ public sealed class NetService : Service
     /// <summary>报告编解码与传输错误。</summary>
     public event Action<Exception>? Error;
 
-    /// <summary>在服务内部初始化当前阶段的进程内传输。</summary>
-    private NetService(EnvService env, EventBusService eventBus, ConfigService config, LogService log, bool legacy)
-        : this(new MockTransport(new Rpg.Server.MockServer(env.ServerDirectory,
-            new BagRules(config.Basic.Value.BagColumns, config.Basic.Value.BagRows,
-                config.Item.Items.Values.ToArray()),
-            log.ServerIO, () => env.ServerFlushIntervalSeconds,
-            config.Map.Items.Values.Select(map => new MapLayout(map.Id, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles)),
-            config.Basic.Value.InitialMapId, () => env.MovementSpeed)), eventBus, log) { }
-
-    /// <summary>旧链路测试显式创建原宿主。</summary>
-    internal static NetService CreateLegacy(EnvService env, EventBusService eventBus, ConfigService config, LogService log) => new(env, eventBus, config, log, true);
     /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>
     internal NetService(INetTransport transport, EventBusService eventBus, LogService log)
     {
@@ -110,9 +90,9 @@ public sealed class NetService : Service
         _transport.Received += OnReceived;
     }
 
-    /// <summary>隔离回归显式选择进程内 V2 传输，不接管服务器服务。</summary>
+    /// <summary>隔离回归显式选择进程内传输，不接管服务器服务。</summary>
     internal static NetService CreateInProcess(MockServerService mockServer, EventBusService eventBus, LogService log)
-        => new(CreateV2Transport(mockServer, eventBus, log), eventBus, log) { IsV2 = true };
+        => new(CreateInProcessTransport(mockServer, eventBus, log), eventBus, log);
 
     /// <summary>统一拒绝缺失或已释放的网络前置服务。</summary>
     private static void ValidateDependencies(EventBusService eventBus, LogService log)
@@ -124,7 +104,7 @@ public sealed class NetService : Service
     }
 
     /// <summary>先验证服务依赖，再建立连接，避免非法装配遗留连接。</summary>
-    private static INetTransport CreateV2Transport(MockServerService server, EventBusService eventBus, LogService log)
+    private static INetTransport CreateInProcessTransport(MockServerService server, EventBusService eventBus, LogService log)
     {
         ArgumentNullException.ThrowIfNull(server);
         ArgumentNullException.ThrowIfNull(eventBus);
@@ -132,19 +112,18 @@ public sealed class NetService : Service
         ObjectDisposedException.ThrowIf(server.IsDisposed, server);
         ObjectDisposedException.ThrowIf(eventBus.IsDisposed, eventBus);
         ObjectDisposedException.ThrowIf(log.IsDisposed, log);
-        return new MockServerV2Transport(server);
+        return new MockServerTransport(server);
     }
 
     /// <summary>将请求冻结入队；监听只在后续固定帧执行。</summary>
     public void Send(IMessage request)
     {
         ThrowIfDisposed();
-        if (_transport is TcpClientTransport tcp && tcp.ServerService.Server is not null && request is Rpg.ProtocolV2.Login login &&
+        if (_transport is TcpClientTransport tcp && tcp.ServerService.Server is not null && request is Rpg.Protocol.Login login &&
             (login.Username.Trim().ToLowerInvariant() != "admin" || login.Password != "123"))
             throw new InvalidOperationException("服务器模式必须使用 admin/123 登录");
         var id = checked(++_revision);
-        _outbound.Enqueue(!IsV2 ? MessageCodec.Encode(request, _generation, true, id)
-            : V2Codec.Encode(request, checked((ulong)_generation), checked((ulong)id), true));
+        _outbound.Enqueue(ProtocolCodec.Encode(request, checked((ulong)_generation), checked((ulong)id), true));
     }
 
     /// <summary>发送当前队列、推进服务端并分发响应，监听中新请求留到下一帧。</summary>
@@ -234,21 +213,14 @@ public sealed class NetService : Service
     /// <summary>接收方拥有独立字节，避免对端修改已入队数据。</summary>
     private void OnReceived(byte[] packet) => _inbound.Enqueue((byte[])packet.Clone());
 
-    /// <summary>按当前传输使用对应协议表，防止 V1/V2 类型混用。</summary>
-    private IMessage ReadMessage(byte[] packet, bool request) => !IsV2
-        ? MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), request)
-        : V2Codec.ReadPayload(V2Codec.ReadEnvelope(packet), request);
+    /// <summary>按正式协议表解析独立业务消息。</summary>
+    private IMessage ReadMessage(byte[] packet, bool request) => ProtocolCodec.ReadPayload(ProtocolCodec.ReadEnvelope(packet), request);
 
     /// <summary>先按当前版本检查代次，再解析并发布业务载荷。</summary>
     private IMessage? ReadCurrentMessage(byte[] packet)
     {
-        if (!IsV2)
-        {
-            var envelope = MessageCodec.ReadEnvelope(packet);
-            return envelope.Generation == _generation ? MessageCodec.ReadPayload(envelope, false) : null;
-        }
-        var v2 = V2Codec.ReadEnvelope(packet);
-        return v2.Generation == checked((ulong)_generation) ? V2Codec.ReadPayload(v2, false) : null;
+        var message = ProtocolCodec.ReadEnvelope(packet);
+        return message.Generation == checked((ulong)_generation) ? ProtocolCodec.ReadPayload(message, false) : null;
     }
 
     /// <summary>隔离错误观察者，保证后续消息仍可处理。</summary>

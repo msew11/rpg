@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using Rpg.Config.Data;
 using Rpg.Net;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 
 namespace Rpg.Session.Data;
 
@@ -28,23 +28,15 @@ public sealed class BagPbData
         Equipment = equipment.AsReadOnly();
     }
 
-    /// <summary>验证实例唯一性、未穿格子、容量和装备公开规则。</summary>
-    public static BagPbData FromPb(BagPb message, int capacity, IReadOnlyDictionary<int, ItemCfg> definitions)
-    {
-        if (message is null || message.GetRevision() < 0 || capacity <= 0) throw new InvalidDataException("背包协议或容量无效");
-        var items = message.Items.Select(ItemPbData.FromPb).ToList();
-        return FromItems(message.GetRevision(), items, capacity, definitions);
-    }
-
-    /// <summary>直接转换 V2 全量物品，不转译旧协议。</summary>
-    public static BagPbData FromPb(ProtocolV2.BagPb message, int capacity, IReadOnlyDictionary<int, ItemCfg> definitions)
+    /// <summary>转换正式完整物品快照。</summary>
+    public static BagPbData FromPb(global::Rpg.Protocol.BagPb message, int capacity, IReadOnlyDictionary<int, ItemCfg> definitions)
     {
         if (message is null || capacity <= 0) throw new InvalidDataException("背包协议或容量无效");
         var items = message.Items.Select(ItemPbData.FromPb).ToList();
         foreach (var item in items)
             if (!definitions.TryGetValue(item.ItemId, out var cfg) ||
                 Rpg.Utils.EquipmentSlotUtil.TryGetSlot(cfg.Category, cfg.SubCategory, out _) != item.HasEquipment)
-                throw new InvalidDataException("V2 物品与扩展类型不一致");
+                throw new InvalidDataException("物品与扩展类型不一致");
         return FromItems(0, items, capacity, definitions);
     }
 
@@ -70,6 +62,6 @@ public sealed class BagPbData
     {
         var message = new BagPb();
         message.Items.AddRange(AllItems.Select(item => item.ToPb()));
-        return message.WithRevision(Revision);
+        return message;
     }
 }

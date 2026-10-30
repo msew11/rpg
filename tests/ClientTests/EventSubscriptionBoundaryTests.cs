@@ -14,16 +14,16 @@ public sealed class EventSubscriptionBoundaryTests
     [Fact]
     public void ServerModulesHaveNoClientServiceOrUiDependencies()
     {
-        var serverDirectory = Path.Combine(ConfigTestFixture.FindRoot(), "src", "Server");
+        var serverDirectory = Path.Combine(ConfigTestFixture.FindRoot(), "src", "Server", "Modules");
         foreach (var path in Directory.EnumerateFiles(serverDirectory, "*.cs", SearchOption.AllDirectories))
         {
             var source = File.ReadAllText(path);
             Assert.DoesNotMatch(@"\bRpg\.(?:Session|World|UI|Services)\b|\bGameServices\s*\.", source);
         }
-        var aoi = File.ReadAllText(Path.Combine(serverDirectory, "MapAoiTracker.cs"));
-        Assert.DoesNotMatch(@"\bSystem\.IO\b|\bRepoServerMap\b", aoi);
-        var repo = File.ReadAllText(Path.Combine(serverDirectory, "RepoServerMap.cs"));
-        Assert.DoesNotMatch(@"\bMapAoiTracker\b|\bMockServer\b", repo);
+        var aoi = File.ReadAllText(Path.Combine(serverDirectory, "World", "Cache", "DataCacheWorldRoles.cs"));
+        Assert.DoesNotMatch(@"\bSystem\.IO\b|\bRepoWorld\b", aoi);
+        var repo = File.ReadAllText(Path.Combine(serverDirectory, "World", "Storage", "RepoWorld.cs"));
+        Assert.DoesNotMatch(@"\bWorldAoiTracker\b|\bMockServer\b", repo);
     }
 
     /// <summary>遍历正式类型的调用指令，防止服务或辅助包装类重新注册协议监听。</summary>
@@ -85,7 +85,7 @@ public sealed class EventSubscriptionBoundaryTests
     public void ServicesFollowFixedConstructionAndReverseDisposalOrder()
     {
         Type[] order = [typeof(EnvService), typeof(LogService), typeof(EventBusService), typeof(Rpg.Config.ConfigService),
-            typeof(Rpg.Settings.SettingService), typeof(Rpg.ServerV2.Hosting.MockServerService), typeof(Rpg.Net.NetService), typeof(Rpg.Session.SessionService),
+            typeof(Rpg.Settings.SettingService), typeof(Rpg.Server.Hosting.MockServerService), typeof(Rpg.Net.NetService), typeof(Rpg.Session.SessionService),
             typeof(Rpg.World.WorldService), typeof(Rpg.World.Views.AnimationService), typeof(Rpg.Utils.ItemAssetService)];
         var services = typeof(Service).Assembly.GetTypes().Where(type => !type.IsAbstract && typeof(Service).IsAssignableFrom(type));
         var ownershipOrder = order;

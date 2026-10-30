@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 
 namespace Rpg.Session.Data;
 
@@ -12,17 +12,8 @@ namespace Rpg.Session.Data;
 /// <param name="ChunkSizeTiles">AOI 块的单边格子数。</param>
 public sealed record DataMapLayoutPbData(int Width, int Height, int TileSize, int ChunkSizeTiles)
 {
-    /// <summary>检查规格和乘积边界并转换。</summary>
-    public static DataMapLayoutPbData FromPb(MapLayoutPb? value)
-    {
-        if (value is null || value.Width <= 0 || value.Height <= 0 || value.TileSize <= 0 || value.ChunkSizeTiles <= 0 ||
-            (long)value.Width * value.TileSize > int.MaxValue || (long)value.Height * value.TileSize > int.MaxValue ||
-            (long)value.ChunkSizeTiles * value.TileSize > int.MaxValue) throw new InvalidDataException("地图同步规格无效");
-        return new(value.Width, value.Height, value.TileSize, value.ChunkSizeTiles);
-    }
-
-    /// <summary>直接校验并复制 V2 地图结构。</summary>
-    public static DataMapLayoutPbData FromPb(ProtocolV2.MapLayoutPb? value)
+    /// <summary>直接校验并复制 地图结构。</summary>
+    public static DataMapLayoutPbData FromPb(global::Rpg.Protocol.MapLayoutPb? value)
     {
         if (value is null || value.Width <= 0 || value.Height <= 0 || value.TileSize <= 0 || value.ChunkSizeTiles <= 0 ||
             (long)value.Width * value.TileSize > int.MaxValue || (long)value.Height * value.TileSize > int.MaxValue ||

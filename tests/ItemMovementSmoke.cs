@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Godot;
-using Rpg.Server;
+using Rpg.Server.Modules.Role.Storage;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
@@ -31,8 +31,8 @@ public partial class ItemMovementSmoke : Node
                 ["subCategory"] = 2, ["relatedId"] = 1012, ["maxStack"] = 10 });
             File.WriteAllText(Path.Combine(config, "item.json"), definitions.ToJsonString());
             RoleTestData.Seed(server);
-            var repo = new RepoServerRole(server);
-            repo.Save(repo.Load(1001).WithItems([new(1, 1012, 0, 1), new(2, 2000, 1, 8), new(3, 2000, 2, 3), new(4, 2000, 3, 2)], 5));
+            var repo = new RepoRole(server);
+            RoleTestData.SetItems(server, 1001, [new(1, 1012, 0, 1), new(2, 2000, 1, 8), new(3, 2000, 2, 3), new(4, 2000, 3, 2)], 5);
             main = await StartMain(directory, config);
             var bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
             var grid = (GridContainer)bag.FindChild("BagGrid", true, false);
@@ -99,12 +99,12 @@ public partial class ItemMovementSmoke : Node
             await Frames();
 
             // server-write-back：先推进到落地节点，再核对失败请求与重启文件。
-            GameServices.Net.Tick(5);
-            var saved = repo.Load(1001);
-            GameServices.Session.MoveItem(99999, 4, GameServices.Session.Bag.Revision);
+            await GameServices.MockServer.FlushAsync();
+            var saved = (await repo.LoadAsync(1001));
+            GameServices.Session.MoveItem(99999, 4);
             await Frames();
             Check(bag.FindChild("ItemMoveStatus", true, false) is Label { Visible: true, Text: "源物品不存在" }, "失败响应没有提示");
-            Check(repo.Load(1001).BagItems.SequenceEqual(saved.BagItems), "失败请求修改了存档");
+            Check((await repo.LoadAsync(1001)).Items.SequenceEqual(saved.Items), "失败请求修改了存档");
             await BeginDrag(grid.GetChild<Control>(2));
             PressTitle(main, "系统");
             PressTitle(main, "返回角色选择");
@@ -116,13 +116,13 @@ public partial class ItemMovementSmoke : Node
             await Frames();
             var otherBag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
             await EndDrag(((GridContainer)otherBag.FindChild("BagGrid", true, false)).GetChild<Control>(0).GetGlobalRect().GetCenter());
-            Check(GameServices.Session.RoleId == 1002 && GameServices.Session.Bag.Items.Count == 0 && repo.Load(1001).BagItems.SequenceEqual(saved.BagItems),
+            Check(GameServices.Session.RoleId == 1002 && GameServices.Session.Bag.Items.Count == 0 && (await repo.LoadAsync(1001)).Items.SequenceEqual(saved.Items),
                 "切角后的旧拖放影响了角色背包");
             main.QueueFree();
             await Frames();
             main = await StartMain(directory, config);
             Check(GameServices.Session.Bag.Items.Select(item => (item.InstanceId, item.SlotIndex, item.Count))
-                .SequenceEqual(saved.BagItems.Select(item => (item.InstanceId, item.SlotIndex, item.Count))), "重启未恢复移动及合并结果");
+                .SequenceEqual(saved.Items.Select(item => (item.InstanceId, item.SlotIndex, item.Count))), "重启未恢复移动及合并结果");
             GD.Print("Item movement smoke passed: click pickup, release retention, centered preview, instant name, move, swap, partial/full merge, cancel, stale drag, last slot, errors, world input, restart.");
             main.QueueFree();
             await Frames();
@@ -225,6 +225,7 @@ public partial class ItemMovementSmoke : Node
     /// <summary>等待网络收发、拖放状态和 GUI 布局。</summary>
     private async Task Frames()
     {
+        await SmokeNetwork.WaitForAccount(this);
         for (var index = 0; index < 4; index++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }

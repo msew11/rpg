@@ -4,8 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using Rpg.Const;
-using Rpg.Server;
-using Rpg.Server.Entity;
+using Rpg.Server.Modules.Role.Storage;
+using Rpg.Server.Modules.Role.Data;
 using Rpg.Services;
 using Rpg.Tests.Doubles;
 using Rpg.UI;
@@ -24,9 +24,9 @@ public partial class EquipmentSmoke : Node
         try
         {
             RoleTestData.Seed(Path.Combine(directory, "server"));
-            var repo = new RepoServerRole(Path.Combine(directory, "server"));
-            repo.SaveBag(repo.Load(1001).WithItems(Enumerable.Range(1012, 7).Select((id, index) => new ItemEntity(index + 1, id, index, 1))
-                    .Append(new ItemEntity(8, 1017, 7, 1)).ToArray(), 9));
+            var repo = new RepoRole(Path.Combine(directory, "server"));
+            RoleTestData.SetItems(Path.Combine(directory, "server"), 1001, Enumerable.Range(1012, 7).Select((id, index) => new DataItem(index + 1, id, index, 1))
+                    .Append(new DataItem(8, 1017, 7, 1)).ToArray(), 9);
             main = new DoubleMainController { SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server") };
             AddChild(main);
             await Frames();
@@ -225,7 +225,7 @@ public partial class EquipmentSmoke : Node
                 GetViewport().GetTexture().GetImage().SavePng(ProjectSettings.GlobalizePath("res://build/equipment-window.png"));
             }
             GameServices.Net.FlushServerWrites();
-            Check(repo.Load(1001).EquippedItems.Count == 2, "装备未持久化");
+            Check((await repo.LoadAsync(1001)).Items.Count(item => item.Equipped) == 2, "装备未持久化");
             var capacity = GameServices.Config.Basic.Value.BagColumns * GameServices.Config.Basic.Value.BagRows;
             GameServices.Session.SendGm($"item 1012 {capacity - GameServices.Session.Bag.Items.Count}");
             await Frames();
@@ -386,7 +386,8 @@ public partial class EquipmentSmoke : Node
         .First(button => button.Text == title && button.IsVisibleInTree()).EmitSignal(Button.SignalName.Pressed);
 
     /// <summary>推进布局、网络与固定帧。</summary>
-    private async Task Frames() { for (var index = 0; index < 8; index++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
+    private async Task Frames() {
+        await SmokeNetwork.WaitForAccount(this); for (var index = 0; index < 8; index++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
 
     /// <summary>明确失败原因并交由场景退出码报告。</summary>
     private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }

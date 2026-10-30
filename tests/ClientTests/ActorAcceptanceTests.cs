@@ -3,7 +3,7 @@ using Rpg.Services;
 using Rpg.Const;
 using Rpg.Session.Data;
 using Godot;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 using Rpg.Session;
 using Rpg.World;
 using Rpg.World.Actions;
@@ -22,7 +22,7 @@ public sealed class ActorAcceptanceTests : RegisteredServiceTestScope
     public void GenderFlowsFromSessionIntoEntity(long roleId, RoleGender gender)
     {
         using var source = new NetworkTestFixture(EventBus, seedRoles: true);
-        Assert.Equal(gender, source.Login("demo", "demo").Roles.Single(role => role.RoleId == roleId).Gender);
+        Assert.Equal(gender, source.Login("demo1", "123").Roles.Single(role => role.RoleId == roleId).Gender);
         using var session = source.SelectRole(roleId);
         var world = CreateWorld(session.Role);
         Assert.Equal(gender, session.RoleCache.State.Gender);

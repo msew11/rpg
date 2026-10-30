@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using System.Linq;
 using Rpg.Services;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 using Rpg.Settings.Data;
 using Rpg.Config;
 
@@ -140,14 +140,9 @@ public partial class GameHud : Control
         _networkError.Position = new Vector2(16, 140);
         _networkError.MouseFilter = MouseFilterEnum.Ignore;
         AddChild(_networkError);
-        _subscriptions.Add(GameServices.EventBus.Subscribe<MoveRt>(OnMoved));
-        _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStateNotice>(OnRoleNotice));
-        _subscriptions.Add(GameServices.EventBus.Subscribe<RoleProfileNotice>(OnProfileNotice));
-        _subscriptions.Add(GameServices.EventBus.Subscribe<RolePositionNotice>(OnPositionNotice));
-        _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStatusNotice>(OnStatusNotice));
-        _subscriptions.Add(GameServices.EventBus.Subscribe<RoleChangedNotice>(OnRoleChanged));
-        _subscriptions.Add(GameServices.EventBus.Subscribe<RoleItemsChangedNotice>(OnBagNotice));
-        _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.RoleItemsChangedNotice>(notice =>
+
+        _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.Protocol.WorldUpdateNotice>(_ => RefreshData()));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.Protocol.RoleItemsChangedNotice>(notice =>
         { if (notice.RoleId == GameServices.Session.RoleId) { _bag.Refresh(); _equipment.Refresh(); } }));
     }
 
@@ -1100,50 +1095,6 @@ public partial class GameHud : Control
     /// <summary>按生命比例选取正常、警戒和危险颜色。</summary>
     internal static Color HealthColor(float ratio) => ratio <= 0.25f
         ? new Color("c94d4d") : ratio <= 0.5f ? new Color("d89137") : new Color("3ca66d");
-
-    /// <summary>读取移动响应在缓存阶段更新后的快照。</summary>
-    private void OnMoved(MoveRt response)
-    {
-        if (response.Success && response.RoleId == GameServices.Session.RoleId) RefreshData();
-    }
-
-    /// <summary>读取角色推送在缓存阶段更新后的快照。</summary>
-    private void OnRoleNotice(RoleStateNotice notice)
-    {
-        if (notice.State?.Profile?.RoleId == GameServices.Session.RoleId) RefreshData();
-    }
-
-    /// <summary>资料更新后刷新角色 HUD。</summary>
-    private void OnProfileNotice(RoleProfileNotice notice)
-    {
-        if (notice.Profile?.RoleId == GameServices.Session.RoleId) RefreshData();
-    }
-
-    /// <summary>位置更新后刷新地图 HUD。</summary>
-    private void OnPositionNotice(RolePositionNotice notice)
-    {
-        if (notice.Position?.RoleId == GameServices.Session.RoleId) RefreshData();
-    }
-
-    /// <summary>可见生命和魔力更新后刷新角色 HUD。</summary>
-    private void OnStatusNotice(RoleStatusNotice notice)
-    {
-        if (notice.Status?.RoleId == GameServices.Session.RoleId) RefreshData();
-    }
-
-    /// <summary>私有玩法数据更新后刷新经验与背包容量。</summary>
-    private void OnRoleChanged(RoleChangedNotice notice)
-    {
-        if (notice.Role?.RoleId != GameServices.Session.RoleId) return;
-        RefreshData();
-        _bag.Refresh();
-    }
-
-    /// <summary>在缓存阶段接纳背包后刷新已打开的格子。</summary>
-    private void OnBagNotice(RoleItemsChangedNotice notice)
-    {
-        if (notice.RoleId == GameServices.Session.RoleId) { _bag.Refresh(); _equipment.Refresh(); }
-    }
 
     /// <summary>在界面上保留服务器或传输失败原因。</summary>
     public void ShowNetworkError(string error) => _networkError.Text = error;

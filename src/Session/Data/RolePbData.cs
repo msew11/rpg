@@ -1,6 +1,6 @@
 using Rpg.Net;
 using System.IO;
-using Rpg.Net.Message;
+using Rpg.Protocol;
 
 namespace Rpg.Session.Data;
 
@@ -8,18 +8,8 @@ namespace Rpg.Session.Data;
 public sealed record RolePbData(long RoleId, int Experience, int NextExperience, int BagExtraRows,
     long Revision)
 {
-    /// <summary>校验并复制私有角色数据。</summary>
-    public static RolePbData FromPb(RolePb message)
-    {
-        if (message is null) throw new InvalidDataException("私有角色协议不能为空");
-        var data = new RolePbData(message.RoleId, message.Experience, message.NextExperience,
-            message.BagExtraRows, message.GetRevision());
-        data.Validate();
-        return data;
-    }
-
-    /// <summary>直接验证并复制 V2 结构，身份来自完整状态根节点。</summary>
-    public static RolePbData FromPb(ProtocolV2.RolePb message, long roleId)
+    /// <summary>直接验证并复制 结构，身份来自完整状态根节点。</summary>
+    public static RolePbData FromPb(global::Rpg.Protocol.RolePb message, long roleId)
     {
         if (message is null) throw new InvalidDataException("私有角色协议不能为空");
         var data = new RolePbData(roleId, message.Experience, message.NextExperience,
@@ -32,8 +22,8 @@ public sealed record RolePbData(long RoleId, int Experience, int NextExperience,
     public RolePb ToPb()
     {
         Validate();
-        return new RolePb { RoleId = RoleId, Experience = Experience,
-            NextExperience = NextExperience, BagExtraRows = BagExtraRows }.WithRevision(Revision);
+        return new RolePb { Experience = Experience,
+            NextExperience = NextExperience, BagExtraRows = BagExtraRows };
     }
 
     /// <summary>拒绝无效经验、容量和版本。</summary>

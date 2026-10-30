@@ -1,12 +1,10 @@
 syntax = "proto3";
 package rpg;
-option csharp_namespace = "Rpg.Net.Message";
+option csharp_namespace = "Rpg.Protocol";
 
-import "bag.proto";
-
-// 角色基础身体性别；未指定值不作为有效角色数据。
+// 摘要展示所用的角色性别。
 enum RoleGenderPb {
-  // 缺失或未知性别。
+  // 未指定性别。
   ROLE_GENDER_PB_UNSPECIFIED = 0;
   // 男性身体。
   ROLE_GENDER_PB_MALE = 1;
@@ -14,27 +12,11 @@ enum RoleGenderPb {
   ROLE_GENDER_PB_FEMALE = 2;
 }
 
-// 登录选角页使用的角色简略信息，不包含世界状态。
+// 账号下单个角色的展示摘要，不包含私有玩法数据。
 message RoleSummaryPb {
-  // 唯一角色 ID。
+  // 全局角色身份。
   int64 role_id = 1;
-  // 角色显示名称。
-  string name = 2;
-  // 当前等级。
-  int32 level = 3;
-  // 基础身体性别。
-  RoleGenderPb gender = 4;
-  // 性别内头型编号，0 兼容旧版默认头型。
-  int32 head_id = 5;
-  // 选角展示用的已穿戴道具配置编号。
-  repeated int32 equipped_items = 6;
-}
-
-// 角色可见资料。
-message RoleWorldProfilePb {
-  // 唯一角色 ID。
-  int64 role_id = 1;
-  // 角色显示名称。
+  // 显示名称。
   string name = 2;
   // 当前等级。
   int32 level = 3;
@@ -42,111 +24,112 @@ message RoleWorldProfilePb {
   RoleGenderPb gender = 4;
   // 性别内头型编号。
   int32 head_id = 5;
+  // 已穿戴物品的配置编号，仅供展示。
+  repeated int32 equipped_items = 6;
 }
 
-// 角色可见的生命与魔力状态。
-message RoleWorldStatusPb {
-  // 唯一角色 ID。
-  int64 role_id = 1;
-  // 当前生命值。
-  int32 health = 2;
-  // 生命上限。
-  int32 max_health = 3;
-  // 当前魔力。
-  int32 mana = 4;
-  // 魔力上限。
-  int32 max_mana = 5;
-}
-
-// 当前玩家私有的角色玩法领域。
-message RolePb {
-  // 唯一角色 ID。
-  int64 role_id = 1;
-  // 当前经验。
-  int32 experience = 2;
-  // 升级所需经验。
-  int32 next_experience = 3;
-  // 角色增加的背包行数。
-  int32 bag_extra_rows = 4;
-}
-
-// 当前地图及逻辑位置，包含移动确认信息。
-message RoleWorldPositionPb {
-  // 唯一角色 ID。
-  int64 role_id = 1;
-  // 当前所属地图 ID。
-  int32 map_id = 2;
-  // 逻辑横坐标。
-  float x = 3;
-  // 逻辑纵坐标。
-  float y = 4;
-  // 当前会话最后确认的移动序号。
-  int64 acknowledged_action = 6;
-}
-
-// 角色可见世界状态，由资料、生命魔力、位置和独立装备构成。
+// 角色完整公开状态，编号仅置于根节点。
 message RoleWorldStatePb {
-  // 角色资料。
-  RoleWorldProfilePb profile = 1;
-  // 角色位置。
-  RoleWorldPositionPb position = 2;
-  // 生命与魔力状态。
+  // 此状态所属角色。
+  int64 role_id = 1;
+  // 公开资料。
+  RoleWorldProfilePb profile = 2;
+  // 生命与魔力。
   RoleWorldStatusPb status = 3;
-  // 可公开的完整装备展示，版本来自信封。
-  RoleWorldEquipmentPb equipment = 4;
+  // 权威地图及位置。
+  RoleWorldPositionPb position = 4;
+  // 公开装备展示。
+  RoleWorldEquipmentPb equipment = 5;
 }
 
-// 请求进入指定角色会话。
-message SelectRole {
-  // 要选择的角色 ID。
-  int64 role_id = 1;
-}
-
-// 选角结果和初始权威状态。
-message SelectRoleRt {
-  // 是否成功。
-  bool success = 1;
-  // 失败原因。
-  string error = 2;
-  // 请求选择的角色 ID，失败时也保留。
-  int64 role_id = 3;
-  // 成功后的初始角色状态。
-  RoleWorldStatePb state = 4;
-  // 独立于世界状态的初始完整背包。
-  BagPb bag = 5;
-  // 当前玩家私有的玩法数据，与背包并列。
-  RolePb role = 6;
-}
-
-// 在选角列表创建角色。
-message CreateRole {
-  // 角色名字。
+// 角色公开资料。
+message RoleWorldProfilePb {
+  // 显示名称。
   string name = 1;
-  // 基础身体性别。
-  RoleGenderPb gender = 2;
-  // 性别内头型编号（1 至 74）。
-  int32 head_id = 3;
+  // 当前等级。
+  int32 level = 2;
+  // 身体性别。
+  RoleGenderPb gender = 3;
+  // 性别内头型编号。
+  int32 head_id = 4;
 }
-// 创建结果和成功后的完整角色列表。
-message CreateRoleRt {
-  // 是否成功。
-  bool success = 1;
-  // 失败原因。
-  string error = 2;
-  // 成功后的完整列表。
-  repeated RoleSummaryPb roles = 3;
+
+// 公开生命与魔力状态。
+message RoleWorldStatusPb {
+  // 当前生命。
+  int32 health = 1;
+  // 生命上限。
+  int32 max_health = 2;
+  // 当前魔力。
+  int32 mana = 3;
+  // 魔力上限。
+  int32 max_mana = 4;
 }
-// 删除账号列表内的角色。
-message DeleteRole {
-  // 待删除的角色标识。
+
+// 使用未投影逻辑像素的权威位置。
+message RoleWorldPositionPb {
+  // 所属地图。
+  int32 map_id = 1;
+  // 逻辑横坐标。
+  float x = 2;
+  // 逻辑纵坐标。
+  float y = 3;
+  // 当前目标，未设置表示停止。
+  MoveTargetPb target = 4;
+  // 当前有效移动速度，逻辑像素每秒。
+  float speed = 5;
+}
+
+// 不包含私有实例信息的装备展示。
+message RoleWorldEquipmentPb {
+  // 已穿戴道具配置编号。
+  repeated int32 equipped_items = 1;
+}
+
+// 仅向角色本人交付的私有玩法数据。
+message RolePb {
+  // 当前经验。
+  int32 experience = 1;
+  // 下次升级所需经验。
+  int32 next_experience = 2;
+  // 额外解锁背包行数。
+  int32 bag_extra_rows = 3;
+}
+
+// 移动目标的逻辑坐标。
+message MoveTargetPb {
+  // 横向目标。
+  float x = 1;
+  // 纵向目标。
+  float y = 2;
+}
+
+// 角色身份与整体位置增量。
+message RolePositionUpdatePb {
+  // 位置所属角色。
   int64 role_id = 1;
+  // 完整位置组。
+  RoleWorldPositionPb position = 2;
 }
-// 删除结果和成功后的完整角色列表。
-message DeleteRoleRt {
-  // 是否成功。
-  bool success = 1;
-  // 失败原因。
-  string error = 2;
-  // 成功后的完整列表，允许为空。
-  repeated RoleSummaryPb roles = 3;
+
+// 与客户端槽位保持一致，仅主副手开放操作。
+enum EquipmentSlotPb {
+  EQUIPMENT_SLOT_PB_UNSPECIFIED = 0;
+  EQUIPMENT_SLOT_PB_MAIN_HAND = 1;
+  EQUIPMENT_SLOT_PB_OFF_HAND = 2;
+  EQUIPMENT_SLOT_PB_HEAD = 3;
+  EQUIPMENT_SLOT_PB_FACE = 4;
+  EQUIPMENT_SLOT_PB_BODY = 5;
+  EQUIPMENT_SLOT_PB_NECKLACE = 6;
+  EQUIPMENT_SLOT_PB_HANDS = 7;
+  EQUIPMENT_SLOT_PB_RING1 = 8;
+  EQUIPMENT_SLOT_PB_LEGS = 9;
+  EQUIPMENT_SLOT_PB_RING2 = 10;
+  EQUIPMENT_SLOT_PB_FEET = 11;
+}
+
+// 持续可见角色的完整装备组。
+message RoleEquipmentUpdatePb {
+  int64 role_id = 1;
+  RoleWorldEquipmentPb equipment = 2;
 }

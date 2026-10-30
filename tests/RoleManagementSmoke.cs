@@ -195,7 +195,7 @@ public partial class RoleManagementSmoke : Node
                 music.Stream.ResourcePath.EndsWith("M015a.ogg"), "地图 1 没有按配置循环播放 M015a");
             Check(GameServices.World.ActorState?.HeadId == 72, "选角没有把头型交给世界");
             var rolePath = Path.Combine(directory, "server", $"{role.RoleId}.role.json");
-            Check(!File.Exists(rolePath), "禁用定时检测时角色已提前落地");
+            Check(File.Exists(rolePath), "首次进入未完成角色三表建档");
             var hud = (GameHud)main.FindChild("GameHud", true, false);
             hud.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "系统")
                 .EmitSignal(Button.SignalName.Pressed);
@@ -350,6 +350,7 @@ public partial class RoleManagementSmoke : Node
     /// <summary>等待正式固定帧收发网络，再完成页面布局。</summary>
     private async Task Frames()
     {
+        await SmokeNetwork.WaitForAccount(this);
         await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
         await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
         await Frame();

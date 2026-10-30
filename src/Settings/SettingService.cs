@@ -205,7 +205,6 @@ public sealed class SettingService : Service
         }
     }
 
-
     /// <summary>系统设置文件的绝对路径。</summary>
     public string SystemPath { get { ThrowIfDisposed(); return Path.GetFullPath(Path.Combine(_root, "system.json")); } }
     /// <summary>当前角色的设置文件位置，未选角时不可访问。</summary>

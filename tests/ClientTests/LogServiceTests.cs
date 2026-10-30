@@ -3,8 +3,8 @@ using System.Text.Json;
 using System.Text.Encodings.Web;
 using Rpg.Config;
 using Rpg.Net;
-using Rpg.Net.Message;
-using Rpg.Server;
+using Rpg.Protocol;
+using MessageCodec = Rpg.Server.Protocol.MessageCodec;
 using Rpg.Services;
 using Rpg.Settings;
 
@@ -45,50 +45,6 @@ public sealed class LogServiceTests
         Assert.False(restarted.ConsoleLogEnabled);
     }
 
-    /// <summary>console-logging：关闭时真实传输和存档继续运行，开启后仅记录后续操作。</summary>
-    [Fact]
-    public void DisabledLoggingPreservesNetworkAndPersistence()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "rpg-log-toggle-" + Guid.NewGuid());
-        using var env = new EnvService(Path.Combine(root, "settings"));
-        var lines = new List<string>();
-        using var log = new LogService(lines.Add, env: env);
-        using var events = new EventBusService();
-        using var net = new NetService(new MockTransport(new MockServer(Path.Combine(root, "server"),
-            new Rpg.Server.Handler.Bag.BagRules(8, 5, []), log.ServerIO)), events, log);
-        using var settings = new SettingService(env, log);
-        var responses = new List<CreateRoleRt>();
-        using var subscription = events.Subscribe<CreateRoleRt>(responses.Add);
-        try
-        {
-            net.Send(new Login { Username = "demo", Password = "demo" });
-            net.Send(new CreateRole { Name = "关闭日志", Gender = RoleGenderPb.Male, HeadId = 1 });
-            net.Tick(5);
-            Assert.True(Assert.Single(responses).Success);
-            Assert.Single(Directory.GetFiles(Path.Combine(root, "server"), "*.role.json"));
-            Assert.Single(Directory.GetFiles(Path.Combine(root, "server"), "*.item.json"));
-            settings.SetMasterVolume(0.4f);
-            Assert.True(File.Exists(settings.SystemPath));
-            Assert.DoesNotContain("ConsoleLogEnabled", File.ReadAllText(settings.SystemPath));
-            Assert.Empty(lines);
-            env.ConsoleLogEnabled = true;
-            settings.SetMasterVolume(0.5f);
-            Assert.StartsWith("[Client][IO]", Assert.Single(lines));
-            net.Send(new CreateRole { Name = "开启日志", Gender = RoleGenderPb.Female, HeadId = 1 });
-            net.Tick(5);
-            Assert.Equal(7, lines.Count);
-            Assert.Equal(2, responses.Count);
-            Assert.True(responses[1].Success);
-            env.ConsoleLogEnabled = false;
-            net.Send(new CreateRole { Name = "再次关闭", Gender = RoleGenderPb.Male, HeadId = 1 });
-            net.Tick(5);
-            Assert.Equal(7, lines.Count);
-            Assert.Equal(3, responses.Count);
-            Assert.True(responses[2].Success);
-        }
-        finally { net.Dispose(); if (Directory.Exists(root)) Directory.Delete(root, true); }
-    }
-
     /// <summary>只有指定标记着色，动态内容不能覆盖颜色或注入富文本。</summary>
     [Fact]
     public void OnlySpecifiedTagsAreColored()
@@ -98,7 +54,7 @@ public sealed class LogServiceTests
         using var log = new LogService(text => { lines.Add(text); rich.Add(true); },
             text => { lines.Add(text); rich.Add(false); });
         log.Request(new CreateRole { Name = "[color=red]名字[/color]" });
-        log.Receive(new LoginRt { Success = true });
+        log.Receive(new LoginRt());
         log.Receive(new RoleItemsChangedNotice());
         log.ClientIO("system.json", "{\"text\":\"[color=red]内容[/color]\"}");
         log.ServerIO("1001.role.json", "{}");
@@ -141,14 +97,14 @@ public sealed class LogServiceTests
         Assert.Contains("原始", Assert.Single(lines));
         Assert.DoesNotContain("修改", lines[0]);
         using var listener = events.Subscribe<LoginRt>(_ => Assert.Contains("[Response]", lines.Last()));
-        transport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
-        transport.Inject(MessageCodec.Encode(new RoleStateNotice(), 1, false));
+        transport.Inject(MessageCodec.Encode(new LoginRt(), 1, 1, false));
+        transport.Inject(MessageCodec.Encode(new WorldUpdateNotice(), 1, 0, false));
         net.Tick(0);
         Assert.Equal(3, lines.Count);
         Assert.Contains("[Notice]", lines[2]);
         net.Send(new Login());
         net.ResetSession();
-        transport.Inject(MessageCodec.Encode(new LoginRt(), 1, false));
+        transport.Inject(MessageCodec.Encode(new LoginRt(), 1, 1, false));
         transport.Inject([255]);
         net.Tick(0);
         Assert.Equal(3, lines.Count);
@@ -175,38 +131,6 @@ public sealed class LogServiceTests
         Assert.Single(errors);
     }
 
-    /// <summary>验证 console-logging 的发送前记录场景：同步服务器写盘必须排在请求之后、响应之前。</summary>
-    [Fact]
-    public void RequestPrecedesSynchronousServerIoAndResponse()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "rpg-log-order-" + Guid.NewGuid());
-        var lines = new List<string>();
-        using var log = new LogService(lines.Add);
-        using var events = new EventBusService();
-        using var net = new NetService(new MockTransport(new MockServer(root,
-            new Rpg.Server.Handler.Bag.BagRules(8, 5, []), log.ServerIO)), events, log);
-        try
-        {
-            net.Send(new Login { Username = "demo", Password = "demo" });
-            net.Tick(0);
-            lines.Clear();
-            net.Send(new CreateRole { Name = "顺序测试", Gender = RoleGenderPb.Male, HeadId = 1 });
-            Assert.Empty(lines);
-            net.Tick(5);
-            Assert.Equal(6, lines.Count);
-            Assert.StartsWith("[Client][color=green][Request][/color]CreateRole{", lines[0]);
-            Assert.StartsWith("[Server][IO][", lines[1]);
-            Assert.Contains(".item.json]", lines[1]);
-            Assert.StartsWith("[Server][IO][", lines[2]);
-            Assert.Contains(".equipment.json]", lines[2]);
-            Assert.Contains(".role.json]", lines[3]);
-            Assert.Contains(".role_summary.json]", lines[4]);
-            Assert.StartsWith("[Client][color=#ffa500][Response][/color]CreateRoleRt{", lines[5]);
-            Assert.Contains("\"success\":true", lines[5]);
-        }
-        finally { net.Dispose(); if (Directory.Exists(root)) Directory.Delete(root, true); }
-    }
-
     /// <summary>系统与角色设置、服务器存档只在提交后记录实际 JSON，失败及读取不记 IO。</summary>
     [Fact]
     public void FileLogsMatchCommittedContentAndIgnoreFailedWrites()
@@ -224,22 +148,9 @@ public sealed class LogServiceTests
             setting.SelectRole(1);
             setting.SetHotbarVisible(2, true);
             Assert.Equal("[Client][IO][1.json]" + Compact(File.ReadAllText(setting.RolePath)), lines[1]);
-            var repo = new RepoServerRole(Path.Combine(root, "server"), log.ServerIO);
-            var role = repo.Create("测试", Rpg.Server.Entity.ServerRoleGender.Male, 1);
-            Assert.Equal("[Server][IO][" + role.Role.Value.RoleId + ".item.json]" +
-                Compact(File.ReadAllText(repo.GetItemPath(role.Role.Value.RoleId))), lines[2]);
-            Assert.Equal("[Server][IO][" + role.Role.Value.RoleId + ".role.json]" +
-                Compact(File.ReadAllText(repo.GetRolePath(role.Role.Value.RoleId))), lines[4]);
-            Assert.Contains(".equipment.json]", lines[3]);
-            Assert.Contains(".role_summary.json]", lines[5]);
-            Assert.All(lines, line => { Assert.DoesNotContain("\n", line); Assert.DoesNotContain("\r", line); });
-            repo.Load(role.Role.Value.RoleId);
-            Assert.Equal(6, lines.Count);
-            using (var locked = new FileStream(repo.GetRolePath(role.Role.Value.RoleId), FileMode.Open, FileAccess.Read, FileShare.Read))
-                Assert.Throws<IOException>(() => repo.SaveRole(role.WithRole(role.Role.Value with { X = role.Role.Value.X + 1 })));
             Directory.CreateDirectory(setting.SystemPath + ".tmp");
             Assert.Throws<UnauthorizedAccessException>(() => setting.SetMasterVolume(0.4f));
-            Assert.Equal(6, lines.Count);
+            Assert.Equal(2, lines.Count);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
@@ -272,9 +183,7 @@ public sealed class LogServiceTests
             using var setting = new SettingService(env, log);
             setting.SetMasterVolume(0.2f);
             Assert.True(File.Exists(setting.SystemPath));
-            var repo = new RepoServerRole(Path.Combine(root, "server"), log.ServerIO);
-            var role = repo.Create("日志失败", Rpg.Server.Entity.ServerRoleGender.Male, 1);
-            Assert.Equal(role, repo.Load(role.Role.Value.RoleId));
+
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

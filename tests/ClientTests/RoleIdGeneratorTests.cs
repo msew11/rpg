@@ -1,11 +1,11 @@
 using System.Text.Json;
-using Rpg.ProtocolV2;
-using Rpg.ServerV2.Modules.Login;
-using Rpg.ServerV2.Protocol;
+using Rpg.Protocol;
+using Rpg.Server.Modules.Login;
+using Rpg.Server.Protocol;
 
 namespace ClientTests;
 
-/// <summary>验证 openspec/specs/server-v2-account 的统一编号、预留持久化、故障和耗尽场景。</summary>
+/// <summary>验证 openspec/specs/server-account 的统一编号、预留持久化、故障和耗尽场景。</summary>
 public sealed class RoleIdGeneratorTests : IDisposable
 {
     /// <summary>每个用例独占编号存储目录。</summary>

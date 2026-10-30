@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.ExceptionServices;
 using Rpg.Config;
 using Rpg.Net;
-using Rpg.ServerV2.Hosting;
+using Rpg.Server.Hosting;
 using Rpg.Session;
 using Rpg.Settings;
 using Rpg.World;

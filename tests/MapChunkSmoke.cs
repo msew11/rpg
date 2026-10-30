@@ -22,12 +22,12 @@ public partial class MapChunkSmoke : Node
             AddChild(viewport);
             using var services = GameServicesTestFactory.Register(new EnvService(
                 System.IO.Path.Combine(temporary, "settings"), System.IO.Path.Combine(temporary, "server")));
-            GameServices.Session.Login("demo", "demo");
-            GameServices.Net.Tick(0);
+            GameServices.Session.Login("demo1", "123");
+            await Until(() => GameServices.Session.IsLoggedIn);
             GameServices.Session.CreateRole("分块验收", Rpg.Const.RoleGender.Male, 1);
-            GameServices.Net.Tick(0);
+            await Until(() => GameServices.Session.Roles.Count == 1);
             GameServices.Session.SelectRole(GameServices.Session.Roles[0].RoleId);
-            GameServices.Net.Tick(0);
+            await Until(() => GameServices.Session.HasRole);
             GameServices.World.InitializeRole();
             var view = new MapView();
             viewport.AddChild(view);
@@ -91,6 +91,18 @@ public partial class MapChunkSmoke : Node
     {
         for (var index = 0; index < count; index++)
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+    }
+
+    /// <summary>等待正式异步账号请求，避免把回复假定为同帧完成。</summary>
+    private async System.Threading.Tasks.Task Until(Func<bool> done)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(8);
+        while (!done() && DateTime.UtcNow < deadline)
+        {
+            GameServices.Net.Tick(0);
+            await Frames(1);
+        }
+        Check(done(), "地图测试等待账号响应超时");
     }
 
     /// <summary>记录当前活动分块及其节点身份。</summary>
