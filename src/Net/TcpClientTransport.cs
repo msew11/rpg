@@ -55,7 +55,8 @@ internal sealed class TcpClientTransport : INetTransport
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
         await _client.ConnectAsync(address, port, timeout.Token).ConfigureAwait(false);
-        _io = Task.Run(RunAsync);
+        var stream = _client.GetStream();
+        _io = Task.Run(() => RunAsync(stream));
     }
     /// <summary>冻结字节并登记最多十五秒的响应等待。</summary>
     public void Send(byte[] packet)
@@ -77,10 +78,9 @@ internal sealed class TcpClientTransport : INetTransport
         catch (OperationCanceledException) { }
         catch (Exception) { /* 原错误由固定帧或保存屏障观察。 */ }
     }
-    /// <summary>收发共用取消边界，后台接收即可完成保存屏障。</summary>
-    private async Task RunAsync()
+    /// <summary>使用连接阶段取得的流，允许后台尚未启动时立即释放；接收完成保存屏障。</summary>
+    private async Task RunAsync(NetworkStream stream)
     {
-        var stream = _client!.GetStream();
         var write = Task.Run(async () =>
         {
             try { await foreach (var packet in _send.Reader.ReadAllAsync(_stop.Token).ConfigureAwait(false)) await TcpFraming.WriteAsync(stream, packet, _stop.Token).ConfigureAwait(false); }

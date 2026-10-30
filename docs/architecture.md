@@ -4,11 +4,11 @@
 
 默认 `scenes/main.tscn` 使用 `src/ServerV2` 与 `protov2`。GameServices 创建并持有空 `MockServerService`，通过只读 `MockServer` 入口提供访问，再注入 Net，登录后才按模式创建独立 `MockServer` 或连接远端。服务器拥有后台 TCP、20Hz单调时钟推进、10Hz批量AOI和保存关闭流程，本机玩家与远端玩家走相同字节链路。账号admin/demo1/demo2密码123；本机服务器模式仅允许admin。角色编号通过与账号无关的持久化递增序列分配，从 1003 开始。
 
-运行时按账号、角色、地图分片并保持INIT/RUN/STOP和串行邮箱；Context只引用所属Cache，Cache组织不可变DataCache值，Repo在Actor边界做IO。跨Actor调用固定Login→Role→World，由Async Handler编排，World不向Role Ask。业务proto直接进入Handler，连接/认证/控制版本只在 `DataActorCall` 邮箱元数据和运行时目录中校验，不增加业务隔离字段；批量发布保留观察者到原身份的不可变映射，输出不重新套用最新绑定。
+运行时按账号、角色、地图分片并保持INIT/RUN/STOP和串行邮箱；Context只引用所属Cache，Cache组织不可变DataCache值，单分片 Repo 在 Actor 边界做 IO；正式保存由邮箱捕获不可变快照，专用物品批次在邮箱外写入后回传捕获基线。跨Actor调用固定Login→Role→World，由Async Handler编排，World不向Role Ask。业务proto直接进入Handler，连接/认证/控制版本只在 `DataActorCall` 邮箱元数据和运行时目录中校验，不增加业务隔离字段；批量发布保留观察者到原身份的不可变映射，输出不重新套用最新绑定。
 
 Role将权威坐标提交角色基础表，目标、速度、控制和确认均为不落盘的临时缓存。World保存不可变公开角色和块索引，首次可见发完整RoleWorldStatePb，持续移动只发完整位置组。返回选角通过LeaveWorld解除该连接的角色控制、停止移动并移除在线成员，其他玩家在下一次AOI发布看见角色消失；账号认证与TCP连接保留。断线、重新认证和成功切角也解绑，同角色由新连接接管并踢回旧连接的登录页。独立调度只推进移动/控制变化/投影重试角色，保存关闭包含已接纳轮次。
 
-客户端由WorldSyncCache完整验证世界帧后原子接纳自身、地图和公开远端角色；序号缺口只请求一次全量。WorldService立即预测并以20Hz合并最新目标，确认后保留较新意图；其他玩家用100ms缓冲及最多100ms外推，经Action更新ECS，MainController复用ActorView呈现。默认 V2 开放移动、开发期 GM、背包整理和主副手穿脱；地面操作待下一批迁移。物品请求按最新状态执行，不带预期版本；本人完整物品与装备经 RoleItemsCache 验证后原子接纳，World 按内容发送位置和公开装备增量。物品操作与保存共用单实例信号量，在进入邮箱前获取；已执行操作完成摘要收尾，旧身份结果仍禁止投递。详细协议和运行方式见[Server V2框架](server-v2.md)。
+客户端由WorldSyncCache完整验证世界帧后原子接纳自身、地图和公开远端角色；序号缺口只请求一次全量。WorldService立即预测并以20Hz合并最新目标，确认后保留较新意图；其他玩家用100ms缓冲及最多100ms外推，经Action更新ECS，MainController复用ActorView呈现。默认 V2 开放移动、开发期 GM、背包整理和主副手穿脱；地面丢弃、销毁与走近拾取也已开放。物品请求按最新状态执行，不带预期版本；本人完整物品与装备经 RoleItemsCache 验证后原子接纳，World 按内容发送位置和公开装备增量。物品操作与保存共用单实例信号量，在进入邮箱前获取；已执行操作完成摘要收尾，旧身份结果仍禁止投递。地面转移直接经 Role→World 创建、查询与删除；拾取请求立即回复，时钟在到达后经 Login→Role 完成并通知 success，明确取消静默。角色三表、摘要和地图清单共用单批次回滚记录，启动先恢复，旧地图块延后清理；保存期间的新移动保持待写。详细协议和运行方式见[Server V2框架](server-v2.md)。
 
 以下旧Server、物品写协议和模拟延迟的章节记录保留回归链路，尚未迁移部分不代表默认V2已开放能力。
 

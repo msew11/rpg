@@ -28,8 +28,20 @@ internal sealed class RoleActor : ModuleActor<RoleContext>
     /// <summary>串行保存本角色变化表，失败不改变内存和保存基线。</summary>
     protected override async ValueTask<object?> DispatchAsync(RoleContext context, object message)
     {
+        if (message is DataCaptureRoleSave) return new DataRoleSave(_roleId, context.Cache.IsInitialized ? context.Cache.Snapshot() : null, context.Cache.DirtyTables);
+        if (message is DataAcceptRoleSave accepted)
+        {
+            var saved = accepted.Save;
+            if (saved.Snapshot is { } snapshot)
+            {
+                if (saved.Tables.HasFlag(DataRoleTables.Role)) context.Cache.Role.AcceptSaved(snapshot.Role);
+                if (saved.Tables.HasFlag(DataRoleTables.Item)) context.Cache.Items.AcceptSaved(snapshot.Items);
+                if (saved.Tables.HasFlag(DataRoleTables.Equipment)) context.Cache.Equipments.AcceptSaved(snapshot.Equipments);
+            }
+            return true;
+        }
         if (message is DataRoleControl control)
-        { context.Cache.Movement.Stop(context.Cache.Role, control.ServerTimeMs, control.Speed); return true; }
+        { context.Cache.Pickup = null; context.Cache.Movement.Stop(context.Cache.Role, control.ServerTimeMs, control.Speed); return true; }
         if (message is ActorProtocol.PrepareRole prepare)
         {
             context.Cache.Prepare(prepare.Summary, context.Config);

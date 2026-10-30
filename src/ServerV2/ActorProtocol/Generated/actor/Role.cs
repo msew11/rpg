@@ -33,11 +33,14 @@ namespace Rpg.ServerV2.ActorProtocol {
             "Zy52Mi5Sb2xlUGISGgoDYmFnGAMgASgLMg0ucnBnLnYyLkJhZ1BiEiUKA21h",
             "cBgEIAEoCzIYLnJwZy52Mi5NYXBBb2lTbmFwc2hvdFBiIj0KC0FkdmFuY2VS",
             "b2xlEhYKDnNlcnZlcl90aW1lX21zGAEgASgDEhYKDm1vdmVtZW50X3NwZWVk",
-            "GAIgASgFIh8KDUFkdmFuY2VSb2xlUnQSDgoGbW92aW5nGAEgASgIIg4KDEdl",
-            "dFJvbGVJdGVtcyJuCg5HZXRSb2xlSXRlbXNSdBIPCgdyb2xlX2lkGAEgASgD",
-            "EhoKA2JhZxgCIAEoCzINLnJwZy52Mi5CYWdQYhIvCgllcXVpcG1lbnQYAyAB",
-            "KAsyHC5ycGcudjIuUm9sZVdvcmxkRXF1aXBtZW50UGJCHaoCGlJwZy5TZXJ2",
-            "ZXJWMi5BY3RvclByb3RvY29sYgZwcm90bzM="));
+            "GAIgASgFIjUKDUFkdmFuY2VSb2xlUnQSDgoGbW92aW5nGAEgASgIEhQKDHBp",
+            "Y2t1cF9yZWFkeRgCIAEoCCIOCgxHZXRSb2xlSXRlbXMibgoOR2V0Um9sZUl0",
+            "ZW1zUnQSDwoHcm9sZV9pZBgBIAEoAxIaCgNiYWcYAiABKAsyDS5ycGcudjIu",
+            "QmFnUGISLwoJZXF1aXBtZW50GAMgASgLMhwucnBnLnYyLlJvbGVXb3JsZEVx",
+            "dWlwbWVudFBiIhQKEkNvbXBsZXRlUm9sZVBpY2t1cCJGChRDb21wbGV0ZVJv",
+            "bGVQaWNrdXBSdBIuCgZyZXN1bHQYASABKAsyHi5ycGcudjIuUGlja3VwSXRl",
+            "bVJlc3VsdE5vdGljZUIdqgIaUnBnLlNlcnZlclYyLkFjdG9yUHJvdG9jb2xi",
+            "BnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Rpg.ProtocolV2.RoleReflection.Descriptor, global::Rpg.ProtocolV2.BagReflection.Descriptor, global::Rpg.ProtocolV2.MapReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -46,9 +49,11 @@ namespace Rpg.ServerV2.ActorProtocol {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ServerV2.ActorProtocol.PrepareRole), global::Rpg.ServerV2.ActorProtocol.PrepareRole.Parser, new[]{ "Summary" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ServerV2.ActorProtocol.PrepareRoleRt), global::Rpg.ServerV2.ActorProtocol.PrepareRoleRt.Parser, new[]{ "State", "Role", "Bag", "Map" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ServerV2.ActorProtocol.AdvanceRole), global::Rpg.ServerV2.ActorProtocol.AdvanceRole.Parser, new[]{ "ServerTimeMs", "MovementSpeed" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ServerV2.ActorProtocol.AdvanceRoleRt), global::Rpg.ServerV2.ActorProtocol.AdvanceRoleRt.Parser, new[]{ "Moving" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ServerV2.ActorProtocol.AdvanceRoleRt), global::Rpg.ServerV2.ActorProtocol.AdvanceRoleRt.Parser, new[]{ "Moving", "PickupReady" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ServerV2.ActorProtocol.GetRoleItems), global::Rpg.ServerV2.ActorProtocol.GetRoleItems.Parser, null, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ServerV2.ActorProtocol.GetRoleItemsRt), global::Rpg.ServerV2.ActorProtocol.GetRoleItemsRt.Parser, new[]{ "RoleId", "Bag", "Equipment" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ServerV2.ActorProtocol.GetRoleItemsRt), global::Rpg.ServerV2.ActorProtocol.GetRoleItemsRt.Parser, new[]{ "RoleId", "Bag", "Equipment" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ServerV2.ActorProtocol.CompleteRolePickup), global::Rpg.ServerV2.ActorProtocol.CompleteRolePickup.Parser, null, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ServerV2.ActorProtocol.CompleteRolePickupRt), global::Rpg.ServerV2.ActorProtocol.CompleteRolePickupRt.Parser, new[]{ "Result" }, null, null, null, null)
           }));
     }
     #endregion
@@ -1279,6 +1284,7 @@ namespace Rpg.ServerV2.ActorProtocol {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public AdvanceRoleRt(AdvanceRoleRt other) : this() {
       moving_ = other.moving_;
+      pickupReady_ = other.pickupReady_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -1303,6 +1309,21 @@ namespace Rpg.ServerV2.ActorProtocol {
       }
     }
 
+    /// <summary>Field number for the "pickup_ready" field.</summary>
+    public const int PickupReadyFieldNumber = 2;
+    private bool pickupReady_;
+    /// <summary>
+    /// 在邮箱外进入物品串行入口完成拾取。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool PickupReady {
+      get { return pickupReady_; }
+      set {
+        pickupReady_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -1319,6 +1340,7 @@ namespace Rpg.ServerV2.ActorProtocol {
         return true;
       }
       if (Moving != other.Moving) return false;
+      if (PickupReady != other.PickupReady) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1327,6 +1349,7 @@ namespace Rpg.ServerV2.ActorProtocol {
     public override int GetHashCode() {
       int hash = 1;
       if (Moving != false) hash ^= Moving.GetHashCode();
+      if (PickupReady != false) hash ^= PickupReady.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1349,6 +1372,10 @@ namespace Rpg.ServerV2.ActorProtocol {
         output.WriteRawTag(8);
         output.WriteBool(Moving);
       }
+      if (PickupReady != false) {
+        output.WriteRawTag(16);
+        output.WriteBool(PickupReady);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1363,6 +1390,10 @@ namespace Rpg.ServerV2.ActorProtocol {
         output.WriteRawTag(8);
         output.WriteBool(Moving);
       }
+      if (PickupReady != false) {
+        output.WriteRawTag(16);
+        output.WriteBool(PickupReady);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1374,6 +1405,9 @@ namespace Rpg.ServerV2.ActorProtocol {
     public int CalculateSize() {
       int size = 0;
       if (Moving != false) {
+        size += 1 + 1;
+      }
+      if (PickupReady != false) {
         size += 1 + 1;
       }
       if (_unknownFields != null) {
@@ -1390,6 +1424,9 @@ namespace Rpg.ServerV2.ActorProtocol {
       }
       if (other.Moving != false) {
         Moving = other.Moving;
+      }
+      if (other.PickupReady != false) {
+        PickupReady = other.PickupReady;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1414,6 +1451,10 @@ namespace Rpg.ServerV2.ActorProtocol {
             Moving = input.ReadBool();
             break;
           }
+          case 16: {
+            PickupReady = input.ReadBool();
+            break;
+          }
         }
       }
     #endif
@@ -1435,6 +1476,10 @@ namespace Rpg.ServerV2.ActorProtocol {
             break;
           case 8: {
             Moving = input.ReadBool();
+            break;
+          }
+          case 16: {
+            PickupReady = input.ReadBool();
             break;
           }
         }
@@ -1889,6 +1934,377 @@ namespace Rpg.ServerV2.ActorProtocol {
               Equipment = new global::Rpg.ProtocolV2.RoleWorldEquipmentPb();
             }
             input.ReadMessage(Equipment);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 完成接收角色的待拾取意图，空结果表示待到达或已取消。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class CompleteRolePickup : pb::IMessage<CompleteRolePickup>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<CompleteRolePickup> _parser = new pb::MessageParser<CompleteRolePickup>(() => new CompleteRolePickup());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<CompleteRolePickup> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.ServerV2.ActorProtocol.RoleReflection.Descriptor.MessageTypes[8]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CompleteRolePickup() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CompleteRolePickup(CompleteRolePickup other) : this() {
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CompleteRolePickup Clone() {
+      return new CompleteRolePickup(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as CompleteRolePickup);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(CompleteRolePickup other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(CompleteRolePickup other) {
+      if (other == null) {
+        return;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class CompleteRolePickupRt : pb::IMessage<CompleteRolePickupRt>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<CompleteRolePickupRt> _parser = new pb::MessageParser<CompleteRolePickupRt>(() => new CompleteRolePickupRt());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<CompleteRolePickupRt> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.ServerV2.ActorProtocol.RoleReflection.Descriptor.MessageTypes[9]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CompleteRolePickupRt() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CompleteRolePickupRt(CompleteRolePickupRt other) : this() {
+      result_ = other.result_ != null ? other.result_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CompleteRolePickupRt Clone() {
+      return new CompleteRolePickupRt(this);
+    }
+
+    /// <summary>Field number for the "result" field.</summary>
+    public const int ResultFieldNumber = 1;
+    private global::Rpg.ProtocolV2.PickupItemResultNotice result_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.ProtocolV2.PickupItemResultNotice Result {
+      get { return result_; }
+      set {
+        result_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as CompleteRolePickupRt);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(CompleteRolePickupRt other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (!object.Equals(Result, other.Result)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (result_ != null) hash ^= Result.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (result_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Result);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (result_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Result);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (result_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Result);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(CompleteRolePickupRt other) {
+      if (other == null) {
+        return;
+      }
+      if (other.result_ != null) {
+        if (result_ == null) {
+          Result = new global::Rpg.ProtocolV2.PickupItemResultNotice();
+        }
+        Result.MergeFrom(other.Result);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            if (result_ == null) {
+              Result = new global::Rpg.ProtocolV2.PickupItemResultNotice();
+            }
+            input.ReadMessage(Result);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            if (result_ == null) {
+              Result = new global::Rpg.ProtocolV2.PickupItemResultNotice();
+            }
+            input.ReadMessage(Result);
             break;
           }
         }

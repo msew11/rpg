@@ -6,10 +6,35 @@
 
 `gm.proto` 新增 `Gm/GmRt`；`bag.proto` 新增移动、穿脱请求回复和 `RoleItemsChangedNotice`（完整私有背包及公开装备）；`role.proto` 新增装备槽枚举及 `RoleEquipmentUpdatePb`；`world.proto` 的增量增加 `equipped_roles=5`；`actor/role.proto` 增加 `GetRoleItems/GetRoleItemsRt`。本人通知先于成功回复，按 TCP 顺序验证后接纳；选角摘要同步实际装备。公开投影版本独立于移动状态，World 可在同帧发送位置与装备，也支持静止换装。
 
-运行时的单实例物品信号量在邮箱外获取，覆盖物品操作、本人输出和保存。内部调用仅为完成已执行操作保留结果，对外按原连接与控制绑定过滤。尚未迁移的地面操作单独禁用。后文旧阶段的只读约束以本节为准。
+运行时的单实例物品信号量在邮箱外获取，覆盖物品操作、本人输出和保存。内部调用仅为完成已执行操作保留结果，对外按原连接与控制绑定过滤。地面操作与保存使用同一入口，行为见下一节。
 
 
 V2 在 `src/ServerV2` 独立开发，默认客户端使用 V2 TCP；旧 Server 由测试显式装配。这里的协议、账号摘要存储契约不兼容旧实现；不读取、改写或迁移旧存档。
+
+## 第四批地面物品迁移
+
+`bag.proto` 新增 `DropItem(instance_id=1,count=2,destroy=3,optional drop_x=4,optional drop_y=5)`、`DropItemRt(role_id=1,instance_id=2,object_id=3)`；`PickupItem(object_id=1,move_action_id=2)`、`PickupItemRt(role_id=1,object_id=2,move_action_id=3)`；`PickupItemResultNotice(role_id=1,object_id=2,move_action_id=3,success=4)`。最后一条仅表达完成成败，不携带错误字符串。
+
+`map.proto` 的 `MapAoiDeltaPb` 新增 `upserted_objects=4`、`removed_object_ids=5`；`actor/role.proto` 的 `AdvanceRoleRt` 新增 `pickup_ready=2`，新增 `CompleteRolePickup/CompleteRolePickupRt(result=1)`，空结果表示未到达或已取消。`actor/world.proto` 新增直接 `CreateGroundItem/GetGroundItem/RemoveGroundItem` 及回复：创建携带配置数量和角色权威位置、可选落点；查询携带对象和角色权威位置；删除只携带对象编号。
+
+内部新增消息的完整字段如下，空请求或回复不带字段：
+
+| proto | 消息 | 字段及编号 |
+| --- | --- | --- |
+| `actor/role.proto` | `CompleteRolePickup` | 空 |
+| `actor/role.proto` | `CompleteRolePickupRt` | `PickupItemResultNotice result=1` |
+| `actor/world.proto` | `CreateGroundItem` | `int32 item_id=1`、`int32 count=2`、`RoleWorldPositionPb position=3`、`optional float drop_x=4`、`optional float drop_y=5` |
+| `actor/world.proto` | `CreateGroundItemRt` | `MapObjectPb object=1` |
+| `actor/world.proto` | `GetGroundItem` | `string object_id=1`、`RoleWorldPositionPb position=2` |
+| `actor/world.proto` | `GetGroundItemRt` | `MapObjectPb object=1` |
+| `actor/world.proto` | `RemoveGroundItem` | `string object_id=1` |
+| `actor/world.proto` | `RemoveGroundItemRt` | 空 |
+
+Role 先建立合法持有候选，再调用 World；World 独占校验地图、实际距离与落点，禁止反向 Ask Role。拾取请求立即回复，时钟保持 pending 调度，在一瓦片内进入共享物品入口完成；成功先推完整本人物品再推最终通知。新有效移动、离开、切角、断线和接管静默取消；背包变化不取消，到达按最新容量处理。客户端强制走近移动先入队，再发拾取，后续限流不重放旧目标。
+
+World 保存观察者可见对象基线，交集发送增删，新进入完整块、离开隐式删除；对象变化通过块索引标记静止观察者。WorldSyncCache 验证完整世界候选，再一起接纳地图和人物，允许同帧位置及装备变化。
+
+正式实例使用 `items.pending.json` 专用单批次回滚：在邮箱内捕获已变化三表、账号摘要和地图；记录将要替换文件的原始字节，写完全部领域后删除记录。地图候选块先写、旧块整批完成后清理；未完成批次在任何业务读取前恢复，失败保留内存和待写。共同保存不嵌套角色 pending；成功仅接纳捕获值，新移动仍待写。进入角色前若存在地面待写，先完成批次，避免角色单侧提前落地。周期 0 禁用定时，正常关闭补写；强杀可丢失未落盘业务，但恢复不会产生物品副本或丢失一侧。
 
 ## Actor 运行时
 
@@ -35,7 +60,7 @@ V2 在 `src/ServerV2` 独立开发，默认客户端使用 V2 TCP；旧 Server �
 | `Modules/<模块>/Handler` | 所属模块的业务处理器，直接使用协议请求与回复 |
 | `Modules/<模块>/Async` | 与 Handler 平级的跨 Actor 业务步骤，共用 IActorHandler/ActorHandlers 注册分发 |
 | `Modules/Common` | ModuleContext 的 Config/Actors 借用入口及 IActorLocator，以及 Cache、Data、Storage 子目录 |
-| `Modules/Common/Storage` | 共用 JSON 编解码与单文件原子替换；不持有业务状态 |
+| `Modules/Common/Storage` | 共用 JSON 编解码、单文件原子替换及物品专用共同落盘仓库；不持有业务缓存 |
 
 ```text
 NetService --> V2 transport --> connection queue --> codec --> router
@@ -95,9 +120,9 @@ Context 只引用所属模块 Cache，并继承 `ModuleContext` 的 Config/Actor
 
 模块 Cache 组织子缓存和固定身份，提供 `Snapshot()/Commit(...)` 聚合导出及提交。Snapshot 仅是不可变传输值，不是运行时工作区。Handler 可以通过 `context.Cache.Role.Commit(...)` 修改单表，也可以构造 `DataRoleSnapshot` 一次提交三表；数组默认值按空数组处理。DataCache 的 Value 只读，只能通过 Commit 替换；直接修改子缓存立即反映模块的 DirtyTables、SummariesDirty 或 DirtyChunks，恢复基线取消待写。摘要创建、删除、可见排序和嵌套装备内容比较归 `DataCacheRoleSummary`；Handler 负责读取协议、调用缓存并映射回复。
 
-仓库构造注入 Actor，只读写文件，不持有业务状态。账号仓库直接加载/保存摘要数组，账号键独立传入。Actor 在自己的邮箱回合内 await 仓库保存，仅成功后通知 Cache 接受各 DataCache 的当前值为新基线；失败保留内存及待写状态。同一 Actor 保存期间不执行下一回合，其他分片仍可工作。不可变导出不会因工作区后续提交而改变，不跨 Actor 共享可变 Cache。
+仓库构造注入 Actor，只读写文件，不持有业务状态。账号仓库直接加载/保存摘要数组，账号键独立传入。单分片保存和首次建档在自己的邮箱回合内 await 仓库；正式批次按上节捕获并接受实际保存值。保存成功后才更新基线；失败保留内存及待写状态。同一 Actor 保存期间不执行下一回合，其他分片仍可工作。不可变导出不会因工作区后续提交而改变，不跨 Actor 共享可变 Cache。
 
-单文件同目录临时写入、刷盘后替换。角色一次修改多表时，先持久化 `<roleId>.pending.json` 原始字节回滚记录，全部替换后删除记录作为提交完成。下次读取或保存前先回滚未完成提交；恢复错误保留记录并阻止继续 IO。只从固定表名生成恢复路径，不把元数据当作路径。账号摘要与角色三表分别提交，仓库不自动同步摘要，也不提供跨 Actor 事务；进入业务显式根据实际角色同步摘要。
+单文件同目录临时写入、刷盘后替换。角色一次修改多表时，先持久化 `<roleId>.pending.json` 原始字节回滚记录，全部替换后删除记录作为提交完成。下次读取或保存前先回滚未完成提交；恢复错误保留记录并阻止继续 IO。只从固定表名生成恢复路径，不把元数据当作路径。独立仓库仍只提交所属领域，不自动同步摘要；正式宿主共同落盘使用上节专用批次；进入业务显式根据实际角色同步摘要。
 
 监听成功后由 MockServer 的独立后台时钟推进保存检测；无监听的进程内测试可手动 Tick，沿用 `EnvService.ServerFlushIntervalSeconds`：默认 5 秒、0 禁用周期、改变后重新计时。周期保存留在后台，每服务最多一个周期任务；重复到期合并，错误进入服务诊断。
 
@@ -109,7 +134,7 @@ WorldActor 的 INIT 先从借用的 `ConfigService.Map.Items` 取得条目，复
 
 `Modules/World/Data` 的 `DataWorldObject` 独立保存 `Guid ObjectId`、`Revision`、逻辑像素 `X/Y`、`MonsterTypeId`、`ItemId`、`Count`。`DataWorldSnapshot` 直接持有 `ImmutableArray<DataWorldObject>`；`DataWorldChunk` 是不可变块坐标。它们不引用旧实体或协议，不增加对象编号重复、数值范围、载荷组合和道具配置检查，也不调用旧版 ChunkAt/Validate。
 
-`WorldContext.Cache` 引用 `WorldCache`，后者固定持有 MapId、Layout，Objects 引用 `DataCacheWorldObject`。对象缓存 Commit 替换完整数组，DirtyChunks 由该缓存比较产生。默认数组视为空；比较按 `floor(逻辑坐标 / (TileSize × ChunkSizeTiles))` 分组，将块内对象逐项按内容与保存基线比较，保留块内顺序，不使用 ImmutableArray 的引用相等。对象移出和移入的块都待写，反复修改只写最终值，恢复基线取消待写。所有对象常驻内存，提供内部对象数量查询和只读进入的初始九块快照，不实现 AOI 增量或正式 World 玩法业务。
+`WorldContext.Cache` 引用 `WorldCache`，后者固定持有 MapId、Layout，Objects 引用 `DataCacheWorldObject`。对象缓存 Commit 替换完整数组，DirtyChunks 由该缓存比较产生。默认数组视为空；比较按 `floor(逻辑坐标 / (TileSize × ChunkSizeTiles))` 分组，将块内对象逐项按内容与保存基线比较，保留块内顺序，不使用 ImmutableArray 的引用相等。对象移出和移入的块都待写，反复修改只写最终值，恢复基线取消待写。所有对象常驻内存，提供对象数量、初始九块、世界对象增量与地面物品直接操作；怪物只展示，无行为。
 
 默认 `RepoWorld` 接收 V2 根目录与服务诊断回调，不持有 Context 或业务缓存。存档布局为：
 
@@ -149,7 +174,7 @@ godot-mono --path . res://tests/server_v2_role_management.tscn
 
 ## 进入世界与初始展示
 
-独立场景仍为 `tests/server_v2_role_management.tscn`。默认 F5 的 `scenes/main.tscn` 使用 V2 TCP。手动流程：选择服务器模式admin/123或纯客户端demo1/123登录 → 创建角色并预览 → 进入游戏 → 查看地图、人物、生命魔力与角色窗口、只读背包装备 → 系统菜单返回角色选择 → 切角或再次进入 → 关闭后重新运行场景恢复。物品变更、拾取及聊天 GM 已禁用，移动已开放；本地窗口、图鉴、HUD 与设置可用。
+独立场景仍为 `tests/server_v2_role_management.tscn`。默认 F5 的 `scenes/main.tscn` 使用 V2 TCP。手动流程：选择服务器模式admin/123或纯客户端demo1/123登录 → 创建角色并预览 → 进入游戏 → 查看地图、人物、生命魔力与角色窗口、操作背包装备 → 系统菜单返回角色选择 → 切角或再次进入 → 关闭后重新运行场景恢复。移动、物品变更、拾取及聊天 GM 已开放；本地窗口、图鉴、HUD 与设置可用。
 
 第二批进入操作是 `EnterWorld(role_id)`，回复 `EnterWorldRt(state, role, bag, map)`。公开 state 根节点只保存一份角色编号，profile/status/position/equipment 分别表示公开资料、生命魔力、权威地图逻辑位置和装备配置编号；role 保存经验及背包扩容，bag 包括背包和已穿戴的私有实例。EnterWorldRt.map仍为完整初始范围，第三批的WorldFramePb负责世界序号、移动确认、AOI差集和全量重同步。对象自身 revision 沿用存储含义，object_id 使用 GUID N 格式。新增文件不使用 `_data` 后缀。
 
@@ -165,7 +190,7 @@ Session 的 WorldEntryCache 在 Cache 阶段直接将 V2 转成现有不可变�
 
 返回选角、返回登录、菜单退出和 V2 系统关闭共用现有本地写回能力，失败时保留页面并显示错误供重试。成功后清理客户端世界、角色及地图，隔离旧结果；返回选角在新代次发送 LeaveWorld，服务器回复 LeaveWorldRt，保留账号认证和TCP连接并解除角色控制及在线成员，下一次AOI发布通知其他玩家移除。请求不携带角色或账号字段，已认证重复离开成功，未认证拒绝，不影响其他连接控制的角色。不发送网络保存或退出补同步消息，不停止共享 Actor。真实传输没有本地写回能力时不发送保存消息，服务端自行周期、失败重试和关闭补写。强杀允许丢失未落盘变更。
 
-自动验收 `tests/server_v2_world_entry_smoke.tscn` 通过真实鼠标覆盖进入、地图人物HUD、只读背包装备、返回、切角、重启及保存失败后页面/系统关闭保留与修复重试，已纳入 `tools/check.ps1 -Tests`。角色管理烟测还覆盖尚未进入世界时，返回登录及系统关闭也执行本地写回，失败保留选角页并显示错误、修复后重新返回。字节与文件测试覆盖归属先于建档、部分缺失/损坏、首次保存失败重试、已有实例/地图对象不改写、九块边缘及迟到绑定；客户端测试覆盖跨领域原子校验、只读写入口和旧代次隔离。
+自动验收 `tests/server_v2_world_entry_smoke.tscn` 通过真实鼠标覆盖进入、地图人物 HUD、GM/背包装备/地面物品交互、返回、切角、重启及保存失败后页面/系统关闭保留与修复重试，已纳入 `tools/check.ps1 -Tests`。角色管理烟测还覆盖尚未进入世界时，返回登录及系统关闭也执行本地写回，失败保留选角页并显示错误、修复后重新返回。字节与文件测试覆盖归属先于建档、部分缺失/损坏、首次保存失败重试、已有实例/地图对象不改写、九块边缘及迟到绑定；客户端测试覆盖跨领域原子校验、最新状态写入和旧代次隔离。
 
 ## TCP 托管与登录配置
 
@@ -176,7 +201,7 @@ TCP 为四字节大端长度加 EnvelopePb，单包 4 MiB；每连接输出最�
 
 ## 多人移动与世界同步
 
-`WorldCoordinator` 使用单调时钟，后台20Hz等待一个完整逻辑轮次、10Hz合并公开变化，不补排延迟Tick。只推进正在移动、控制改变或投影重试的角色。Role在自己的邮箱物化旧目标到接收时刻，再接受更大action_id；坐标写入Role表，目标、速度、确认和投影版本只在Movement DataCache中。投影失败保留最新状态重试，不撤销已接纳意图。静止角色速度变化同样生成完整位置组。
+`WorldCoordinator` 使用单调时钟，后台20Hz等待一个完整逻辑轮次、10Hz合并公开变化，不补排延迟Tick。只推进正在移动、控制改变或投影重试的角色。Role在自己的邮箱物化旧目标到接收时刻，再接受更大action_id；坐标写入Role表，目标、速度和确认保存在 Movement，公开投影版本独立保存，均不落盘。投影失败保留最新状态重试，不撤销已接纳意图。静止角色速度变化同样生成完整位置组。
 
 公开信息归World的不可变角色缓存，角色块及观察块索引只标记受影响观察者。投影本身不能建立在线身份；注册、解绑、接管由运行时C#消息进入Role/World邮箱。首次可见与全量重同步返回RoleWorldStatePb，持续移动只返回角色编号和RoleWorldPositionPb。完整位置组展平map_id/x/y，并包含可空target和speed。地图进入空块显式发送，交集块复用；玩家不进入MapObjectPb。
 
@@ -186,6 +211,6 @@ TCP 为四字节大端长度加 EnvelopePb，单包 4 MiB；每连接输出最�
 
 EnterWorldRt后紧接sequence=1全量帧，后者接纳后才能移动。WorldSyncCache完整验证本人、地图与其他公开角色后原子提交，发现缺口暂停增量并只发一个ResyncWorld，全量可跨过缺口。重复及旧帧忽略。WorldService点击立即预测，最多20Hz发送合并的最新目标，权威确认后重放较新意图；远端100ms插值缓冲、最多100ms外推且不越过目标，经Action更新独立ECS玩家实体并复用ActorView。踢出在缓存阶段撤销数据，UI清理人物和预测回登录，TCP及本地服务器继续运行。
 
-权威坐标沿用周期、失败重试及关闭保存。关闭先取消后台时钟，再排空TCP和已接纳调度，物化停止并按Role→World→Login保存。重启不恢复目标、在线、控制或同步序号。纯客户端无本地Flush能力，物品、装备、拾取及GM写操作待迁移。
+权威坐标沿用周期、失败重试及关闭保存。关闭先取消后台时钟，再排空TCP和已接纳调度，物化停止并通过专用批次共同保存角色、地图与账号。重启不恢复目标、在线、控制或同步序号。纯客户端无本地 Flush 能力，服务器独立保存；物品、装备、拾取及 GM 走相同 TCP 业务链路。
 
 容量工具为 `tests/server_v2_load.tscn`，参数 `--count 1000 --warmup 10 --seconds 60 --out <绝对JSON路径>`；`--dense` 切换同区诊断。该工具创建独立临时账号摘要和三表，使用真实socket、后台持续读取推送，完成后清理。输出CPU、内存、GC、字节、队列、逻辑轮次、帧年龄及动作确认P95。普通回归运行小规模单元/真实TCP及双Godot进程场景，千连接单独运行；密集区不作为分组容量基线。

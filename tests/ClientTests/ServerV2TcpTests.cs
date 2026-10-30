@@ -49,6 +49,20 @@ public sealed class ServerV2TcpTests : IDisposable
         await remote.ConnectAsync(new(false, "127.0.0.1", port));
         Assert.Same(server, hostHolder.Server);
     }
+    /// <summary>对应 server-v2-hosting：后台收发尚未启动时立即关闭连接，也应正常释放。</summary>
+    [Fact]
+    public async Task ImmediateDisposeAfterConnectDoesNotRaceBackgroundStartup()
+    {
+        using var env = ConfigTestFixture.CreateEnv(serverDirectory: _root);
+        using var config = new ConfigService(env);
+        await using var holder = new MockServerService(env, config);
+        var port = FreePort(); await holder.StartAsync(port);
+        for (var attempt = 0; attempt < 32; attempt++)
+        {
+            using var transport = new TcpClientTransport(holder);
+            await transport.ConnectAsync("127.0.0.1", port);
+        }
+    }
     /// <summary>实际 socket 接受代次跳号，同请求号在不同连接返回各自的响应。</summary>
     [Fact]
     public async Task RealSocketsSupportFragmentedPacketsAndGenerationJumps()

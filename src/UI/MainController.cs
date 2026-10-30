@@ -87,6 +87,12 @@ public partial class MainController : Control
             _subscriptions.Add(GameServices.EventBus.Subscribe<RolePositionNotice>(OnPositionNotice));
             _subscriptions.Add(GameServices.EventBus.Subscribe<MapAoiNotice>(OnMapNotice));
             _subscriptions.Add(GameServices.EventBus.Subscribe<PickupItemRt>(OnPickedUp));
+            _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.PickupItemResultNotice>(result =>
+            {
+                if (result.RoleId != GameServices.Session.RoleId) return;
+                if (result.Success) UiSoundPlayer.Play(this, 1001);
+                _hud?.ShowNetworkError(result.Success ? "" : "拾取失败");
+            }));
             ShowLogin();
         }
         catch (Exception error)

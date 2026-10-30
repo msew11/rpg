@@ -221,8 +221,7 @@ public sealed class ServerV2SessionTests : IDisposable
         session.MoveItem(item.InstanceId, 2, 999); PumpUntil(() => session.Bag.Items.Single().SlotIndex == 2);
         Assert.Equal(1, session.Bag.Items.Single().Count);
         Assert.False(session.IsWorldReadOnly);
-        Assert.Throws<NotSupportedException>(() => session.DropItem(1, 1, 0));
-        Assert.Throws<NotSupportedException>(() => session.PickupItem(Guid.NewGuid(), 1, 1));
+        Assert.True(session.CanWriteGroundItems);
         Assert.False(session.ResyncMapIfNeeded());
         GameServices.Net.FlushServerWrites();
         GameServices.World.LeaveRole(); session.LeaveRole();

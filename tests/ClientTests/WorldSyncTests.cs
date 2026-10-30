@@ -41,6 +41,37 @@ public sealed class WorldSyncTests : IDisposable
         GameServices.EventBus.Publish(new WorldUpdateNotice { Frame = initial }); Assert.Equal(4UL, session.WorldSequence);
         Assert.False(session.IsWorldReadOnly);
     }
+    /// <summary>对应 server-v2-ground-items 与 server-v2-items：对象及人物同帧原子接纳，位置装备可以一起变化。</summary>
+    [Fact]
+    public void ObjectDeltaAndPlayerGroupsCommitAtomically()
+    {
+        using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_root, Path.Combine(_root, "server")));
+        WorldFramePb? initial = null; EnterWorldRt? entered = null;
+        using var frameListener = GameServices.EventBus.Subscribe<WorldUpdateNotice>(notice => initial ??= notice.Frame.Clone());
+        using var entryListener = GameServices.EventBus.Subscribe<EnterWorldRt>(reply => entered = reply.Clone());
+        var session = GameServices.Session; session.Login("demo1", "123"); Pump(() => !session.AccountRequestPending);
+        session.CreateRole("对象帧", RoleGender.Male, 1); Pump(() => !session.AccountRequestPending);
+        session.SelectRole(session.Roles.Single().RoleId); Pump(() => session.CanMove);
+        var remote = entered!.State.Clone(); remote.RoleId = 999;
+        var frame = new WorldFramePb { Sequence = 2, ServerTimeMs = initial!.ServerTimeMs + 1, Self = initial.Self.Clone(), Delta = new() { Map = new() { Center = initial.Snapshot.Map.Center.Clone() } } };
+        frame.Delta.EnteredRoles.Add(remote);
+        var item = new MapObjectPb { ObjectId = Guid.NewGuid().ToString("N"), Revision = 1, X = remote.Position.X, Y = remote.Position.Y, GroundItem = new() { ItemId = 1012, Count = 2 } };
+        frame.Delta.Map.UpsertedObjects.Add(item);
+        var state = session.Role; var map = session.Map; var errors = new List<Exception>(); GameServices.EventBus.Error += errors.Add;
+        GameServices.EventBus.Publish(new WorldUpdateNotice { Frame = frame });
+        Assert.Single(errors); Assert.Same(state, session.Role); Assert.Same(map, session.Map); Assert.Empty(session.RemoteRoles);
+        item.GroundItem.Count = 1; GameServices.EventBus.Publish(new WorldUpdateNotice { Frame = frame });
+        Assert.Single(session.Map!.Objects); Assert.Single(session.RemoteRoles);
+        var update = new WorldFramePb { Sequence = 3, ServerTimeMs = frame.ServerTimeMs + 1, Self = frame.Self.Clone(), Delta = new() { Map = new() { Center = frame.Delta.Map.Center.Clone() } } };
+        var position = remote.Position.Clone(); position.X += 5;
+        update.Delta.MovedRoles.Add(new RolePositionUpdatePb() { RoleId = 999, Position = position });
+        update.Delta.EquippedRoles.Add(new RoleEquipmentUpdatePb() { RoleId = 999, Equipment = new() { EquippedItems = { 1012 } } });
+        update.Delta.Map.RemovedObjectIds.Add(item.ObjectId);
+        GameServices.EventBus.Publish(new WorldUpdateNotice { Frame = update });
+        Assert.Empty(session.Map.Objects); Assert.Equal(position.X, session.RemoteRoles[999].Position.Position.X);
+        Assert.Single(session.RemoteRoles[999].Equipment.Items);
+    }
+
     /// <summary>100ms插值与有限外推不越过目标，离开删除样本。</summary>
     [Fact]
     public void RemoteBufferInterpolatesAndBoundsExtrapolation()

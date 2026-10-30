@@ -9,7 +9,8 @@ namespace Rpg.ServerV2.Modules.Login.Async;
 
 /// <summary>从可信控制角色检查账号归属，向角色编排物品操作。</summary>
 internal sealed class RoleItemsHandler : IActorHandler<LoginContext, Gm, GmRt>,
-    IActorHandler<LoginContext, MoveItem, MoveItemRt>, IActorHandler<LoginContext, EquipItem, EquipItemRt>
+    IActorHandler<LoginContext, MoveItem, MoveItemRt>, IActorHandler<LoginContext, EquipItem, EquipItemRt>, IActorHandler<LoginContext, DropItem, DropItemRt>,
+    IActorHandler<LoginContext, PickupItem, PickupItemRt>, IActorHandler<LoginContext, CompleteRolePickup, CompleteRolePickupRt>
 {
     /// <summary>角色身份只来自邮箱运行时元数据。</summary>
     private static long Owned(LoginContext context)
@@ -31,4 +32,13 @@ internal sealed class RoleItemsHandler : IActorHandler<LoginContext, Gm, GmRt>,
             Profile = new() { Name = summary.Name, Gender = summary.Gender, Level = summary.Level, HeadId = summary.HeadId }, Equipment = items.Equipment });
         return reply;
     }
+    /// <summary>直接编排已验证归属角色的丢弃。</summary>
+    public async ValueTask<DropItemRt> HandleAsync(LoginContext context, DropItem request) =>
+        await context.Actors.Role(Owned(context)).Ask<DropItemRt>(request, context.Call).ConfigureAwait(false);
+    /// <summary>立即接纳当前角色的拾取意图。</summary>
+    public async ValueTask<PickupItemRt> HandleAsync(LoginContext context, PickupItem request) =>
+        await context.Actors.Role(Owned(context)).Ask<PickupItemRt>(request, context.Call).ConfigureAwait(false);
+    /// <summary>由运行时在共享物品入口内调度最终完成。</summary>
+    public async ValueTask<CompleteRolePickupRt> HandleAsync(LoginContext context, CompleteRolePickup request) =>
+        await context.Actors.Role(Owned(context)).Ask<CompleteRolePickupRt>(request, context.Call).ConfigureAwait(false);
 }

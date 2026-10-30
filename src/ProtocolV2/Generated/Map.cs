@@ -38,11 +38,13 @@ namespace Rpg.ProtocolV2 {
             "cGcudjIuTWFwTW9uc3RlclBiSAASLgoLZ3JvdW5kX2l0ZW0YBiABKAsyFy5y",
             "cGcudjIuTWFwR3JvdW5kSXRlbVBiSABCCQoHcGF5bG9hZCInCgxNYXBNb25z",
             "dGVyUGISFwoPbW9uc3Rlcl90eXBlX2lkGAEgASgJIjEKD01hcEdyb3VuZEl0",
-            "ZW1QYhIPCgdpdGVtX2lkGAEgASgFEg0KBWNvdW50GAIgASgFIpIBCg1NYXBB",
+            "ZW1QYhIPCgdpdGVtX2lkGAEgASgFEg0KBWNvdW50GAIgASgFIt0BCg1NYXBB",
             "b2lEZWx0YVBiEicKBmNlbnRlchgBIAEoCzIXLnJwZy52Mi5NYXBDaHVua0Nv",
             "b3JkUGISKgoOZW50ZXJlZF9jaHVua3MYAiADKAsyEi5ycGcudjIuTWFwQ2h1",
             "bmtQYhIsCgtsZWZ0X2NodW5rcxgDIAMoCzIXLnJwZy52Mi5NYXBDaHVua0Nv",
-            "b3JkUGJCEaoCDlJwZy5Qcm90b2NvbFYyYgZwcm90bzM="));
+            "b3JkUGISLQoQdXBzZXJ0ZWRfb2JqZWN0cxgEIAMoCzITLnJwZy52Mi5NYXBP",
+            "YmplY3RQYhIaChJyZW1vdmVkX29iamVjdF9pZHMYBSADKAlCEaoCDlJwZy5Q",
+            "cm90b2NvbFYyYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -53,7 +55,7 @@ namespace Rpg.ProtocolV2 {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.MapObjectPb), global::Rpg.ProtocolV2.MapObjectPb.Parser, new[]{ "ObjectId", "Revision", "X", "Y", "Monster", "GroundItem" }, new[]{ "Payload" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.MapMonsterPb), global::Rpg.ProtocolV2.MapMonsterPb.Parser, new[]{ "MonsterTypeId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.MapGroundItemPb), global::Rpg.ProtocolV2.MapGroundItemPb.Parser, new[]{ "ItemId", "Count" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.MapAoiDeltaPb), global::Rpg.ProtocolV2.MapAoiDeltaPb.Parser, new[]{ "Center", "EnteredChunks", "LeftChunks" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.MapAoiDeltaPb), global::Rpg.ProtocolV2.MapAoiDeltaPb.Parser, new[]{ "Center", "EnteredChunks", "LeftChunks", "UpsertedObjects", "RemovedObjectIds" }, null, null, null, null)
           }));
     }
     #endregion
@@ -2147,6 +2149,8 @@ namespace Rpg.ProtocolV2 {
       center_ = other.center_ != null ? other.center_.Clone() : null;
       enteredChunks_ = other.enteredChunks_.Clone();
       leftChunks_ = other.leftChunks_.Clone();
+      upsertedObjects_ = other.upsertedObjects_.Clone();
+      removedObjectIds_ = other.removedObjectIds_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -2199,6 +2203,34 @@ namespace Rpg.ProtocolV2 {
       get { return leftChunks_; }
     }
 
+    /// <summary>Field number for the "upserted_objects" field.</summary>
+    public const int UpsertedObjectsFieldNumber = 4;
+    private static readonly pb::FieldCodec<global::Rpg.ProtocolV2.MapObjectPb> _repeated_upsertedObjects_codec
+        = pb::FieldCodec.ForMessage(34, global::Rpg.ProtocolV2.MapObjectPb.Parser);
+    private readonly pbc::RepeatedField<global::Rpg.ProtocolV2.MapObjectPb> upsertedObjects_ = new pbc::RepeatedField<global::Rpg.ProtocolV2.MapObjectPb>();
+    /// <summary>
+    /// 交集块对象增量。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::Rpg.ProtocolV2.MapObjectPb> UpsertedObjects {
+      get { return upsertedObjects_; }
+    }
+
+    /// <summary>Field number for the "removed_object_ids" field.</summary>
+    public const int RemovedObjectIdsFieldNumber = 5;
+    private static readonly pb::FieldCodec<string> _repeated_removedObjectIds_codec
+        = pb::FieldCodec.ForString(42);
+    private readonly pbc::RepeatedField<string> removedObjectIds_ = new pbc::RepeatedField<string>();
+    /// <summary>
+    /// 交集块中移除的对象。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<string> RemovedObjectIds {
+      get { return removedObjectIds_; }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -2217,6 +2249,8 @@ namespace Rpg.ProtocolV2 {
       if (!object.Equals(Center, other.Center)) return false;
       if(!enteredChunks_.Equals(other.enteredChunks_)) return false;
       if(!leftChunks_.Equals(other.leftChunks_)) return false;
+      if(!upsertedObjects_.Equals(other.upsertedObjects_)) return false;
+      if(!removedObjectIds_.Equals(other.removedObjectIds_)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -2227,6 +2261,8 @@ namespace Rpg.ProtocolV2 {
       if (center_ != null) hash ^= Center.GetHashCode();
       hash ^= enteredChunks_.GetHashCode();
       hash ^= leftChunks_.GetHashCode();
+      hash ^= upsertedObjects_.GetHashCode();
+      hash ^= removedObjectIds_.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -2251,6 +2287,8 @@ namespace Rpg.ProtocolV2 {
       }
       enteredChunks_.WriteTo(output, _repeated_enteredChunks_codec);
       leftChunks_.WriteTo(output, _repeated_leftChunks_codec);
+      upsertedObjects_.WriteTo(output, _repeated_upsertedObjects_codec);
+      removedObjectIds_.WriteTo(output, _repeated_removedObjectIds_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -2267,6 +2305,8 @@ namespace Rpg.ProtocolV2 {
       }
       enteredChunks_.WriteTo(ref output, _repeated_enteredChunks_codec);
       leftChunks_.WriteTo(ref output, _repeated_leftChunks_codec);
+      upsertedObjects_.WriteTo(ref output, _repeated_upsertedObjects_codec);
+      removedObjectIds_.WriteTo(ref output, _repeated_removedObjectIds_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -2282,6 +2322,8 @@ namespace Rpg.ProtocolV2 {
       }
       size += enteredChunks_.CalculateSize(_repeated_enteredChunks_codec);
       size += leftChunks_.CalculateSize(_repeated_leftChunks_codec);
+      size += upsertedObjects_.CalculateSize(_repeated_upsertedObjects_codec);
+      size += removedObjectIds_.CalculateSize(_repeated_removedObjectIds_codec);
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -2302,6 +2344,8 @@ namespace Rpg.ProtocolV2 {
       }
       enteredChunks_.Add(other.enteredChunks_);
       leftChunks_.Add(other.leftChunks_);
+      upsertedObjects_.Add(other.upsertedObjects_);
+      removedObjectIds_.Add(other.removedObjectIds_);
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -2336,6 +2380,14 @@ namespace Rpg.ProtocolV2 {
             leftChunks_.AddEntriesFrom(input, _repeated_leftChunks_codec);
             break;
           }
+          case 34: {
+            upsertedObjects_.AddEntriesFrom(input, _repeated_upsertedObjects_codec);
+            break;
+          }
+          case 42: {
+            removedObjectIds_.AddEntriesFrom(input, _repeated_removedObjectIds_codec);
+            break;
+          }
         }
       }
     #endif
@@ -2368,6 +2420,14 @@ namespace Rpg.ProtocolV2 {
           }
           case 26: {
             leftChunks_.AddEntriesFrom(ref input, _repeated_leftChunks_codec);
+            break;
+          }
+          case 34: {
+            upsertedObjects_.AddEntriesFrom(ref input, _repeated_upsertedObjects_codec);
+            break;
+          }
+          case 42: {
+            removedObjectIds_.AddEntriesFrom(ref input, _repeated_removedObjectIds_codec);
             break;
           }
         }

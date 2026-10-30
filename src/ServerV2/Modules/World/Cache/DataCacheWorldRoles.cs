@@ -67,6 +67,8 @@ public sealed class DataCacheWorldRoles : DataCache<ImmutableDictionary<long, Da
         }
         Commit(Value.SetItem(role.RoleId, role)); MarkObservers(chunk); _dirty.Add(role.RoleId);
     }
+    /// <summary>对象变化通过现有块索引标记静止观察者。</summary>
+    internal void ObjectsChanged(float x, float y) => MarkObservers(Chunk(x, y));
     /// <summary>本轮是否需要发布；重同步可强制全量。</summary>
     internal bool NeedsUpdate(long roleId) => _dirty.Contains(roleId);
     /// <summary>按块收集可见角色，交集状态用于增量比较。</summary>
@@ -79,9 +81,9 @@ public sealed class DataCacheWorldRoles : DataCache<ImmutableDictionary<long, Da
         _observers.TryGetValue(roleId, out var before); return (self, before, chunks, visible);
     }
     /// <summary>有序发布后更新观察基线。</summary>
-    internal void Published(long roleId, ulong sequence, (int X, int Y) center, ImmutableHashSet<(int X, int Y)> chunks, Dictionary<long, DataWorldRole> visible)
+    internal void Published(long roleId, ulong sequence, (int X, int Y) center, ImmutableHashSet<(int X, int Y)> chunks, Dictionary<long, DataWorldRole> visible, ImmutableDictionary<Guid, DataWorldObject> objects)
     {
-        _observers[roleId] = new(sequence, center, chunks, visible.ToImmutableDictionary(pair => pair.Key, pair => pair.Value)); _dirty.Remove(roleId);
+        _observers[roleId] = new(sequence, center, chunks, visible.ToImmutableDictionary(pair => pair.Key, pair => pair.Value), objects); _dirty.Remove(roleId);
     }
     /// <summary>通过订阅索引标记受影响观察者。</summary>
     private void MarkObservers((int, int) chunk) { if (_observerChunks.TryGetValue(chunk, out var observers)) _dirty.UnionWith(observers); }

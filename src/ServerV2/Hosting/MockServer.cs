@@ -89,14 +89,20 @@ public sealed class MockServer : IAsyncDisposable
         _env = env;
         _config = config;
         var directory = Path.Combine(Path.GetFullPath(env.ServerDirectory), "v2");
-        var modules = new ServerModules(config, new RepoAccountRoleSummary(directory), new RepoRole(directory), new RepoWorld(directory, Report), _ => new ActorHandlers<LoginContext>()
+        var summaries = new RepoAccountRoleSummary(directory); var roles = new RepoRole(directory); var worlds = new RepoWorld(directory, Report);
+        var batch = new Modules.Common.Storage.RepoItemBatch(directory, roles, worlds, summaries);
+        batch.RecoverAsync().GetAwaiter().GetResult();
+        var modules = new ServerModules(config, summaries, roles, worlds, _ => new ActorHandlers<LoginContext>()
             .Register<ProtocolV2.Login, ProtocolV2.LoginRt>(new LoginHandler())
             .Register<ProtocolV2.CreateRole, ProtocolV2.CreateRoleRt>(new CreateRoleHandler())
             .Register<ProtocolV2.DeleteRole, ProtocolV2.DeleteRoleRt>(new DeleteRoleHandler())
             .Register<ProtocolV2.EnterWorld, ProtocolV2.EnterWorldRt>(new Modules.Login.Async.EnterWorldHandler())
             .Register<ProtocolV2.Gm, ProtocolV2.GmRt>(new Modules.Login.Async.RoleItemsHandler())
             .Register<ProtocolV2.MoveItem, ProtocolV2.MoveItemRt>(new Modules.Login.Async.RoleItemsHandler())
-            .Register<ProtocolV2.EquipItem, ProtocolV2.EquipItemRt>(new Modules.Login.Async.RoleItemsHandler()), report: Report);
+            .Register<ProtocolV2.EquipItem, ProtocolV2.EquipItemRt>(new Modules.Login.Async.RoleItemsHandler())
+            .Register<ProtocolV2.DropItem, ProtocolV2.DropItemRt>(new Modules.Login.Async.RoleItemsHandler())
+            .Register<ProtocolV2.PickupItem, ProtocolV2.PickupItemRt>(new Modules.Login.Async.RoleItemsHandler())
+            .Register<ActorProtocol.CompleteRolePickup, ActorProtocol.CompleteRolePickupRt>(new Modules.Login.Async.RoleItemsHandler()), report: Report, itemBatch: batch);
         _runtime = CreateRuntime(modules);
     }
     /// <summary>验收注入已完整装配的模块，配置直接来自模块，避免重复传入与不一致。</summary>

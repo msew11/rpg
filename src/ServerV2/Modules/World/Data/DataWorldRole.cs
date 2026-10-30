@@ -27,4 +27,4 @@ public sealed record DataWorldRole(long RoleId, string Name, int Level, int Gend
 
 /// <summary>一个观察角色上次已发布的范围和可见版本。</summary>
 internal sealed record DataWorldObserver(ulong Sequence, (int X, int Y) Center,
-    ImmutableHashSet<(int X, int Y)> Chunks, ImmutableDictionary<long, DataWorldRole> Visible);
+    ImmutableHashSet<(int X, int Y)> Chunks, ImmutableDictionary<long, DataWorldRole> Visible, ImmutableDictionary<System.Guid, DataWorldObject> Objects);

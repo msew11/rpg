@@ -44,7 +44,11 @@ public sealed class RepoRole : IRoleRepo
         return await LoadAsync(roleId).ConfigureAwait(false);
     }
     /// <summary>提交变化表；失败留下回滚记录，下一次读写先恢复再继续。</summary>
-    public async ValueTask SaveAsync(long roleId, DataRoleSnapshot snapshot, DataRoleTables tables)
+    public ValueTask SaveAsync(long roleId, DataRoleSnapshot snapshot, DataRoleTables tables) => SaveCoreAsync(roleId, snapshot, tables, true);
+    /// <summary>由专用地面批次拥有回滚记录，不再嵌套单角色记录。</summary>
+    internal ValueTask SaveForItemsAsync(long roleId, DataRoleSnapshot snapshot, DataRoleTables tables) => SaveCoreAsync(roleId, snapshot, tables, false);
+    /// <summary>按调用边界选择单角色或外层批次的提交点。</summary>
+    private async ValueTask SaveCoreAsync(long roleId, DataRoleSnapshot snapshot, DataRoleTables tables, bool ownJournal)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         await RecoverAsync(roleId).ConfigureAwait(false);
@@ -54,7 +58,7 @@ public sealed class RepoRole : IRoleRepo
         if (tables.HasFlag(DataRoleTables.Equipment)) changes.Add("equipment", StorageJson.Encode(snapshot.Equipments));
         if (changes.Count == 0) return;
         var pending = GetPath(roleId, "pending");
-        if (changes.Count > 1)
+        if (ownJournal && changes.Count > 1)
         {
             var originals = new Dictionary<string, byte[]?>();
             foreach (var table in changes.Keys)
@@ -70,7 +74,7 @@ public sealed class RepoRole : IRoleRepo
             await StorageJson.WriteAsync(GetPath(roleId, table), bytes).ConfigureAwait(false);
             AfterTableWritten?.Invoke(table);
         }
-        if (changes.Count > 1) File.Delete(pending);
+        if (ownJournal && changes.Count > 1) File.Delete(pending);
     }
     /// <summary>回滚原始字节，只有全部恢复成功才删除记录；非法元数据不得产生任意路径。</summary>
     private async ValueTask RecoverAsync(long roleId)

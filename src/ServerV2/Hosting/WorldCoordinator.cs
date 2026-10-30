@@ -22,6 +22,8 @@ internal sealed class WorldCoordinator
 {
     /// <summary>所属服务器模块。</summary>
     private readonly ServerModules _modules;
+    /// <summary>借用宿主唯一物品及保存入口，获取时不持有 Actor 回合。</summary>
+    private readonly SemaphoreSlim _items;
     /// <summary>只串行控制变更，不围住普通移动。</summary>
     private readonly SemaphoreSlim _control = new(1, 1);
     /// <summary>权威轮次与保存屏障。</summary>
@@ -51,7 +53,7 @@ internal sealed class WorldCoordinator
     /// <summary>不影响其他轮次的诊断入口。</summary>
     private readonly Action<Exception> _report;
     /// <summary>建立本实例独立协调器。</summary>
-    internal WorldCoordinator(ServerModules modules, Action<Exception> report) { _modules = modules; _report = report; }
+    internal WorldCoordinator(ServerModules modules, SemaphoreSlim items, Action<Exception> report) { _modules = modules; _items = items; _report = report; }
     /// <summary>构造服务器内部可信调用身份。</summary>
     internal DataActorCall Call(DataSessionSnapshot session, bool role = false)
     {
@@ -156,6 +158,7 @@ internal sealed class WorldCoordinator
                 {
                     if (!_bindings.TryGetValue(item.Key, out var binding)) return;
                     var reply = await _modules.Role(item.Key).Ask<AdvanceRoleRt>(new AdvanceRole { ServerTimeMs = now, MovementSpeed = Speed }, binding.Scope(now, Speed)).ConfigureAwait(false);
+                    if (reply.PickupReady) await CompletePickupAsync(binding).ConfigureAwait(false);
                     if (!reply.Moving) ((ICollection<KeyValuePair<long, long>>)_moving).Remove(item);
                 }
                 catch (OperationCanceledException) { }
@@ -181,6 +184,28 @@ internal sealed class WorldCoordinator
             })).ConfigureAwait(false);
         }
         finally { RoundMilliseconds.Enqueue(Stopwatch.GetElapsedTime(started).TotalMilliseconds); if (RoundMilliseconds.Count > 10000) RoundMilliseconds.TryDequeue(out _); _step.Release(); }
+    }
+    /// <summary>推进回合结束后进入串行物品入口，按原控制身份输出最终结果。</summary>
+    private async Task CompletePickupAsync(DataControlBinding binding)
+    {
+        var expected = binding.Connection.Snapshot();
+        if (expected.Username is null || expected.RoleId != binding.RoleId) return;
+        var call = new DataActorCall(expected.ConnectionId.Value, expected.Generation, expected.AuthEpoch,
+            binding.RoleId, binding.Version, Now, Speed, PreserveResult: true);
+        await _items.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var reply = await _modules.Login(expected.Username).Ask<CompleteRolePickupRt>(new CompleteRolePickup(), call).ConfigureAwait(false);
+            if (reply.Result?.Success == true) _modules.GroundItemsPending = true;
+            if (reply.Result is not { } result || !_modules.Calls.IsCurrent(call) || !binding.Connection.IsCurrent(expected, true)) return;
+            if (result.Success)
+            {
+                var items = await _modules.Role(binding.RoleId).Ask<GetRoleItemsRt>(new GetRoleItems()).ConfigureAwait(false);
+                binding.Connection.Complete(expected, MessageCodec.Encode(new RoleItemsChangedNotice { RoleId = items.RoleId, Bag = items.Bag, Equipment = items.Equipment }, expected.Generation, 0, false));
+            }
+            binding.Connection.Complete(expected, MessageCodec.Encode(result, expected.Generation, 0, false));
+        }
+        finally { _items.Release(); }
     }
     /// <summary>等待已经接纳的权威轮次，未来轮次不属于本次保存屏障。</summary>
     internal async Task BarrierAsync() { await _step.WaitAsync().ConfigureAwait(false); _step.Release(); }

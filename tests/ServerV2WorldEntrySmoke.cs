@@ -44,7 +44,21 @@ public partial class ServerV2WorldEntrySmoke : Node
             await Click(TextButton(main, "背包")); await Frames();
             var bag = (BagControl)main.FindChild("背包", true, false);
             Check(bag.Visible && bag.CreateItemDrag(0).VariantType != Variant.Type.Nil, "背包物品不能操作");
+            await Until(() => GameServices.World.RoleTarget is null);
+            await ClickAt(((Control)bag.FindChild("Slot0", true, false)).GetGlobalRect().GetCenter());
+            Check(bag.FindChild("PickedItemPreview", true, false) is not null, "丢弃前未拿起背包物品");
+            await ClickAt(new Vector2(20, 220));
+            await Until(() => GameServices.Session.Bag.Items.Count == 0 && GameServices.Session.Map!.Objects.Count == 1);
             await Click(TextButton(main, "背包"));
+            await Until(() => main.FindChildren("GroundItemIcon", "TextureRect", true, false).Count == 1);
+            var groundIcon = main.FindChildren("GroundItemIcon", "TextureRect", true, false).OfType<TextureRect>().Single();
+            bool? pickupResult = null;
+            using (GameServices.EventBus.Subscribe<Rpg.ProtocolV2.PickupItemResultNotice>(notice => pickupResult = notice.Success))
+            {
+                await ClickAt(groundIcon.GetGlobalTransformWithCanvas() * new Vector2(groundIcon.Size.X / 2, groundIcon.Size.Y / 2));
+                await Until(() => pickupResult is not null && GameServices.Session.Map!.Objects.Count == 0);
+            }
+            Check(pickupResult == true && GameServices.Session.Bag.Items.Count == 1, "V2 鼠标走近拾取失败");
             await Click(TextButton(main, "角色")); await Frames();
             Check(!((Label)main.FindChild("EquipmentStatus", true, false)).Visible, "装备窗口仍为只读");
             await Click(TextButton(main, "角色"));
@@ -56,12 +70,16 @@ public partial class ServerV2WorldEntrySmoke : Node
             await ReturnToRoles(main);
             main.Free(); main = null; await Frames();
             var root = Path.Combine(directory, "server", "v2");
-            Check(Directory.GetFiles(root).Length == 9 && Directory.GetDirectories(root).Length == 0, "三表和编号没有完整落地或只读空地图产生文件");
+            Check(Directory.GetFiles(root).Length == 9, "三表、摘要和编号没有完整落地");
             var repo = new Rpg.ServerV2.Modules.Role.Storage.RepoRole(root);
             var stored = await repo.LoadAsync(female);
             using (var seedEnv = new Rpg.Config.EnvService(directory, Path.Combine(directory, "server")))
             using (var seedConfig = new Rpg.Config.ConfigService(seedEnv))
             {
+                var map = seedConfig.Map.Items[1];
+                var mapRepo = new Rpg.ServerV2.Modules.World.Storage.RepoWorld(root);
+                Check((await mapRepo.LoadAsync(new(1, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles))).Objects.IsEmpty,
+                    "重启仍恢复了已经拾取的地面物品");
                 var gear = seedConfig.Item.Items.Values.First(item => item.MaxStack == 1 &&
                     Rpg.Utils.EquipmentSlotUtil.TryGetSlot(item.Category, item.SubCategory, out var slot) && slot == Rpg.Const.EquipmentSlot.MainHand);
                 await repo.SaveAsync(female, stored with { Role = stored.Role with { Level = 3, NextInstanceId = 3 },
@@ -143,6 +161,8 @@ public partial class ServerV2WorldEntrySmoke : Node
     /// <summary>真实鼠标输入验证地图与物品交互。</summary>
     private async Task ClickAt(Vector2 point, bool ctrl = false)
     {
+        using var motion = new InputEventMouseMotion { Position = point, GlobalPosition = point };
+        GetViewport().PushInput(motion, true);
         foreach (var pressed in new[] { true, false })
         {
             using var input = new InputEventMouseButton { Position = point, GlobalPosition = point, ButtonIndex = MouseButton.Left,
@@ -181,17 +201,19 @@ public partial class ServerV2WorldEntrySmoke : Node
     /// <summary>复用默认登录页的实际登录按钮。</summary>
     private static Button LoginButton(Node root) => root.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "登录");
     /// <summary>等待真实异步回复，超时失败而不固定假设回复帧数。</summary>
-    private async Task Until(Func<bool> done)
+    private async Task Until(Func<bool> done, [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(done))] string condition = "")
     {
         var deadline = DateTime.UtcNow.AddSeconds(8);
         while (!done() && DateTime.UtcNow < deadline) await Frames();
-        Check(done(), "等待 V2 页面或响应超时");
+        Check(done(), $"等待 V2 页面或响应超时：{condition}");
         await Frames();
     }
-    /// <summary>让网络固定帧、布局和释放队列完成。</summary>
+    /// <summary>显式推进不带后台时钟的进程内服务器，并等待网络、布局及释放队列。</summary>
     private async Task Frames()
     {
         await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+        if (GameServices.IsInitialized && GameServices.MockServer.Server is { Port: 0 } server)
+            await server.AdvanceAsync();
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }

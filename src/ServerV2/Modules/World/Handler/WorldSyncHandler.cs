@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Immutable;
 using System.Threading.Tasks;
 using Rpg.ProtocolV2;
 using Rpg.ServerV2.ActorProtocol;
@@ -34,6 +35,7 @@ internal sealed class WorldSyncHandler : IActorHandler<WorldContext, UpdateWorld
     private static WorldFramePb Build(WorldContext context, long id, long now, bool full)
     {
         var cache = context.Cache.Roles; var (self, before, chunks, visible) = cache.Observe(id);
+        var objects = context.Cache.Objects.Value.Where(item => chunks.Contains(cache.Chunk(item.X, item.Y))).ToImmutableDictionary(item => item.ObjectId);
         var center = cache.Chunk(self.X, self.Y); var sequence = (before?.Sequence ?? 0) + 1;
         var frame = new WorldFramePb { Sequence = sequence, ServerTimeMs = now, AcknowledgedAction = self.AcknowledgedAction,
             Self = new() { RoleId = id, Position = self.Position() } };
@@ -52,6 +54,21 @@ internal sealed class WorldSyncHandler : IActorHandler<WorldContext, UpdateWorld
                 delta.Map.EnteredChunks.AddRange(map.Chunks.Where(chunk => !before.Chunks.Contains((chunk.Coordinate.X, chunk.Coordinate.Y))));
                 delta.Map.LeftChunks.AddRange(before.Chunks.Except(chunks).Select(chunk => new MapChunkCoordPb { X = chunk.X, Y = chunk.Y }));
             }
+            foreach (var item in objects.Values)
+            {
+                if (!before.Chunks.Contains(cache.Chunk(item.X, item.Y))) continue;
+                if (!before.Objects.TryGetValue(item.ObjectId, out var old) || old != item)
+                {
+                    delta.Map ??= new() { Center = new() { X = center.X, Y = center.Y } };
+                    delta.Map.UpsertedObjects.Add(GroundItemsHandler.ToPb(item));
+                }
+            }
+            foreach (var item in before.Objects.Values)
+                if (chunks.Contains(cache.Chunk(item.X, item.Y)) && !objects.ContainsKey(item.ObjectId))
+                {
+                    delta.Map ??= new() { Center = new() { X = center.X, Y = center.Y } };
+                    delta.Map.RemovedObjectIds.Add(item.ObjectId.ToString("N"));
+                }
             foreach (var role in visible.Values)
             {
                 if (!before.Visible.TryGetValue(role.RoleId, out var revision)) delta.EnteredRoles.Add(role.ToPb());
@@ -63,6 +80,6 @@ internal sealed class WorldSyncHandler : IActorHandler<WorldContext, UpdateWorld
             }
             delta.LeftRoleIds.AddRange(before.Visible.Keys.Except(visible.Keys));
         }
-        cache.Published(id, sequence, center, chunks, visible); return frame;
+        cache.Published(id, sequence, center, chunks, visible, objects); return frame;
     }
 }

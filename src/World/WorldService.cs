@@ -105,11 +105,16 @@ public sealed class WorldService : Service
     public void PickupItem(Guid objectId)
     {
         ThrowIfDisposed();
-        if (_session.IsWorldReadOnly) return;
+        if (!_session.CanWriteGroundItems) return;
         if (_world is null || MapObjects is not { } map || !map.Objects.TryGetValue(objectId, out var item) || item.MonsterTypeId is not null)
             throw new InvalidOperationException("地面物品已不存在");
         var action = new MoveAction(++_nextActionId, new Vector2(item.X, item.Y));
-        _session.SubmitMove(action.ActionId, action.Destination);
+        if (_session.UsesWorldFrames)
+        {
+            _pendingMove = action; _intentions.Clear(); _intentions[action.ActionId] = action;
+            SendPendingMove(force: true);
+        }
+        else _session.SubmitMove(action.ActionId, action.Destination);
         _world.Enqueue(action);
         _session.PickupItem(item.ObjectId, item.Revision, action.ActionId);
     }
@@ -206,9 +211,9 @@ public sealed class WorldService : Service
     }
 
     /// <summary>每50ms最多发送最新目标，预测在点击时已经执行。</summary>
-    private void SendPendingMove()
+    private void SendPendingMove(bool force = false)
     {
-        if (_pendingMove is not { } move || _sendCooldown > 0 || !_session.CanMove) return;
+        if (_pendingMove is not { } move || (!force && _sendCooldown > 0) || !_session.CanMove) return;
         _session.SubmitMove(move.ActionId, move.Destination); _pendingMove = null; _sendCooldown = .05;
     }
     /// <summary>切角清除旧意图、动作序号和远端样本。</summary>

@@ -30,6 +30,13 @@ public sealed class ServerV2ItemTests : IDisposable
         var added = rules.Add(empty, 2000, 3); var original = added.Items.Single();
         var moved = rules.Move(added, original.InstanceId, 1);
         Assert.Equal(1, moved.Items.Single().SlotIndex); Assert.Equal(0, added.Items.Single().SlotIndex);
+        var partial = rules.Remove(moved, original.InstanceId, 2);
+        Assert.Equal(1, partial.Items.Single().Count); Assert.Equal(moved.Role.NextInstanceId, partial.Role.NextInstanceId);
+        Assert.Empty(rules.Remove(partial, original.InstanceId, 1).Items);
+        var stacks = rules.Add(empty, 2000, 100);
+        var merged = rules.Move(stacks, 1, 1);
+        Assert.Equal(99, merged.Items.Single(item => item.InstanceId == 2).Count);
+        Assert.Equal(1, merged.Items.Single(item => item.InstanceId == 1).Count);
         var filled = rules.Add(moved, 1012, 1);
         Assert.Throws<InvalidOperationException>(() => rules.Add(filled, 1012, 1));
         Assert.Equal(3, filled.Role.NextInstanceId); Assert.Equal(2, filled.Items.Length);

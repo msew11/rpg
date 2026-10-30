@@ -94,6 +94,7 @@ public partial class BagControl : PanelContainer
         {
             if (response.RoleId == GameServices.Session.RoleId) ShowMoveStatus(response.Success ? "" : response.Error);
         });
+        _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.DropItemRt>(_ => ShowMoveStatus("")));
         _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.MoveItemRt>(_ => ShowMoveStatus("")));
         _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.EquipItemRt>(_ => ShowMoveStatus("")));
         _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.ErrorRt>(error => ShowMoveStatus(error.Message)));

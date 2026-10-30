@@ -44,7 +44,11 @@ public sealed class RepoWorld : IWorldRepo
         return new(objects.ToImmutable());
     }
     /// <summary>先写所有候选块，最后替换清单；此前失败不影响旧清单和引用。</summary>
-    public async ValueTask SaveAsync(DataWorldLayout layout, DataWorldSnapshot snapshot, ImmutableHashSet<DataWorldChunk> dirtyChunks)
+    public ValueTask SaveAsync(DataWorldLayout layout, DataWorldSnapshot snapshot, ImmutableHashSet<DataWorldChunk> dirtyChunks) => SaveCoreAsync(layout, snapshot, dirtyChunks, true);
+    /// <summary>共同保存期间保留旧清单引用块，整批完成后才清理。</summary>
+    internal ValueTask SaveForItemsAsync(DataWorldLayout layout, DataWorldSnapshot snapshot, ImmutableHashSet<DataWorldChunk> dirtyChunks) => SaveCoreAsync(layout, snapshot, dirtyChunks, false);
+    /// <summary>为独立地图或共同批次写候选与清单。</summary>
+    private async ValueTask SaveCoreAsync(DataWorldLayout layout, DataWorldSnapshot snapshot, ImmutableHashSet<DataWorldChunk> dirtyChunks, bool cleanup)
     {
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -67,7 +71,13 @@ public sealed class RepoWorld : IWorldRepo
             CommitId = commitId, Chunks = references.Values.OrderBy(value => value.X).ThenBy(value => value.Y).ToArray() };
         BeforeManifestCommit?.Invoke();
         await StorageJson.WriteAsync(ManifestPath(layout), StorageJson.Encode(manifest)).ConfigureAwait(false);
-        Cleanup(layout, manifest);
+        if (cleanup) Cleanup(layout, manifest);
+    }
+    /// <summary>共同批次提交后读取已生效清单，再尽力清理旧块。</summary>
+    internal async ValueTask CleanupItemsAsync(DataWorldLayout layout)
+    {
+        try { if (await ReadManifestAsync(layout).ConfigureAwait(false) is { } manifest) Cleanup(layout, manifest); }
+        catch (Exception error) { Report(error); }
     }
     /// <summary>缺失清单是空地图；只捕获清单本身缺失，其他错误必须传播。</summary>
     private async ValueTask<DataManifest?> ReadManifestAsync(DataWorldLayout layout)

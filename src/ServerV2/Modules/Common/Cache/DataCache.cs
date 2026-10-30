@@ -25,5 +25,7 @@ public abstract class DataCache<T>
     /// <summary>默认按值比较，嵌套数组或分块数据可覆盖。</summary>
     protected virtual bool ContentEquals(T left, T right) => EqualityComparer<T>.Default.Equals(left, right);
     /// <summary>只在所属 Actor 确认仓库保存成功后更新基线。</summary>
-    internal void AcceptSaved() { Saved = Value; _hasSaved = true; }
+    internal void AcceptSaved() => AcceptSaved(Value);
+    /// <summary>只接受已实际保存的捕获值，保存期间的后续提交仍待写。</summary>
+    internal void AcceptSaved(T value) { Saved = Normalize(value); _hasSaved = true; }
 }

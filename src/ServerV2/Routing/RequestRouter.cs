@@ -36,17 +36,20 @@ internal sealed class RequestRouter
             };
             return new(reply, null, request is EnterWorld selected ? selected.RoleId : null);
         }
-        if (request is Gm or MoveItem or EquipItem)
+        if (request is Gm or MoveItem or EquipItem or DropItem or PickupItem)
         {
             if (session.Username is null || session.RoleId <= 0) throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "尚未进入角色");
             var account = _modules.Login(session.Username);
             IMessage reply = request switch
             {
+                DropItem drop => await account.Ask<DropItemRt>(drop, call).ConfigureAwait(false),
+                PickupItem pickup => await account.Ask<PickupItemRt>(pickup, call).ConfigureAwait(false),
                 Gm gm => await account.Ask<GmRt>(gm, call).ConfigureAwait(false),
                 MoveItem moveItem => await account.Ask<MoveItemRt>(moveItem, call).ConfigureAwait(false),
                 EquipItem equip => await account.Ask<EquipItemRt>(equip, call).ConfigureAwait(false),
                 _ => throw new InvalidOperationException()
             };
+            if (request is PickupItem) return new(reply, null);
             var items = await _modules.Role(session.RoleId).Ask<ActorProtocol.GetRoleItemsRt>(new ActorProtocol.GetRoleItems()).ConfigureAwait(false);
             return new(reply, null, ItemNotice: new() { RoleId = items.RoleId, Bag = items.Bag, Equipment = items.Equipment });
         }

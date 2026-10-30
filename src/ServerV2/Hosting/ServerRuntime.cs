@@ -43,7 +43,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
 
     /// <summary>接管已显式组装的模块目录。</summary>
     internal ServerRuntime(ServerModules modules)
-    { _modules = modules; Router = new(modules); if (modules.SupportsMovement) World = new(modules, Report); }
+    { _modules = modules; Router = new(modules); if (modules.SupportsMovement) World = new(modules, _items, Report); }
     /// <summary>可选多人调度器，旧处理表验收不装配移动能力。</summary>
     internal WorldCoordinator? World { get; }
     /// <summary>每次时钟只等待一个完整轮次，不排队补跑。</summary>
@@ -144,15 +144,17 @@ internal sealed class ServerRuntime : IAsyncDisposable
             }
             if (request is ResyncWorld && World is not null)
             { await World.ResyncAsync(session, snapshot, envelope.RequestId).ConfigureAwait(false); return; }
-            if (request is Gm or MoveItem or EquipItem or EnterWorld)
+            if (request is Gm or MoveItem or EquipItem or DropItem or PickupItem or EnterWorld)
             { await _items.WaitAsync().ConfigureAwait(false); itemGate = true; }
-            itemRequest = request is Gm or MoveItem or EquipItem;
+            if (request is EnterWorld && _modules.GroundItemsPending) await _modules.FlushAsync().ConfigureAwait(false);
+            itemRequest = request is Gm or MoveItem or EquipItem or DropItem or PickupItem;
             var call = World?.Call(snapshot, request is Move || itemRequest) ?? new DataActorCall(snapshot.ConnectionId.Value, snapshot.Generation, snapshot.AuthEpoch);
             if (itemRequest) call = call with { PreserveResult = true };
             var result = await Router.RouteAsync(snapshot, request, call).ConfigureAwait(false);
-            if (result.ItemNotice is { } notice && session.IsCurrent(snapshot, true))
+            if (request is DropItem) _modules.GroundItemsPending = true;
+            if (result.ItemNotice is { } notice && session.IsCurrent(snapshot, true) && _modules.Calls.IsCurrent(call))
                 session.Complete(snapshot, Codec.Encode(notice, snapshot.Generation, 0, false));
-            if (itemRequest && session.IsCurrent(snapshot, true) && World is not null) World.Moved(snapshot);
+            if (itemRequest && session.IsCurrent(snapshot, true) && _modules.Calls.IsCurrent(call) && World is not null) World.Moved(snapshot);
             response = result.Message; bindUsername = result.BindUsername; bindRoleId = result.BindRoleId;
             if (World is not null && response is EnterWorldRt entry)
             {

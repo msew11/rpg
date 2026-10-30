@@ -35,6 +35,8 @@ internal sealed class WorldActor : ModuleActor<WorldContext>
     /// <summary>邮箱内直接保存，成功才接受基线；失败保留对象和待写块。</summary>
     protected override async ValueTask<object?> DispatchAsync(WorldContext context, object message)
     {
+        if (message is DataCaptureWorldSave) return new DataWorldSave(context.Cache.Layout, context.Cache.Snapshot(), context.Cache.DirtyChunks);
+        if (message is DataAcceptWorldSave accepted) { context.Cache.Objects.AcceptSaved(accepted.Save.Snapshot.Objects); return true; }
         if (message is DataWorldMembership membership) { context.Cache.Roles.Membership(membership.RoleId, membership.Online); return true; }
         if (message is not DataFlush) return await base.DispatchAsync(context, message).ConfigureAwait(false);
         var dirty = context.Cache.DirtyChunks;

@@ -160,6 +160,16 @@ internal sealed class ItemRules
         return new(tables.Role with { NextInstanceId = nextId ?? tables.Role.NextInstanceId }, items,
             items.Where(item => EquipmentSlotUtil.TryGetSlot(Items[item.ItemId].Category, Items[item.ItemId].SubCategory, out _)).Select(item => new DataEquipment { InstanceId = item.InstanceId }).ToImmutableArray());
     }
+    /// <summary>只减少背包内持有数量，销毁与丢弃共用候选校验。</summary>
+    internal DataRoleSnapshot Remove(DataRoleSnapshot tables, long instanceId, int count)
+    {
+        Validate(tables);
+        var source = tables.Items.SingleOrDefault(item => item.InstanceId == instanceId && !item.Equipped);
+        if (source is null || count <= 0 || count > source.Count) throw new ArgumentException("持有物品或数量无效");
+        var items = tables.Items.Where(item => item.InstanceId != instanceId);
+        if (count < source.Count) items = items.Append(source with { Count = source.Count - count });
+        var candidate = WithItems(tables, items); Validate(candidate); return candidate;
+    }
     /// <summary>按最新目标格移动、堆叠或交换。</summary>
     public DataRoleSnapshot Move(DataRoleSnapshot tables, long instanceId, int destination)
     {

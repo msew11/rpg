@@ -27,6 +27,8 @@ internal sealed class LoginActor : ModuleActor<LoginContext>
     /// <summary>取号和保存由基础设施在同邮箱串行准备，Handler 只提交内存。</summary>
     protected override async ValueTask<object?> DispatchAsync(LoginContext context, object message)
     {
+        if (message is DataCaptureLoginSave) return new DataLoginSave(_username, context.Cache.Snapshot().Summaries, context.Cache.SummariesDirty);
+        if (message is DataAcceptLoginSave accepted) { context.Cache.Summaries.AcceptSaved(accepted.Save.Summaries); return true; }
         if (message is ProtocolV2.CreateRole create)
         {
             context.Cache.Summaries.ValidateCreation(create.Name, (RoleGender)create.Gender, create.HeadId);

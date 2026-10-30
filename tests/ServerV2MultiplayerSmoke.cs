@@ -62,6 +62,24 @@ public partial class ServerV2MultiplayerSmoke : MainController
             await Until(() => GameServices.Session.Bag.Items.Count == 1);
             GameServices.Session.EquipItem(GameServices.Session.Bag.Items.Single().InstanceId, Rpg.Const.EquipmentSlot.MainHand, 999, 999);
             await Until(() => GameServices.Session.Equipment.Items.Count == 1 && GameServices.Session.RemoteRoles.Values.Single().Equipment.Items.Count == 1);
+            // server-v2-ground-items：真实跨进程地面转移，静止观察者也能看到增删。
+            await Until(() => GameServices.World.RoleTarget is null);
+            if (Host)
+            {
+                GameServices.Session.SendGm("item 1014");
+                await Until(() => GameServices.Session.Bag.Items.Count == 1);
+                GameServices.Session.DropItem(GameServices.Session.Bag.Items.Single().InstanceId, 1, 999, position: GameServices.World.SelectGroundDropPosition());
+                await Until(() => GameServices.Session.Map!.Objects.Count == 1 && GameServices.Session.Bag.Items.Count == 0);
+                File.WriteAllText(Path.Combine(Root, "host-ground-ready"), "地面物品已创建");
+                await Until(() => File.Exists(Path.Combine(Root, "client-picked-up")) && GameServices.Session.Map!.Objects.Count == 0);
+            }
+            else
+            {
+                await Until(() => File.Exists(Path.Combine(Root, "host-ground-ready")) && GameServices.Session.Map!.Objects.Count == 1);
+                GameServices.World.PickupItem(GameServices.Session.Map!.Objects.Keys.Single());
+                await Until(() => GameServices.Session.Bag.Items.Count == 1 && GameServices.Session.Map!.Objects.Count == 0);
+                File.WriteAllText(Path.Combine(Root, "client-picked-up"), "跨进程拾取已完成");
+            }
             var remoteId = GameServices.World.RemoteActors.Single().RoleId;
             if (FindChild("RemoteRole" + remoteId, true, false) is null) throw new InvalidOperationException("远端ActorView未呈现");
             var name = Host ? "host" : "client"; var other = Host ? "client" : "host";

@@ -44,8 +44,14 @@ message AdvanceRole {
 message AdvanceRoleRt {
   // 后续轮次继续调度。
   bool moving = 1;
+  // 在邮箱外进入物品串行入口完成拾取。
+  bool pickup_ready = 2;
 }
 
 // 查询接收角色的最新完整物品。
 message GetRoleItems {}
 message GetRoleItemsRt { int64 role_id = 1; rpg.v2.BagPb bag = 2; rpg.v2.RoleWorldEquipmentPb equipment = 3; }
+
+// 完成接收角色的待拾取意图，空结果表示待到达或已取消。
+message CompleteRolePickup {}
+message CompleteRolePickupRt { rpg.v2.PickupItemResultNotice result = 1; }

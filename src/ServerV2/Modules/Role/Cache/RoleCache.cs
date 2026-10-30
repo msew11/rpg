@@ -6,6 +6,8 @@ namespace Rpg.ServerV2.Modules.Role.Cache;
 /// <summary>角色邮箱独占的三表工作区，不执行 IO。</summary>
 public sealed class RoleCache
 {
+    /// <summary>当前待完成的拾取，新的移动或控制屏障静默清除。</summary>
+    internal DataRolePickup? Pickup { get; set; }
     /// <summary>临时移动领域，不参与三表落盘。</summary>
     public DataCacheMovement Movement { get; }
     /// <summary>位置与装备共同维护的公开投影状态。</summary>

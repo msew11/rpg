@@ -17,6 +17,7 @@ internal sealed class MoveHandler : IActorHandler<RoleContext, Move, MoveRt>
         if (request.ActionId == 0 || request.Target is not { } target || !float.IsFinite(target.X) || !float.IsFinite(target.Y) ||
             target.X < 0 || target.Y < 0 || target.X >= (long)map.Width * map.TileSize || target.Y >= (long)map.Height * map.TileSize)
             throw new ServerRequestException(ErrorCodePb.InvalidRequest, "移动目标或动作编号无效");
+        if (request.ActionId > cache.Movement.Value.AcknowledgedAction) cache.Pickup = null;
         cache.Movement.Advance(cache.Role, context.Call!.ServerTimeMs, context.Call.MovementSpeed);
         cache.Movement.Move(cache.Role, request.ActionId, target.X, target.Y);
         await AdvanceRoleHandler.ProjectAsync(context).ConfigureAwait(false);
@@ -33,7 +34,8 @@ internal sealed class AdvanceRoleHandler : IActorHandler<RoleContext, AdvanceRol
         context.Cache.Movement.Advance(context.Cache.Role, request.ServerTimeMs, request.MovementSpeed);
         await ProjectAsync(context).ConfigureAwait(false);
         var value = context.Cache.Movement.Value;
-        return new AdvanceRoleRt { Moving = value.TargetX.HasValue || context.Cache.Projection.Value.Pending };
+        return new AdvanceRoleRt { Moving = value.TargetX.HasValue || context.Cache.Projection.Value.Pending || context.Cache.Pickup is not null,
+            PickupReady = GroundItemsHandler.Ready(context) };
     }
     /// <summary>向 World 独占转交最新完整公开状态，失败留待下一轮重试。</summary>
     internal static async Task ProjectAsync(RoleContext context)

@@ -75,4 +75,8 @@ message MapAoiDeltaPb {
   repeated MapChunkPb entered_chunks = 2;
   // 离开订阅的块。
   repeated MapChunkCoordPb left_chunks = 3;
+  // 交集块对象增量。
+  repeated MapObjectPb upserted_objects = 4;
+  // 交集块中移除的对象。
+  repeated string removed_object_ids = 5;
 }

@@ -43,8 +43,8 @@ public sealed class SessionService : Service
     public bool UsesWorldFrames => _useV2;
     /// <summary>当前传输是否禁用角色物品写入。</summary>
     public bool IsWorldReadOnly => !_net.CanWriteItems;
-    /// <summary>地面写操作尚待独立迁移。</summary>
-    public bool CanWriteGroundItems => !_useV2;
+    /// <summary>当前传输是否支持地面物品交互。</summary>
+    public bool CanWriteGroundItems => _net.CanWriteItems;
     /// <summary>当前账号拥有的网络代次。</summary>
     private long _generation;
 
@@ -274,6 +274,12 @@ public sealed class SessionService : Service
         EnsureActive();
         if (!CanWriteGroundItems) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
+        if (_useV2)
+        {
+            var v2 = new ProtocolV2.DropItem { InstanceId = instanceId, Count = count, Destroy = destroy };
+            if (position is { } target) { v2.DropX = target.X; v2.DropY = target.Y; }
+            _net.Send(v2); return;
+        }
         var request = new DropItem { RoleId = RoleId, InstanceId = instanceId, Count = count, ExpectedRevision = expectedRevision, Destroy = destroy };
         if (position is { } point) { request.DropX = point.X; request.DropY = point.Y; }
         _net.Send(request);
@@ -285,6 +291,7 @@ public sealed class SessionService : Service
         EnsureActive();
         if (!CanWriteGroundItems) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
+        if (_useV2) { _net.Send(new ProtocolV2.PickupItem { ObjectId = objectId.ToString("N"), MoveActionId = checked((ulong)moveActionId) }); return; }
         _net.Send(new PickupItem { RoleId = RoleId, ObjectId = objectId.ToString("N"),
             ExpectedObjectRevision = objectRevision, ExpectedBagRevision = Bag.Revision, MoveActionId = moveActionId });
     }
