@@ -20,10 +20,6 @@ public sealed class NetService : Service
     internal LogService Log { get; }
     /// <summary>当前使用的可替换传输。</summary>
     private INetTransport _transport;
-    /// <summary>显式 V2 模式下由本 Net 拥有的服务端子服务；旧链路为空。</summary>
-    private readonly MockServerService? _mockServer;
-    /// <summary>当前 Net 拥有的 V2 服务入口，不另建全局服务注册。</summary>
-    public MockServerService? MockServer => _mockServer;
     /// <summary>协议版本由装配指定，不依赖本地服务器是否存在。</summary>
     public bool IsV2 { get; private set; }
     /// <summary>当前连接是否由登录界面配置。</summary>
@@ -36,30 +32,38 @@ public sealed class NetService : Service
     public void DisconnectClient()
     {
         ThrowIfDisposed();
-        if (!UsesTcp) return;
+        if (_transport is not TcpClientTransport tcp) return;
         _transport.Received -= OnReceived; _transport.Dispose();
-        var transport = new TcpClientTransport(); transport.ResetSession(_generation);
+        var transport = new TcpClientTransport(tcp.ServerService); transport.ResetSession(_generation);
         _transport = transport; _transport.Received += OnReceived;
     }
-    /// <summary>创建默认 V2 网络，服务器保持为空。</summary>
-    public NetService(EnvService env, EventBusService eventBus, ConfigService config, LogService log)
-        : this(new TcpClientTransport(), eventBus, log)
-    { IsV2 = true; _mockServer = new MockServerService(env, config); }
+    /// <summary>借用已装配的服务器服务，创建默认 V2 TCP 网络，不启动服务器。</summary>
+    public NetService(MockServerService mockServer, EventBusService eventBus, LogService log)
+        : this(CreateTcpTransport(mockServer, eventBus, log), eventBus, log) { IsV2 = true; }
+    /// <summary>先验证借用依赖，再创建传输，避免失败时遗留资源。</summary>
+    private static INetTransport CreateTcpTransport(MockServerService mockServer, EventBusService eventBus, LogService log)
+    {
+        ArgumentNullException.ThrowIfNull(mockServer);
+        ObjectDisposedException.ThrowIf(mockServer.IsDisposed, mockServer);
+        ValidateDependencies(eventBus, log);
+        return new TcpClientTransport(mockServer);
+    }
     /// <summary>已有本机服务器是否需要配置切换确认。</summary>
-    public bool RequiresServerStop(ConnectionOptions options) => _mockServer?.Server is { } server && (!options.HostServer || server.Port != options.Port);
+    public bool RequiresServerStop(ConnectionOptions options) => _transport is TcpClientTransport tcp && tcp.ServerService.Server is { } server && (!options.HostServer || server.Port != options.Port);
     /// <summary>确认配置后连接，失败不停止相同配置的本机服务器。</summary>
     public async System.Threading.Tasks.Task ConnectAsync(ConnectionOptions options, bool stopExisting = false)
     {
         ThrowIfDisposed(); options.Validate();
-        if (!IsV2 || _mockServer is null) throw new InvalidOperationException("当前宿主不支持 TCP 配置");
+        if (_transport is not TcpClientTransport tcp) throw new InvalidOperationException("当前宿主不支持 TCP 配置");
+        var mockServer = tcp.ServerService;
         if (RequiresServerStop(options))
         {
             if (!stopExisting) throw new InvalidOperationException("切换配置需要确认停止原服务器");
             _transport.Received -= OnReceived; _transport.Dispose();
-            await _mockServer.StopAsync();
+            await mockServer.StopAsync();
         }
-        if (options.HostServer) await _mockServer.StartAsync(options.Port);
-        var candidate = new TcpClientTransport(); candidate.ResetSession(_generation);
+        if (options.HostServer) await mockServer.StartAsync(options.Port);
+        var candidate = new TcpClientTransport(mockServer); candidate.ResetSession(_generation);
         try { await candidate.ConnectAsync(options.HostServer ? "127.0.0.1" : options.Ip, options.Port); }
         catch { candidate.Dispose(); throw; }
         _transport.Received -= OnReceived; _transport.Dispose();
@@ -97,9 +101,8 @@ public sealed class NetService : Service
     /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>
     internal NetService(INetTransport transport, EventBusService eventBus, LogService log)
     {
-        ArgumentNullException.ThrowIfNull(eventBus);
-        ObjectDisposedException.ThrowIf(eventBus.IsDisposed, eventBus);
-        ObjectDisposedException.ThrowIf(log.IsDisposed, log);
+        ArgumentNullException.ThrowIfNull(transport);
+        ValidateDependencies(eventBus, log);
         Log = log;
         _eventBus = eventBus;
         _transport = transport;
@@ -107,9 +110,18 @@ public sealed class NetService : Service
         _transport.Received += OnReceived;
     }
 
-    /// <summary>显式接入 V2 并接管服务生命周期；迁移完成前不替换默认旧入口。</summary>
-    public NetService(MockServerService mockServer, EventBusService eventBus, LogService log)
-        : this(CreateV2Transport(mockServer, eventBus, log), eventBus, log) { _mockServer = mockServer; IsV2 = true; }
+    /// <summary>隔离回归显式选择进程内 V2 传输，不接管服务器服务。</summary>
+    internal static NetService CreateInProcess(MockServerService mockServer, EventBusService eventBus, LogService log)
+        => new(CreateV2Transport(mockServer, eventBus, log), eventBus, log) { IsV2 = true };
+
+    /// <summary>统一拒绝缺失或已释放的网络前置服务。</summary>
+    private static void ValidateDependencies(EventBusService eventBus, LogService log)
+    {
+        ArgumentNullException.ThrowIfNull(eventBus);
+        ArgumentNullException.ThrowIfNull(log);
+        ObjectDisposedException.ThrowIf(eventBus.IsDisposed, eventBus);
+        ObjectDisposedException.ThrowIf(log.IsDisposed, log);
+    }
 
     /// <summary>先验证服务依赖，再建立连接，避免非法装配遗留连接。</summary>
     private static INetTransport CreateV2Transport(MockServerService server, EventBusService eventBus, LogService log)
@@ -127,7 +139,7 @@ public sealed class NetService : Service
     public void Send(IMessage request)
     {
         ThrowIfDisposed();
-        if (UsesTcp && _mockServer?.Server is not null && request is Rpg.ProtocolV2.Login login &&
+        if (_transport is TcpClientTransport tcp && tcp.ServerService.Server is not null && request is Rpg.ProtocolV2.Login login &&
             (login.Username.Trim().ToLowerInvariant() != "admin" || login.Password != "123"))
             throw new InvalidOperationException("服务器模式必须使用 admin/123 登录");
         var id = checked(++_revision);
@@ -193,9 +205,9 @@ public sealed class NetService : Service
         ThrowIfDisposed();
         if (_transport is TcpClientTransport tcp)
         {
-            if (_mockServer?.Server is null) return;
+            if (tcp.ServerService.Server is null) return;
             Tick(0); tcp.WaitResponsesAsync().GetAwaiter().GetResult();
-            _mockServer.FlushAsync().GetAwaiter().GetResult(); return;
+            tcp.ServerService.FlushAsync().GetAwaiter().GetResult(); return;
         }
         if (_transport is not IServerWriteBackTransport local) return;
         Tick(0); local.FlushServerWrites();
@@ -213,13 +225,9 @@ public sealed class NetService : Service
         }
         finally
         {
-            try { _mockServer?.Dispose(); }
-            finally
-            {
-                _outbound.Clear();
-                _inbound.Clear();
-                Error = null;
-            }
+            _outbound.Clear();
+            _inbound.Clear();
+            Error = null;
         }
     }
 

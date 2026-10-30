@@ -14,7 +14,7 @@ V2 在 `src/ServerV2` 独立开发，默认客户端使用 V2 TCP；旧 Server �
 
 | 目录 | 负责的事 |
 | --- | --- |
-| `Hosting` | 可空 MockServerService 所有权、独立 MockServer、TCP 监听与 ServerRuntime 装配 |
+| `Hosting` | GameServices 持有的 MockServerService 与可空服务器实例、独立 MockServer、TCP 监听与 ServerRuntime 装配 |
 | `Connections` | 连接 ID、会话代次、账号与当前角色绑定、每连接串行入口和输出队列 |
 | `Protocol` | 显式协议方向表、protobuf 编解码、统一错误 |
 | `ActorProtocol/Generated` | 由 protov2/actor 生成的内部消息，不进入客户端编解码注册表 |
@@ -38,13 +38,13 @@ NetService <-- connection output queue <-- response codec <-- result
 
 配置经模块装配和 Actor 必填构造参数传入 Context。LoginContext、RoleContext、WorldContext 继承 `Modules/Common/ModuleContext`，Handler 统一通过 `context.Config` 读取，例如 `context.Config.Basic.Value`、`context.Config.Item.Items`。Handler 不持有 ConfigService 字段或配置构造参数，也不访问全局服务。Config 在构造时保证非空，不再支持省略配置的测试装配；账号 Context 也必须接收完整的加载摘要。模块集成测试使用真实配置并在 Godot 宿主执行，通用邮箱和文件仓库测试仍可独立运行。
 
-不同服务使用各自注入的配置实例；Config 属性不可替换，配置释放后读取会失败。Context、Actor 和 MockServerService 都不释放借用的配置，配置所有者应在 Net 关闭后释放。默认 LoginHandler 验证 admin、demo1、demo2 / 123，规范账号键参与匹配、密码原样匹配；正式认证尚未实现。创建和删除摘要归同一 LoginActor，成功回复完整可见列表，失败使用 ErrorRt。
+不同服务使用各自注入的配置实例；Config 属性不可替换，配置释放后读取会失败。Context、Actor 和 MockServerService 都不释放借用的配置，配置所有者应在 Net 和 MockServerService 均关闭后释放。默认 LoginHandler 验证 admin、demo1、demo2 / 123，规范账号键参与匹配、密码原样匹配；正式认证尚未实现。创建和删除摘要归同一 LoginActor，成功回复完整可见列表，失败使用 ErrorRt。
 
 `ServerModules` 拥有目录、身份定位和生命周期，并实现窄 `IActorLocator`：`Login(string)`、`Role(long)`、`World(int)` 仅返回 `ActorRef`。三个 Actor 和 Context 均由构造必需注入此依赖，Context 通过只读 `Actors` 借用，不负责释放，不使用全局 locator 或可空回填。只定位分片不触发 INIT。不同服务的 Context 只定位本服务目录；目录工厂在 Get 时才执行，因此装配中可以捕获所属 ServerModules。
 
 空请求、回复回调、保存快照在各自公开入口拒绝，避免入队或文件 IO 后才发现缺失。内部非空依赖不再逐层兜底；匿名账号、尚未启动或停止的任务、通知无回复、连接屏障无载荷、无效代次及回滚原文件缺失仍以可空值表达。JSON 根 null 的读取检查与已释放状态检查属于边界契约，继续保留。
 
-V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Net 接管服务，负责序列化、排队、固定帧拉取输出及释放；传输只关闭自己绑定的连接。Env 与 Config 的所有者在 Net 释放后再释放它们。当前 `GameServices.Initialize()` 默认使用 V2 TCP，Net 构造仅创建空的服务器持有服务；显式进程内构造只服务隔离测试，不增加全局 MockServer 注册。
+V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`，使用真实 TCP。`GameServices.Initialize()` 在 Setting 之后、Net 之前创建空的 `MockServerService`，公开只读 `GameServices.MockServer`，统一在 Net 之后、Setting 之前释放。Net 与传输只借用该服务；单独释放 Net 只关闭玩家连接，服务器仍监听和调度。内部 `NetService.CreateInProcess(...)` 只服务显式回归。所有 Service 构造依赖使用非空类型并检查空值与释放状态，不在服务内访问 GameServices。
 
 ## 身份和协议
 
@@ -134,7 +134,7 @@ godot-mono --path . res://tests/server_v2_role_management.tscn
 
 创建、删除不启动 RoleActor/WorldActor，不产生角色三表或地图文件。摘要沿用周期、显式 Flush、关闭补写和失败重试；成功响应表示内存提交，强杀可能丢失未落地变更。进入世界先检查未删除账号归属，再加载或首次创建三表；不读取旧存档。
 
-独立场景通过测试工厂注册完整服务组，Net 拥有 V2 服务，Session 和 LoginCache 按显式 V2 模式使用新协议，不转译旧消息。每个客户端仅一个账号或进入操作在途；缓存完整验证并原子替换后才通知页面，失败保留列表与命名草稿并解除等待，返回登录切换代次。角色页面复用现有预览，进入按钮启用，世界在首份全量帧后支持移动，物品窗口保持只读。自动验收入口为 tests/server_v2_role_management_smoke.tscn，tools/check.ps1 -Tests 会运行真实鼠标按钮流程。
+独立场景通过测试工厂注册完整服务组，GameServices 统一拥有 V2 服务，Net 仅借用，Session 和 LoginCache 按显式 V2 模式使用新协议，不转译旧消息。每个客户端仅一个账号或进入操作在途；缓存完整验证并原子替换后才通知页面，失败保留列表与命名草稿并解除等待，返回登录切换代次。角色页面复用现有预览，进入按钮启用，世界在首份全量帧后支持移动，物品窗口保持只读。自动验收入口为 tests/server_v2_role_management_smoke.tscn，tools/check.ps1 -Tests 会运行真实鼠标按钮流程。
 
 ## 进入世界与初始展示
 

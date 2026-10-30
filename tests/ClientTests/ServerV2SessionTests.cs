@@ -202,7 +202,7 @@ public sealed class ServerV2SessionTests : IDisposable
         session.CreateRole("只读角色", RoleGender.Female, 17); PumpUntil(() => !session.AccountRequestPending);
         var roleId = session.Roles.Single().RoleId;
         session.SelectRole(roleId); GameServices.Net.Tick(0);
-        await GameServices.Net.MockServer!.FlushAsync();
+        await GameServices.MockServer.FlushAsync();
         session.Logout();
         for (var i = 0; i < 3; i++) GameServices.Net.Tick(0);
         Assert.False(session.HasRole); Assert.Empty(session.Roles);

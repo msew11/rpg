@@ -71,6 +71,7 @@ public sealed class SessionService : Service
     public SessionService(NetService net)
     {
         ArgumentNullException.ThrowIfNull(net);
+        ObjectDisposedException.ThrowIf(net.IsDisposed, net);
         _net = net;
         _useV2 = net.IsV2;
         _generation = net.Generation;

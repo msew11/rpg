@@ -49,6 +49,7 @@ public sealed class ConfigService : Service
     /// <summary>显式建立具体缓存，统一加载；任一失败都回收已创建缓存并抛出异常。</summary>
     public ConfigService(EnvService env)
     {
+        ArgumentNullException.ThrowIfNull(env);
         ObjectDisposedException.ThrowIf(env.IsDisposed, env);
         _map = new MapCfgCache();
         _item = new ItemCfgCache();

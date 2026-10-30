@@ -13,10 +13,10 @@ namespace Rpg.Services;
 /// <summary>统一通信与文件提交日志，只为指定的消息标记着色。</summary>
 public sealed class LogService : Service
 {
-    /// <summary>正式运行绑定环境开关；独立格式测试可不绑定环境并始终开启。</summary>
-    private readonly EnvService? _env;
+    /// <summary>正式运行读取环境开关，独立格式测试使用常开委托。</summary>
+    private readonly Func<bool> _enabled;
     /// <summary>当前是否允许生成日志内容，网络层据此跳过日志专用解码。</summary>
-    public bool Enabled => !IsDisposed && (_env?.ConsoleLogEnabled ?? true);
+    public bool Enabled => !IsDisposed && _enabled();
 
     /// <summary>富文本输出端，测试可替换为文本收集器。</summary>
     private readonly Action<string> _output;
@@ -28,18 +28,22 @@ public sealed class LogService : Service
     private static readonly JsonSerializerOptions MessageJsonOptions = CreateMessageJsonOptions();
 
     /// <summary>正式运行绑定环境开关，将日志送入 Godot 控制台。</summary>
-    public LogService(EnvService env) : this(text => GD.PrintRich(text), text => GD.Print(text), env)
+    public LogService(EnvService env) : this(text => GD.PrintRich(text), env, text => GD.Print(text)) { }
+
+    /// <summary>隔离验收注入输出端；不绑定环境时常开，便于独立验证格式。</summary>
+    internal LogService(Action<string> output, Action<string>? plainOutput = null)
+    {
+        _enabled = () => true;
+        _output = output ?? throw new ArgumentNullException(nameof(output));
+        _plainOutput = plainOutput ?? output;
+    }
+
+    /// <summary>隔离验收绑定非空环境服务，保留可替换输出端。</summary>
+    internal LogService(Action<string> output, EnvService env, Action<string>? plainOutput = null) : this(output, plainOutput)
     {
         ArgumentNullException.ThrowIfNull(env);
         ObjectDisposedException.ThrowIf(env.IsDisposed, env);
-    }
-
-    /// <summary>隔离验收注入输出端；不绑定环境时常开，便于独立验证格式。</summary>
-    internal LogService(Action<string> output, Action<string>? plainOutput = null, EnvService? env = null)
-    {
-        _env = env;
-        _output = output ?? throw new ArgumentNullException(nameof(output));
-        _plainOutput = plainOutput ?? output;
+        _enabled = () => env.ConsoleLogEnabled;
     }
 
     /// <summary>在传输发送前记录请求尝试，只有请求标记为绿色。</summary>

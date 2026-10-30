@@ -2,13 +2,15 @@
 
 ## 当前阶段：客户端基础纵切
 
+- [x] 统一服务器服务生命周期：GameServices 创建空 MockServerService、注入 Net 并逆序释放；所有 Service 依赖非空，Net 提前释放不关闭服务器，登录时才创建 MockServer。
+
 - [x] V2 第三批多人移动：默认admin/123服务器模式、demo1/demo2客户端账号；角色编号隔离，20Hz权威移动和10Hz九块AOI，运行时控制接管/离线/迟到任务隔离，位置目标速度整体同步。客户端原子世界帧、预测限流、远端插值、缺口重同步与踢出回登录；双Godot进程真实TCP和千连接分组基线通过，密集同区负载单独记录。物品写业务仍待迁移。
 
 - [x] V2 真实网络托管：MockServer 提取并按登录模式延迟创建，纯客户端连接远程 IP/端口；异步 TCP、大端分帧、有界输出、超时和远程代次适配。本机服务器独立后台检测保存，登录失败和返回登录保留服务器；默认入口切换 V2，本地写回等待 TCP 响应屏障。多人移动与 AOI 推送现已接入。
 
 - [x] V2 第二批进入世界：EnterWorld/EnterWorldRt 与角色、背包、地图共享结构；Login → Role → World 可信链路、摘要先保存、三表全缺失首次建档与部分缺失拒绝、初始九块及边缘裁剪。客户端原子接纳并展示只读地图、人物、HUD、背包装备，返回选角及切角重启恢复；本地写回复用既有能力，无退出或保存网络协议。该批交付时默认仍为旧 Server；第三批已切换 V2 并开放移动，物品写业务待迁移。
 
-- [x] 并行 Server V2 框架：独立 protov2 四字段信封、统一错误与登录摘要协议；类型化 Actor 邮箱、按账号/角色/地图分片、连接会话与迟到结果隔离；MockServerService 借用 ConfigService 并由 NetService 持有，固定帧拉取输出。账号摘要使用 username.role_summary.json，真实认证与世界写操作仍待实现，演示账号摘要业务见迁移条目；默认客户端继续使用旧链路。结构与接入见 docs/server-v2.md。
+- [x] 并行 Server V2 框架：独立 protov2 四字段信封、统一错误与登录摘要协议；类型化 Actor 邮箱、按账号/角色/地图分片、连接会话与迟到结果隔离；MockServerService 借用 ConfigService 并由 GameServices 统一持有，NetService 仅借用，固定帧拉取输出。账号摘要使用 username.role_summary.json，真实认证与世界写操作仍待实现，演示账号摘要业务见迁移条目；默认客户端继续使用旧链路。结构与接入见 docs/server-v2.md。
 
 - [x] V2 Handler 与配置入口：业务处理器归各模块 Handler 目录；Context.Config 统一提供宿主配置，处理器不保存配置依赖，多实例与释放边界保持隔离。必需配置、模块和账号摘要改为非空构造契约，缺失依赖及无效保存输入在入口拒绝，可选工厂一次补齐。
 

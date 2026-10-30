@@ -29,6 +29,8 @@ public sealed class SettingService : Service
     /// <summary>从环境指定的目录载入本次启动的系统设置。</summary>
     public SettingService(EnvService env, LogService log)
     {
+        ArgumentNullException.ThrowIfNull(env);
+        ArgumentNullException.ThrowIfNull(log);
         ObjectDisposedException.ThrowIf(env.IsDisposed, env);
         ObjectDisposedException.ThrowIf(log.IsDisposed, log);
         _log = log;

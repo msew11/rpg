@@ -13,6 +13,44 @@ namespace ClientTests;
 [Trait("Runtime", "Godot")]
 public sealed class GameServicesTests
 {
+    /// <summary>验证 game-services 的服务器统一注册：启动为空、Net提前释放不连带释放、整体句柄统一结束。</summary>
+    [Fact]
+    public void ServerServiceBelongsToCompleteRegistrationAndOutlivesNet()
+    {
+        using var lifetime = GameServices.Initialize();
+        var server = GameServices.MockServer;
+        Assert.Null(server.Server);
+        Assert.False(server.IsDisposed);
+        GameServices.Net.Dispose();
+        Assert.Same(server, GameServices.MockServer);
+        Assert.False(server.IsDisposed);
+        lifetime.Dispose();
+        Assert.True(server.IsDisposed);
+        Assert.Throws<InvalidOperationException>(() => GameServices.MockServer);
+    }
+
+    /// <summary>验证 game-services 所有公开服务构造的非空依赖契约，避免空值延迟到业务阶段报错。</summary>
+    [Fact]
+    public void EveryPublicServiceConstructorRejectsNullDependencies()
+    {
+        using var lifetime = Register(new DoubleNetTransport());
+        var dependencies = typeof(GameServices).GetProperties()
+            .Where(property => typeof(IService).IsAssignableFrom(property.PropertyType))
+            .ToDictionary(property => property.PropertyType, property => property.GetValue(null));
+        foreach (var type in dependencies.Keys)
+            foreach (var constructor in type.GetConstructors())
+            {
+                var parameters = constructor.GetParameters();
+                for (var index = 0; index < parameters.Length; index++)
+                {
+                    var arguments = parameters.Select(parameter => dependencies[parameter.ParameterType]).ToArray();
+                    arguments[index] = null;
+                    var error = Assert.Throws<System.Reflection.TargetInvocationException>(() => constructor.Invoke(arguments));
+                    Assert.Equal(parameters[index].Name, Assert.IsType<ArgumentNullException>(error.InnerException).ParamName);
+                }
+            }
+    }
+
     /// <summary>验证 game-services 的正式启动无参，公开服务构造只声明服务依赖。</summary>
     [Fact]
     public void PublicInitializationAndConstructorsExposeOnlyServiceDependencies()
@@ -515,7 +553,7 @@ public sealed class GameServicesTests
     {
         using var lifetime = Register(new DoubleNetTransport());
         IService[] services = [GameServices.Env, GameServices.Log, GameServices.Config, GameServices.Setting, GameServices.EventBus,
-            GameServices.Net, GameServices.Session, GameServices.World, GameServices.Animation, GameServices.Items];
+            GameServices.MockServer, GameServices.Net, GameServices.Session, GameServices.World, GameServices.Animation, GameServices.Items];
         Assert.All(services, service => Assert.False(service.IsDisposed));
         lifetime.Dispose();
         Assert.All(services, service => Assert.True(service.IsDisposed));

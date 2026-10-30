@@ -22,26 +22,32 @@ public sealed class ServerV2TcpTests : IDisposable
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _root);
         using var config = new ConfigService(env);
         using var events = new EventBusService(); using var log = new LogService(_ => { });
-        using var host = new NetService(env, events, config, log);
-        Assert.True(host.IsV2); Assert.Null(host.MockServer!.Server); Assert.False(Directory.Exists(_root));
+        using var hostHolder = new MockServerService(env, config);
+        using var host = new NetService(hostHolder, events, log);
+        Assert.True(host.IsV2); Assert.Null(hostHolder.Server); Assert.False(Directory.Exists(_root));
         var port = FreePort(); await host.ConnectAsync(new(true, Port: port));
-        var server = host.MockServer.Server; Assert.NotNull(server);
-        await host.ConnectAsync(new(true, Port: port)); Assert.Same(server, host.MockServer.Server);
+        var server = hostHolder.Server; Assert.NotNull(server);
+        await host.ConnectAsync(new(true, Port: port)); Assert.Same(server, hostHolder.Server);
         using var remoteEvents = new EventBusService();
-        using var remote = new NetService(env, remoteEvents, config, log);
-        await remote.ConnectAsync(new(false, "127.0.0.1", port)); Assert.Null(remote.MockServer!.Server);
+        using var remoteHolder = new MockServerService(env, config);
+        using var remote = new NetService(remoteHolder, remoteEvents, log);
+        await remote.ConnectAsync(new(false, "127.0.0.1", port)); Assert.Null(remoteHolder.Server);
         var replies = 0; using var listener = remoteEvents.Subscribe<LoginRt>(_ => replies++);
         remote.ResetSession(); remote.ResetSession(); remote.Send(new Login { Username = "demo1", Password = "123" });
         remote.Tick(0);
         await Task.Delay(100); Assert.Equal(0, replies);
         var limit = DateTime.UtcNow.AddSeconds(5);
         while (replies == 0 && DateTime.UtcNow < limit) { remote.Tick(0); await Task.Delay(1); }
-        Assert.Equal(1, replies); Assert.Null(remote.MockServer.Server);
-        remote.FlushServerWrites(); Assert.Same(server, host.MockServer.Server);
-        host.DisconnectClient(); Assert.Same(server, host.MockServer.Server); Assert.False(server!.IsDisposed);
-        await host.ConnectAsync(new(true, Port: port)); Assert.Same(server, host.MockServer.Server);
+        Assert.Equal(1, replies); Assert.Null(remoteHolder.Server);
+        remote.FlushServerWrites(); Assert.Same(server, hostHolder.Server);
+        host.DisconnectClient(); Assert.Same(server, hostHolder.Server); Assert.False(server!.IsDisposed);
+        await host.ConnectAsync(new(true, Port: port)); Assert.Same(server, hostHolder.Server);
         Assert.Throws<InvalidOperationException>(() => host.Send(new Login { Username = "demo1", Password = "123" }));
         host.Send(new Login { Username = "admin", Password = "123" }); host.Tick(0);
+        host.Dispose();
+        Assert.False(hostHolder.IsDisposed); Assert.False(server.IsDisposed);
+        await remote.ConnectAsync(new(false, "127.0.0.1", port));
+        Assert.Same(server, hostHolder.Server);
     }
     /// <summary>实际 socket 接受代次跳号，同请求号在不同连接返回各自的响应。</summary>
     [Fact]

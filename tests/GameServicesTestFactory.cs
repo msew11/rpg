@@ -18,10 +18,10 @@ internal static class GameServicesTestFactory
     /// <summary>以独立目录建立服务组，失败时回收测试创建的全部实例。</summary>
     internal static IDisposable Register(EnvService env) => Register(env, false);
 
-    /// <summary>独立 V2 验收仍注册完整服务组，由 Net 拥有模拟服务端。</summary>
+    /// <summary>独立 V2 验收注册完整服务组，统一持有模拟服务端。</summary>
     internal static IDisposable RegisterV2(EnvService env) => Register(env, true);
 
-    /// <summary>仅测试装配选择协议版本，生产无参启动保持旧链路。</summary>
+    /// <summary>仅测试装配选择进程内协议版本，生产无参启动使用 V2 TCP。</summary>
     private static IDisposable Register(EnvService env, bool useV2)
     {
         ArgumentNullException.ThrowIfNull(env);
@@ -38,16 +38,11 @@ internal static class GameServicesTestFactory
             created.Add(config);
             var setting = new SettingService(env, log);
             created.Add(setting);
-            NetService net;
-            if (useV2)
-            {
-                var server = MockServerService.CreateInProcess(env, config);
-                created.Add(server);
-                net = new NetService(server, eventBus, log);
-            }
-            else net = NetService.CreateLegacy(env, eventBus, config, log);
+            var server = useV2 ? MockServerService.CreateInProcess(env, config) : new MockServerService(env, config);
+            created.Add(server);
+            var net = useV2 ? NetService.CreateInProcess(server, eventBus, log) : NetService.CreateLegacy(env, eventBus, config, log);
             created.Add(net);
-            return Register(env, eventBus, config, setting, net);
+            return Register(env, eventBus, config, setting, server, net);
         }
         catch
         {
@@ -59,10 +54,19 @@ internal static class GameServicesTestFactory
     /// <summary>成功后接管测试显式提供的依赖，失败时仅回收本方法创建的服务。</summary>
     internal static IDisposable Register(EnvService env, EventBusService eventBus, ConfigService config, SettingService setting, NetService net)
     {
+        var server = new MockServerService(env, config);
+        try { return Register(env, eventBus, config, setting, server, net); }
+        catch { server.Dispose(); throw; }
+    }
+
+    /// <summary>接管测试显式创建的服务器服务和网络，失败时保留传入实例所有权。</summary>
+    internal static IDisposable Register(EnvService env, EventBusService eventBus, ConfigService config, SettingService setting, MockServerService server, NetService net)
+    {
         ArgumentNullException.ThrowIfNull(env);
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(setting);
         ArgumentNullException.ThrowIfNull(net);
+        ArgumentNullException.ThrowIfNull(server);
         ObjectDisposedException.ThrowIf(env.IsDisposed, env);
         ObjectDisposedException.ThrowIf(net.IsDisposed, net);
         if (GameServices.IsInitialized) throw new InvalidOperationException("GameServices 已初始化");
@@ -79,7 +83,7 @@ internal static class GameServicesTestFactory
             created.Add(animation);
             var items = new ItemAssetService();
             created.Add(items);
-            return GameServices.Register(env, net.Log, eventBus, config, setting, net, session, world, animation, items);
+            return GameServices.Register(env, net.Log, eventBus, config, setting, server, net, session, world, animation, items);
         }
         catch
         {

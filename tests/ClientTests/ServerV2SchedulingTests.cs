@@ -110,7 +110,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         var modules = new ServerModules(config, repo, new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
             .Register<Login, LoginRt>(new ServerV2WriteBackTests.DoubleMutatingLoginHandler(entered, release.Task)));
         using var server = new MockServerService(env, modules);
-        using var net = new NetService(server, events, log);
+        using var net = NetService.CreateInProcess(server, events, log);
         net.Send(new Login { Username = "alice" });
         var flushing = Task.Run(net.FlushServerWrites);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));

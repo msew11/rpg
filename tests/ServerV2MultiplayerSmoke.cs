@@ -6,6 +6,7 @@ using Godot;
 using Rpg.Config;
 using Rpg.Net;
 using Rpg.Services;
+using Rpg.ServerV2.Hosting;
 using Rpg.Settings;
 using Rpg.UI;
 
@@ -23,8 +24,9 @@ public partial class ServerV2MultiplayerSmoke : MainController
     {
         var env = new EnvService(Path.Combine(Root, Host ? "host-settings" : "client-settings"), Path.Combine(Root, "server"));
         var events = new EventBusService(); var config = new ConfigService(env); var log = new LogService(_ => { });
-        var setting = new SettingService(env, log); var net = new NetService(env, events, config, log);
-        return GameServicesTestFactory.Register(env, events, config, setting, net);
+        var setting = new SettingService(env, log); var server = new MockServerService(env, config);
+        var net = new NetService(server, events, log);
+        return GameServicesTestFactory.Register(env, events, config, setting, server, net);
     }
     /// <summary>通过同一UI事件提交登录和角色创建，退出前验证远端ActorView。</summary>
     public override async void _Ready()
@@ -41,7 +43,7 @@ public partial class ServerV2MultiplayerSmoke : MainController
             FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "登录").EmitSignal(Button.SignalName.Pressed);
             await Until(() => GameServices.Session.IsLoggedIn);
             if (Host) File.WriteAllText(Path.Combine(Root, "host-ready"), "ready");
-            else if (GameServices.Net.MockServer!.Server is not null) throw new InvalidOperationException("纯客户端创建了服务器");
+            else if (GameServices.MockServer.Server is not null) throw new InvalidOperationException("纯客户端创建了服务器");
             ((Button)FindChild("OpenCreateRole", true, false)).EmitSignal(Button.SignalName.Pressed);
             await Frames(); ((Button)FindChild("SubmitCreate", true, false)).EmitSignal(Button.SignalName.Pressed);
             ((LineEdit)FindChild("RoleName", true, false)).Text = Host ? "服务器玩家" : "客户端玩家";

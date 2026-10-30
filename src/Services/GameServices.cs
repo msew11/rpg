@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.ExceptionServices;
 using Rpg.Config;
 using Rpg.Net;
+using Rpg.ServerV2.Hosting;
 using Rpg.Session;
 using Rpg.Settings;
 using Rpg.World;
@@ -37,6 +38,8 @@ public static class GameServices
     public static SettingService Setting => Current.Setting;
     /// <summary>当前完整注册中的事件域。</summary>
     public static EventBusService EventBus => Current.EventBus;
+    /// <summary>本次启动统一持有的本机服务器服务，服务器实例在登录时创建。</summary>
+    public static MockServerService MockServer => Current.MockServer;
     /// <summary>固定帧网络请求与消息分发。</summary>
     public static NetService Net => Current.Net;
     /// <summary>账号与当前角色会话。</summary>
@@ -65,7 +68,9 @@ public static class GameServices
             created.Add(config);
             var setting = new SettingService(env, log);
             created.Add(setting);
-            var net = new NetService(env, eventBus, config, log);
+            var mockServer = new MockServerService(env, config);
+            created.Add(mockServer);
+            var net = new NetService(mockServer, eventBus, log);
             created.Add(net);
             var session = new SessionService(net);
             created.Add(session);
@@ -75,7 +80,7 @@ public static class GameServices
             created.Add(animation);
             var items = new ItemAssetService();
             created.Add(items);
-            return Register(env, log, eventBus, config, setting, net, session, world, animation, items);
+            return Register(env, log, eventBus, config, setting, mockServer, net, session, world, animation, items);
         }
         catch (Exception error)
         {
@@ -92,15 +97,15 @@ public static class GameServices
 
     /// <summary>验证并接管完整服务组，仅注册现成实例，不创建服务。</summary>
     internal static IDisposable Register(EnvService env, LogService log, EventBusService eventBus, ConfigService config,
-        SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation, ItemAssetService items)
+        SettingService setting, MockServerService mockServer, NetService net, SessionService session, WorldService world, AnimationService animation, ItemAssetService items)
     {
-        foreach (var service in new IService[] { env, log, eventBus, config, setting, net, session, world, animation, items })
+        foreach (var service in new IService[] { env, log, eventBus, config, setting, mockServer, net, session, world, animation, items })
         {
             ArgumentNullException.ThrowIfNull(service);
             ObjectDisposedException.ThrowIf(service.IsDisposed, service);
         }
         if (_current is not null) throw new InvalidOperationException("GameServices 已初始化，请先释放原服务句柄");
-        return _current = new Registration(env, log, eventBus, config, setting, net, session, world, animation, items);
+        return _current = new Registration(env, log, eventBus, config, setting, mockServer, net, session, world, animation, items);
     }
 
     /// <summary>一次启动的所有权句柄，只保存服务实例并负责释放。</summary>
@@ -116,6 +121,8 @@ public static class GameServices
         public ConfigService Config { get; }
         /// <summary>先就绪的设置服务。</summary>
         public SettingService Setting { get; }
+        /// <summary>先于网络创建、后于网络释放的服务器持有服务。</summary>
+        public MockServerService MockServer { get; }
         /// <summary>会话与世界借用的网络服务。</summary>
         public NetService Net { get; }
         /// <summary>先于世界创建的账号服务。</summary>
@@ -131,13 +138,14 @@ public static class GameServices
 
         /// <summary>保存已按依赖顺序创建的完整服务组。</summary>
         public Registration(EnvService env, LogService log, EventBusService eventBus, ConfigService config,
-            SettingService setting, NetService net, SessionService session, WorldService world, AnimationService animation, ItemAssetService items)
+            SettingService setting, MockServerService mockServer, NetService net, SessionService session, WorldService world, AnimationService animation, ItemAssetService items)
         {
             Env = env;
             Log = log;
             EventBus = eventBus;
             Config = config;
             Setting = setting;
+            MockServer = mockServer;
             Net = net;
             Session = session;
             World = world;
@@ -152,7 +160,7 @@ public static class GameServices
             _disposed = true;
             if (ReferenceEquals(_current, this)) _current = null;
             var errors = new List<Exception>();
-            foreach (var service in new IService[] { Items, Animation, World, Session, Net, Setting, Config, EventBus, Log, Env })
+            foreach (var service in new IService[] { Items, Animation, World, Session, Net, MockServer, Setting, Config, EventBus, Log, Env })
             {
                 try { service.Dispose(); }
                 catch (Exception error) { errors.Add(error); }

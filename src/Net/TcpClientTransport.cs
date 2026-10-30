@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using Rpg.ServerV2.Hosting;
 using Codec = Rpg.ServerV2.Protocol.MessageCodec;
 
 namespace Rpg.Net;
@@ -15,6 +16,15 @@ namespace Rpg.Net;
 /// <summary>真实客户端传输；后台记录响应屏障，固定帧交付消息。</summary>
 internal sealed class TcpClientTransport : INetTransport
 {
+    /// <summary>借用统一装配的非空服务器服务，传输关闭不释放服务。</summary>
+    internal MockServerService ServerService { get; }
+    /// <summary>绑定同次启动的服务器持有服务，服务器实例可以尚未启动。</summary>
+    internal TcpClientTransport(MockServerService server)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        ObjectDisposedException.ThrowIf(server.IsDisposed, server);
+        ServerService = server;
+    }
     /// <summary>本次套接字生命周期。</summary>
     private readonly CancellationTokenSource _stop = new();
     /// <summary>套接字连接。</summary>

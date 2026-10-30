@@ -7,7 +7,7 @@ using Rpg.ServerV2.Modules;
 
 namespace Rpg.ServerV2.Hosting;
 
-/// <summary>Net 拥有的服务器持有服务；构造时不创建服务器。</summary>
+/// <summary>由 GameServices 统一装配及释放的服务器持有服务；构造时不创建服务器。</summary>
 public sealed class MockServerService : Service, IAsyncDisposable
 {
     /// <summary>借用环境与配置，仅在登录启动服务器时使用。</summary>

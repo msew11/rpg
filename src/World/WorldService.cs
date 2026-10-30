@@ -71,6 +71,14 @@ public sealed class WorldService : Service
     /// <summary>显式绑定同次启动服务，世界操作由 UI 协调调用。</summary>
     public WorldService(EnvService env, ConfigService config, SettingService setting, SessionService session)
     {
+        ArgumentNullException.ThrowIfNull(env);
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(setting);
+        ArgumentNullException.ThrowIfNull(session);
+        ObjectDisposedException.ThrowIf(env.IsDisposed, env);
+        ObjectDisposedException.ThrowIf(config.IsDisposed, config);
+        ObjectDisposedException.ThrowIf(setting.IsDisposed, setting);
+        ObjectDisposedException.ThrowIf(session.IsDisposed, session);
         _env = env;
         _session = session;
         _setting = setting;

@@ -10,7 +10,7 @@ namespace Rpg.Net;
 /// <summary>Net 对 V2 服务的字节适配，后台只入服务端队列，接收监听只在 Tick 执行。</summary>
 internal sealed class MockServerV2Transport : INetTransport, IServerWriteBackTransport
 {
-    /// <summary>借用 Net 拥有的子服务，传输释放只关闭自己的连接。</summary>
+    /// <summary>借用统一装配的服务器服务，传输释放只关闭自己的连接。</summary>
     private readonly MockServerService _server;
     /// <summary>此传输唯一绑定的服务端连接。</summary>
     private readonly DataConnectionId _connection;
@@ -51,7 +51,7 @@ internal sealed class MockServerV2Transport : INetTransport, IServerWriteBackTra
         if (generation <= 0 || (ulong)generation != checked(_generation + 1)) throw new ArgumentOutOfRangeException(nameof(generation));
         _generation = _server.ResetSession(_connection);
     }
-    /// <summary>使此连接失效并排空其任务；服务本身由 Net 统一释放。</summary>
+    /// <summary>使此连接失效并排空其任务；服务本身由整体所有者释放。</summary>
     public void Dispose()
     {
         if (_disposed) return;

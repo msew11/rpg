@@ -9,17 +9,17 @@ using Rpg.Services;
 
 namespace ClientTests;
 
-/// <summary>在真实引擎中验证 openspec/specs/server-v2-account 的配置借用、Net 收发与所有权。</summary>
+/// <summary>在真实引擎中验证 openspec/specs/server-v2-account 的配置借用、Net 收发与借用边界。</summary>
 [Trait("Runtime", "Godot")]
 public sealed class ServerV2ServiceTests : IDisposable
 {
     /// <summary>真实服务测试使用隔离存档，不依赖工作目录。</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rpg-v2-service-" + Guid.NewGuid());
-    /// <summary>默认入口拒绝错误凭据，注入处理器验证固定帧分发及所有权。</summary>
+    /// <summary>默认入口拒绝错误凭据，注入处理器验证固定帧分发及借用生命周期。</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void NetOwnsV2ServiceAndPublishesOnlyDuringItsTick(bool successfulHandler)
+    public async Task NetBorrowsV2ServiceAndPublishesOnlyDuringItsTick(bool successfulHandler)
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
@@ -29,9 +29,8 @@ public sealed class ServerV2ServiceTests : IDisposable
             ? new MockServerService(env, new ServerModules(config, new DoubleServerV2Repo(), new DoubleServerV2Repo(), new DoubleServerV2Repo(), _ => new ActorHandlers<LoginContext>()
                 .Register<Login, LoginRt>(new ServerV2NetworkTests.DoubleLoginHandler())))
             : MockServerService.CreateInProcess(env, config);
-        using var net = new NetService(server, events, log);
+        using var net = NetService.CreateInProcess(server, events, log);
         Assert.Same(config, server.Config);
-        Assert.Same(server, net.MockServer);
         var messages = 0;
         var thread = Environment.CurrentManagedThreadId;
         using var success = events.Subscribe<LoginRt>(_ => { Assert.Equal(thread, Environment.CurrentManagedThreadId); messages++; });
@@ -49,10 +48,11 @@ public sealed class ServerV2ServiceTests : IDisposable
         net.ResetSession();
         net.Tick(0);
         net.Dispose();
-        Assert.True(server.IsDisposed);
+        Assert.False(server.IsDisposed);
         Assert.False(config.IsDisposed);
         Assert.NotEmpty(config.Map.Items);
-        Assert.Throws<ObjectDisposedException>(() => server.OpenConnection());
+        var next = server.OpenConnection();
+        await server.CloseConnectionAsync(next);
         Assert.Throws<ObjectDisposedException>(() => net.Send(new Login()));
         net.Dispose();
         server.Dispose();
