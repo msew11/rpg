@@ -115,6 +115,8 @@ public partial class GameHud : Control
     public event Action<bool>? GroundItemInfoChanged;
     /// <summary>通知世界表现更新 GM 实体锚点调试样式。</summary>
     public event Action<bool, Color>? AnchorMarkersChanged;
+    /// <summary>通知地图表现更新 GM 逻辑 chunk 边界。</summary>
+    public event Action<bool, Color>? ChunkBoundariesChanged;
     /// <summary>当前世界会话的地面物品信息显示状态。</summary>
     private bool _groundItemInfoVisible;
 
@@ -452,21 +454,37 @@ public partial class GameHud : Control
         consoleLog.Toggled += enabled => SetConsoleLogging(consoleLog, enabled);
         gm.AddChild(consoleLog);
         var anchorRow = new HBoxContainer { Name = "EntityAnchorControls" };
+        anchorRow.AddChild(new Label { Text = "显示物体锚点", SizeFlagsHorizontal = SizeFlags.ExpandFill });
         var showAnchors = new CheckButton
         {
-            Name = "ShowEntityAnchors", Text = "显示物体锚点",
+            Name = "ShowEntityAnchors", TooltipText = "显示物体锚点",
             ButtonPressed = GameServices.Env.ShowEntityAnchors
         };
         var anchorColor = new ColorPickerButton
         {
             Name = "EntityAnchorColor", Color = Colors.Yellow,
-            CustomMinimumSize = new Vector2(42, 32), TooltipText = "物体锚点颜色"
+            CustomMinimumSize = new Vector2(32, 28), TooltipText = "物体锚点颜色"
         };
+        CompactColorPicker(anchorColor);
         showAnchors.Toggled += visible => SetAnchorMarkersVisible(showAnchors, visible, anchorColor.Color);
         anchorColor.ColorChanged += color => AnchorMarkersChanged?.Invoke(showAnchors.ButtonPressed, color);
-        anchorRow.AddChild(showAnchors);
         anchorRow.AddChild(anchorColor);
+        anchorRow.AddChild(showAnchors);
         gm.AddChild(anchorRow);
+        var chunkRow = new HBoxContainer { Name = "ChunkBoundaryControls" };
+        chunkRow.AddChild(new Label { Text = "显示 chunk 边缘", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        var chunkColor = new ColorPickerButton
+        {
+            Name = "ChunkBoundaryColor", Color = Colors.Green,
+            CustomMinimumSize = new Vector2(32, 28), TooltipText = "chunk 边缘颜色"
+        };
+        CompactColorPicker(chunkColor);
+        var showChunks = new CheckButton { Name = "ShowChunkBoundaries", TooltipText = "显示 chunk 边缘" };
+        showChunks.Toggled += visible => ChunkBoundariesChanged?.Invoke(visible, chunkColor.Color);
+        chunkColor.ColorChanged += color => ChunkBoundariesChanged?.Invoke(showChunks.ButtonPressed, color);
+        chunkRow.AddChild(chunkColor);
+        chunkRow.AddChild(showChunks);
+        gm.AddChild(chunkRow);
         var flushRow = new HBoxContainer();
         flushRow.AddChild(new Label { Text = "Server 落地检测（秒，0 关闭）" });
         var flushInterval = new SpinBox
@@ -617,6 +635,15 @@ public partial class GameHud : Control
             toggle.SetPressedNoSignal(GameServices.Env.ShowEntityAnchors);
             _networkError.Text = $"无法保存 .env 锚点设置：{error.Message}";
         }
+    }
+
+    /// <summary>收紧 GM 调试颜色面板的宽度和辅助控件。</summary>
+    private static void CompactColorPicker(ColorPickerButton button)
+    {
+        var picker = button.GetPicker();
+        picker.CustomMinimumSize = new Vector2(240, 0);
+        picker.ColorModesVisible = false;
+        picker.PresetsVisible = false;
     }
 
     /// <summary>动态解析应用用户数据根目录，在系统文件管理器中打开其内容。</summary>

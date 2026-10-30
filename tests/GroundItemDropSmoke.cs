@@ -14,7 +14,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验证 openspec/specs/ground-item-drop 的真实地图点击、数量确认、地面表现和重启恢复。</summary>
+/// <summary>验证 openspec/specs/ground-item-drop、client-ui 的地面操作、GM 调试布局与重启恢复。</summary>
 public partial class GroundItemDropSmoke : Node
 {
     /// <summary>通过隔离配置及真实界面验证两侧同步与表现生命周期。</summary>
@@ -140,6 +140,28 @@ public partial class GroundItemDropSmoke : Node
             var gmPanel = (Control)main.FindChild("GM", true, false);
             var anchorToggle = (CheckButton)gmPanel.FindChild("ShowEntityAnchors", true, false);
             var anchorColor = (ColorPickerButton)gmPanel.FindChild("EntityAnchorColor", true, false);
+            // client-ui/client-config-map：GM 逻辑 chunk 边界与锚点同行布局，并即时切换颜色。
+            var consoleToggle = (CheckButton)gmPanel.FindChild("ConsoleLogEnabled", true, false);
+            var chunkToggle = (CheckButton)gmPanel.FindChild("ShowChunkBoundaries", true, false);
+            var chunkColor = (ColorPickerButton)gmPanel.FindChild("ChunkBoundaryColor", true, false);
+            var boundaries = (ChunkBoundaryView)main.FindChild("ChunkBoundaries", true, false);
+            Check(!chunkToggle.ButtonPressed && !boundaries.Visible && chunkColor.Color == Colors.Green,
+                "GM chunk 边界默认状态错误");
+            Check(Mathf.Abs(anchorToggle.GlobalPosition.X + anchorToggle.Size.X -
+                (consoleToggle.GlobalPosition.X + consoleToggle.Size.X)) < 2 &&
+                Mathf.Abs(chunkToggle.GlobalPosition.X + chunkToggle.Size.X -
+                (consoleToggle.GlobalPosition.X + consoleToggle.Size.X)) < 2 &&
+                anchorColor.GlobalPosition.X < anchorToggle.GlobalPosition.X &&
+                chunkColor.GlobalPosition.X < chunkToggle.GlobalPosition.X,
+                "GM 颜色按钮或开关没有按控制台行右侧对齐");
+            chunkToggle.ButtonPressed = true; await Frames();
+            Check(boundaries.Visible && boundaries.LineColor == Colors.Green, "GM 未显示绿色 chunk 边界");
+            chunkColor.Color = Colors.Cyan;
+            chunkColor.EmitSignal(ColorPickerButton.SignalName.ColorChanged, Colors.Cyan);
+            await Frames();
+            Check(boundaries.LineColor == Colors.Cyan, "GM chunk 边界改色未即时生效");
+            chunkToggle.ButtonPressed = false; await Frames();
+            Check(!boundaries.Visible, "GM chunk 边界关闭后仍显示");
             Check(!anchorToggle.ButtonPressed && anchorColor.Color == Colors.Yellow, "GM 锚点默认值错误");
             anchorToggle.ButtonPressed = true; await Frames();
             var actorAnchor = actorView.GetNode<EntityAnchorView>("EntityAnchor");

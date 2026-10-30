@@ -347,7 +347,8 @@ public partial class MainController : Control
         _loginButton = null;
         _worldVisual = new Node2D { Name = "WorldVisual", YSortEnabled = true };
         AddChild(_worldVisual);
-        _worldVisual.AddChild(new MapView { Name = "MapView" });
+        var mapView = new MapView { Name = "MapView" };
+        _worldVisual.AddChild(mapView);
         _groundItems = new GroundItemsView { Name = "GroundItemsView", ZIndex = 1, YSortEnabled = true };
         _worldVisual.AddChild(_groundItems);
         _groundOverlay = new GroundItemOverlayControl(_groundItems) { Name = "GroundItemOverlay" };
@@ -369,6 +370,7 @@ public partial class MainController : Control
             _actor?.SetAnchorMarker(visible, color);
             _groundItems?.SetAnchorMarkers(visible, color);
         };
+        _hud.ChunkBoundariesChanged += mapView.SetChunkBoundaries;
         _actor.SetAnchorMarker(GameServices.Env.ShowEntityAnchors, Colors.Yellow);
         _groundItems.SetAnchorMarkers(GameServices.Env.ShowEntityAnchors, Colors.Yellow);
         _hud.ChangeRoleRequested += ReturnToRoles;

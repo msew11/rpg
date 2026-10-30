@@ -12,8 +12,21 @@ public partial class MapView : Node2D
     private const int ChunkSize = 8;
     /// <summary>当前仍需显示的地图分块。</summary>
     private readonly Dictionary<Vector2I, MapChunkView> _chunks = new();
+    /// <summary>按地图配置绘制逻辑 chunk 边界的 GM 覆盖层。</summary>
+    private readonly ChunkBoundaryView _boundaries = new() { Visible = false };
     /// <summary>上次更新时视口覆盖的分块范围。</summary>
     private (int Left, int Top, int Right, int Bottom)? _visibleChunks;
+
+    /// <summary>创建独立覆盖层，使边界线位于地表之上。</summary>
+    public override void _Ready()
+    {
+        _boundaries.Name = "ChunkBoundaries";
+        _boundaries.ZIndex = 1;
+        AddChild(_boundaries);
+    }
+
+    /// <summary>即时更新逻辑 chunk 边界的显隐和颜色。</summary>
+    public void SetChunkBoundaries(bool visible, Color color) => _boundaries.SetStyle(visible, color);
 
     /// <summary>视口进入新的分块范围时增删分块，其余帧复用已有绘制。</summary>
     public override void _Process(double delta)
@@ -37,6 +50,7 @@ public partial class MapView : Node2D
             maximum = maximum.Max(corner);
         }
         var (left, top, right, bottom) = GameServices.World.VisibleTiles(new Rect2(minimum, maximum - minimum));
+        _boundaries.SetVisibleTiles(left, top, right, bottom);
         (int Left, int Top, int Right, int Bottom) visible =
             (left / ChunkSize, top / ChunkSize, right / ChunkSize, bottom / ChunkSize);
         if (_visibleChunks == visible) return;

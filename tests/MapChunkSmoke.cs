@@ -9,7 +9,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验证 openspec/specs/client-config-map 的分块复用、视口更新和地图边缘场景。</summary>
+/// <summary>验证 openspec/specs/client-config-map 的分块复用、地图边缘和 GM chunk 边界场景。</summary>
 public partial class MapChunkSmoke : Node
 {
     /// <summary>在真实 Godot 视口内执行地图分块验收。</summary>
@@ -31,6 +31,12 @@ public partial class MapChunkSmoke : Node
             GameServices.World.InitializeRole();
             var view = new MapView();
             viewport.AddChild(view);
+            var boundaries = view.GetNode<ChunkBoundaryView>("ChunkBoundaries");
+            Check(!boundaries.Visible && boundaries.LineColor == Colors.Green, "GM chunk 边界默认状态错误");
+            view.SetChunkBoundaries(true, Colors.Cyan);
+            Check(boundaries.Visible && boundaries.LineColor == Colors.Cyan, "GM chunk 边界未即时开启或改色");
+            view.SetChunkBoundaries(false, Colors.Cyan);
+            Check(!boundaries.Visible, "GM chunk 边界关闭后仍显示");
             var camera = new Camera2D { Position = IsometricProjection.ToScreen(new Vector2(16016, 16016)) };
             viewport.AddChild(camera);
             camera.MakeCurrent();
@@ -107,7 +113,7 @@ public partial class MapChunkSmoke : Node
 
     /// <summary>记录当前活动分块及其节点身份。</summary>
     private static Dictionary<string, Node2D> Snapshot(MapView view) => view.GetChildren()
-        .OfType<Node2D>().ToDictionary(chunk => chunk.Name.ToString());
+        .OfType<MapChunkView>().ToDictionary(chunk => chunk.Name.ToString(), chunk => (Node2D)chunk);
 
     /// <summary>检查两个视口状态是否复用同一批节点。</summary>
     private static bool SameNodes(Dictionary<string, Node2D> first, Dictionary<string, Node2D> second) =>
