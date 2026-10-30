@@ -20,7 +20,12 @@ internal sealed class RemoteRoleBuffer
         {
             if (!_samples.TryGetValue(role.RoleId, out var samples)) _samples[role.RoleId] = samples = new();
             if (samples.Count > 0 && time <= samples[^1].Time) continue;
-            samples.Add(new(time, role)); if (samples.Count > 5) samples.RemoveAt(0);
+            var previous = samples.Count > 0 ? samples[^1] : null;
+            var direction = role.Position.Target is { } target ? target - role.Position.Position : Vector2.Zero;
+            if (direction == Vector2.Zero && previous is not null)
+                direction = role.Position.Position - previous.Role.Position.Position;
+            var facing = direction == Vector2.Zero ? previous?.Facing ?? Vector2.Down : direction.Normalized();
+            samples.Add(new(time, role, facing)); if (samples.Count > 5) samples.RemoveAt(0);
         }
     }
     /// <summary>所有坐标只向目标推进，不越过终点。</summary>
@@ -41,7 +46,7 @@ internal sealed class RemoteRoleBuffer
                 position = position.MoveToward(target, role.Position.Speed * (float)Math.Clamp((time - latest.Time) / 1000, 0, .1));
             var direction = role.Position.Target is { } goal ? (goal - position).Normalized() : Vector2.Zero;
             states.Add(new(role.RoleId, role.Profile.Gender, position, direction == Vector2.Zero ? RoleMotion.Stand : RoleMotion.Run,
-                direction == Vector2.Zero ? Vector2.Down : direction, 0, role.Profile.HeadId,
+                direction == Vector2.Zero ? latest.Facing : direction, 0, role.Profile.HeadId,
                 role.Equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
                 role.Equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0));
         }
@@ -49,6 +54,9 @@ internal sealed class RemoteRoleBuffer
     }
     /// <summary>角色退出后清理样本。</summary>
     internal void Clear() => _samples.Clear();
-    /// <summary>不可变权威样本。</summary>
-    private sealed record DataRemoteSample(long Time, DataPublicRole Role);
+    /// <summary>不可变权威样本，携带截至本次更新的最近有效朝向。</summary>
+    /// <param name="Time">权威采样时间。</param>
+    /// <param name="Role">当前公开角色状态。</param>
+    /// <param name="Facing">目标方向或最后位置增量推导的朝向，静止时延续。</param>
+    private sealed record DataRemoteSample(long Time, DataPublicRole Role, Vector2 Facing);
 }
