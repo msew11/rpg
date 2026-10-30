@@ -13,13 +13,16 @@ public sealed class GetWorldEntrySnapshotHandler : IActorHandler<WorldContext, G
 {
     /// <summary>只按权威位置和配置裁剪范围，不注册成员或订阅。</summary>
     public ValueTask<GetWorldEntrySnapshotRt> HandleAsync(WorldContext context, GetWorldEntrySnapshot request)
+        => ValueTask.FromResult(new GetWorldEntrySnapshotRt { Map = Build(context, request.X, request.Y) });
+    /// <summary>同一地图回合内复用初始范围投影，不进行 IO。</summary>
+    internal static MapAoiSnapshotPb Build(WorldContext context, float xPosition, float yPosition)
     {
         var layout = context.Cache.Layout;
-        if (!float.IsFinite(request.X) || !float.IsFinite(request.Y) || request.X < 0 || request.Y < 0 ||
-            request.X >= (long)layout.Width * layout.TileSize || request.Y >= (long)layout.Height * layout.TileSize)
+        if (!float.IsFinite(xPosition) || !float.IsFinite(yPosition) || xPosition < 0 || yPosition < 0 ||
+            xPosition >= (long)layout.Width * layout.TileSize || yPosition >= (long)layout.Height * layout.TileSize)
             throw new InvalidDataException("进入地图的权威位置无效");
         var size = (double)layout.TileSize * layout.ChunkSizeTiles;
-        var cx = (int)(request.X / size); var cy = (int)(request.Y / size);
+        var cx = (int)(xPosition / size); var cy = (int)(yPosition / size);
         var columns = (layout.Width - 1) / layout.ChunkSizeTiles + 1;
         var rows = (layout.Height - 1) / layout.ChunkSizeTiles + 1;
         var snapshot = new MapAoiSnapshotPb { MapId = layout.MapId,
@@ -48,6 +51,6 @@ public sealed class GetWorldEntrySnapshotHandler : IActorHandler<WorldContext, G
             else message.GroundItem = new() { ItemId = data.ItemId, Count = data.Count };
             chunk.Objects.Add(message);
         }
-        return ValueTask.FromResult(new GetWorldEntrySnapshotRt { Map = snapshot });
+        return snapshot;
     }
 }

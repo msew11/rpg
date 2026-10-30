@@ -29,9 +29,18 @@ public sealed class NetService : Service
     /// <summary>当前连接是否由登录界面配置。</summary>
     public bool UsesTcp => _transport is TcpClientTransport;
     /// <summary>当前是否支持移动；多人移动接入后启用。</summary>
-    public bool CanMove => !IsV2;
+    public bool CanMove => true;
     /// <summary>未迁移的物品、装备和 GM 写操作能力。</summary>
     public bool CanWriteItems => !IsV2;
+    /// <summary>主动返回登录时结束玩家连接，监听服务器继续运行；被踢流程不调用。</summary>
+    public void DisconnectClient()
+    {
+        ThrowIfDisposed();
+        if (!UsesTcp) return;
+        _transport.Received -= OnReceived; _transport.Dispose();
+        var transport = new TcpClientTransport(); transport.ResetSession(_generation);
+        _transport = transport; _transport.Received += OnReceived;
+    }
     /// <summary>创建默认 V2 网络，服务器保持为空。</summary>
     public NetService(EnvService env, EventBusService eventBus, ConfigService config, LogService log)
         : this(new TcpClientTransport(), eventBus, log)
@@ -118,6 +127,9 @@ public sealed class NetService : Service
     public void Send(IMessage request)
     {
         ThrowIfDisposed();
+        if (UsesTcp && _mockServer?.Server is not null && request is Rpg.ProtocolV2.Login login &&
+            (login.Username.Trim().ToLowerInvariant() != "admin" || login.Password != "123"))
+            throw new InvalidOperationException("服务器模式必须使用 admin/123 登录");
         var id = checked(++_revision);
         _outbound.Enqueue(!IsV2 ? MessageCodec.Encode(request, _generation, true, id)
             : V2Codec.Encode(request, checked((ulong)_generation), checked((ulong)id), true));

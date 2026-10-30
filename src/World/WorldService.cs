@@ -43,6 +43,20 @@ public sealed class WorldService : Service
     /// <summary>当前启动内递增的移动意图序号。</summary>
     private long _nextActionId;
 
+    /// <summary>最多保留尚未确认的发送意图，后一个目标替代前一个。</summary>
+    private readonly SortedDictionary<long, MoveAction> _intentions = new();
+    /// <summary>限流窗口内合并的最新目标。</summary>
+    private MoveAction? _pendingMove;
+    /// <summary>距离可发送下一次移动的时间。</summary>
+    private double _sendCooldown;
+    /// <summary>最后接纳世界帧。</summary>
+    private ulong _worldSequence;
+    /// <summary>当前帧接收后的客户端经过时间。</summary>
+    private double _sinceFrame;
+    /// <summary>远端角色有限插值缓冲。</summary>
+    private readonly RemoteRoleBuffer _remotes = new();
+    /// <summary>远端 ECS 呈现状态。</summary>
+    public IReadOnlyList<DataActorState> RemoteActors => _world?.RemoteActors ?? Array.Empty<DataActorState>();
     /// <summary>地图世界是否就绪。</summary>
     public bool HasWorld => _world?.HasWorld == true;
     /// <summary>角色实体是否就绪。</summary>
@@ -67,9 +81,14 @@ public sealed class WorldService : Service
     public bool HandleInput(InputEvent input, Vector2 logicalPosition)
     {
         ThrowIfDisposed();
-        if (_session.IsWorldReadOnly || _world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
+        if (!_session.CanMove || _world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
         var action = new MoveAction(++_nextActionId, MapUtils.Clamp(RequireMap(), logicalPosition));
-        _session.SubmitMove(action.ActionId, action.Destination);
+        if (_session.UsesWorldFrames)
+        {
+            _pendingMove = action; _intentions.Clear(); _intentions[action.ActionId] = action;
+            SendPendingMove();
+        }
+        else _session.SubmitMove(action.ActionId, action.Destination);
         _world.Enqueue(action);
         return true;
     }
@@ -153,6 +172,21 @@ public sealed class WorldService : Service
     {
         ThrowIfDisposed();
         if (_world is null) return;
+        if (_session.UsesWorldFrames && _session.HasRole)
+        {
+            _sendCooldown = Math.Max(0, _sendCooldown - delta); SendPendingMove();
+            _sinceFrame += delta;
+            if (_worldSequence != _session.WorldSequence)
+            {
+                _worldSequence = _session.WorldSequence; _sinceFrame = 0;
+                foreach (var id in _intentions.Keys.Where(id => id <= _session.Role.AcknowledgedAction).ToArray()) _intentions.Remove(id);
+                var target = _intentions.Count > 0 ? _intentions.Last().Value.Destination : _session.Role.Target;
+                _world.Enqueue(new SyncMovementAction(_session.Role.Position, target));
+                _remotes.Accept(_session.ServerTimeMs, _session.RemoteRoles);
+            }
+            _world.Enqueue(new SyncRemoteActorsAction(_remotes.Render(_session.ServerTimeMs + _sinceFrame * 1000 - 100)));
+            _session.ResyncMapIfNeeded();
+        }
         var snapshot = _session.Map;
         if (!ReferenceEquals(snapshot, _lastMapSnapshot))
         {
@@ -162,6 +196,16 @@ public sealed class WorldService : Service
         SyncEquipment(_world);
         _world.Tick(delta);
     }
+
+    /// <summary>每50ms最多发送最新目标，预测在点击时已经执行。</summary>
+    private void SendPendingMove()
+    {
+        if (_pendingMove is not { } move || _sendCooldown > 0 || !_session.CanMove) return;
+        _session.SubmitMove(move.ActionId, move.Destination); _pendingMove = null; _sendCooldown = .05;
+    }
+    /// <summary>切角清除旧意图、动作序号和远端样本。</summary>
+    private void ResetMovement()
+    { _nextActionId = 0; _intentions.Clear(); _pendingMove = null; _sendCooldown = 0; _worldSequence = 0; _sinceFrame = 0; _remotes.Clear(); }
 
     /// <summary>计算视口覆盖的地图格范围。</summary>
     public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area) => MapUtils.VisibleTiles(RequireMap(), area);
@@ -180,6 +224,7 @@ public sealed class WorldService : Service
     public void LeaveRole()
     {
         ThrowIfDisposed();
+        ResetMovement();
         _world = null;
         _lastMapSnapshot = null;
         _lastEquipmentSnapshot = null;
@@ -197,7 +242,8 @@ public sealed class WorldService : Service
         var map = MapUtils.CreateMap(config);
         _setting.SelectRole(_session.RoleId);
         _map = map;
-        var world = new WorldManager(() => _env.MovementSpeed);
+        ResetMovement();
+        var world = new WorldManager(() => _session.UsesWorldFrames ? (int)_session.Role.Speed : _env.MovementSpeed);
         world.Enqueue(new InitializeWorldAction(_map!));
         world.Enqueue(new InitializeRoleAction(_session.Role));
         _lastMapSnapshot = _session.Map;
@@ -233,6 +279,7 @@ public sealed class WorldService : Service
     {
         if (IsDisposed) return;
         IsDisposed = true;
+        ResetMovement();
         _world = null;
         _lastMapSnapshot = null;
         _lastEquipmentSnapshot = null;

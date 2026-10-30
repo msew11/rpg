@@ -30,8 +30,8 @@ public sealed class ServerV2RoleManagementTests : IDisposable
         await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var connection = server.OpenConnection();
-            Assert.Empty(Assert.IsType<LoginRt>(await Exchange(server, connection, Credentials(" DEMO "))).Roles);
-            Assert.Equal("demo", server.Session(connection).Username);
+            Assert.Empty(Assert.IsType<LoginRt>(await Exchange(server, connection, Credentials(" DEMO1 "))).Roles);
+            Assert.Equal("demo1", server.Session(connection).Username);
             var created = Assert.IsType<CreateRoleRt>(await Exchange(server, connection, Create(" 首个角色 ")));
             var role = Assert.Single(created.Roles);
             deletedId = role.RoleId;
@@ -46,8 +46,8 @@ public sealed class ServerV2RoleManagementTests : IDisposable
             await server.FlushAsync();
         }
         var repo = new RepoAccountRoleSummary(Path.Combine(_directory, "v2"));
-        Assert.True(Assert.Single(await repo.LoadAsync("demo")).IsDeleted);
-        Assert.Equal(new[] { "demo.role_summary.json" }, Directory.GetFiles(Path.Combine(_directory, "v2")).Select(Path.GetFileName));
+        Assert.True(Assert.Single(await repo.LoadAsync("demo1")).IsDeleted);
+        Assert.Equal(new[] { "demo1.role_summary.json" }, Directory.GetFiles(Path.Combine(_directory, "v2")).Select(Path.GetFileName));
         Assert.Empty(Directory.GetDirectories(Path.Combine(_directory, "v2")));
         await using (var server = MockServerService.CreateInProcess(env, config))
         {
@@ -56,7 +56,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
             var created = Assert.IsType<CreateRoleRt>(await Exchange(server, connection, Create("首个角色", RoleGenderPb.Female, 74)));
             Assert.Equal(deletedId + 1, Assert.Single(created.Roles).RoleId);
         }
-        Assert.Equal(2, (await repo.LoadAsync("demo")).Length);
+        Assert.Equal(2, (await repo.LoadAsync("demo1")).Length);
     }
 
     /// <summary>所有校验失败不消耗编号；名称比较、外观边界与溢出均由业务入口拒绝。</summary>
@@ -85,8 +85,8 @@ public sealed class ServerV2RoleManagementTests : IDisposable
 
     /// <summary>重新登录失败解除旧绑定，规范账号与原样密码遵循既有连接代次。</summary>
     [Theory]
-    [InlineData("demo", " demo")]
-    [InlineData("other", "demo")]
+    [InlineData("demo1", " demo")]
+    [InlineData("other", "demo1")]
     public async Task BadCredentialsClearBindingAndCannotManageRoles(string username, string password)
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
@@ -123,7 +123,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
     {
         var root = Path.Combine(_directory, "v2");
         Directory.CreateDirectory(root);
-        await File.WriteAllTextAsync(Path.Combine(root, "demo.role_summary.json"),
+        await File.WriteAllTextAsync(Path.Combine(root, "demo1.role_summary.json"),
             "[{\"roleId\":9223372036854775807,\"name\":\"已有\",\"level\":1,\"gender\":1,\"headId\":9,\"equippedItems\":[]}]");
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
@@ -143,7 +143,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
         var id = server.OpenConnection();
         await Exchange(server, id, Credentials());
         await Exchange(server, id, Create("待保存"));
-        var file = Path.Combine(_directory, "v2", "demo.role_summary.json");
+        var file = Path.Combine(_directory, "v2", "demo1.role_summary.json");
         Directory.CreateDirectory(file);
         await Assert.ThrowsAsync<AggregateException>(() => server.FlushAsync());
         Directory.Delete(file);
@@ -152,7 +152,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
         env.ServerFlushIntervalSeconds = 5;
         server.Tick(5);
         await server.PeriodicFlush;
-        Assert.True(Assert.Single(await new RepoAccountRoleSummary(Path.GetDirectoryName(file)!).LoadAsync("demo")).IsDeleted);
+        Assert.True(Assert.Single(await new RepoAccountRoleSummary(Path.GetDirectoryName(file)!).LoadAsync("demo1")).IsDeleted);
         Assert.Single(Directory.GetFiles(Path.Combine(_directory, "v2")));
     }
 
@@ -168,7 +168,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
         return MessageCodec.ReadPayload(envelope, false);
     }
     /// <summary>构造本批演示凭据。</summary>
-    private static Login Credentials(string username = "demo") => new() { Username = username, Password = "demo" };
+    private static Login Credentials(string username = "demo1") => new() { Username = username, Password = "123" };
     /// <summary>构造角色外观与名字意图，不携带账号或玩法数据。</summary>
     private static CreateRole Create(string name, RoleGenderPb gender = RoleGenderPb.Male, int head = 9) => new() { Name = name, Gender = gender, HeadId = head };
     /// <summary>只清理本例独占临时目录。</summary>

@@ -2,7 +2,15 @@
 
 ## 并行 Server V2 框架
 
-`src/ServerV2` 与 `protov2` 是独立重写的基础框架，当前默认客户端仍走旧 Server。V2 的 `MockServerService` 继承 `Service`，借用同次启动的 `EnvService` 与 `ConfigService`；显式 V2 构造的 `NetService` 拥有并释放它，负责字节队列、固定帧收发和 EventBus 发布，不增加全局服务入口。内部按 Hosting、Connections、Protocol、ActorProtocol、Routing、Runtime、Modules 分类，数据归属各自 Data 子目录，存储接口和仓库归属各模块的 Storage 子目录，共用文件工具归 Modules/Common/Storage。本地业务处理器归所属模块的 Handler 子目录，跨 Actor 编排归平级 Async 子目录，共用 IActorHandler/ActorHandlers；处理器不直接持有 ConfigService。ServerModules 拥有分片目录与生命周期，实现只返回 ActorRef 的 IActorLocator，三个模块 Context 通过必需构造注入和共用 ModuleContext 提供只读 Config/Actors 入口，借用宿主注入的同一配置实例，不使用全局配置，也不负责释放。必需配置与模块在装配入口确定，缺失或失效立即拒绝；Actor 和 Context 按非空构造契约使用，可选工厂只在入口补齐。LoginActor 改为按规范 username 分片，连接登录成功后绑定账号；Role/World 仍按身份分片。协议请求直接经邮箱交给 Handler，Handler 返回协议回复；Routing 负责身份定位与绑定元数据，协议对象在单次请求内独占并移交，持久化 Data 模型仍独立。内部 proto 按接收方模块置于 protov2/actor，使用 rpg.v2.actor/Rpg.ServerV2.ActorProtocol，独立生成到 ActorProtocol/Generated；进程内直接独占移交，不注册客户端 MessageCodec，不用作存档。Role Async Handler 按 Cache.Role.Value.MapId Ask World 查询 Cache.Objects.Value.Length；等待仍占同一源邮箱回合，禁止自身 Ask 和循环等待。V2 外部信封仅含 generation、request_id、message_type、payload；账号摘要使用 username.role_summary.json，角色采用独立三表，文件隔离在 server/v2。INIT 完成加载后发布 Context；LoginContext、RoleContext、WorldContext 仅引用所属 LoginCache、RoleCache、WorldCache 及基类借用服务。模块 Cache 组织按数据类型划分的 DataCache；DataCache 持有不可变数据值、成功保存基线并内聚数据提交和内容比较，共性归 DataCache<T>/DataCacheArray<T>。模块 Cache 提供 Snapshot()/Commit(...) 聚合导出与提交，直接修改子缓存也即时反映聚合待写状态；不可变 Snapshot 仅为仓库传输值。Actor 在邮箱内 Flush，成功后通过 Cache 接受各表新基线，失败保留待写；Repo 执行单文件原子替换与角色多表回滚恢复。World 的 DataCacheWorldObject 按块内容比较保存基线，默认数组视为空；地图采用独立 v2/maps/<mapId> 版本块文件及清单，先刷盘候选再原子替换清单，失败保留内存待写，提交后清理无引用规范块且诊断隔离。未知地图不执行存档 IO，不复用旧对象、协议或坐标范围校验。周期沿用 Env 的间隔，Net 显式保存与关闭补写等待已接纳工作；保存固定按 Role→World→Login 分组，各组内并行且失败汇总，不启动闲置分片；账号业务现已实现演示登录与摘要内创建/删除，摘要管理与业务校验归 DataCacheRoleSummary，协议映射归 Login Handler；正式认证、世界写操作和跨 Actor 事务仍待后续目标。目录职责、扩展与生命周期见 [Server V2 框架](server-v2.md)。独立 tests/server_v2_role_management.tscn 复用完整客户端服务和角色页面，Session/LoginCache 按 V2 模式处理全列表与统一错误；创建只提交 summary，删除保留摘要墓碑，角色三表在可信 EnterWorld 时首次创建或完整加载，Role → World 查询初始九块，Login 根据实际状态同步摘要。Session 在缓存阶段原子接纳角色、背包、地图和摘要，独立场景展示只读世界；返回仅调用可选本地写回能力并清理客户端，不增加退出或网络保存协议。连接角色仅成功进入且代次有效时替换，代次重置保留身份。默认入口不切换，下文原有模拟服务端、协议与落地说明仍描述旧实现。
+默认 `scenes/main.tscn` 使用 `src/ServerV2` 与 `protov2`。Net 只创建空 `MockServerService`，登录后才按模式创建独立 `MockServer` 或连接远端。服务器拥有后台 TCP、20Hz单调时钟推进、10Hz批量AOI和保存关闭流程，本机玩家与远端玩家走相同字节链路。账号admin/demo1/demo2密码123；本机服务器模式仅允许admin。角色编号按固定账号区间分配，三表不跨账号复用。
+
+运行时按账号、角色、地图分片并保持INIT/RUN/STOP和串行邮箱；Context只引用所属Cache，Cache组织不可变DataCache值，Repo在Actor边界做IO。跨Actor调用固定Login→Role→World，由Async Handler编排，World不向Role Ask。业务proto直接进入Handler，连接/认证/控制版本只在 `DataActorCall` 邮箱元数据和运行时目录中校验，不增加业务隔离字段；批量发布保留观察者到原身份的不可变映射，输出不重新套用最新绑定。
+
+Role将权威坐标提交角色基础表，目标、速度、控制和确认均为不落盘的临时缓存。World保存不可变公开角色和块索引，首次可见发完整RoleWorldStatePb，持续移动只发完整位置组。返回选角保留服务器绑定；断线、重新认证和成功切角解绑，同角色由新连接接管并踢回旧连接的登录页。独立调度只推进移动/控制变化/投影重试角色，保存关闭包含已接纳轮次。
+
+客户端由WorldSyncCache完整验证世界帧后原子接纳自身、地图和公开远端角色；序号缺口只请求一次全量。WorldService立即预测并以20Hz合并最新目标，确认后保留较新意图；其他玩家用100ms缓冲及最多100ms外推，经Action更新ECS，MainController复用ActorView呈现。默认V2只开放移动，物品、装备、拾取及GM写操作仍禁用。详细协议和运行方式见[Server V2框架](server-v2.md)。
+
+以下旧Server、物品写协议和模拟延迟的章节记录保留回归链路，尚未迁移部分不代表默认V2已开放能力。
 
 ## 服务、数据和生命周期
 
@@ -301,7 +309,7 @@ DropItem 的 destroy 字段默认 false；Session 仅发送意图。MockServer �
 
 所有角色共用十一槽位定义，新角色初始装备为空。服务端直接操作 ItemEntity 的 Equipped、EquipmentSlot 和 SlotIndex，物品缓存同时持有未穿与已穿实例；装备扩展独立以 InstanceId 关联。`ServerRoleCache.WithItems` 复用已有扩展，为新增实例创建扩展，删除实例同步移除关联；编号来自角色单例 NextInstanceId。背包与装备候选不再持有 Revision/EquipmentRevision，移动确认序号仅在 ServerSession。物品并发校验使用最近发送的私有快照信封版本。延迟落地、失败重试、离角补写和地面共同恢复继续覆盖四表；转移记录仅支持版本 2，地图 manifest/chunk 格式不变。
 
-`BagPb` 只含全部私有 ItemPb，无 reserved 或 revision。公开 `RoleWorldEquipmentPb` 只含 role_id 与 repeated int32 equipped_items，元素为 item.json 的配置 ID，不含实例编号、槽位、背包容量、格子或私有角色字段。它在 `RoleWorldStatePb` 中与资料、生命魔力、位置并列，可独立从配置分类推导展示。`RoleEquipmentNotice` 仅承载该公开快照；当前 MockServer 未实现多人连接、远端玩家生命周期或广播。选角页同样从 RoleSummaryPb.equipped_items 绘制双手，返回选角从已校验缓存刷新摘要，重新登录从磁盘快照读取。
+`BagPb` 只含全部私有 ItemPb，无 reserved 或 revision。公开 `RoleWorldEquipmentPb` 只含 role_id 与 repeated int32 equipped_items，元素为 item.json 的配置 ID，不含实例编号、槽位、背包容量、格子或私有角色字段。它在 `RoleWorldStatePb` 中与资料、生命魔力、位置并列，可独立从配置分类推导展示。`RoleEquipmentNotice` 仅承载该公开快照；旧 MockServer 的说明只适用于旧回归链路；V2 已通过独立公开缓存实现多人可见与人物生命周期。选角页同样从 RoleSummaryPb.equipped_items 绘制双手，返回选角从已校验缓存刷新摘要，重新登录从磁盘快照读取。
 
 选角在 state.equipment 返回装备配置编号，并列返回私有 role 与 bag；所有本人物品变更使用 RoleItemsChangedNotice，并列携带同次提交的完整私有物品和公开展示，仅发本人。RoleCache 完整校验身份、实例/格子唯一性和已穿配置 ID 一致性后原子接纳；旧物品信封整份忽略，非法数据报错且保留两侧旧缓存。展示内容未变化时世界跳过重复装备同步。本人装备只从选角和私有组合通知更新；公开独立/完整世界推送不能绕过原子路径，其他可见领域仍按最后接纳的信封版本合并。所有 PbData 转换输出独立协议对象，世界 ToPb 包含装备而排除背包及私有 Role。
 

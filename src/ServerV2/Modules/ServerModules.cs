@@ -21,6 +21,10 @@ namespace Rpg.ServerV2.Modules;
 /// <summary>持有三类分片目录，只负责模块装配和身份校验。</summary>
 internal sealed class ServerModules : IAsyncDisposable, IActorLocator
 {
+    /// <summary>自定义处理器表不隐式添加多人业务。</summary>
+    internal bool SupportsMovement { get; }
+    /// <summary>各分片共用本实例的运行时身份校验目录。</summary>
+    internal ActorCallRegistry Calls { get; } = new();
     /// <summary>装配入口确定的统一配置，所有分片必须借用此实例。</summary>
     internal ConfigService Config { get; }
     /// <summary>按规范账号键的分片目录。</summary>
@@ -41,15 +45,21 @@ internal sealed class ServerModules : IAsyncDisposable, IActorLocator
         ArgumentNullException.ThrowIfNull(worlds);
         ArgumentNullException.ThrowIfNull(login);
         ObjectDisposedException.ThrowIf(config.IsDisposed, config);
+        SupportsMovement = role is null && world is null;
         role ??= static _ => new ActorHandlers<RoleContext>().Register<GetRoleWorldObjectCount, GetRoleWorldObjectCountRt>(new GetRoleWorldObjectCountHandler())
-            .Register<PrepareRole, PrepareRoleRt>(new PrepareRoleHandler());
+            .Register<PrepareRole, PrepareRoleRt>(new PrepareRoleHandler())
+            .Register<ProtocolV2.Move, ProtocolV2.MoveRt>(new MoveHandler())
+            .Register<AdvanceRole, AdvanceRoleRt>(new AdvanceRoleHandler());
         world ??= static _ => new ActorHandlers<WorldContext>().Register<GetWorldObjectCount, GetWorldObjectCountRt>(new GetWorldObjectCountHandler())
-            .Register<GetWorldEntrySnapshot, GetWorldEntrySnapshotRt>(new GetWorldEntrySnapshotHandler());
+            .Register<GetWorldEntrySnapshot, GetWorldEntrySnapshotRt>(new GetWorldEntrySnapshotHandler())
+            .Register<UpdateWorldRole, UpdateWorldRoleRt>(new WorldSyncHandler())
+            .Register<BuildWorldUpdates, BuildWorldUpdatesRt>(new WorldSyncHandler())
+            .Register<GetWorldSnapshot, GetWorldSnapshotRt>(new WorldSyncHandler());
         report ??= static _ => { };
         Config = config;
-        _login = new(key => new LoginActor(config, this, key, summaries, login(key)), report);
-        _role = new(id => new RoleActor(config, this, id, roles, role(id)), report);
-        _world = new(id => new WorldActor(config, this, id, worlds, world(id)), report);
+        _login = new(key => new LoginActor(config, this, key, summaries, login(key)) { Calls = Calls }, report);
+        _role = new(id => new RoleActor(config, this, id, roles, role(id)) { Calls = Calls }, report);
+        _world = new(id => new WorldActor(config, this, id, worlds, world(id)) { Calls = Calls }, report);
     }
     /// <summary>规范化后定位账号分片，不预加载其他账号。</summary>
     public ActorRef Login(string username) => _login.Get(UsernameKey.Normalize(username));

@@ -28,6 +28,12 @@ public sealed class MockServer : IAsyncDisposable
     private Task _clock = Task.CompletedTask;
     /// <summary>当前监听端口，未监听为零。</summary>
     public int Port => _host?.Port ?? 0;
+    /// <summary>验收显式推进同一服务器权威时钟。</summary>
+    internal Task AdvanceAsync() => _runtime.AdvanceAsync();
+    /// <summary>本机负载验收读取独立逻辑轮次耗时。</summary>
+    internal WorldCoordinator? World => _runtime.World;
+    /// <summary>负载验收读取排队字节，不提供业务写入口。</summary>
+    internal long QueuedOutputBytes => _runtime.QueuedOutputBytes;
     /// <summary>绑定监听并开始后台时钟，失败时由候选实例所有者释放。</summary>
     public void Start(int port)
     {
@@ -45,6 +51,8 @@ public sealed class MockServer : IAsyncDisposable
                 {
                     var now = clock.Elapsed.TotalSeconds;
                     Tick(now - previous); previous = now;
+                    if (_runtime.World is { } world) world.Speed = _env.MovementSpeed;
+                    await _runtime.AdvanceAsync().ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (_clockStop.IsCancellationRequested) { }

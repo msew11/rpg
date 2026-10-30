@@ -69,10 +69,11 @@ public sealed class ServerV2WorldEntryTests : IDisposable
             await Login(server, two);
             Assert.Equal(second, Assert.IsType<EnterWorldRt>(await Exchange(server, two, new EnterWorld { RoleId = female })));
             var generation = server.ResetSession(one);
-            Assert.Equal(female, server.Session(one).RoleId);
+            Assert.Equal(0, server.Session(one).RoleId);
+            await Exchange(server, one, new Rpg.ProtocolV2.Login { Username = "demo1", Password = "123" }, generation);
             Assert.Equal(ErrorCodePb.RoleNotFound, Assert.IsType<ErrorRt>(await Exchange(server, one, new EnterWorld { RoleId = 99 }, generation)).Code);
-            Assert.Equal(female, server.Session(one).RoleId);
-            await Exchange(server, one, new Rpg.ProtocolV2.Login { Username = "demo", Password = "wrong" }, generation);
+            Assert.Equal(0, server.Session(one).RoleId);
+            await Exchange(server, one, new Rpg.ProtocolV2.Login { Username = "demo1", Password = "wrong" }, generation);
             Assert.Equal(0, server.Session(one).RoleId);
         }
         var repo = new RepoRole(Root);
@@ -86,7 +87,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
             Assert.Equal(37, entered.State.Status.Health);
             Assert.Equal(0, entered.State.Position.X);
             Assert.Equal(4, entered.Map.Chunks.Count);
-            var login = Assert.IsType<LoginRt>(await Exchange(server, id, new Rpg.ProtocolV2.Login { Username = "demo", Password = "demo" }));
+            var login = Assert.IsType<LoginRt>(await Exchange(server, id, new Rpg.ProtocolV2.Login { Username = "demo1", Password = "123" }));
             Assert.Equal("存档名称", login.Roles.Single(role => role.RoleId == male).Name);
             Assert.Equal(4, login.Roles.Single(role => role.RoleId == male).Level);
         }
@@ -134,7 +135,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
             Assert.Equal(3, objects.Single(value => value.ObjectId == itemObject.ObjectId.ToString("N")).Revision);
             Assert.Equal("演示怪物", objects.Single(value => value.Monster is not null).Monster.MonsterTypeId);
             await server.FlushAsync();
-            var summary = (await new RepoAccountRoleSummary(Root).LoadAsync("demo")).Single();
+            var summary = (await new RepoAccountRoleSummary(Root).LoadAsync("demo1")).Single();
             Assert.Equal(7, summary.Level); Assert.Equal(new[] { equipment.Id }, summary.EquippedItems);
         }
         foreach (var (path, bytes) in files) Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
@@ -229,7 +230,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         Assert.Equal(ErrorCodePb.RoleNotFound, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = deleted })).Code);
         Assert.False(Directory.Exists(Root));
         var owned = await Create(server, id, "待保存");
-        var blocked = Path.Combine(Root, "demo.role_summary.json");
+        var blocked = Path.Combine(Root, "demo1.role_summary.json");
         Directory.CreateDirectory(blocked);
         Assert.Equal(ErrorCodePb.InternalError, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = owned })).Code);
         Assert.Empty(Directory.GetFiles(Root));
@@ -386,13 +387,14 @@ public sealed class ServerV2WorldEntryTests : IDisposable
     {
         var number = ++_request;
         await server.ReceiveAsync(id, MessageCodec.Encode(request, generation, number, true)).WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.True(server.TryReadOutgoing(id, out var bytes));
+        byte[] bytes;
+        do { Assert.True(server.TryReadOutgoing(id, out bytes)); } while (MessageCodec.ReadEnvelope(bytes).RequestId == 0);
         var envelope = MessageCodec.ReadEnvelope(bytes);
         Assert.Equal(number, envelope.RequestId); Assert.Equal(generation, envelope.Generation);
         return MessageCodec.ReadPayload(envelope, false);
     }
     /// <summary>使用演示凭据完成当前连接认证。</summary>
-    private Task<IMessage> Login(MockServerService server, DataConnectionId id) => Exchange(server, id, new Rpg.ProtocolV2.Login { Username = "demo", Password = "demo" });
+    private Task<IMessage> Login(MockServerService server, DataConnectionId id) => Exchange(server, id, new Rpg.ProtocolV2.Login { Username = "demo1", Password = "123" });
     /// <summary>用真实摘要业务创建编号。</summary>
     private async Task<long> Create(MockServerService server, DataConnectionId id, string name, RoleGenderPb gender = RoleGenderPb.Male)
     {

@@ -12,6 +12,10 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
     int Mana, int MaxMana, int Experience, int NextExperience, Vector2 Position, RoleGender Gender,
     long Revision, long AcknowledgedAction, int HeadId = 0, int BagExtraRows = 0, int MapId = 1)
 {
+    /// <summary>权威移动目标。</summary>
+    public Vector2? Target { get; init; }
+    /// <summary>当前服务器速度。</summary>
+    public float Speed { get; init; }
     /// <summary>独立公开且只读的当前装备。</summary>
     public RoleWorldEquipmentPbData Equipment { get; init; } = RoleWorldEquipmentPbData.Empty(RoleId);
     /// <summary>最近接纳的资料版本。</summary>
@@ -55,7 +59,7 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
             System.Math.Max(System.Math.Max(profile.Revision, status.Revision),
                 System.Math.Max(position.Revision, role.Revision)),
             position.AcknowledgedAction, profile.HeadId, role.BagExtraRows, position.MapId)
-        { ProfileRevision = profile.Revision, StatusRevision = status.Revision,
+        { Target = position.Target, Speed = position.Speed, ProfileRevision = profile.Revision, StatusRevision = status.Revision,
             PositionRevision = position.Revision, RoleRevision = role.Revision, Equipment = equipment };
     }
 

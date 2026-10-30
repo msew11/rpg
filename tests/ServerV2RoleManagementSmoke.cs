@@ -28,7 +28,7 @@ public partial class ServerV2RoleManagementSmoke : Node
             await Click(LoginButton(main));
             await Until(() => !GameServices.Session.AccountRequestPending);
             Check(!GameServices.Session.IsLoggedIn && !LoginButton(main).Disabled, "错误凭据未恢复登录按钮");
-            password.Text = "demo";
+            password.Text = "123";
             await Click(LoginButton(main));
             await Until(() => main.FindChild("RoleSelectionPage", true, false) is not null);
             Check(GameServices.Session.Roles.Count == 0, "首次登录不为空");
@@ -66,7 +66,7 @@ public partial class ServerV2RoleManagementSmoke : Node
             main = null;
             await Frames();
             var root = Path.Combine(directory, "server", "v2");
-            Check(Directory.GetFiles(root).Select(Path.GetFileName).SequenceEqual(new[] { "demo.role_summary.json" }) &&
+            Check(Directory.GetFiles(root).Select(Path.GetFileName).SequenceEqual(new[] { "demo1.role_summary.json" }) &&
                 Directory.GetDirectories(root).Length == 0, "关闭未仅保存摘要");
             main = Start(directory);
             await Frames();
@@ -81,7 +81,7 @@ public partial class ServerV2RoleManagementSmoke : Node
             await Click(Button(page, "ConfirmCreate"));
             await Until(() => GameServices.Session.Roles.Count == 1);
             Check(GameServices.Session.Roles[0].RoleId == role.RoleId + 1, "墓碑编号被重用");
-            var summaryFile = Path.Combine(root, "demo.role_summary.json");
+            var summaryFile = Path.Combine(root, "demo1.role_summary.json");
             var backup = Path.Combine(directory, "summary-backup.json");
             File.Move(summaryFile, backup);
             Directory.CreateDirectory(summaryFile);
@@ -106,7 +106,7 @@ public partial class ServerV2RoleManagementSmoke : Node
             await Click(Button(main, "ReturnLogin"));
             await Frames();
             Check(!GameServices.Session.IsLoggedIn && GameServices.Session.Roles.Count == 0, "返回登录未清理缓存");
-            var saved = await new Rpg.ServerV2.Modules.Login.Storage.RepoAccountRoleSummary(root).LoadAsync("demo");
+            var saved = await new Rpg.ServerV2.Modules.Login.Storage.RepoAccountRoleSummary(root).LoadAsync("demo1");
             Check(saved.Any(summary => summary.RoleId == role.RoleId + 1 && !summary.IsDeleted),
                 "返回登录没有显式保存最新摘要");
             GD.Print("Server V2 role management smoke passed: real buttons, drafts, preview, cancellation, tombstones and restart.");

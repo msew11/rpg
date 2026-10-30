@@ -28,6 +28,8 @@ internal sealed class RoleActor : ModuleActor<RoleContext>
     /// <summary>串行保存本角色变化表，失败不改变内存和保存基线。</summary>
     protected override async ValueTask<object?> DispatchAsync(RoleContext context, object message)
     {
+        if (message is DataRoleControl control)
+        { context.Cache.Movement.Stop(context.Cache.Role, control.ServerTimeMs, control.Speed); return true; }
         if (message is ActorProtocol.PrepareRole prepare)
         {
             context.Cache.Prepare(prepare.Summary, context.Config);

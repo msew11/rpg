@@ -37,7 +37,7 @@ public partial class ServerV2WorldEntrySmoke : Node
             Check(!((LineEdit)main.FindChild("CommandInput", true, false)).Editable && Button(main, "SendCommand").Disabled, "GM 仍可提交");
             var position = GameServices.World.RolePosition;
             await ClickAt(new Vector2(750, 230)); await Frames();
-            Check(GameServices.World.RolePosition == position && GameServices.World.RoleTarget is null, "只读世界仍可移动");
+            Check(GameServices.World.RolePosition != position || GameServices.World.RoleTarget is not null, "首帧后未开放预测移动");
             await Click(TextButton(main, "背包")); await Frames();
             var bag = (BagControl)main.FindChild("背包", true, false);
             Check(bag.Visible && bag.CreateItemDrag(0).VariantType == Variant.Type.Nil, "只读背包不可用或允许拖动物品");
@@ -81,7 +81,7 @@ public partial class ServerV2WorldEntrySmoke : Node
             await ClickAt(((Control)main.FindChild("EquipmentMainHand", true, false)).GetGlobalRect().GetCenter());
             Check(bag.FindChild("PickedItemPreview", true, false) is null && GameServices.Session.Equipment.Items.Count == 1, "只读装备仍可卸下");
             await Click(TextButton(main, "角色"));
-            var summaryFile = Path.Combine(root, "demo.role_summary.json");
+            var summaryFile = Path.Combine(root, "demo1.role_summary.json");
             var backup = Path.Combine(directory, "summary-backup.json");
             File.Move(summaryFile, backup);
             Directory.CreateDirectory(summaryFile);

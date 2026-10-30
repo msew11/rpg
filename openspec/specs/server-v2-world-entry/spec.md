@@ -7,15 +7,15 @@
 ## Requirements
 
 ### Requirement: 归属与世界进入编排
-V2 SHALL 仅新增 EnterWorld/EnterWorldRt 外部操作，使用会话账号校验正数编号对应未删除摘要后才定位 RoleActor。Login SHALL 先保存待写摘要，再通过 PrepareRole 向 Role 请求；Role SHALL 向 World 查询权威位置初始范围，调用方向固定 Login → Role → World。Login SHALL 根据实际公开状态在本次业务同步摘要，再返回完整公开状态、本人私有数据、完整背包与初始范围。失败使用已有 ErrorRt，不增加错误码、退出或网络保存协议。
+V2 SHALL 使用 EnterWorld/EnterWorldRt 进入世界，使用会话账号校验正数编号对应未删除摘要后才定位 RoleActor。Login SHALL 先保存待写摘要，再通过 PrepareRole 向 Role 请求；Role SHALL 向 World 查询权威位置初始范围，调用方向固定 Login → Role → World。Login SHALL 根据实际公开状态在本次业务同步摘要，再返回完整公开状态、本人私有数据、完整背包与初始范围。失败使用已有 ErrorRt，不增加错误码、退出或网络保存协议。
 
 #### Scenario: 拒绝无归属角色
 - **WHEN** 未认证、编号非法、不属于账号或摘要已删除
 - **THEN** 返回关联错误，不定位角色分片、不生成角色文件
 
 #### Scenario: 已有角色重复进入
-- **WHEN** 同连接切换角色或多个连接只读进入同角色
-- **THEN** 返回存档原值，不重置位置、生命与物品；成功替换连接角色，失败保留原绑定
+- **WHEN** 同连接切换角色或新连接接管同角色
+- **THEN** 返回存档原值，不重置位置、生命与物品；成功替换控制绑定，失败保留原绑定
 
 ### Requirement: 可信首次建档
 Role INIT SHALL 在三表全不存在时建立尚未建档工作区；部分缺失、损坏或 null SHALL 失败且不覆盖已有文件。仅可信 PrepareRole SHALL 根据摘要与配置创建三表，全部待写并在首次进入成功前保存。失败 SHALL 保留候选及待写状态供修复重试。普通查询与周期保存 SHALL 不建档。
@@ -44,7 +44,7 @@ World SHALL 使用配置地图规格按权威逻辑像素位置返回中心及�
 
 #### Scenario: 真实按钮与返回
 - **WHEN** 通过按钮进入、查看初始世界、返回选角、切角与重启
-- **THEN** 展示与恢复成功，移动、物品、拾取及 GM 写操作不可用，窗口和设置可用
+- **THEN** 展示与恢复成功，初始全量帧后移动可用，物品、拾取及 GM 写操作不可用，窗口和设置可用
 
 ### Requirement: 本地写回与返回边界
 返回选角、登录与正常关闭 SHALL 使用既有可选本地写回能力，失败保留页面允许重试；成功清理客户端世界并切换代次，不发送退出、保存或补同步协议，不停止共享 Actor。真实服务端 SHALL 自行周期、重试及关闭保存，强杀允许丢失未落盘变更。摘要同步 SHALL 在相关业务内完成，返回选角不修正服务端数据。

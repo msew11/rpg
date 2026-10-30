@@ -47,7 +47,7 @@ public sealed class ServerV2DataCacheTests
     [Fact]
     public void SummaryCacheOwnsValidationTombstonesAndVisibleOrdering()
     {
-        var cache = new LoginCache("demo", new(default));
+        var cache = new LoginCache("demo1", new(default));
         cache.Summaries.Create("  Alpha  ", RoleGender.Male, 1);
         var created = cache.Snapshot();
         Assert.True(cache.SummariesDirty);

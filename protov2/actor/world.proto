@@ -4,6 +4,8 @@ package rpg.v2.actor;
 option csharp_namespace = "Rpg.ServerV2.ActorProtocol";
 
 import "map.proto";
+import "role.proto";
+import "world.proto";
 
 // 查询接收地图的完整动态对象数量。
 message GetWorldObjectCount {}
@@ -25,4 +27,47 @@ message GetWorldEntrySnapshot {
 message GetWorldEntrySnapshotRt {
   // 裁剪九块完整快照。
   rpg.v2.MapAoiSnapshotPb map = 1;
+}
+
+// 提交角色最新完整公开投影。
+message UpdateWorldRole {
+  // 完整公开状态。
+  rpg.v2.RoleWorldStatePb role = 1;
+  // 角色公开版本。
+  uint64 revision = 2;
+  // 本人动作确认进度。
+  uint64 acknowledged_action = 3;
+}
+// 投影接纳完成。
+message UpdateWorldRoleRt {}
+// 构建指定角色观察到的本轮变化。
+message BuildWorldUpdates {
+  // 发布单调时间。
+  int64 server_time_ms = 1;
+  // 业务观察者角色编号。
+  repeated int64 observer_role_ids = 2;
+}
+// 本轮需要发布的观察结果。
+message BuildWorldUpdatesRt {
+  // 观察结果集合。
+  repeated WorldDeliveryPb deliveries = 1;
+}
+// 某个角色的观察结果，实际连接由运行时定位。
+message WorldDeliveryPb {
+  // 观察者角色编号。
+  int64 role_id = 1;
+  // 需要发布的业务通知。
+  rpg.v2.WorldUpdateNotice notice = 2;
+}
+// 请求角色当前的完整观察快照。
+message GetWorldSnapshot {
+  // 观察者角色编号。
+  int64 role_id = 1;
+  // 快照单调时间。
+  int64 server_time_ms = 2;
+}
+// 完整权威世界帧。
+message GetWorldSnapshotRt {
+  // 仅允许全量快照。
+  rpg.v2.WorldFramePb frame = 1;
 }

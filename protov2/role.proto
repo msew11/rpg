@@ -71,6 +71,10 @@ message RoleWorldPositionPb {
   float x = 2;
   // 逻辑纵坐标。
   float y = 3;
+  // 当前目标，未设置表示停止。
+  MoveTargetPb target = 4;
+  // 当前有效移动速度，逻辑像素每秒。
+  float speed = 5;
 }
 // 不包含私有实例信息的装备展示。
 message RoleWorldEquipmentPb {
@@ -85,4 +89,19 @@ message RolePb {
   int32 next_experience = 2;
   // 额外解锁背包行数。
   int32 bag_extra_rows = 3;
+}
+
+// 移动目标的逻辑坐标。
+message MoveTargetPb {
+  // 横向目标。
+  float x = 1;
+  // 纵向目标。
+  float y = 2;
+}
+// 角色身份与整体位置增量。
+message RolePositionUpdatePb {
+  // 位置所属角色。
+  int64 role_id = 1;
+  // 完整位置组。
+  RoleWorldPositionPb position = 2;
 }

@@ -1,0 +1,29 @@
+{
+  "Connections": 1000,
+  "Dense": false,
+  "WarmupSeconds": 10,
+  "MeasureSeconds": 60,
+  "OS": "Microsoft Windows NT 10.0.26300.0",
+  "CPU": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+  "LogicalProcessors": 16,
+  "CombinedCpuPercentOneCore": 255.71793198465147,
+  "PeakWorkingSetBytes": 261853184,
+  "GCCollections": [
+    989,
+    587,
+    71
+  ],
+  "ReceivedBytes": 411094622,
+  "SentBytes": 8874000,
+  "PeakQueueBytes": 117351,
+  "FirstQueueBytes": 0,
+  "LastQueueBytes": 0,
+  "RoundP95Ms": 43.3754,
+  "FrameAgeP95Ms": 81,
+  "ActionEndToEndP95Ms": 155.4197,
+  "Frames": 525000,
+  "MinimumVisiblePlayers": 19,
+  "Disconnects": 0,
+  "Errors": [],
+  "Passed": true
+}

@@ -22,6 +22,7 @@ internal sealed class WorldEntryCache : CacheBase
     internal WorldEntryCache(LoginCache login, RoleCache role, MapCache map)
     {
         _login = login; _role = role; _map = map;
+        Subscribe<ProtocolV2.SessionKickedNotice>(_ => Cancel());
         Subscribe<ProtocolV2.EnterWorldRt>(OnEntered);
         Subscribe<ProtocolV2.ErrorRt>(_ => Cancel());
     }

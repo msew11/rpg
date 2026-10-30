@@ -21,8 +21,9 @@ public partial class GodotTestHost : Node
         {
             var assemblyPath = OS.GetCmdlineUserArgs().Single();
             _testDirectory = Path.GetDirectoryName(assemblyPath)!;
-            AssemblyLoadContext.Default.Resolving += ResolveTestDependency;
-            var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
+            var context = AssemblyLoadContext.GetLoadContext(typeof(GodotTestHost).Assembly)!;
+            context.Resolving += ResolveTestDependency;
+            var assembly = context.LoadFromAssemblyPath(assemblyPath);
             var run = assembly.GetType("ClientTests.GodotTestSuite", throwOnError: true)!.GetMethod("Run")!;
             GetTree().Quit(await (Task<int>)run.Invoke(null, null)!);
         }
@@ -31,7 +32,7 @@ public partial class GodotTestHost : Node
             GD.PushError(error.ToString());
             GetTree().Quit(1);
         }
-        finally { AssemblyLoadContext.Default.Resolving -= ResolveTestDependency; }
+        finally { AssemblyLoadContext.GetLoadContext(typeof(GodotTestHost).Assembly)!.Resolving -= ResolveTestDependency; }
     }
 
     /// <summary>共享已加载的项目和 Godot 程序集，其余测试依赖仅从测试输出目录解析。</summary>

@@ -31,13 +31,17 @@ public sealed class ServerV2TcpTests : IDisposable
         using var remote = new NetService(env, remoteEvents, config, log);
         await remote.ConnectAsync(new(false, "127.0.0.1", port)); Assert.Null(remote.MockServer!.Server);
         var replies = 0; using var listener = remoteEvents.Subscribe<LoginRt>(_ => replies++);
-        remote.ResetSession(); remote.ResetSession(); remote.Send(new Login { Username = "demo", Password = "demo" });
+        remote.ResetSession(); remote.ResetSession(); remote.Send(new Login { Username = "demo1", Password = "123" });
         remote.Tick(0);
         await Task.Delay(100); Assert.Equal(0, replies);
         var limit = DateTime.UtcNow.AddSeconds(5);
         while (replies == 0 && DateTime.UtcNow < limit) { remote.Tick(0); await Task.Delay(1); }
         Assert.Equal(1, replies); Assert.Null(remote.MockServer.Server);
         remote.FlushServerWrites(); Assert.Same(server, host.MockServer.Server);
+        host.DisconnectClient(); Assert.Same(server, host.MockServer.Server); Assert.False(server!.IsDisposed);
+        await host.ConnectAsync(new(true, Port: port)); Assert.Same(server, host.MockServer.Server);
+        Assert.Throws<InvalidOperationException>(() => host.Send(new Login { Username = "demo1", Password = "123" }));
+        host.Send(new Login { Username = "admin", Password = "123" }); host.Tick(0);
     }
     /// <summary>实际 socket 接受代次跳号，同请求号在不同连接返回各自的响应。</summary>
     [Fact]
@@ -48,10 +52,10 @@ public sealed class ServerV2TcpTests : IDisposable
         using var one = new TcpClient(); using var two = new TcpClient();
         await one.ConnectAsync(IPAddress.Loopback, port); await two.ConnectAsync(IPAddress.Loopback, port);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var packet = Codec.Encode(new Login { Username = "demo", Password = "demo" }, 5, 7, true);
+        var packet = Codec.Encode(new Login { Username = "demo1", Password = "123" }, 5, 7, true);
         using var framed = new MemoryStream(); await TcpFraming.WriteAsync(framed, packet, default);
         foreach (var value in framed.ToArray()) await one.GetStream().WriteAsync(new byte[] { value }, timeout.Token);
-        await TcpFraming.WriteAsync(two.GetStream(), Codec.Encode(new Login { Username = "demo", Password = "bad" }, 1, 7, true), timeout.Token);
+        await TcpFraming.WriteAsync(two.GetStream(), Codec.Encode(new Login { Username = "demo1", Password = "bad" }, 1, 7, true), timeout.Token);
         var first = Codec.ReadEnvelope((await TcpFraming.ReadAsync(one.GetStream(), timeout.Token))!);
         var second = Codec.ReadEnvelope((await TcpFraming.ReadAsync(two.GetStream(), timeout.Token))!);
         Assert.Equal(5UL, first.Generation); Assert.IsType<LoginRt>(Codec.ReadPayload(first, false));

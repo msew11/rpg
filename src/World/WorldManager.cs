@@ -22,6 +22,14 @@ internal sealed class WorldManager
     private readonly EntityStore _entities = new();
     /// <summary>服务器对象 GUID 对应当前世界的整数实体 ID。</summary>
     private readonly Dictionary<Guid, int> _mapEntities = new();
+    /// <summary>远端玩家单独的实体索引。</summary>
+    private readonly Dictionary<long, int> _remoteEntities = new();
+    /// <summary>从 ECS 复制的远端公开呈现状态。</summary>
+    public IReadOnlyList<DataActorState> RemoteActors => _remoteEntities.Select(pair =>
+    {
+        var role = _entities.Get<DataRoleComponent>(pair.Value); var actor = _entities.Get<DataActorComponent>(pair.Value);
+        return new DataActorState(pair.Key, role.Gender, _entities.Get<DataPositionComponent>(pair.Value).Value, actor.Motion, actor.Facing, actor.MotionVersion, role.HeadId, actor.MainHandId, actor.OffHandId);
+    }).ToArray();
     /// <summary>由当前 ECS 组件生成的只读对象集合。</summary>
     public DataWorldObjectsState? MapObjects { get; private set; }
     /// <summary>固定运行顺序的逻辑系统。</summary>
@@ -83,6 +91,7 @@ internal sealed class WorldManager
             case InitializeWorldAction world:
                 _entities.Clear();
                 _mapEntities.Clear();
+                _remoteEntities.Clear();
                 MapObjects = null;
                 _roleEntity = 0;
                 _lastConfirmedAction = 0;
@@ -100,6 +109,24 @@ internal sealed class WorldManager
                 _lastConfirmedAction = 0;
                 _roleEntity = _entities.Create(new DataRoleComponent(role.Role.RoleId, role.Role.Gender, role.Role.HeadId),
                     new DataPositionComponent(role.Role.Position), new DataMovementComponent(), new DataActorComponent());
+                break;
+            case SyncMovementAction movement:
+                if (!HasRole) return;
+                _entities.Get<DataPositionComponent>(_roleEntity).Value = movement.Position;
+                _entities.Get<DataMovementComponent>(_roleEntity).Target = movement.Target;
+                if (movement.Target is null) _entities.Get<DataActorComponent>(_roleEntity).Motion = RoleMotion.Stand;
+                break;
+            case SyncRemoteActorsAction remotes:
+                var ids = remotes.Actors.Select(item => item.RoleId).ToHashSet();
+                foreach (var pair in _remoteEntities.ToArray()) if (!ids.Contains(pair.Key)) { _entities.Remove(pair.Value); _remoteEntities.Remove(pair.Key); }
+                foreach (var remote in remotes.Actors)
+                {
+                    if (!_remoteEntities.TryGetValue(remote.RoleId, out var entity))
+                        _remoteEntities[remote.RoleId] = entity = _entities.Create(new DataRoleComponent(remote.RoleId, remote.Gender, remote.HeadId), new DataPositionComponent(remote.Position), new DataActorComponent());
+                    _entities.Get<DataPositionComponent>(entity).Value = remote.Position;
+                    var remoteRole = _entities.Get<DataRoleComponent>(entity); remoteRole.Gender = remote.Gender; remoteRole.HeadId = remote.HeadId;
+                    var remoteActor = _entities.Get<DataActorComponent>(entity); remoteActor.Motion = remote.Motion; remoteActor.Facing = remote.Facing; remoteActor.MainHandId = remote.MainHandId; remoteActor.OffHandId = remote.OffHandId;
+                }
                 break;
             case MoveAction move:
                 if (!HasRole) return;

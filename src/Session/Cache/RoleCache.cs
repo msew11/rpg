@@ -68,6 +68,13 @@ public sealed class RoleCache : CacheBase
         _role = new(state.RoleId, state.Experience, state.NextExperience, state.BagExtraRows, 0);
     }
 
+    /// <summary>世界协调器完成整批校验后接纳本人位置，不覆盖私有数据。</summary>
+    internal void AcceptPosition(RoleWorldPositionPbData position)
+    {
+        _position = position;
+        _state = State with { Position = position.Position, PositionRevision = position.Revision, AcknowledgedAction = position.AcknowledgedAction, Target = position.Target, Speed = position.Speed };
+    }
+
     /// <summary>成功选角后接纳首份快照，并检查响应身份一致。</summary>
     private void OnSelected(SelectRoleRt response)
     {

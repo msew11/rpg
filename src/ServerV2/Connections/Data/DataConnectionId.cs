@@ -11,4 +11,4 @@ public readonly record struct DataConnectionId(Guid Value);
 /// <param name="Generation">当前会话代次。</param>
 /// <param name="Username">登录成功后绑定的规范账号键。</param>
 /// <param name="RoleId">成功进入后绑定的角色，零表示尚未进入。</param>
-public sealed record DataSessionSnapshot(DataConnectionId ConnectionId, ulong Generation, string? Username, long RoleId = 0);
+public sealed record DataSessionSnapshot(DataConnectionId ConnectionId, ulong Generation, string? Username, long RoleId = 0, long AuthEpoch = 0);

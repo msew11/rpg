@@ -35,6 +35,8 @@ internal sealed class ConnectionSession
     private ulong _generation = 1;
     /// <summary>本连接认证后绑定的账号；与其他连接分别保存。</summary>
     private string? _username;
+    /// <summary>每次认证或撤销递增，独立于客户端代次。</summary>
+    private long _authEpoch;
     /// <summary>当前连接进入成功的角色元数据，不表示在线成员或独占。</summary>
     private long _roleId;
     /// <summary>服务端生成的不可变连接身份。</summary>
@@ -46,7 +48,7 @@ internal sealed class ConnectionSession
 
     /// <summary>取得独立只读身份，已断开的连接不可读取。</summary>
     internal DataSessionSnapshot Snapshot()
-    { lock (_gate) { EnsureActive(); return new(Id, _generation, _username, _roleId); } }
+    { lock (_gate) { EnsureActive(); return new(Id, _generation, _username, _roleId, _authEpoch); } }
 
     /// <summary>复制后入队，返回任务表示本请求已经处理完成或明确失败。</summary>
     internal Task ReceiveAsync(byte[] packet)
@@ -81,8 +83,8 @@ internal sealed class ConnectionSession
         {
             if (!_active || generation < _generation) return null;
             if (generation > _generation) { _generation = generation; ClearOutput(); }
-            if (login) { _username = null; _roleId = 0; }
-            return new(Id, _generation, _username, _roleId);
+            if (login) { _authEpoch++; _username = null; _roleId = 0; }
+            return new(Id, _generation, _username, _roleId, _authEpoch);
         }
     }
 
@@ -100,6 +102,30 @@ internal sealed class ConnectionSession
         }
     }
 
+    /// <summary>统一检查原请求的代次和认证身份，可选角色绑定。</summary>
+    internal bool IsCurrent(DataSessionSnapshot expected, bool role = false)
+    { lock (_gate) return _active && _generation == expected.Generation && _authEpoch == expected.AuthEpoch && (!role || _roleId == expected.RoleId); }
+    /// <summary>同一短锁内核对认证版本、绑定成功结果并发布。</summary>
+    internal bool Complete(DataSessionSnapshot expected, byte[] packet, string? username = null, long? roleId = null)
+    {
+        lock (_gate)
+        {
+            if (!IsCurrent(expected)) return false;
+            Complete(expected.Generation, packet, username, roleId); return _active;
+        }
+    }
+    /// <summary>只撤销仍匹配的角色绑定，账号管理请求仍能完成。</summary>
+    internal void UnbindRole(long roleId) { lock (_gate) if (_roleId == roleId) _roleId = 0; }
+    /// <summary>运行时撤销认证并按当前代次发布原因，保留物理连接。</summary>
+    internal void Revoke(string message)
+    {
+        lock (_gate)
+        {
+            if (!_active) return;
+            _authEpoch++; _username = null; _roleId = 0; ClearOutput();
+            Complete(_generation, Protocol.MessageCodec.Encode(new ProtocolV2.SessionKickedNotice { Message = message }, _generation, 0, false));
+        }
+    }
     /// <summary>重置代次、清空旧输出，但保留已认证账号。</summary>
     internal ulong Reset()
     {

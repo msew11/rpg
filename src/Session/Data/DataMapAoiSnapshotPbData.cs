@@ -96,6 +96,21 @@ public sealed class DataMapAoiSnapshotPbData
         return new(MapId, RoleId, sequence, Layout, center, nextChunks, objects);
     }
 
+    /// <summary>V2 地图差集只改变订阅块，交集对象直接复用。</summary>
+    public DataMapAoiSnapshotPbData Apply(ProtocolV2.MapAoiDeltaPb delta, long sequence)
+    {
+        var center = Coordinate(delta.Center); var next = Layout.Neighborhood(center);
+        var entered = next.Except(Chunks).ToHashSet(); var left = Chunks.Except(next).ToHashSet();
+        var supplied = delta.LeftChunks.Select(Coordinate).ToArray();
+        if (supplied.Distinct().Count() != supplied.Length || !left.SetEquals(supplied)) throw new InvalidDataException("离开块不匹配差集");
+        var objects = Objects.Values.Where(value => !left.Contains(Layout.ChunkAt(value.X, value.Y))).ToDictionary(value => value.ObjectId);
+        var seen = new HashSet<(int, int)>(); var added = new Dictionary<Guid, DataMapObjectPbData>();
+        foreach (var chunk in delta.EnteredChunks) ReadChunk(chunk, Layout, entered, seen, added);
+        if (!seen.SetEquals(entered)) throw new InvalidDataException("进入块不匹配差集");
+        foreach (var pair in added) if (!objects.TryAdd(pair.Key, pair.Value)) throw new InvalidDataException("地图对象重复");
+        return new(MapId, RoleId, sequence, Layout, center, next, objects);
+    }
+
     /// <summary>校验块坐标及每个对象的真实归属，拒绝重复身份。</summary>
     private static void ReadChunk(MapChunkPb chunk, DataMapLayoutPbData layout, HashSet<(int X, int Y)> expected,
         HashSet<(int X, int Y)> seen, Dictionary<Guid, DataMapObjectPbData> objects)

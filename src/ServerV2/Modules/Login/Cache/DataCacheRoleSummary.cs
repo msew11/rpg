@@ -33,7 +33,7 @@ public sealed class DataCacheRoleSummary : DataCacheArray<DataRoleSummary>
         Commit(Value.Replace(owned, updated));
     }
     /// <summary>所有校验成功后一次创建摘要，失败不修改数据或消耗编号。</summary>
-    public void Create(string requestedName, RoleGender gender, int headId)
+    public void Create(string requestedName, RoleGender gender, int headId, long firstRoleId = 1003)
     {
         var name = requestedName.Trim();
         if (name.Length is < 1 or > 16 || name.Any(char.IsControl))
@@ -42,8 +42,8 @@ public sealed class DataCacheRoleSummary : DataCacheArray<DataRoleSummary>
             throw new ServerRequestException(ErrorCodePb.InvalidRequest, "性别或头型无效");
         if (Value.Any(role => !role.IsDeleted && string.Equals(role.Name, name, StringComparison.OrdinalIgnoreCase)))
             throw new ServerRequestException(ErrorCodePb.RoleNameConflict, "角色名字已存在");
-        var maximum = Value.Select(role => role.RoleId).DefaultIfEmpty(1002).Max();
-        if (maximum == long.MaxValue)
+        var maximum = Value.Select(role => role.RoleId).Append(firstRoleId - 1).Max();
+        if (maximum == long.MaxValue || maximum >= ((firstRoleId >> 32) << 32) + uint.MaxValue)
             throw new ServerRequestException(ErrorCodePb.InvalidRequest, "角色编号已耗尽");
         var summary = new DataRoleSummary(maximum + 1, name, 1,
             gender, headId, []);

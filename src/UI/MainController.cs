@@ -24,6 +24,8 @@ public partial class MainController : Control
     private Label? _feedback;
     /// <summary>响应到达前防止重复登录的按钮。</summary>
     private Button? _loginButton;
+    /// <summary>本次启动内保留连接选项，返回登录仍使用原模式，不写入磁盘。</summary>
+    private Rpg.Net.ConnectionOptions _connectionOptions = new(true);
     /// <summary>登录或选角页面。</summary>
     private CanvasLayer? _screen;
     /// <summary>当前创建表单，失败时保留用户草稿。</summary>
@@ -38,6 +40,8 @@ public partial class MainController : Control
     private GroundItemOverlayControl? _groundOverlay;
     /// <summary>角色绘制节点。</summary>
     private ActorView? _actor;
+    /// <summary>其他玩家复用同一人物表现节点。</summary>
+    private readonly Dictionary<long, ActorView> _remoteActors = new();
     /// <summary>跟随角色的世界摄像机。</summary>
     private Camera2D? _camera;
     /// <summary>独立于 ECS 的游戏界面。</summary>
@@ -70,6 +74,7 @@ public partial class MainController : Control
                 _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.CreateRoleRt>(_ => { if (_roleRequestPending) ShowRoles(); }));
                 _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.DeleteRoleRt>(_ => { if (_roleRequestPending) ShowRoles(); }));
                 _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.EnterWorldRt>(OnEnteredWorld));
+                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.SessionKickedNotice>(notice => ReturnToLogin(notice.Message)));
                 _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.ErrorRt>(reply => OnNetworkError(new InvalidOperationException(reply.Message))));
             }
             else _subscriptions.Add(GameServices.EventBus.Subscribe<LoginRt>(OnLoggedIn));
@@ -99,6 +104,17 @@ public partial class MainController : Control
         GameServices.Net.Tick(delta);
         GameServices.World.Tick(delta);
         if (_actor is not null && GameServices.World.ActorState is { } state) _actor.Present(state);
+        if (_worldVisual is not null)
+        {
+            var states = GameServices.World.RemoteActors;
+            foreach (var id in _remoteActors.Keys.Where(id => !states.Any(state => state.RoleId == id)).ToArray()) { _remoteActors[id].QueueFree(); _remoteActors.Remove(id); }
+            foreach (var remote in states)
+            {
+                if (!_remoteActors.TryGetValue(remote.RoleId, out var view))
+                { view = new ActorView { Name = "RemoteRole" + remote.RoleId, ZIndex = 1 }; _worldVisual.AddChild(view); _remoteActors.Add(remote.RoleId, view); }
+                view.Present(remote);
+            }
+        }
         if (_camera is not null && GameServices.World.HasRole)
             _camera.Position = IsometricProjection.ToScreen(GameServices.World.RolePosition);
     }
@@ -106,7 +122,7 @@ public partial class MainController : Control
     /// <summary>将未被 UI 消费的地图点击转为移动 Action，并在点击世界位置显示光圈。</summary>
     public override void _UnhandledInput(InputEvent input)
     {
-        if (_servicesLifetime is null || _worldVisual is null || GameServices.Session.IsWorldReadOnly || input is not InputEventMouseButton click) return;
+        if (_servicesLifetime is null || _worldVisual is null || !GameServices.Session.CanMove || input is not InputEventMouseButton click) return;
         if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && _groundOverlay?.ItemAt(click.Position) is { } objectId)
         {
             RequestPickup(objectId);
@@ -169,16 +185,22 @@ public partial class MainController : Control
     }
 
     /// <summary>展示用户名和密码输入及失败反馈。</summary>
-    private void ShowLogin()
+    private void ShowLogin() => ShowLoginPage(true);
+    /// <summary>连接失效时不等待本地写回，服务器仍由网络持有。</summary>
+    private void ReturnToLogin(string message)
+    { ShowLoginPage(false); if (_feedback is not null) _feedback.Text = message; }
+    /// <summary>按离开原因选择保存屏障后建立登录表单。</summary>
+    private void ShowLoginPage(bool flush)
     {
-        if (!TryFlushBeforeLeavingRole(includeAccount: true)) return;
+        if (flush && !TryFlushBeforeLeavingRole(includeAccount: true)) return;
         ClearGame();
         GameServices.Session.Logout();
+        if (flush) GameServices.Net.DisconnectClient();
         _bgm?.PlayTrack("M001");
         var box = CenteredScreen("网络 RPG 客户端 · 模拟登录");
-        box.AddChild(Label("演示账号：demo / demo", 15));
-        var username = new LineEdit { Name = "Username", PlaceholderText = "用户名", Text = "demo", CustomMinimumSize = new Vector2(280, 36) };
-        var password = new LineEdit { Name = "Password", PlaceholderText = "密码", Secret = true, Text = "demo" };
+        box.AddChild(Label(GameServices.Net.IsV2 ? "服务器：admin / 123；客户端：demo1、demo2 / 123" : "演示账号：demo / demo", 15));
+        var username = new LineEdit { Name = "Username", PlaceholderText = "用户名", Text = GameServices.Net.IsV2 ? (GameServices.Net.UsesTcp && _connectionOptions.HostServer ? "admin" : "demo1") : "demo", CustomMinimumSize = new Vector2(280, 36) };
+        var password = new LineEdit { Name = "Password", PlaceholderText = "密码", Secret = true, Text = GameServices.Net.IsV2 ? "123" : "demo" };
         // 让两个文本框之间的窄缝延续 I 形鼠标，保持原有间距和输入行为。
         var fields = new VBoxContainer { Name = "LoginFields", MouseDefaultCursorShape = Control.CursorShape.Ibeam };
         fields.AddThemeConstantOverride("separation", box.GetThemeConstant("separation"));
@@ -186,13 +208,13 @@ public partial class MainController : Control
         fields.AddChild(username);
         fields.AddChild(password);
         var mode = new OptionButton { Name = "ConnectionMode" };
-        mode.AddItem("服务器模式"); mode.AddItem("纯客户端模式");
-        var ip = new LineEdit { Name = "ServerIp", Text = "127.0.0.1", PlaceholderText = "服务器 IP", Visible = false };
-        var port = new LineEdit { Name = "ServerPort", Text = "7777", PlaceholderText = "端口" };
+        mode.AddItem("服务器模式"); mode.AddItem("纯客户端模式"); mode.Select(_connectionOptions.HostServer ? 0 : 1);
+        var ip = new LineEdit { Name = "ServerIp", Text = _connectionOptions.Ip, PlaceholderText = "服务器 IP", Visible = !_connectionOptions.HostServer };
+        var port = new LineEdit { Name = "ServerPort", Text = _connectionOptions.Port.ToString(), PlaceholderText = "端口" };
         if (GameServices.Net.UsesTcp)
         {
             box.AddChild(mode); box.AddChild(ip); box.AddChild(port);
-            mode.ItemSelected += index => ip.Visible = index == 1;
+            mode.ItemSelected += index => { ip.Visible = index == 1; username.Text = index == 0 ? "admin" : "demo1"; password.Text = "123"; };
         }
         else { mode.Free(); ip.Free(); port.Free(); }
         _feedback = Label("", 14);
@@ -208,7 +230,10 @@ public partial class MainController : Control
                 if (GameServices.Net.UsesTcp)
                 {
                     if (!int.TryParse(port.Text, out var value)) throw new ArgumentException("端口必须为整数");
-                    await GameServices.Net.ConnectAsync(new Rpg.Net.ConnectionOptions(mode.Selected == 0, ip.Text.Trim(), value), stopExisting);
+                    if (mode.Selected == 0 && (username.Text.Trim().ToLowerInvariant() != "admin" || password.Text != "123"))
+                        throw new ArgumentException("服务器模式必须使用 admin/123 登录");
+                    _connectionOptions = new Rpg.Net.ConnectionOptions(mode.Selected == 0, ip.Text.Trim(), value);
+                    await GameServices.Net.ConnectAsync(_connectionOptions, stopExisting);
                 }
                 if (!IsInsideTree() || _servicesLifetime is null) return;
                 GameServices.Session.Login(username.Text, password.Text);
@@ -476,6 +501,8 @@ public partial class MainController : Control
     /// <summary>显示网络及事件监听错误，选角阶段失败时恢复可操作的角色列表。</summary>
     private void OnNetworkError(Exception error)
     {
+        if (GameServices.Net.UsesTcp && error is System.IO.IOException or System.Net.Sockets.SocketException or TimeoutException)
+        { ReturnToLogin(error.Message); return; }
         GameServices.Session.CancelAccountRequest();
         if (_createPage is not null)
         {
@@ -491,6 +518,7 @@ public partial class MainController : Control
     /// <summary>清理旧界面、世界和角色数据，保留账号会话与登录摘要。</summary>
     private void ClearGame()
     {
+        _remoteActors.Clear();
         _createPage = null;
         _roleRequestPending = false;
         _hud?.ReleaseSubscriptions();

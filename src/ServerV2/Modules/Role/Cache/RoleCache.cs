@@ -6,6 +6,8 @@ namespace Rpg.ServerV2.Modules.Role.Cache;
 /// <summary>角色邮箱独占的三表工作区，不执行 IO。</summary>
 public sealed class RoleCache
 {
+    /// <summary>临时移动领域，不参与三表落盘。</summary>
+    public DataCacheMovement Movement { get; } = new();
     /// <summary>固定角色身份，不使用连接编号。</summary>
     public long RoleId { get; }
     /// <summary>角色基础表。</summary>

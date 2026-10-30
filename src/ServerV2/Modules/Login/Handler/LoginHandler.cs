@@ -11,7 +11,7 @@ internal sealed class LoginHandler : IActorHandler<LoginContext, ProtocolV2.Logi
     /// <summary>账号使用规范分片键，密码原样匹配；失败不建立连接绑定。</summary>
     public ValueTask<LoginRt> HandleAsync(LoginContext context, ProtocolV2.Login request)
     {
-        if (context.Cache.Username != "demo" || request.Password != "demo")
+        if (!DefaultAccounts.Accepts(context.Cache.Username, request.Password))
             throw new ServerRequestException(ErrorCodePb.InvalidCredentials, "用户名或密码错误");
         var response = new LoginRt();
         response.Roles.AddRange(RoleSummaries.Visible(context));

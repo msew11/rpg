@@ -38,7 +38,7 @@ NetService <-- connection output queue <-- response codec <-- result
 
 配置经模块装配和 Actor 必填构造参数传入 Context。LoginContext、RoleContext、WorldContext 继承 `Modules/Common/ModuleContext`，Handler 统一通过 `context.Config` 读取，例如 `context.Config.Basic.Value`、`context.Config.Item.Items`。Handler 不持有 ConfigService 字段或配置构造参数，也不访问全局服务。Config 在构造时保证非空，不再支持省略配置的测试装配；账号 Context 也必须接收完整的加载摘要。模块集成测试使用真实配置并在 Godot 宿主执行，通用邮箱和文件仓库测试仍可独立运行。
 
-不同服务使用各自注入的配置实例；Config 属性不可替换，配置释放后读取会失败。Context、Actor 和 MockServerService 都不释放借用的配置，配置所有者应在 Net 关闭后释放。默认 LoginHandler 验证演示凭据 demo/demo，规范账号键参与匹配、密码原样匹配；正式认证尚未实现。创建和删除摘要归同一 LoginActor，成功回复完整可见列表，失败使用 ErrorRt。
+不同服务使用各自注入的配置实例；Config 属性不可替换，配置释放后读取会失败。Context、Actor 和 MockServerService 都不释放借用的配置，配置所有者应在 Net 关闭后释放。默认 LoginHandler 验证 admin、demo1、demo2 / 123，规范账号键参与匹配、密码原样匹配；正式认证尚未实现。创建和删除摘要归同一 LoginActor，成功回复完整可见列表，失败使用 ErrorRt。
 
 `ServerModules` 拥有目录、身份定位和生命周期，并实现窄 `IActorLocator`：`Login(string)`、`Role(long)`、`World(int)` 仅返回 `ActorRef`。三个 Actor 和 Context 均由构造必需注入此依赖，Context 通过只读 `Actors` 借用，不负责释放，不使用全局 locator 或可空回填。只定位分片不触发 INIT。不同服务的 Context 只定位本服务目录；目录工厂在 Get 时才执行，因此装配中可以捕获所属 ServerModules。
 
@@ -50,7 +50,7 @@ V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Ne
 
 连接 ID 由服务端生成，不进入信封。连接断开即结束 Session，重连生成新 ID。同一账号的多个连接共享账号 Actor，各自保留身份与输出；重复登录限制、断线续接暂不定义。角色状态和地图状态不放进连接 Session。
 
-外部 `protov2` 使用 `rpg.v2` package、`Rpg.ProtocolV2` C# 命名空间；生成文件位于 `src/ProtocolV2/Generated`，中文协议注释只修改 proto。`login.proto` 收拢账号请求及响应，导入 `role.proto` 的性别枚举与摘要；`role.proto` 还保存公开状态和本人私有角色结构，`bag.proto` 保存完整私有物品，`map.proto` 保存初始范围，`world.proto` 保存 EnterWorld/EnterWorldRt；业务协议文件按请求与响应、推送、enum 与结构的顺序组织，当前账号业务没有推送。每条外部消息使用四字段 EnvelopePb：generation、request_id、message_type、payload。请求编号非零、响应原样返回、通知为零；当前未注册业务通知。编号由客户端递增，切代次不断号，不承诺自动去重。
+外部 `protov2` 使用 `rpg.v2` package、`Rpg.ProtocolV2` C# 命名空间；生成文件位于 `src/ProtocolV2/Generated`，中文协议注释只修改 proto。`login.proto` 收拢账号请求及响应，导入 `role.proto` 的性别枚举与摘要；`role.proto` 还保存公开状态和本人私有角色结构，`bag.proto` 保存完整私有物品，`map.proto` 保存初始范围，`world.proto` 保存 EnterWorld/EnterWorldRt；业务协议文件按请求与响应、推送、enum 与结构的顺序组织，账号撤销使用 SessionKickedNotice 推送。每条外部消息使用四字段 EnvelopePb：generation、request_id、message_type、payload。请求编号非零、响应原样返回、通知为零；已注册 SessionKickedNotice 和 WorldUpdateNotice。编号由客户端递增，切代次不断号，不承诺自动去重。
 
 内部源放 `protov2/actor`，按接收方模块分文件，当前只有 `world.proto` 和 `role.proto`，不预建空 login/common 文件。全部使用 `syntax = "proto3"`、`package rpg.v2.actor`、`csharp_namespace = "Rpg.ServerV2.ActorProtocol"`，允许导入根目录的角色、背包与地图共享结构。请求使用动作名、响应追加 `Rt`、结构与枚举使用 `Pb`；文件顺序为请求响应→推送→枚举结构，无内容部分省略。生成文件在 `src/ServerV2/ActorProtocol/Generated`；rpg.csproj 的外部 Protobuf 通配排除 protov2/actor/**/*.proto，内部 ProtoRoot 为 `protov2`，内部逻辑文件路径为 `actor/role.proto`、`actor/world.proto`，共享结构仅生成编译一次、GrpcServices 为 None；生成 C# 排除默认 Compile 通配，由 Grpc.Tools 纳入编译。生成 C# 与 Godot UID 一并提交，不手改生成文件。
 
@@ -128,19 +128,19 @@ JSON 使用 camelCase，当前 `formatVersion` 为 1。清单保存 `formatVersi
 godot-mono --path . res://tests/server_v2_role_management.tscn
 ```
 
-使用 demo/demo 登录；username 沿用 Trim().ToLowerInvariant()，密码原样匹配。LoginRt、CreateRoleRt、DeleteRoleRt 都只返回按 role_id 升序的完整可见 roles，不含 success/error。统一 ErrorRt 新增 InvalidCredentials、RoleNotFound、RoleNameConflict；非法输入沿用 InvalidRequest。创建和删除从连接 Session 取得账号，不接受载荷账号键。
+使用 admin/123、demo1/123 或 demo2/123 登录；username 沿用 Trim().ToLowerInvariant()，密码原样匹配。LoginRt、CreateRoleRt、DeleteRoleRt 都只返回按 role_id 升序的完整可见 roles，不含 success/error。统一 ErrorRt 新增 InvalidCredentials、RoleNotFound、RoleNameConflict；非法输入沿用 InvalidRequest。创建和删除从连接 Session 取得账号，不接受载荷账号键。
 
-创建由 LoginCache.Summaries.Create(...) 校验并一次提交 summary，删除由其 Delete(...) 标记墓碑：名称去首尾空白后为 1–16 个 UTF-16 字符、无控制字符，当前未删除名称忽略大小写唯一；性别为男女，服务端头型 1–74，页面为 9–72；初始等级 1，装备为空。DataRoleSummary 的 IsDeleted 默认为 false，删除不物理移除摘要。编号从包含墓碑的最大值加一，空集合从 1003 开始，溢出拒绝；此规则仅适用当前单演示账号，多账号编号分配待定。
+创建由 LoginCache.Summaries.Create(...) 校验并一次提交 summary，删除由其 Delete(...) 标记墓碑：名称去首尾空白后为 1–16 个 UTF-16 字符、无控制字符，当前未删除名称忽略大小写唯一；性别为男女，服务端头型 1–74，页面为 9–72；初始等级 1，装备为空。DataRoleSummary 的 IsDeleted 默认为 false，删除不物理移除摘要。编号从包含墓碑的最大值加一；demo1从1003、admin从2^32+1003、demo2从2×2^32+1003开始，各自不能跨越32位区间，耗尽拒绝。不同账号列表、三表身份隔离，旧数据不迁移。
 
 创建、删除不启动 RoleActor/WorldActor，不产生角色三表或地图文件。摘要沿用周期、显式 Flush、关闭补写和失败重试；成功响应表示内存提交，强杀可能丢失未落地变更。进入世界先检查未删除账号归属，再加载或首次创建三表；不读取旧存档。
 
-独立场景通过测试工厂注册完整服务组，Net 拥有 V2 服务，Session 和 LoginCache 按显式 V2 模式使用新协议，不转译旧消息。每个客户端仅一个账号或进入操作在途；缓存完整验证并原子替换后才通知页面，失败保留列表与命名草稿并解除等待，返回登录切换代次。角色页面复用现有预览，进入按钮启用，世界仅供只读展示。自动验收入口为 tests/server_v2_role_management_smoke.tscn，tools/check.ps1 -Tests 会运行真实鼠标按钮流程。
+独立场景通过测试工厂注册完整服务组，Net 拥有 V2 服务，Session 和 LoginCache 按显式 V2 模式使用新协议，不转译旧消息。每个客户端仅一个账号或进入操作在途；缓存完整验证并原子替换后才通知页面，失败保留列表与命名草稿并解除等待，返回登录切换代次。角色页面复用现有预览，进入按钮启用，世界在首份全量帧后支持移动，物品窗口保持只读。自动验收入口为 tests/server_v2_role_management_smoke.tscn，tools/check.ps1 -Tests 会运行真实鼠标按钮流程。
 
 ## 进入世界与初始展示
 
-独立场景仍为 `tests/server_v2_role_management.tscn`。默认 F5 的 `scenes/main.tscn` 保持旧 Server。手动流程：demo/demo 登录 → 创建角色并预览 → 进入游戏 → 查看地图、人物、生命魔力与角色窗口、只读背包装备 → 系统菜单返回角色选择 → 切角或再次进入 → 关闭后重新运行场景恢复。移动、物品变更、拾取及聊天 GM 已禁用；本地窗口、图鉴、HUD 与设置可用。
+独立场景仍为 `tests/server_v2_role_management.tscn`。默认 F5 的 `scenes/main.tscn` 使用 V2 TCP。手动流程：选择服务器模式admin/123或纯客户端demo1/123登录 → 创建角色并预览 → 进入游戏 → 查看地图、人物、生命魔力与角色窗口、只读背包装备 → 系统菜单返回角色选择 → 切角或再次进入 → 关闭后重新运行场景恢复。物品变更、拾取及聊天 GM 已禁用，移动已开放；本地窗口、图鉴、HUD 与设置可用。
 
-外部新增的唯一操作是 `EnterWorld(role_id)`，回复 `EnterWorldRt(state, role, bag, map)`。公开 state 根节点只保存一份角色编号，profile/status/position/equipment 分别表示公开资料、生命魔力、权威地图逻辑位置和装备配置编号；role 保存经验及背包扩容，bag 包括背包和已穿戴的私有实例。map 仅含完整初始范围，不预加增量、订阅序号、重同步或移动确认字段。对象自身 revision 沿用存储含义，object_id 使用 GUID N 格式。新增文件不使用 `_data` 后缀。
+第二批进入操作是 `EnterWorld(role_id)`，回复 `EnterWorldRt(state, role, bag, map)`。公开 state 根节点只保存一份角色编号，profile/status/position/equipment 分别表示公开资料、生命魔力、权威地图逻辑位置和装备配置编号；role 保存经验及背包扩容，bag 包括背包和已穿戴的私有实例。EnterWorldRt.map仍为完整初始范围，第三批的WorldFramePb负责世界序号、移动确认、AOI差集和全量重同步。对象自身 revision 沿用存储含义，object_id 使用 GUID N 格式。新增文件不使用 `_data` 后缀。
 
 消息流固定 `连接会话 → LoginActor → PrepareRole → RoleActor → GetWorldEntrySnapshot → WorldActor`，响应反向返回。Login 在任何角色定位前检查正数编号及未删除摘要归属，并先保存待写账号摘要，防止摘要丢失造成编号复用。Role INIT 完整加载已有三表；三表全部不存在时只建立尚未建档的 RoleCache，普通查询、定位和 Flush 不创建数据。只有可信 PrepareRole 根据摘要与配置建立候选：生命100、魔力60、经验0、升级经验500、扩容0、物品装备为空、NextInstanceId为1；初始地图取配置，男性(16016,16016)、女性(16144,16080)，按地图边缘裁剪。初始空表也全部待写，保存成功才接受基线；失败保留候选和脏状态，修复后可显式 Flush 或重新进入重试。
 
@@ -148,7 +148,7 @@ godot-mono --path . res://tests/server_v2_role_management.tscn
 
 Login 根据准备后的实际公开状态同步摘要，本次回复的客户端缓存也立即同步自己的摘要。调用链没有 Role → Login 的反向 Ask。后续装备等操作须在该业务内同步受影响数据，不依赖返回选角修正。
 
-响应完成时仅在原代次仍有效的短锁内绑定或替换 Session.RoleId；失败保留原绑定，再次认证或断开清除绑定。代次重置只隔离旧结果，不产生退出或离线事件；不同连接可同时只读进入同角色，不建立独占锁或在线成员。
+响应完成时仅在原代次仍有效的短锁内绑定或替换 Session.RoleId；失败保留原绑定，再次认证或断开清除绑定。代次重置只隔离旧结果，不产生退出或离线事件；同账号不同角色可同时在线，同角色新连接接管旧控制并撤销旧认证；控制切换经C#邮箱屏障串行，迟到解绑不影响新绑定。
 
 Session 的 WorldEntryCache 在 Cache 阶段直接将 V2 转成现有不可变展示数据，不制造旧协议对象。完整校验角色身份、物品与公开装备、地图规格/九块/对象及摘要候选后才连续提交；普通 UI 监听看到完整缓存。失败保留已有列表及已接纳世界并解除等待，返回登录释放缓存且切换代次。
 
@@ -161,3 +161,20 @@ Session 的 WorldEntryCache 在 Cache 阶段直接将 V2 转成现有不可变�
 默认登录可选服务器模式（端口）或纯客户端（字面 IP 和端口），初始 7777 / 127.0.0.1。服务器模式的本机玩家也通过真实 TCP；返回登录或认证失败不关闭监听，相同配置重试复用服务器，修改模式或监听端口须确认后关闭原服务器。应用退出排空并保存。
 
 TCP 为四字节大端长度加 EnvelopePb，单包 4 MiB；每连接输出最多 64 包或 8 MiB，全实例 64 MiB。后台 IO 只排队，固定帧分发事件。连接五秒、请求十五秒超时，失败后手动重试。本地显式写回先等待后台收到此前请求响应再 Flush，纯客户端没有此能力。业务协议不增加连接配置或会话隔离字段。
+
+
+## 多人移动与世界同步
+
+`WorldCoordinator` 使用单调时钟，后台20Hz等待一个完整逻辑轮次、10Hz合并公开变化，不补排延迟Tick。只推进正在移动、控制改变或投影重试的角色。Role在自己的邮箱物化旧目标到接收时刻，再接受更大action_id；坐标写入Role表，目标、速度、确认和投影版本只在Movement DataCache中。投影失败保留最新状态重试，不撤销已接纳意图。静止角色速度变化同样生成完整位置组。
+
+公开信息归World的不可变角色缓存，角色块及观察块索引只标记受影响观察者。投影本身不能建立在线身份；注册、解绑、接管由运行时C#消息进入Role/World邮箱。首次可见与全量重同步返回RoleWorldStatePb，持续移动只返回角色编号和RoleWorldPositionPb。完整位置组展平map_id/x/y，并包含可空target和speed。地图进入空块显式发送，交集块复用；玩家不进入MapObjectPb。
+
+六个源协议变更：`protov2/role.proto`位置组及MoveTargetPb/RolePositionUpdatePb；`map.proto`地图差集；`world.proto`移动、重同步和世界帧；`login.proto`踢出通知；`actor/role.proto`权威推进；`actor/world.proto`公开投影、批量观察及快照。第一层公开分组沿用RoleWorldXxxPb；不新增VisibleRolePb、world_session_id或Actor控制protobuf。内部协议不注册外部编解码。
+
+`DataActorCall` 是不可序列化的邮箱元数据，保存连接/代次/认证及控制版本。执行前、跨Actor投递和输出边界检查目录；Handler接收原proto，Context.Call仅供可信运行时值。批量世界构建附带原观察者映射并逐个输出校验；已分配的旧帧序号按原身份消耗占位，不重新查询最新连接或绑定。客户端更高generation支持跳号且保留有效角色控制，低代次忽略。只有断线、重新认证、成功切角或删除清除匹配控制；主动返回登录关闭玩家TCP而保留本地服务器，被踢返回登录保留TCP；仅返回选角不离线，不增加LeaveWorld。
+
+EnterWorldRt后紧接sequence=1全量帧，后者接纳后才能移动。WorldSyncCache完整验证本人、地图与其他公开角色后原子提交，发现缺口暂停增量并只发一个ResyncWorld，全量可跨过缺口。重复及旧帧忽略。WorldService点击立即预测，最多20Hz发送合并的最新目标，权威确认后重放较新意图；远端100ms插值缓冲、最多100ms外推且不越过目标，经Action更新独立ECS玩家实体并复用ActorView。踢出在缓存阶段撤销数据，UI清理人物和预测回登录，TCP及本地服务器继续运行。
+
+权威坐标沿用周期、失败重试及关闭保存。关闭先取消后台时钟，再排空TCP和已接纳调度，物化停止并按Role→World→Login保存。重启不恢复目标、在线、控制或同步序号。纯客户端无本地Flush能力，物品、装备、拾取及GM写操作待迁移。
+
+容量工具为 `tests/server_v2_load.tscn`，参数 `--count 1000 --warmup 10 --seconds 60 --out <绝对JSON路径>`；`--dense` 切换同区诊断。该工具创建独立临时账号摘要和三表，使用真实socket、后台持续读取推送，完成后清理。输出CPU、内存、GC、字节、队列、逻辑轮次、帧年龄及动作确认P95。普通回归运行小规模单元/真实TCP及双Godot进程场景，千连接单独运行；密集区不作为分组容量基线。

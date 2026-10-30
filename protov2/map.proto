@@ -66,3 +66,13 @@ message MapGroundItemPb {
   // 地面数量。
   int32 count = 2;
 }
+
+// 当前地图观察范围差集。
+message MapAoiDeltaPb {
+  // 当前中心块。
+  MapChunkCoordPb center = 1;
+  // 新进入的完整块，包含空块。
+  repeated MapChunkPb entered_chunks = 2;
+  // 离开订阅的块。
+  repeated MapChunkCoordPb left_chunks = 3;
+}

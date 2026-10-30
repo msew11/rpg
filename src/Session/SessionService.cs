@@ -27,6 +27,18 @@ public sealed class SessionService : Service
     private MapCache? _map;
     /// <summary>V2 完整响应的缓存阶段协调者，随账号释放。</summary>
     private WorldEntryCache? _entry;
+    /// <summary>统一世界同步缓存。</summary>
+    private WorldSyncCache? _sync;
+    /// <summary>首帧后才可提交移动。</summary>
+    public bool CanMove => HasRole && (!_useV2 || _sync?.Sequence > 0);
+    /// <summary>当前公开远端角色。</summary>
+    public IReadOnlyDictionary<long, DataPublicRole> RemoteRoles => _sync?.Roles ?? System.Collections.Frozen.FrozenDictionary<long, DataPublicRole>.Empty;
+    /// <summary>当前世界帧序号。</summary>
+    public ulong WorldSequence => _sync?.Sequence ?? 0;
+    /// <summary>当前权威时间。</summary>
+    public long ServerTimeMs => _sync?.ServerTimeMs ?? 0;
+    /// <summary>是否使用 V2 权威同步。</summary>
+    public bool UsesWorldFrames => _useV2;
     /// <summary>本批 V2 世界仅供读取，所有业务写入口共用此约束。</summary>
     public bool IsWorldReadOnly => _useV2;
     /// <summary>当前账号拥有的网络代次。</summary>
@@ -93,7 +105,7 @@ public sealed class SessionService : Service
             _role = new RoleCache();
             _map = new MapCache();
             _login = login;
-            if (_useV2) _entry = new WorldEntryCache(login, _role, _map);
+            if (_useV2) { _entry = new WorldEntryCache(login, _role, _map); _sync = new WorldSyncCache(_role, _map); }
             if (_useV2)
             {
                 login.BeginV2Request<ProtocolV2.LoginRt>();
@@ -103,7 +115,9 @@ public sealed class SessionService : Service
         }
         catch
         {
+            _sync?.Dispose();
             _entry?.Dispose();
+            _sync = null;
             _entry = null;
             _map?.Dispose();
             _map = null;
@@ -126,6 +140,7 @@ public sealed class SessionService : Service
             if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
             ResetNetwork();
             _login!.BeginV2Request<ProtocolV2.EnterWorldRt>();
+            _sync!.Reset();
             _entry!.Begin(roleId);
             try { _net.Send(new ProtocolV2.EnterWorld { RoleId = roleId }); }
             catch { CancelAccountRequest(); throw; }
@@ -147,6 +162,7 @@ public sealed class SessionService : Service
         EnsureActive();
         if (_role is not null && RoleId == 0) return;
         if (HasRole && !_useV2) _login!.RefreshRole(RoleCache.State);
+        _sync?.Reset();
         _entry?.Cancel();
         _login?.CancelV2Request();
         ResetNetwork();
@@ -200,8 +216,8 @@ public sealed class SessionService : Service
     internal void SubmitMove(long actionId, Vector2 target)
     {
         EnsureActive();
-        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
-        if (!HasRole) throw new InvalidOperationException("选角成功后才能提交移动");
+        if (!CanMove) throw new InvalidOperationException("首份世界快照后才能提交移动");
+        if (_useV2) { _net.Send(new ProtocolV2.Move { ActionId = checked((ulong)actionId), Target = new() { X = target.X, Y = target.Y } }); return; }
         _net.Send(new Move { RoleId = RoleId, ActionId = actionId, X = target.X, Y = target.Y });
     }
 
@@ -261,7 +277,12 @@ public sealed class SessionService : Service
     public bool ResyncMapIfNeeded()
     {
         EnsureActive();
-        if (_useV2 || !HasRole || _map is not { NeedsResync: true, ResyncPending: false }) return false;
+        if (_useV2)
+        {
+            if (!HasRole || _sync is not { NeedsResync: true, ResyncPending: false }) return false;
+            _net.Send(new ProtocolV2.ResyncWorld()); _sync.ResyncPending = true; return true;
+        }
+        if (!HasRole || _map is not { NeedsResync: true, ResyncPending: false }) return false;
         _net.Send(new ResyncMapAoi { RoleId = RoleId, MapId = Role.MapId });
         _map.MarkResyncPending();
         return true;
@@ -272,10 +293,12 @@ public sealed class SessionService : Service
     {
         EnsureActive();
         if (_useV2) ResetNetwork();
+        _sync?.Dispose();
         _entry?.Dispose();
         _map?.Dispose();
         _role?.Dispose();
         _login?.Dispose();
+        _sync = null;
         _entry = null;
         _map = null;
         _role = null;
@@ -297,6 +320,7 @@ public sealed class SessionService : Service
     {
         if (IsDisposed) return;
         IsDisposed = true;
+        _sync?.Dispose();
         _entry?.Dispose();
         _map?.Dispose();
         _role?.Dispose();

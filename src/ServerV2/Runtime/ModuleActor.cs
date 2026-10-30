@@ -16,7 +16,12 @@ public abstract class ModuleActor<TContext> : BaseActor
     /// <summary>首次投递时构造所属分片的独占状态。</summary>
     protected sealed override async ValueTask InitializeAsync() => _context = await CreateContextAsync().ConfigureAwait(false);
     /// <summary>将消息交给对应模块处理器，不向外返回上下文本身。</summary>
-    protected sealed override ValueTask<object?> ReceiveAsync(object message) => DispatchAsync(_context, message);
+    protected sealed override async ValueTask<object?> ReceiveAsync(object message)
+    {
+        if (_context is Modules.Common.ModuleContext context) context.Call = CurrentCall;
+        try { return await DispatchAsync(_context, message).ConfigureAwait(false); }
+        finally { if (_context is Modules.Common.ModuleContext completed) completed.Call = null; }
+    }
     /// <summary>默认交给处理器表，模块可覆盖持久化等生命周期边界；业务编排留在处理器内。</summary>
     protected virtual ValueTask<object?> DispatchAsync(TContext context, object message) => _handlers.HandleAsync(context, message);
     /// <summary>模块负责初始化状态；后续 IO 加载在此边界接入。</summary>

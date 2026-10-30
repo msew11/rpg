@@ -15,7 +15,7 @@ internal sealed class EnterWorldHandler : IActorHandler<LoginContext, EnterWorld
     {
         context.Cache.Summaries.Owned(request.RoleId);
         var summary = RoleSummaries.Visible(context).Single(role => role.RoleId == request.RoleId);
-        var prepared = await context.Actors.Role(request.RoleId).Ask<PrepareRoleRt>(new PrepareRole { Summary = summary }).ConfigureAwait(false);
+        var prepared = await context.Actors.Role(request.RoleId).Ask<PrepareRoleRt>(new PrepareRole { Summary = summary }, context.Call).ConfigureAwait(false);
         context.Cache.Summaries.Synchronize(prepared.State);
         return new EnterWorldRt { State = prepared.State, Role = prepared.Role, Bag = prepared.Bag, Map = prepared.Map };
     }

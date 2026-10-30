@@ -10,6 +10,7 @@ using Rpg.ServerV2.Connections;
 using Rpg.ServerV2.Modules;
 using Rpg.ServerV2.Protocol;
 using Rpg.ServerV2.Routing;
+using Rpg.ServerV2.Runtime;
 
 namespace Rpg.ServerV2.Hosting;
 
@@ -18,6 +19,8 @@ internal sealed class ServerRuntime : IAsyncDisposable
 {
     /// <summary>当前实例输出预算。</summary>
     private readonly OutputBudget _outputBudget = new();
+    /// <summary>全部连接输出队列待发送字节。</summary>
+    internal long QueuedOutputBytes => _outputBudget.Bytes;
     /// <summary>异步等待指定连接输出。</summary>
     internal Task WaitOutgoingAsync(DataConnectionId id, System.Threading.CancellationToken cancellation)
     { lock (_gate) return Find(id).WaitOutgoingAsync(cancellation); }
@@ -37,7 +40,14 @@ internal sealed class ServerRuntime : IAsyncDisposable
     internal event Action<Exception>? Error;
 
     /// <summary>接管已显式组装的模块目录。</summary>
-    internal ServerRuntime(ServerModules modules) { _modules = modules; Router = new(modules); }
+    internal ServerRuntime(ServerModules modules)
+    { _modules = modules; Router = new(modules); if (modules.SupportsMovement) World = new(modules, Report); }
+    /// <summary>可选多人调度器，旧处理表验收不装配移动能力。</summary>
+    internal WorldCoordinator? World { get; }
+    /// <summary>每次时钟只等待一个完整轮次，不排队补跑。</summary>
+    internal Task AdvanceAsync() => World?.AdvanceAsync() ?? Task.CompletedTask;
+    /// <summary>发布连接当前身份，不将身份混入业务请求。</summary>
+    private void Register(DataSessionSnapshot snapshot) => _modules.Calls.SetConnection(snapshot.ConnectionId.Value, snapshot.Generation, snapshot.AuthEpoch);
     /// <summary>分配新连接身份，初始代次为 1 且尚未绑定账号。</summary>
     internal DataConnectionId OpenConnection()
     {
@@ -46,6 +56,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
             EnsureAccepting();
             var id = new DataConnectionId(Guid.NewGuid());
             _connections.Add(id, new(id, ProcessAsync, _outputBudget));
+            Register(_connections[id].Snapshot());
             return id;
         }
     }
@@ -54,7 +65,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
     { lock (_gate) { EnsureAccepting(); return Find(id).ReceiveAsync(packet); } }
     /// <summary>会话重置不销毁共享 Actor，也不清除账号绑定。</summary>
     internal ulong ResetSession(DataConnectionId id)
-    { lock (_gate) { EnsureAccepting(); return Find(id).Reset(); } }
+    { lock (_gate) { EnsureAccepting(); var session = Find(id); var generation = session.Reset(); Register(session.Snapshot()); return generation; } }
     /// <summary>输出由调用方拉取，停止排空期间仍允许读取已完成响应。</summary>
     internal bool TryReadOutgoing(DataConnectionId id, out byte[] packet)
     { lock (_gate) return Find(id).TryRead(out packet); }
@@ -68,7 +79,9 @@ internal sealed class ServerRuntime : IAsyncDisposable
         ConnectionSession session;
         Task drained;
         lock (_gate) { session = Find(id); drained = session.DrainAsync(true); }
+        _modules.Calls.RemoveConnection(id.Value);
         await drained.ConfigureAwait(false);
+        if (World is not null) await World.DetachAsync(session).ConfigureAwait(false);
         lock (_gate) _connections.Remove(id);
     }
 
@@ -93,6 +106,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
     {
         try { await previous.ConfigureAwait(false); } catch { /* 上轮错误由该轮调用方观察。 */ }
         await Task.WhenAll(barriers).ConfigureAwait(false);
+        if (World is not null) await World.BarrierAsync().ConfigureAwait(false);
         await _modules.FlushAsync().ConfigureAwait(false);
     }
     /// <summary>等待有序停止。</summary>
@@ -103,26 +117,40 @@ internal sealed class ServerRuntime : IAsyncDisposable
     {
         var envelope = Codec.ReadEnvelope(packet);
         if (session.Begin(envelope.Generation, false) is not { } snapshot) return;
+        Register(snapshot);
         IMessage response;
         string? bindUsername = null;
         long? bindRoleId = null;
+        (WorldCoordinator.DataControlBinding Binding, WorldFramePb Initial)? entered = null;
         try
         {
+            if (envelope.RequestId == 0) throw new ServerRequestException(ErrorCodePb.InvalidRequest, "请求编号必须非零");
             var request = Codec.ReadPayload(envelope, true);
             if (session.Begin(envelope.Generation, request is ProtocolV2.Login) is not { } current) return;
-            var result = await Router.RouteAsync(current, request).ConfigureAwait(false);
-            response = result.Message;
-            bindUsername = result.BindUsername;
-            bindRoleId = result.BindRoleId;
+            snapshot = current; Register(snapshot);
+            if (request is ProtocolV2.Login && World is not null) await World.DetachAsync(session).ConfigureAwait(false);
+            if (request is ResyncWorld && World is not null)
+            { await World.ResyncAsync(session, snapshot, envelope.RequestId).ConfigureAwait(false); return; }
+            var call = World?.Call(snapshot, request is Move) ?? new DataActorCall(snapshot.ConnectionId.Value, snapshot.Generation, snapshot.AuthEpoch);
+            var result = await Router.RouteAsync(snapshot, request, call).ConfigureAwait(false);
+            response = result.Message; bindUsername = result.BindUsername; bindRoleId = result.BindRoleId;
+            if (World is not null && response is EnterWorldRt entry)
+            {
+                entered = await World.EnterAsync(session, snapshot, entry).ConfigureAwait(false);
+                if (entered is null) return;
+            }
+            if (World is not null && request is Move) World.Moved(snapshot);
+            if (World is not null && request is DeleteRole deleted) await World.DeletedAsync(deleted.RoleId, session).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (!session.IsCurrent(snapshot) || World is not null) { return; }
         catch (ServerRequestException error) { response = new ErrorRt { Code = error.Code, Message = error.Message }; }
         catch (Exception error)
         {
             Report(error);
             response = new ErrorRt { Code = ErrorCodePb.InternalError, Message = "服务端处理失败" };
         }
-        if (envelope.RequestId == 0) throw new ServerRequestException(ErrorCodePb.InvalidRequest, "请求编号必须非零，无法关联响应");
-        session.Complete(snapshot.Generation, Codec.Encode(response, snapshot.Generation, envelope.RequestId, false), bindUsername, bindRoleId);
+        if (session.Complete(snapshot, Codec.Encode(response, snapshot.Generation, envelope.RequestId, false), bindUsername, bindRoleId) && entered is { } ready)
+            World!.Initial(ready.Binding, snapshot with { RoleId = ready.Binding.RoleId }, ready.Initial);
     }
 
     /// <summary>已接纳回合仍可以访问下游，完成后才关闭模块目录。</summary>
@@ -132,6 +160,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
         {
             await Task.WhenAll(pending).ConfigureAwait(false);
             try { await flushing.ConfigureAwait(false); } catch { /* 最终保存会重试，先前错误由原调用方观察。 */ }
+            if (World is not null) await World.StopAsync().ConfigureAwait(false);
             await _modules.FlushAsync().ConfigureAwait(false);
         }
         finally { await _modules.DisposeAsync().ConfigureAwait(false); }

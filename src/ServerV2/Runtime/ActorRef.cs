@@ -16,6 +16,8 @@ public sealed class ActorRef
     public Task<TReply> Ask<TReply>(IActorRequest<TReply> request) => _actor.Ask<TReply>(request);
     /// <summary>直接投递独占的协议请求，显式指定回复类型；投递后调用方不再修改请求。</summary>
     public Task<TReply> Ask<TReply>(object request) => _actor.Ask<TReply>(request);
+    /// <summary>业务协议原样投递，运行时身份独立进入邮箱。</summary>
+    public Task<TReply> Ask<TReply>(object request, DataActorCall? call) => _actor.Ask<TReply>(request, call);
     /// <summary>在调用方延续中执行回复回调，回调不占用邮箱回合。</summary>
     public async Task Ask<TReply>(IActorRequest<TReply> request, Action<TReply> callback)
     {

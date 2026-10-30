@@ -27,6 +27,7 @@ public sealed class LoginCache : CacheBase
     {
         if (useV2)
         {
+            Subscribe<ProtocolV2.SessionKickedNotice>(_ => Clear());
             Subscribe<ProtocolV2.LoginRt>(OnV2LoggedIn);
             Subscribe<ProtocolV2.CreateRoleRt>(reply => OnV2Roles(reply.Roles, typeof(ProtocolV2.CreateRoleRt)));
             Subscribe<ProtocolV2.DeleteRoleRt>(reply => OnV2Roles(reply.Roles, typeof(ProtocolV2.DeleteRoleRt)));

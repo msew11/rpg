@@ -21,9 +21,9 @@ public sealed class ServerV2SessionTests : IDisposable
         var session = GameServices.Session;
         var loggedIn = false;
         using var login = GameServices.EventBus.Subscribe<LoginRt>(_ => loggedIn = session.IsLoggedIn);
-        session.Login(" DEMO ", "demo");
+        session.Login(" DEMO1 ", "123");
         Assert.True(session.AccountRequestPending);
-        Assert.Throws<InvalidOperationException>(() => session.Login("demo", "demo"));
+        Assert.Throws<InvalidOperationException>(() => session.Login("demo1", "123"));
         PumpUntil(() => !session.AccountRequestPending);
         Assert.True(loggedIn);
         var createdInCache = false;
@@ -58,7 +58,7 @@ public sealed class ServerV2SessionTests : IDisposable
     {
         using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_directory, Path.Combine(_directory, "server")));
         var session = GameServices.Session;
-        session.Login("demo", "demo");
+        session.Login("demo1", "123");
         PumpUntil(() => !session.AccountRequestPending);
         var cache = session.LoginCache;
         var notifications = 0;
@@ -90,7 +90,7 @@ public sealed class ServerV2SessionTests : IDisposable
         cache.BeginV2Request<DeleteRoleRt>();
         session.CancelAccountRequest();
         Assert.False(session.AccountRequestPending);
-        session.Login("demo", "demo");
+        session.Login("demo1", "123");
         GameServices.EventBus.Publish(new LoginRt { Roles = { valid, badLevel } });
         Assert.False(session.IsLoggedIn);
         Assert.False(session.AccountRequestPending);
@@ -103,7 +103,7 @@ public sealed class ServerV2SessionTests : IDisposable
     {
         using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_directory, Path.Combine(_directory, "server")));
         var session = GameServices.Session;
-        session.Login("demo", "demo");
+        session.Login("demo1", "123");
         GameServices.Net.Tick(0);
         var previous = session.LoginCache;
         session.Logout();
@@ -111,10 +111,10 @@ public sealed class ServerV2SessionTests : IDisposable
         Assert.False(session.IsLoggedIn);
         Assert.Empty(session.Roles);
         Assert.False(previous.IsLoggedIn);
-        session.Login("demo", "wrong");
+        session.Login("demo1", "wrong");
         PumpUntil(() => !session.AccountRequestPending);
         Assert.False(session.IsLoggedIn);
-        session.Login("demo", "demo");
+        session.Login("demo1", "123");
         PumpUntil(() => !session.AccountRequestPending);
         Assert.True(session.IsLoggedIn);
         Assert.NotSame(previous, session.LoginCache);
@@ -126,7 +126,7 @@ public sealed class ServerV2SessionTests : IDisposable
     {
         using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_directory, Path.Combine(_directory, "server")));
         var session = GameServices.Session;
-        session.Login("demo", "demo"); PumpUntil(() => !session.AccountRequestPending);
+        session.Login("demo1", "123"); PumpUntil(() => !session.AccountRequestPending);
         session.CreateRole("原子角色", RoleGender.Male, 9); PumpUntil(() => !session.AccountRequestPending);
         var roleId = session.Roles.Single().RoleId;
         var observed = 0;
@@ -198,7 +198,7 @@ public sealed class ServerV2SessionTests : IDisposable
     {
         using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_directory, Path.Combine(_directory, "server")));
         var session = GameServices.Session;
-        session.Login("demo", "demo"); PumpUntil(() => !session.AccountRequestPending);
+        session.Login("demo1", "123"); PumpUntil(() => !session.AccountRequestPending);
         session.CreateRole("只读角色", RoleGender.Female, 17); PumpUntil(() => !session.AccountRequestPending);
         var roleId = session.Roles.Single().RoleId;
         session.SelectRole(roleId); GameServices.Net.Tick(0);
@@ -206,15 +206,16 @@ public sealed class ServerV2SessionTests : IDisposable
         session.Logout();
         for (var i = 0; i < 3; i++) GameServices.Net.Tick(0);
         Assert.False(session.HasRole); Assert.Empty(session.Roles);
-        session.Login("demo", "demo"); PumpUntil(() => !session.AccountRequestPending);
+        session.Login("demo1", "123"); PumpUntil(() => !session.AccountRequestPending);
         session.SelectRole(roleId); PumpUntil(() => !session.AccountRequestPending);
         Assert.True(session.HasRole && session.HasMap);
         GameServices.World.InitializeRole();
         var original = GameServices.World.RolePosition;
         using var click = new Godot.InputEventMouseButton { ButtonIndex = Godot.MouseButton.Left, Pressed = true };
-        Assert.False(GameServices.World.HandleInput(click, original + Godot.Vector2.One * 100));
-        Assert.Equal(original, GameServices.World.RolePosition);
-        Assert.Throws<NotSupportedException>(() => session.SubmitMove(1, original));
+        PumpUntil(() => session.CanMove);
+        Assert.True(GameServices.World.HandleInput(click, original + Godot.Vector2.One * 100));
+        GameServices.World.Tick(.01);
+        Assert.NotEqual(original, GameServices.World.RolePosition);
         Assert.Throws<NotSupportedException>(() => session.SendGm("item 1"));
         Assert.Throws<NotSupportedException>(() => session.MoveItem(1, 2, 0));
         Assert.Throws<NotSupportedException>(() => session.EquipItem(1, EquipmentSlot.MainHand, 0, 0));

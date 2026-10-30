@@ -32,3 +32,16 @@ message PrepareRoleRt {
   // 初始可见范围。
   rpg.v2.MapAoiSnapshotPb map = 4;
 }
+
+// 使用服务器权威时间推进接收角色。
+message AdvanceRole {
+  // 本轮单调时间。
+  int64 server_time_ms = 1;
+  // 本轮有效速度。
+  int32 movement_speed = 2;
+}
+// 角色是否仍需移动或投影重试。
+message AdvanceRoleRt {
+  // 后续轮次继续调度。
+  bool moving = 1;
+}

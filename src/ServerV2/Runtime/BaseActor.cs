@@ -8,6 +8,10 @@ namespace Rpg.ServerV2.Runtime;
 /// <summary>独立任务中的串行邮箱；状态只能在初始化及消息回合内访问。</summary>
 public abstract class BaseActor : IAsyncDisposable
 {
+    /// <summary>所属服务器的运行时资格目录。</summary>
+    internal ActorCallRegistry? Calls { get; set; }
+    /// <summary>当前串行回合的不可变投递元数据。</summary>
+    protected DataActorCall? CurrentCall { get; private set; }
     /// <summary>多发送者、单消费者的有序投递队列。</summary>
     private readonly Channel<Delivery> _mailbox = Channel.CreateUnbounded<Delivery>(new() { SingleReader = true });
     /// <summary>只保护接纳与停止，不围住业务执行。</summary>
@@ -33,11 +37,11 @@ public abstract class BaseActor : IAsyncDisposable
     protected BaseActor() => Ref = new(this);
 
     /// <summary>类型化发送请求，调用方延续不占用 Actor 回合。</summary>
-    internal async Task<TReply> Ask<TReply>(object request)
+    internal async Task<TReply> Ask<TReply>(object request, DataActorCall? call = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         var completion = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Enqueue(new(request, completion));
+        Enqueue(new(request, completion, call));
         var result = await completion.Task.ConfigureAwait(false);
         return result is TReply reply ? reply : throw new InvalidOperationException("Actor 回复类型不符");
     }
@@ -87,10 +91,15 @@ public abstract class BaseActor : IAsyncDisposable
             {
                 try
                 {
+                    if (delivery.Call is { } call && Calls is { } registry && !registry.IsCurrent(call)) throw new OperationCanceledException("Actor 投递身份已过期");
+                    CurrentCall = delivery.Call;
                     var result = await ReceiveAsync(delivery.Message).ConfigureAwait(false);
+                    // 批量结果保留原观察者映射逐个输出校验，不能丢失已分配的序号占位。
+                    if (delivery.Call is { Observers: null } completed && Calls is { } current && !current.IsCurrent(completed)) throw new OperationCanceledException("Actor 结果身份已过期");
                     delivery.Completion?.TrySetResult(result);
                 }
                 catch (Exception error) { Reject(delivery, error); }
+                finally { CurrentCall = null; }
             }
         }
         catch (Exception error) { failure = error; Report(error); }
@@ -128,5 +137,5 @@ public abstract class BaseActor : IAsyncDisposable
     /// <summary>只在 RUN 串行处理数据消息。</summary>
     protected abstract ValueTask<object?> ReceiveAsync(object message);
     /// <summary>单次投递；通知没有回复句柄。</summary>
-    private sealed record Delivery(object Message, TaskCompletionSource<object?>? Completion);
+    private sealed record Delivery(object Message, TaskCompletionSource<object?>? Completion, DataActorCall? Call = null);
 }

@@ -62,7 +62,7 @@ public sealed class PrepareRoleHandler : IActorHandler<RoleContext, PrepareRole,
             Profile = new() { Name = data.Name, Level = data.Level, Gender = (RoleGenderPb)data.Gender, HeadId = data.HeadId },
             Status = new() { Health = data.Health, MaxHealth = data.MaxHealth, Mana = data.Mana, MaxMana = data.MaxMana },
             Position = new() { MapId = data.MapId, X = data.X, Y = data.Y }, Equipment = equipped };
-        var world = await context.Actors.World(data.MapId).Ask<GetWorldEntrySnapshotRt>(new GetWorldEntrySnapshot { X = data.X, Y = data.Y }).ConfigureAwait(false);
+        var world = await context.Actors.World(data.MapId).Ask<GetWorldEntrySnapshotRt>(new GetWorldEntrySnapshot { X = data.X, Y = data.Y }, context.Call).ConfigureAwait(false);
         return new PrepareRoleRt { State = state, Role = new() { Experience = data.Experience, NextExperience = data.NextExperience, BagExtraRows = data.BagExtraRows }, Bag = bag, Map = world.Map };
     }
 }

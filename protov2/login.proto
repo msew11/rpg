@@ -44,3 +44,9 @@ message DeleteRoleRt {
   // 不包含删除墓碑的摘要。
   repeated RoleSummaryPb roles = 1;
 }
+
+// 撤销认证并返回登录，底层连接保留。
+message SessionKickedNotice {
+  // 显示给玩家的原因。
+  string message = 1;
+}

@@ -14,18 +14,23 @@ V2 SHALL 对登录 username 去除首尾空白并转不变小写，以同一规�
 - **THEN** 前两者定位同一分片，第三者定位独立分片；非法账号在创建分片前失败
 
 ### Requirement: 登录后从会话路由
-首次登录 SHALL 从 Login.username 定位分片，仅在成功且请求代次仍有效时绑定该连接账号。后续账号请求 SHALL 从服务端会话获取账号键，不要求载荷重复提供 username；未绑定时 SHALL 拒绝。默认登录 SHALL 验证规范账号 demo 与原样密码 demo，错误凭据返回 INVALID_CREDENTIALS；真实认证暂不实现。
+首次登录 SHALL 从 Login.username 定位分片，仅在成功且请求代次仍有效时绑定该连接账号。后续账号请求 SHALL 从服务端会话获取账号键，不要求载荷重复提供 username；未绑定时 SHALL 拒绝。默认登录 SHALL 允许规范账号 admin、demo1、demo2，原样密码均为123；服务器模式本机登录仅允许admin/123，纯客户端默认demo1/123，错误凭据返回 INVALID_CREDENTIALS；真实认证暂不实现。
 
 #### Scenario: 成功与失败绑定
 - **WHEN** 正确或错误凭据登录，随后投递不含 username 的账号请求
 - **THEN** 成功连接定位原账号分片，失败连接不建立绑定且账号请求被拒绝
 
+
+#### Scenario: 多账号角色隔离
+- **WHEN** admin、demo1与demo2分别登录并创建角色
+- **THEN** 角色列表和角色编号互不冲突，服务器模式拒绝非admin账号
+
 ### Requirement: 账号摘要与服务依赖
-账号摘要存储 SHALL 以 username.role_summary.json 表示该账号全部角色摘要，不以角色 ID 分散存储账号摘要。V2 服务入口 SHALL 实现客户端 Service 契约，持有构造注入的 EnvService 与 ConfigService；NetService SHALL 拥有入口并管理其字节收发与释放。业务处理器 SHALL 通过所属 Actor 的上下文读取该服务借用的配置，不自行持有配置依赖或访问全局配置；不同服务的配置 SHALL 隔离，配置释放后读取 SHALL 失败。必需配置和模块依赖 SHALL 在装配入口确定；缺失或已释放的配置 SHALL 在创建分片及执行存储操作前被拒绝，不向内部传递缺失依赖。摘要真实读写 SHALL 遵循 server-v2-storage；旧数据迁移及客户端默认入口切换 SHALL 留待业务迁移。
+账号摘要存储 SHALL 以 username.role_summary.json 表示该账号全部角色摘要，不以角色 ID 分散存储账号摘要。V2 服务入口 SHALL 实现客户端 Service 契约，持有构造注入的 EnvService 与 ConfigService；NetService SHALL 拥有入口并管理其字节收发与释放。业务处理器 SHALL 通过所属 Actor 的上下文读取该服务借用的配置，不自行持有配置依赖或访问全局配置；不同服务的配置 SHALL 隔离，配置释放后读取 SHALL 失败。必需配置和模块依赖 SHALL 在装配入口确定；缺失或已释放的配置 SHALL 在创建分片及执行存储操作前被拒绝，不向内部传递缺失依赖。摘要真实读写 SHALL 遵循 server-v2-storage；旧数据 SHALL 不迁移；客户端默认入口 SHALL 使用V2 TCP，旧宿主仅由回归显式选择。
 
 #### Scenario: 框架装配
 - **WHEN** 通过 NetService 创建 V2 服务链路并收发登录消息后释放 NetService
-- **THEN** V2 借用同一 EnvService 与 ConfigService，响应经 Net 交付，服务随 Net 释放且借用服务仍有效；默认旧链路可继续登录
+- **THEN** V2 借用同一 EnvService 与 ConfigService，响应经 Net 交付，服务随 Net 释放且借用服务仍有效；旧链路可由测试显式装配
 
 #### Scenario: 摘要契约
 - **WHEN** 为规范账号加载及保存摘要
@@ -51,7 +56,7 @@ V2 SHALL 对登录 username 去除首尾空白并转不变小写，以同一规�
 - **THEN** 非法请求不改变摘要或消耗编号，同账号请求串行，重名最多成功一次
 
 ### Requirement: V2 摘要删除与延迟保存
-摘要 SHALL 保存内部 IsDeleted 墓碑，已有文件缺少字段时为 false；删除不存在或已删除角色返回 ROLE_NOT_FOUND。演示账号编号 SHALL 从包含墓碑的最大编号递增，空集合从 1003 开始，溢出拒绝创建。所有变更 SHALL 沿用摘要周期、显式保存、关闭补写与失败重试；成功响应仅表示内存提交。旧 Server 数据不迁移。
+摘要 SHALL 保存内部 IsDeleted 墓碑，已有文件缺少字段时为 false；删除不存在或已删除角色返回 ROLE_NOT_FOUND。账号编号 SHALL 从包含墓碑的最大编号递增；空集合demo1从1003、admin从2^32+1003、demo2从2×2^32+1003开始，固定账号32位区间互不重叠，耗尽拒绝创建。所有变更 SHALL 沿用摘要周期、显式保存、关闭补写与失败重试；成功响应仅表示内存提交。旧 Server 数据不迁移。
 
 #### Scenario: 删空与编号不复用
 - **WHEN** 创建后删除全部角色、保存并重启，再创建角色
@@ -62,11 +67,11 @@ V2 SHALL 对登录 username 去除首尾空白并转不变小写，以同一规�
 - **THEN** 禁用期间不提前落地，失败保留内存和待写状态，重试或正常关闭恢复完整最终摘要
 
 ### Requirement: V2 独立客户端验收
-独立 V2 场景 SHALL 支持登录、列表预览、创建与确认删除，默认旧游戏保持运行。客户端 SHALL 每次只允许一个账号或进入操作在途，缓存先完整校验并原子替换列表再通知页面；失败保留已有列表与创建草稿并解除等待。返回登录及重登 SHALL 隔离旧代次结果。进入世界 SHALL 遵循 server-v2-world-entry，在未删除账号归属验证后加载或首次创建角色三表。
+独立 V2 场景 SHALL 支持登录、列表预览、创建与确认删除，默认游戏 SHALL 使用V2 TCP，旧链路在测试中显式装配。客户端 SHALL 每次只允许一个账号或进入操作在途，缓存先完整校验并原子替换列表再通知页面；失败保留已有列表与创建草稿并解除等待。返回登录及重登 SHALL 隔离旧代次结果。进入世界 SHALL 遵循 server-v2-world-entry，在未删除账号归属验证后加载或首次创建角色三表。
 
 #### Scenario: 页面与草稿
 - **WHEN** 通过真实按钮登录、创建、取消删除或确认删除，或创建失败
-- **THEN** 列表与人物预览更新，取消不发请求，失败保留草稿，重复操作被阻断，进入游戏可用并展示初始只读世界
+- **THEN** 列表与人物预览更新，取消不发请求，失败保留草稿，重复操作被阻断，进入游戏可用，首份世界全量后移动可用且背包装备仍只读
 
 #### Scenario: 旧结果与非法快照
 - **WHEN** 返回登录后旧结果到达，或成功响应包含非法、重复角色

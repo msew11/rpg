@@ -62,6 +62,8 @@ if ($Tests) {
     Invoke-GodotCheck 'Server V2 role management' @('--headless', '--path', $projectPath, 'res://tests/server_v2_role_management_smoke.tscn')
     # V2 世界进入以真实按钮覆盖建档、只读展示、返回、切角与重启。
     Invoke-GodotCheck 'Server V2 world entry' @('--headless', '--path', $projectPath, 'res://tests/server_v2_world_entry_smoke.tscn')
+    # 双进程真实TCP验证默认账号、互见和预测/远端人物移动。
+    Invoke-GodotCheck 'Server V2 multiplayer TCP' @('--headless', '--path', $projectPath, 'res://tests/server_v2_multiplayer_pair.tscn')
     # 多地图初始化及离开后仍验证静态分块复用与边缘。
     Invoke-GodotCheck 'map chunks' @('--headless', '--path', $projectPath, 'res://tests/map_chunk_smoke.tscn')
     # 图鉴验收覆盖全部素材目录及实际 GM 分类浏览交互。
