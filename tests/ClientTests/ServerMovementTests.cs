@@ -81,7 +81,7 @@ public sealed class ServerMovementTests : IDisposable
         Assert.Null(ReadFrame(server, takeover).Self.Position.Target);
         await server.CloseConnectionAsync(takeover); await Task.Delay(120); await server.Server.AdvanceAsync();
         var left = ReadFrame(server, one); Assert.Contains(second, left.Delta.LeftRoleIds);
-        await server.FlushAsync(); var saved = await new RepoRole(Path.GetFullPath(_root)).LoadAsync(second);
+        await server.FlushAsync(); var saved = await new RoleStorage(Path.GetFullPath(_root)).LoadAsync(second);
         Assert.True(saved.Role.X > entry.State.Position.X);
     }
 
@@ -105,7 +105,7 @@ public sealed class ServerMovementTests : IDisposable
         Assert.Equal(ErrorCodePb.NotAuthenticated, Assert.IsType<ErrorRt>(await Exchange(server, player, new Move { ActionId = 2, Target = new() { X = 50, Y = 50 } })).Code);
         Assert.IsType<ErrorRt>(await Exchange(server, player, new ResyncWorld()));
         await server.FlushAsync();
-        var stopped = await new RepoRole(Path.GetFullPath(_root)).LoadAsync(second);
+        var stopped = await new RoleStorage(Path.GetFullPath(_root)).LoadAsync(second);
         Assert.True(stopped.Role.X > entry.State.Position.X);
         await Task.Delay(120); await server.Server.AdvanceAsync();
         Assert.Contains(second, ReadFrame(server, observer).Delta.LeftRoleIds);
@@ -169,7 +169,7 @@ public sealed class ServerMovementTests : IDisposable
             await Exchange(server, connection, new Move { ActionId = 2, Target = new() { X = entry.State.Position.X + 500, Y = entry.State.Position.Y } });
             await Task.Delay(90); await server.Server!.AdvanceAsync();
         }
-        var saved = await new RepoRole(Path.GetFullPath(_root)).LoadAsync(role);
+        var saved = await new RoleStorage(Path.GetFullPath(_root)).LoadAsync(role);
         Assert.True(saved.Role.X > 16016);
         await using var restarted = MockServerService.CreateInProcess(env, config);
         var id = restarted.OpenConnection(); await Exchange(restarted, id, new Login { Username = "demo1", Password = "123" });

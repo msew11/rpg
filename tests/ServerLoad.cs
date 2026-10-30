@@ -52,7 +52,7 @@ public partial class ServerLoad : Node
         {
             using var env = new EnvService(Path.Combine(root, "settings"), Path.Combine(root, "server")); using var config = new ConfigService(env);
             env.ServerFlushIntervalSeconds = 0;
-            var directory = Path.GetFullPath(env.ServerDirectory); var repo = new RepoRole(directory); var summaries = ImmutableArray.CreateBuilder<DataRoleSummary>();
+            var directory = Path.GetFullPath(env.ServerDirectory); var storage = new RoleStorage(directory); var summaries = ImmutableArray.CreateBuilder<DataRoleSummary>();
             var origins = new List<(float X, float Y)>(); var map = config.Map.Items[config.Basic.Value.InitialMapId];
             for (var i = 0; i < count; i++)
             {
@@ -60,9 +60,9 @@ public partial class ServerLoad : Node
                 origins.Add((x, y)); var id = 1003 + i;
                 summaries.Add(new(id, "压测" + i, 1, Server.Modules.Common.Data.RoleGender.Male, 1, []));
                 var role = DataCacheRole.CreateInitial(new RoleSummaryPb { RoleId = id, Name = "压测" + i, Level = 1, Gender = RoleGenderPb.Male, HeadId = 1 }, map) with { X = x, Y = y };
-                await repo.SaveAsync(id, new(role, [], []), DataRoleTables.All);
+                await storage.SaveAsync(id, new(role, [], []), DataRoleTables.All);
             }
-            await new RepoAccountRoleSummary(directory).SaveAsync("demo1", summaries.ToImmutable());
+            await new LoginStorage(directory).SaveAsync("demo1", summaries.ToImmutable());
             var port = FreePort(); await using var server = new MockServer(env, config);
             var errors = new ConcurrentQueue<string>(); server.Error += error => errors.Enqueue(error.ToString()); server.Start(port);
             for (var i = 0; i < count; i++)

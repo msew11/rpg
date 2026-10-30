@@ -7,15 +7,15 @@ using Rpg.Server.Modules.Login;
 
 namespace Rpg.Server.Modules.Login.Storage;
 
-/// <summary>每账号一份摘要数组的文件仓库，统一提供与账号无关的持久化取号入口。</summary>
-public sealed class RepoAccountRoleSummary : IAccountRoleSummaryRepo
+/// <summary>每账号一份摘要数组的文件存储，统一提供与账号无关的持久化取号入口。</summary>
+public sealed class LoginStorage : ILoginStorage
 {
     /// <summary>宿主提供的 专用绝对目录。</summary>
     private readonly string _directory;
     /// <summary>所有账号共享的持久化编号生成器。</summary>
     private readonly RoleIdGenerator _roleIds;
     /// <summary>绑定专用目录，读取前不创建文件夹。</summary>
-    public RepoAccountRoleSummary(string directory)
+    public LoginStorage(string directory)
     { _directory = Path.GetFullPath(directory); _roleIds = new(_directory); }
     /// <summary>先持久化预留编号段，再交付一个不重复的角色编号。</summary>
     public ValueTask<long> NextRoleIdAsync() => _roleIds.NextAsync();

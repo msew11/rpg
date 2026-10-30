@@ -86,7 +86,7 @@ public sealed class MockServer : IAsyncDisposable
         _env = env;
         _config = config;
         var directory = PrepareStorageDirectory(env.ServerDirectory);
-        var summaries = new RepoAccountRoleSummary(directory); var roles = new RepoRole(directory); var worlds = new RepoWorld(directory, Report);
+        var summaries = new LoginStorage(directory); var roles = new RoleStorage(directory); var worlds = new WorldStorage(directory, Report);
         var batch = new Modules.Common.Storage.RepoItemBatch(directory, roles, worlds, summaries);
         batch.RecoverAsync().GetAwaiter().GetResult();
         var modules = new ServerModules(config, summaries, roles, worlds, report: Report, itemBatch: batch);

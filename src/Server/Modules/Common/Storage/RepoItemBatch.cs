@@ -18,18 +18,18 @@ internal sealed class RepoItemBatch
 {
     /// <summary>数据根。</summary>
     private readonly string _directory;
-    /// <summary>固定角色三表仓库。</summary>
-    private readonly RepoRole _roles;
-    /// <summary>固定地图仓库。</summary>
-    private readonly RepoWorld _worlds;
-    /// <summary>固定账号摘要仓库。</summary>
-    private readonly RepoAccountRoleSummary _logins;
+    /// <summary>固定角色三表存储。</summary>
+    private readonly RoleStorage _roles;
+    /// <summary>固定地图存储。</summary>
+    private readonly WorldStorage _worlds;
+    /// <summary>固定账号摘要存储。</summary>
+    private readonly LoginStorage _logins;
     /// <summary>本实例唯一未完成批次记录。</summary>
     private string Pending => Path.Combine(_directory, "items.pending.json");
     /// <summary>验收在指定领域写完后模拟中断。</summary>
     internal Action<string>? AfterWrite { get; init; }
-    /// <summary>借用同实例的具体仓库，调用方必须持有物品入口。</summary>
-    internal RepoItemBatch(string directory, RepoRole roles, RepoWorld worlds, RepoAccountRoleSummary logins)
+    /// <summary>借用同实例的具体存储，调用方必须持有物品入口。</summary>
+    internal RepoItemBatch(string directory, RoleStorage roles, WorldStorage worlds, LoginStorage logins)
     { _directory = Path.GetFullPath(directory); _roles = roles; _worlds = worlds; _logins = logins; }
     /// <summary>启动业务前或失败重试前恢复整个未完成批次，全部成功才删除记录。</summary>
     internal async ValueTask RecoverAsync()

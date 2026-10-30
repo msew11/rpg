@@ -21,9 +21,9 @@ public sealed class EventSubscriptionBoundaryTests
             Assert.DoesNotMatch(@"\bRpg\.(?:Session|World|UI|Services)\b|\bGameServices\s*\.", source);
         }
         var aoi = File.ReadAllText(Path.Combine(serverDirectory, "World", "Cache", "DataCacheWorldRoles.cs"));
-        Assert.DoesNotMatch(@"\bSystem\.IO\b|\bRepoWorld\b", aoi);
-        var repo = File.ReadAllText(Path.Combine(serverDirectory, "World", "Storage", "RepoWorld.cs"));
-        Assert.DoesNotMatch(@"\bWorldAoiTracker\b|\bMockServer\b", repo);
+        Assert.DoesNotMatch(@"\bSystem\.IO\b|\bWorldStorage\b", aoi);
+        var storage = File.ReadAllText(Path.Combine(serverDirectory, "World", "Storage", "WorldStorage.cs"));
+        Assert.DoesNotMatch(@"\bWorldAoiTracker\b|\bMockServer\b", storage);
     }
 
     /// <summary>遍历正式类型的调用指令，防止服务或辅助包装类重新注册协议监听。</summary>

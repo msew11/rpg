@@ -21,13 +21,13 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
     public async Task InitializationWaitsForLoadAndOtherShardsProgressWithoutStartingUnusedOnFlush()
     {
         var release = Signal();
-        var repo = new DoubleRoleRepo { LoadRelease = release.Task };
-        await using var modules = Modules(repo);
+        var storage = new DoubleRoleStorage { LoadRelease = release.Task };
+        await using var modules = Modules(storage);
         var actor = modules.Role(10);
         var unused = modules.Role(99);
-        Assert.Equal(0, repo.LoadCount);
+        Assert.Equal(0, storage.LoadCount);
         var first = actor.Ask(new DataReadRole());
-        await repo.LoadEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await storage.LoadEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var changed = Sample("更新");
         var next = actor.Ask(new DataWriteRole(changed));
         Assert.False(first.IsCompleted);
@@ -38,8 +38,8 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
         Assert.Equal(DataRoleTables.Role, await next);
         Assert.Equal("更新", (await actor.Ask(new DataReadRole())).Role.Name);
         await modules.FlushAsync();
-        Assert.Equal(2, repo.LoadCount);
-        Assert.Equal(1, repo.SaveCount);
+        Assert.Equal(2, storage.LoadCount);
+        Assert.Equal(1, storage.SaveCount);
         Assert.Equal(ActorState.INIT, unused.State);
     }
     /// <summary>INIT 错误拒绝所有等待者，下一次取得目录分片可以重建并重新加载。</summary>
@@ -47,32 +47,32 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
     public async Task FailedInitializationRejectsWaitersAndDirectoryAllowsReload()
     {
         var release = Signal();
-        var repo = new DoubleRoleRepo { FailLoad = true, LoadRelease = release.Task };
-        await using var modules = Modules(repo);
+        var storage = new DoubleRoleStorage { FailLoad = true, LoadRelease = release.Task };
+        await using var modules = Modules(storage);
         var first = modules.Role(10);
         var one = first.Ask(new DataReadRole());
-        await repo.LoadEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await storage.LoadEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var two = first.Ask(new DataReadRole());
         release.SetResult();
         await Assert.ThrowsAsync<IOException>(() => one);
         await Assert.ThrowsAsync<IOException>(() => two);
-        repo.FailLoad = false;
+        storage.FailLoad = false;
         var retry = modules.Role(10);
         Assert.NotSame(first, retry);
         Assert.Equal(10, (await retry.Ask(new DataReadRole())).Role.RoleId);
-        Assert.Equal(2, repo.LoadCount);
+        Assert.Equal(2, storage.LoadCount);
     }
     /// <summary>保存期间本角色下一回合等待，其他分片继续；失败保留最新内存及待写标记。</summary>
     [Fact]
     public async Task SavingOwnsMailboxAndFailedSaveCanRetryWithoutLosingMemory()
     {
         var release = Signal();
-        var repo = new DoubleRoleRepo { SaveRelease = release.Task, FailSave = true };
-        await using var modules = Modules(repo);
+        var storage = new DoubleRoleStorage { SaveRelease = release.Task, FailSave = true };
+        await using var modules = Modules(storage);
         var actor = modules.Role(10);
         await actor.Ask(new DataWriteRole(Sample("保留")));
         var flushing = actor.Ask(new DataFlush());
-        await repo.SaveEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await storage.SaveEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var read = actor.Ask(new DataReadRole());
         Assert.False(read.IsCompleted);
         await modules.Role(11).Ask(new DataReadRole()).WaitAsync(TimeSpan.FromSeconds(5));
@@ -80,32 +80,32 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
         await Assert.ThrowsAsync<IOException>(() => flushing);
         Assert.Equal("保留", (await read).Role.Name);
         Assert.Equal(DataRoleTables.Role, await actor.Ask(new DataWriteRole(Sample("保留"))));
-        repo.FailSave = false;
+        storage.FailSave = false;
         await actor.Ask(new DataFlush());
-        Assert.Equal("保留", repo.LastSaved!.Role.Name);
+        Assert.Equal("保留", storage.LastSaved!.Role.Name);
         Assert.Equal(DataRoleTables.None, await actor.Ask(new DataWriteRole(Sample("保留"))));
         await actor.Ask(new DataFlush());
-        Assert.Equal(2, repo.SaveCount);
+        Assert.Equal(2, storage.SaveCount);
     }
     /// <summary>失败分片不阻止同组独立角色和后续账号保存，最终汇总失败。</summary>
     [Fact]
     public async Task FlushContinuesOtherRolesAndAccountsWhenOneRoleFails()
     {
-        var repo = new DoubleRoleRepo { FailSave = true };
-        var accounts = new DoubleAccountRepo();
-        await using var modules = new DoubleServerModules(Config, accounts, repo, new DoubleServerRepo(), _ => LoginHandlers(), _ => RoleHandlers());
+        var storage = new DoubleRoleStorage { FailSave = true };
+        var accounts = new DoubleLoginStorage();
+        await using var modules = new DoubleServerModules(Config, accounts, storage, new DoubleServerStorage(), _ => LoginHandlers(), _ => RoleHandlers());
         await modules.Role(10).Ask(new DataWriteRole(Sample("失败角色")));
         await modules.Role(11).Ask(new DataWriteRole(Sample("成功角色")));
         var account = modules.Login("alice");
         await account.Ask(new DataWriteSummary("更新摘要"));
         var error = await Assert.ThrowsAsync<AggregateException>(() => modules.FlushAsync());
         Assert.Single(error.InnerExceptions);
-        Assert.Equal(2, repo.SaveCount);
-        Assert.Equal("成功角色", repo.LastSaved!.Role.Name);
+        Assert.Equal(2, storage.SaveCount);
+        Assert.Equal("成功角色", storage.LastSaved!.Role.Name);
         Assert.Equal(1, accounts.SaveCount);
-        repo.FailSave = false;
+        storage.FailSave = false;
         await modules.FlushAsync();
-        Assert.Equal(3, repo.SaveCount);
+        Assert.Equal(3, storage.SaveCount);
         Assert.Equal(1, accounts.SaveCount);
     }
     /// <summary>文件加载后的摘要进入 Handler，修改写回后新 Actor 可恢复；原值恢复不写。</summary>
@@ -115,10 +115,10 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
         var directory = Path.Combine(Path.GetTempPath(), "rpg-server-login-" + Guid.NewGuid());
         try
         {
-            var repo = new RepoAccountRoleSummary(directory);
-            await using var locator = Modules(new DoubleServerRepo());
-            await repo.SaveAsync("alice", [new(1, "文件摘要", 1, RoleGender.Male, 1, [])]);
-            await using (var actor = new LoginActor(Config, locator, "alice", repo, LoginHandlers()))
+            var storage = new LoginStorage(directory);
+            await using var locator = Modules(new DoubleServerStorage());
+            await storage.SaveAsync("alice", [new(1, "文件摘要", 1, RoleGender.Male, 1, [])]);
+            await using (var actor = new LoginActor(Config, locator, "alice", storage, LoginHandlers()))
             {
                 Assert.Equal("文件摘要", await actor.Ref.Ask(new DataReadSummary()));
                 await actor.Ref.Ask(new DataWriteSummary("新摘要"));
@@ -130,13 +130,13 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
                 await actor.Ref.Ask(new DataWriteSummary("新摘要"));
                 await actor.Ref.Ask(new DataFlush());
             }
-            await using var reopened = new LoginActor(Config, locator, "alice", repo, LoginHandlers());
+            await using var reopened = new LoginActor(Config, locator, "alice", storage, LoginHandlers());
             Assert.Equal("新摘要", await reopened.Ref.Ask(new DataReadSummary()));
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
     /// <summary>构造独立测试模块，不引入真实业务。</summary>
-    private DoubleServerModules Modules(IRoleRepo repo) => new(Config, new DoubleServerRepo(), repo, new DoubleServerRepo(), _ => LoginHandlers(), _ => RoleHandlers());
+    private DoubleServerModules Modules(IRoleStorage storage) => new(Config, new DoubleServerStorage(), storage, new DoubleServerStorage(), _ => LoginHandlers(), _ => RoleHandlers());
     /// <summary>每个角色单独冻结其读写处理器表。</summary>
     internal static ActorHandlers<RoleContext> RoleHandlers() => new ActorHandlers<RoleContext>()
         .Register<DataReadRole, DataRoleSnapshot>(new DoubleReadRoleHandler()).Register<DataWriteRole, DataRoleTables>(new DoubleWriteRoleHandler());
@@ -171,7 +171,7 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
     /// <summary>账号摘要修改契约的替身。</summary>
     private sealed class DoubleWriteSummaryHandler : IActorHandler<LoginContext, DataWriteSummary, bool>
     {
-        /// <summary>通过 Context 更新摘要，不访问仓库。</summary>
+        /// <summary>通过 Context 更新摘要，不访问存储。</summary>
         public ValueTask<bool> HandleAsync(LoginContext context, DataWriteSummary request)
         { context.Cache.Commit(new([new(1, request.Name, 1, RoleGender.Male, 1, [])])); return ValueTask.FromResult(context.Cache.SummariesDirty); }
     }
@@ -181,8 +181,8 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
         /// <summary>返回首个摘要名称。</summary>
         public ValueTask<string> HandleAsync(LoginContext context, DataReadSummary request) => ValueTask.FromResult(context.Cache.Summaries.Value[0].Name);
     }
-    /// <summary>提供可控加载、保存阻塞及错误的角色仓库契约替身。</summary>
-    internal sealed class DoubleRoleRepo : IRoleRepo
+    /// <summary>提供可控加载、保存阻塞及错误的角色存储契约替身。</summary>
+    internal sealed class DoubleRoleStorage : IRoleStorage
     {
         /// <summary>角色 10 的加载阻塞。</summary>
         internal Task? LoadRelease { get; init; }
@@ -227,8 +227,8 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
             LastSaved = snapshot;
         }
     }
-    /// <summary>统计账号写回次数的摘要仓库替身。</summary>
-    private sealed class DoubleAccountRepo : IAccountRoleSummaryRepo
+    /// <summary>统计账号写回次数的摘要存储替身。</summary>
+    private sealed class DoubleLoginStorage : ILoginStorage
     {
         /// <summary>保存次数契约不涉及角色创建。</summary>
         public ValueTask<long> NextRoleIdAsync() => throw new NotSupportedException();

@@ -19,17 +19,17 @@ internal sealed class WorldActor : ModuleActor<WorldContext>
     private readonly int _mapId;
     /// <summary>地图工作区借用的宿主配置。</summary>
     private readonly ConfigService _config;
-    /// <summary>无业务状态的必需地图仓库。</summary>
-    private readonly IWorldRepo _repo;
-    /// <summary>绑定专用处理器表、地图身份与非空仓库。</summary>
-    internal WorldActor(ConfigService config, IActorLocator actors, int mapId, IWorldRepo repo, ActorHandlers<WorldContext> handlers) : base(handlers)
-    { ArgumentNullException.ThrowIfNull(repo); _mapId = mapId; _config = config; _actors = actors; _repo = repo; }
-    /// <summary>先取已加载规格，再完整读取对象；未知地图不调用仓库。</summary>
+    /// <summary>无业务状态的必需地图存储。</summary>
+    private readonly IWorldStorage _storage;
+    /// <summary>绑定专用处理器表、地图身份与非空存储。</summary>
+    internal WorldActor(ConfigService config, IActorLocator actors, int mapId, IWorldStorage storage, ActorHandlers<WorldContext> handlers) : base(handlers)
+    { ArgumentNullException.ThrowIfNull(storage); _mapId = mapId; _config = config; _actors = actors; _storage = storage; }
+    /// <summary>先取已加载规格，再完整读取对象；未知地图不调用存储。</summary>
     protected override async ValueTask<WorldContext> CreateContextAsync()
     {
         if (!_config.Map.Items.TryGetValue(_mapId, out var map)) throw new InvalidDataException($"地图配置不存在：{_mapId}");
         var layout = new DataWorldLayout(_mapId, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles);
-        var snapshot = await _repo.LoadAsync(layout).ConfigureAwait(false);
+        var snapshot = await _storage.LoadAsync(layout).ConfigureAwait(false);
         return new(_config, _actors, layout, snapshot);
     }
     /// <summary>邮箱内直接保存，成功才接受基线；失败保留对象和待写块。</summary>
@@ -42,7 +42,7 @@ internal sealed class WorldActor : ModuleActor<WorldContext>
         var dirty = context.Cache.DirtyChunks;
         if (dirty.Count != 0)
         {
-            await _repo.SaveAsync(context.Cache.Layout, context.Cache.Snapshot(), dirty).ConfigureAwait(false);
+            await _storage.SaveAsync(context.Cache.Layout, context.Cache.Snapshot(), dirty).ConfigureAwait(false);
             context.Cache.AcceptSaved();
         }
         return true;

@@ -25,7 +25,7 @@ public partial class ItemAssetSmoke : Node
         {
             var serverDirectory = Path.Combine(directory, "server");
             RoleTestData.Seed(serverDirectory);
-            var repo = new RepoRole(serverDirectory);
+            var storage = new RoleStorage(serverDirectory);
             RoleTestData.SetItems(serverDirectory, 1001, Enumerable.Concat(Enumerable.Range(1013, 6).Select((id, index) => new DataItem(index + 1, id, index, 1)).ToArray(), [new DataItem(7, 1012, EquipmentSlot.MainHand)]), 8);
             main = new DoubleMainController { SettingsDirectory = Path.Combine(directory, "settings"),
                 ServerDirectory = serverDirectory, EnvFilePath = Path.Combine(directory, ".env") };

@@ -27,8 +27,8 @@ public sealed class ServerWriteBackTests : ServerModuleTests
     {
         var entered = ServerPersistenceActorTests.Signal();
         var release = ServerPersistenceActorTests.Signal();
-        var repo = new RepoAccountRoleSummary(_directory);
-        var modules = new DoubleServerModules(Config, repo, new DoubleServerRepo(), new DoubleServerRepo(), _ => new ActorHandlers<LoginContext>()
+        var storage = new LoginStorage(_directory);
+        var modules = new DoubleServerModules(Config, storage, new DoubleServerStorage(), new DoubleServerStorage(), _ => new ActorHandlers<LoginContext>()
             .Register<Login, LoginRt>(new DoubleMutatingLoginHandler(entered, release.Task)));
         await using var server = new ServerRuntime(modules);
         var connection = server.OpenConnection();
@@ -39,7 +39,7 @@ public sealed class ServerWriteBackTests : ServerModuleTests
         Assert.False(Directory.Exists(_directory));
         release.SetResult();
         await Task.WhenAll(work, saving).WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal("已接纳修改", (await repo.LoadAsync("alice"))[0].Name);
+        Assert.Equal("已接纳修改", (await storage.LoadAsync("alice"))[0].Name);
         if (!closing)
         {
             await server.ReceiveAsync(connection, LoginPacket());
@@ -50,9 +50,9 @@ public sealed class ServerWriteBackTests : ServerModuleTests
     [Fact]
     public async Task ShutdownReportsFailureButStopsActorsAndPersistsIndependentAccount()
     {
-        var repo = new ServerPersistenceActorTests.DoubleRoleRepo { FailSave = true };
-        var accounts = new RepoAccountRoleSummary(_directory);
-        var modules = new DoubleServerModules(Config, accounts, repo, new DoubleServerRepo(), _ => ServerPersistenceActorTests.LoginHandlers(),
+        var storage = new ServerPersistenceActorTests.DoubleRoleStorage { FailSave = true };
+        var accounts = new LoginStorage(_directory);
+        var modules = new DoubleServerModules(Config, accounts, storage, new DoubleServerStorage(), _ => ServerPersistenceActorTests.LoginHandlers(),
             _ => ServerPersistenceActorTests.RoleHandlers());
         var server = new ServerRuntime(modules);
         var role = modules.Role(10);
@@ -69,10 +69,10 @@ public sealed class ServerWriteBackTests : ServerModuleTests
     [Fact]
     public async Task RepairingMissingFileAllowsActorReinitializationAndRoleRoundTrip()
     {
-        var repo = new RepoRole(_directory);
-        await repo.SaveAsync(10, ServerStorageTests.Sample(), DataRoleTables.All);
+        var storage = new RoleStorage(_directory);
+        await storage.SaveAsync(10, ServerStorageTests.Sample(), DataRoleTables.All);
         File.Delete(Path.Combine(_directory, "10.item.json"));
-        await using var modules = new DoubleServerModules(Config, new DoubleServerRepo(), repo, new DoubleServerRepo(), _ => new(), _ => ServerPersistenceActorTests.RoleHandlers());
+        await using var modules = new DoubleServerModules(Config, new DoubleServerStorage(), storage, new DoubleServerStorage(), _ => new(), _ => ServerPersistenceActorTests.RoleHandlers());
         var failed = modules.Role(10);
         await Assert.ThrowsAsync<FileNotFoundException>(() => failed.Ask(new ServerPersistenceActorTests.DataReadRole()));
         await File.WriteAllTextAsync(Path.Combine(_directory, "10.item.json"), "[]");
@@ -86,7 +86,7 @@ public sealed class ServerWriteBackTests : ServerModuleTests
         };
         Assert.Equal(DataRoleTables.All, await actor.Ask(new ServerPersistenceActorTests.DataWriteRole(changed)));
         await modules.FlushAsync();
-        var restored = await repo.LoadAsync(10);
+        var restored = await storage.LoadAsync(10);
         Assert.Equal(changed.Role, restored.Role);
         Assert.Equal(changed.Items.ToArray(), restored.Items.ToArray());
         Assert.Equal(changed.Equipments.ToArray(), restored.Equipments.ToArray());

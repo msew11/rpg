@@ -21,40 +21,40 @@ public sealed class ServerWorldStorageTests : IDisposable
     [Fact]
     public async Task MissingManifestAndNoChangesStayInMemoryOnly()
     {
-        var repo = new RepoWorld(_directory);
-        Assert.Empty((await repo.LoadAsync(Layout)).Objects);
-        await repo.SaveAsync(Layout, new(default), ImmutableHashSet<DataWorldChunk>.Empty);
+        var storage = new WorldStorage(_directory);
+        Assert.Empty((await storage.LoadAsync(Layout)).Objects);
+        await storage.SaveAsync(Layout, new(default), ImmutableHashSet<DataWorldChunk>.Empty);
         Assert.False(Directory.Exists(_directory));
         Directory.CreateDirectory(Chunks);
         await File.WriteAllTextAsync(Path.Combine(Chunks, "0_0." + Guid.NewGuid().ToString("N") + ".json"), "broken orphan");
-        Assert.Empty((await repo.LoadAsync(Layout)).Objects);
+        Assert.Empty((await storage.LoadAsync(Layout)).Objects);
         Assert.False(File.Exists(Manifest));
     }
     /// <summary>只替换变化块，未变块文件与引用不变；跨块移动、末对象删除及清空可重启恢复。</summary>
     [Fact]
     public async Task ChangedBlocksReuseUnchangedReferencesAndEmptyMapSurvivesRestart()
     {
-        var repo = new RepoWorld(_directory);
+        var storage = new WorldStorage(_directory);
         var first = Object(1);
         var second = Object(70);
-        await repo.SaveAsync(Layout, new([first, second]), Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0)));
+        await storage.SaveAsync(Layout, new([first, second]), Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0)));
         var unchanged = Directory.GetFiles(Chunks, "1_0.*.json").Single();
         var bytes = await File.ReadAllBytesAsync(unchanged);
         File.SetLastWriteTimeUtc(unchanged, new DateTime(2000, 1, 1));
         var changed = first with { Count = 3, Revision = 2 };
-        await repo.SaveAsync(Layout, new([changed, second]), Dirty(new DataWorldChunk(0, 0)));
+        await storage.SaveAsync(Layout, new([changed, second]), Dirty(new DataWorldChunk(0, 0)));
         Assert.Equal(bytes, await File.ReadAllBytesAsync(unchanged));
         Assert.Equal(2000, File.GetLastWriteTimeUtc(unchanged).Year);
         Assert.Equal(2, Directory.GetFiles(Chunks).Length);
-        AssertObjects([changed, second], await new RepoWorld(_directory).LoadAsync(Layout));
+        AssertObjects([changed, second], await new WorldStorage(_directory).LoadAsync(Layout));
         var moved = changed with { X = 140 };
-        await repo.SaveAsync(Layout, new([moved, second]), Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(2, 0)));
+        await storage.SaveAsync(Layout, new([moved, second]), Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(2, 0)));
         Assert.Empty(Directory.GetFiles(Chunks, "0_0.*.json"));
-        AssertObjects([moved, second], await repo.LoadAsync(Layout));
-        await repo.SaveAsync(Layout, new([moved]), Dirty(new DataWorldChunk(1, 0)));
+        AssertObjects([moved, second], await storage.LoadAsync(Layout));
+        await storage.SaveAsync(Layout, new([moved]), Dirty(new DataWorldChunk(1, 0)));
         Assert.Single(Directory.GetFiles(Chunks));
-        await repo.SaveAsync(Layout, new(default), Dirty(new DataWorldChunk(2, 0)));
-        Assert.Empty((await new RepoWorld(_directory).LoadAsync(Layout)).Objects);
+        await storage.SaveAsync(Layout, new(default), Dirty(new DataWorldChunk(2, 0)));
+        Assert.Empty((await new WorldStorage(_directory).LoadAsync(Layout)).Objects);
         Assert.Empty(Directory.GetFiles(Chunks));
         Assert.Empty(JsonNode.Parse(await File.ReadAllTextAsync(Manifest))!["chunks"]!.AsArray());
     }
@@ -62,18 +62,18 @@ public sealed class ServerWorldStorageTests : IDisposable
     [Fact]
     public async Task InterruptionBeforeManifestKeepsEntireOldStateAndRetryCommitsEntireNewState()
     {
-        var repo = new RepoWorld(_directory);
+        var storage = new WorldStorage(_directory);
         var old = new DataWorldSnapshot([Object(1), Object(70)]);
-        await repo.SaveAsync(Layout, old, Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0)));
+        await storage.SaveAsync(Layout, old, Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0)));
         var manifest = await File.ReadAllBytesAsync(Manifest);
         var next = new DataWorldSnapshot([old.Objects[0] with { Count = 9 }, Object(140)]);
-        var interrupted = new RepoWorld(_directory) { BeforeManifestCommit = () => throw new IOException("模拟清单提交前中断") };
+        var interrupted = new WorldStorage(_directory) { BeforeManifestCommit = () => throw new IOException("模拟清单提交前中断") };
         await Assert.ThrowsAsync<IOException>(() => interrupted.SaveAsync(Layout, next, Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0), new DataWorldChunk(2, 0))).AsTask());
         Assert.Equal(manifest, await File.ReadAllBytesAsync(Manifest));
         Assert.Equal(4, Directory.GetFiles(Chunks).Length);
-        AssertObjects(old.Objects, await repo.LoadAsync(Layout));
-        await repo.SaveAsync(Layout, next, Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0), new DataWorldChunk(2, 0)));
-        AssertObjects(next.Objects, await new RepoWorld(_directory).LoadAsync(Layout));
+        AssertObjects(old.Objects, await storage.LoadAsync(Layout));
+        await storage.SaveAsync(Layout, next, Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0), new DataWorldChunk(2, 0)));
+        AssertObjects(next.Objects, await new WorldStorage(_directory).LoadAsync(Layout));
         Assert.Equal(2, Directory.GetFiles(Chunks).Length);
         Assert.Empty(Directory.GetFiles(_directory, "*.tmp", SearchOption.AllDirectories));
     }
@@ -81,50 +81,50 @@ public sealed class ServerWorldStorageTests : IDisposable
     [Fact]
     public async Task LockedManifestPreventsCommitWithoutTruncatingOldState()
     {
-        var repo = new RepoWorld(_directory);
+        var storage = new WorldStorage(_directory);
         var first = Object(1);
-        await repo.SaveAsync(Layout, new([first]), Dirty(new DataWorldChunk(0, 0)));
+        await storage.SaveAsync(Layout, new([first]), Dirty(new DataWorldChunk(0, 0)));
         await using (var locked = new FileStream(Manifest, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
-            var error = await Record.ExceptionAsync(() => repo.SaveAsync(Layout, new([first with { Count = 2 }]), Dirty(new DataWorldChunk(0, 0))).AsTask());
+            var error = await Record.ExceptionAsync(() => storage.SaveAsync(Layout, new([first with { Count = 2 }]), Dirty(new DataWorldChunk(0, 0))).AsTask());
             Assert.True(error is IOException or UnauthorizedAccessException, error?.ToString() ?? "应拒绝替换被占用清单");
         }
-        AssertObjects([first], await repo.LoadAsync(Layout));
-        await repo.SaveAsync(Layout, new([first with { Count = 2 }]), Dirty(new DataWorldChunk(0, 0)));
-        Assert.Equal(2, (await repo.LoadAsync(Layout)).Objects.Single().Count);
+        AssertObjects([first], await storage.LoadAsync(Layout));
+        await storage.SaveAsync(Layout, new([first with { Count = 2 }]), Dirty(new DataWorldChunk(0, 0)));
+        Assert.Equal(2, (await storage.LoadAsync(Layout)).Objects.Single().Count);
     }
     /// <summary>清理失败只报告诊断，已提交数据可读；后续成功保存重试清理且保留未知文件。</summary>
     [Fact]
     public async Task CleanupFailureDoesNotUndoCommitAndLaterSaveRetriesWithoutDeletingUnknownFiles()
     {
-        var repo = new RepoWorld(_directory);
+        var storage = new WorldStorage(_directory);
         var value = Object(1);
-        await repo.SaveAsync(Layout, new([value]), Dirty(new DataWorldChunk(0, 0)));
+        await storage.SaveAsync(Layout, new([value]), Dirty(new DataWorldChunk(0, 0)));
         var old = Directory.GetFiles(Chunks).Single();
         var unknown = Path.Combine(Chunks, "external.json");
         await File.WriteAllTextAsync(unknown, "keep");
         var errors = new List<Exception>();
-        var cleanupFails = new RepoWorld(_directory, error => { errors.Add(error); throw new Exception("诊断监听失败"); })
+        var cleanupFails = new WorldStorage(_directory, error => { errors.Add(error); throw new Exception("诊断监听失败"); })
             { BeforeChunkDelete = _ => throw new IOException("模拟清理失败") };
         await cleanupFails.SaveAsync(Layout, new([value with { Count = 2 }]), Dirty(new DataWorldChunk(0, 0)));
         Assert.Single(errors);
         Assert.True(File.Exists(old));
-        Assert.Equal(2, (await repo.LoadAsync(Layout)).Objects.Single().Count);
-        await repo.SaveAsync(Layout, new([value with { Count = 3 }]), Dirty(new DataWorldChunk(0, 0)));
+        Assert.Equal(2, (await storage.LoadAsync(Layout)).Objects.Single().Count);
+        await storage.SaveAsync(Layout, new([value with { Count = 3 }]), Dirty(new DataWorldChunk(0, 0)));
         Assert.False(File.Exists(old));
         Assert.Equal("keep", await File.ReadAllTextAsync(unknown));
         Assert.Equal(2, Directory.GetFiles(Chunks).Length);
     }
-    /// <summary>同仓库各地图隔离，数据不套用旧对象的编号、范围、载荷及配置检查。</summary>
+    /// <summary>同存储各地图隔离，数据不套用旧对象的编号、范围、载荷及配置检查。</summary>
     [Fact]
     public async Task MapsAreIsolatedAndObjectsDoNotAcquireLegacyBusinessValidation()
     {
-        var repo = new RepoWorld(_directory);
+        var storage = new WorldStorage(_directory);
         var value = Object(-70) with { ObjectId = Guid.Empty, Revision = -5, Y = 999999, Count = -7, ItemId = -123, MonsterTypeId = "" };
         var chunk = Layout.ChunkAt(value);
-        await repo.SaveAsync(Layout, new([value, value]), Dirty(chunk));
-        AssertObjects([value, value], await repo.LoadAsync(Layout));
-        Assert.Empty((await repo.LoadAsync(Layout with { MapId = 2 })).Objects);
+        await storage.SaveAsync(Layout, new([value, value]), Dirty(chunk));
+        AssertObjects([value, value], await storage.LoadAsync(Layout));
+        Assert.Empty((await storage.LoadAsync(Layout with { MapId = 2 })).Objects);
         Assert.False(Directory.Exists(Path.Combine(_directory, "maps", "2")));
     }
     /// <summary>拒绝损坏或不完整的清单元数据，提交编号不可能成为任意引用路径。</summary>
@@ -144,8 +144,8 @@ public sealed class ServerWorldStorageTests : IDisposable
     [InlineData("empty-commit")]
     public async Task CorruptManifestFailsBeforePublishingData(string fault)
     {
-        var repo = new RepoWorld(_directory);
-        await repo.SaveAsync(Layout, new([Object(1)]), Dirty(new DataWorldChunk(0, 0)));
+        var storage = new WorldStorage(_directory);
+        await storage.SaveAsync(Layout, new([Object(1)]), Dirty(new DataWorldChunk(0, 0)));
         var node = JsonNode.Parse(await File.ReadAllTextAsync(Manifest))!;
         switch (fault)
         {
@@ -162,7 +162,7 @@ public sealed class ServerWorldStorageTests : IDisposable
             case "missing": node.AsObject().Remove("chunks"); break;
         }
         await File.WriteAllTextAsync(Manifest, fault == "syntax" ? "{" : fault == "null" ? "null" : node.ToJsonString());
-        var error = await Record.ExceptionAsync(() => repo.LoadAsync(Layout).AsTask());
+        var error = await Record.ExceptionAsync(() => storage.LoadAsync(Layout).AsTask());
         Assert.True(error is JsonException or InvalidDataException, error?.ToString() ?? "应拒绝清单");
     }
     /// <summary>引用块缺失、损坏、身份不匹配或被占用均失败，修复后完整读取而非部分结果。</summary>
@@ -179,9 +179,9 @@ public sealed class ServerWorldStorageTests : IDisposable
     [InlineData("locked")]
     public async Task ReferencedBlockFailureCanBeRepaired(string fault)
     {
-        var repo = new RepoWorld(_directory);
+        var storage = new WorldStorage(_directory);
         var values = new[] { Object(1), Object(70) };
-        await repo.SaveAsync(Layout, new([.. values]), Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0)));
+        await storage.SaveAsync(Layout, new([.. values]), Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0)));
         var path = Directory.GetFiles(Chunks, "1_0.*").Single();
         var original = await File.ReadAllBytesAsync(path);
         var node = JsonNode.Parse(original)!;
@@ -197,9 +197,9 @@ public sealed class ServerWorldStorageTests : IDisposable
         if (fault == "missing") File.Delete(path);
         else await File.WriteAllTextAsync(path, fault == "syntax" ? "{" : fault == "null" ? "null" : node.ToJsonString());
         using (var locked = fault == "locked" ? new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None) : null)
-            await Assert.ThrowsAnyAsync<Exception>(() => repo.LoadAsync(Layout).AsTask());
+            await Assert.ThrowsAnyAsync<Exception>(() => storage.LoadAsync(Layout).AsTask());
         await File.WriteAllBytesAsync(path, original);
-        AssertObjects(values, await repo.LoadAsync(Layout));
+        AssertObjects(values, await storage.LoadAsync(Layout));
     }
     /// <summary>构造带稳定身份的独立对象。</summary>
     internal static DataWorldObject Object(float x) => new() { ObjectId = Guid.NewGuid(), Revision = 1, X = x, Y = 1, ItemId = 7, Count = 1 };

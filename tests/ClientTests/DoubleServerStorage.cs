@@ -10,8 +10,8 @@ using Rpg.Server.Modules.World.Storage;
 
 namespace ClientTests;
 
-/// <summary>服务 openspec/specs/server-runtime 的纯内存仓库契约，网络框架测试不访问文件。</summary>
-internal sealed class DoubleServerRepo : IAccountRoleSummaryRepo, IRoleRepo, IWorldRepo
+/// <summary>服务 openspec/specs/server-runtime 的纯内存存储契约，网络框架测试不访问文件。</summary>
+internal sealed class DoubleServerStorage : ILoginStorage, IRoleStorage, IWorldStorage
 {
     /// <summary>本替身只服务框架，不提供业务取号能力。</summary>
     public ValueTask<long> NextRoleIdAsync() => throw new NotSupportedException();

@@ -10,8 +10,8 @@ using Rpg.Server.Modules.World.Data;
 
 namespace Rpg.Server.Modules.World.Storage;
 
-/// <summary>以清单为唯一提交点的地图仓库；版本块先落地，不保存业务缓存。</summary>
-public sealed class RepoWorld : IWorldRepo
+/// <summary>以清单为唯一提交点的地图存储；版本块先落地，不保存业务缓存。</summary>
+public sealed class WorldStorage : IWorldStorage
 {
     /// <summary>当前地图存档格式版本。</summary>
     private const int FormatVersion = 1;
@@ -24,7 +24,7 @@ public sealed class RepoWorld : IWorldRepo
     /// <summary>测试模拟提交后删除无引用块失败。</summary>
     internal Action<string>? BeforeChunkDelete { get; init; }
     /// <summary>绑定 根目录，不预先创建文件或目录。</summary>
-    public RepoWorld(string directory, Action<Exception>? report = null)
+    public WorldStorage(string directory, Action<Exception>? report = null)
     { _directory = Path.GetFullPath(directory); _report = report ?? (static error => System.Diagnostics.Trace.WriteLine(error)); }
     /// <summary>只读取清单指向的块，全部成功后返回快照；孤立文件不参与加载。</summary>
     public async ValueTask<DataWorldSnapshot> LoadAsync(DataWorldLayout layout)
@@ -110,7 +110,7 @@ public sealed class RepoWorld : IWorldRepo
         }
         catch (Exception error) { Report(error); }
     }
-    /// <summary>严格识别本仓库的规范坐标和 GUID 文件名，不删除未知文件。</summary>
+    /// <summary>严格识别本存储的规范坐标和 GUID 文件名，不删除未知文件。</summary>
     private static bool IsGeneratedFile(string name)
     {
         var parts = name.Split('.');

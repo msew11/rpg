@@ -11,15 +11,15 @@ using Rpg.Server.Modules.Role;
 
 namespace Rpg.Server.Modules.Role.Storage;
 
-/// <summary>角色三表仓库；多表先记原始字节，用固定表名恢复未完成提交。</summary>
-public sealed class RepoRole : IRoleRepo
+/// <summary>角色三表存储；多表先记原始字节，用固定表名恢复未完成提交。</summary>
+public sealed class RoleStorage : IRoleStorage
 {
     /// <summary>宿主提供的 专用目录。</summary>
     private readonly string _directory;
     /// <summary>测试模拟进程在某张表替换后中断，不参与正式业务。</summary>
     internal Action<string>? AfterTableWritten { get; init; }
     /// <summary>绑定目录而不创建它；同一角色的调用由所属邮箱串行化。</summary>
-    public RepoRole(string directory) => _directory = Path.GetFullPath(directory);
+    public RoleStorage(string directory) => _directory = Path.GetFullPath(directory);
     /// <summary>先恢复，再完整读取三张必需表；不增加业务校验。</summary>
     public async ValueTask<DataRoleSnapshot> LoadAsync(long roleId)
     {

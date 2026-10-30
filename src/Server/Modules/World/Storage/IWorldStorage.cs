@@ -5,7 +5,7 @@ using Rpg.Server.Modules.World.Data;
 namespace Rpg.Server.Modules.World.Storage;
 
 /// <summary>地图文件边界；同地图由所属 Actor 串行调用，不缓存业务状态。</summary>
-public interface IWorldRepo
+public interface IWorldStorage
 {
     /// <summary>完整加载指定地图，缺失清单返回空快照。</summary>
     ValueTask<DataWorldSnapshot> LoadAsync(DataWorldLayout layout);

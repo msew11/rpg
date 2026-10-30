@@ -4,11 +4,13 @@
 
 业务处理器每类只实现一个 `IActorHandler`，类型与文件按请求消息名加 `Handler` 命名。跨 Actor 编排放在所属模块 `Async/`，本地处理放在 `Handler/`，这两个目录只放 Handler。跨 Actor 共用逻辑放在 `Modules/Common/Utils/`，Actor 内共用逻辑放在 `Modules/Xxx/Utils/`；处理器通过工具类复用规则与投影，不相互调用辅助方法。
 
-`ServerModules` 在构造方法内统一声明 Login、Role、World 的完整处理器注册，每个分片创建独立表，不接受外部处理器工厂。`MockServer` 只传入配置、仓库、诊断和共同保存依赖。宿主通过内部 `IServerModules` 借用完整模块；受控 Handler、阻塞与故障实验由测试侧 `DoubleServerModules` 装配，正式业务验收仍直接使用 `ServerModules`。
+`ServerModules` 在构造方法内统一声明 Login、Role、World 的完整处理器注册，每个分片创建独立表，不接受外部处理器工厂。`MockServer` 只传入配置、存储、诊断和共同保存依赖。宿主通过内部 `IServerModules` 借用完整模块；受控 Handler、阻塞与故障实验由测试侧 `DoubleServerModules` 装配，正式业务验收仍直接使用 `ServerModules`。
 
 默认 `scenes/main.tscn` 使用 `src/Server` 与 `proto`。GameServices 创建并持有空 `MockServerService`，通过只读 `MockServer` 入口提供访问，再注入 Net，登录后才按模式创建独立 `MockServer` 或连接远端。服务器拥有后台 TCP、20Hz单调时钟推进、10Hz批量AOI和保存关闭流程，本机玩家与远端玩家走相同字节链路。账号admin/demo1/demo2密码123；本机服务器模式仅允许admin。角色编号通过与账号无关的持久化递增序列分配，从 1003 开始。
 
-运行时按账号、角色、地图分片并保持INIT/RUN/STOP和串行邮箱；Context只引用所属Cache，Cache组织不可变DataCache值，单分片 Repo 在 Actor 边界做 IO；正式保存由邮箱捕获不可变快照，专用物品批次在邮箱外写入后回传捕获基线。跨Actor调用固定Login→Role→World，由Async Handler编排，World不向Role Ask。业务proto直接进入Handler，连接/认证/控制版本只在 `DataActorCall` 邮箱元数据和运行时目录中校验，不增加业务隔离字段；批量发布保留观察者到原身份的不可变映射，输出不重新套用最新绑定。
+运行时按账号、角色、地图分片并保持INIT/RUN/STOP和串行邮箱；Context只引用所属Cache，Cache组织不可变DataCache值，单分片 Storage 在 Actor 边界做 IO；正式保存由邮箱捕获不可变快照，专用物品批次在邮箱外写入后回传捕获基线。跨Actor调用固定Login→Role→World，由Async Handler编排，World不向Role Ask。业务proto直接进入Handler，连接/认证/控制版本只在 `DataActorCall` 邮箱元数据和运行时目录中校验，不增加业务隔离字段；批量发布保留观察者到原身份的不可变映射，输出不重新套用最新绑定。
+
+模块持久化接口统一为 `ILoginStorage`、`IRoleStorage`、`IWorldStorage`，文件实现分别为 `LoginStorage`、`RoleStorage`、`WorldStorage`，位于所属模块的 `Storage/`。Storage 负责加载、保存、提交恢复及登录模块的角色编号预留，不持有业务状态；`LoginCache`、`RoleCache`、`WorldCache` 管理内存数据、修改及保存基线，Actor 协调两者。
 
 Role将权威坐标提交角色基础表，目标、速度、控制和确认均为不落盘的临时缓存。World保存不可变公开角色和块索引，首次可见发完整RoleWorldStatePb，持续移动只发完整位置组。返回选角通过LeaveWorld解除该连接的角色控制、停止移动并移除在线成员，其他玩家在下一次AOI发布看见角色消失；账号认证与TCP连接保留。断线、重新认证和成功切角也解绑，同角色由新连接接管并踢回旧连接的登录页。独立调度只推进移动/控制变化/投影重试角色，保存关闭包含已接纳轮次。
 
@@ -204,7 +206,7 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 
 `GameServices.Log` 持有 `LogService`，在 Env 后创建、Env 前释放，构造绑定 EnvService。GM 面板的“控制台日志”开关修改 `Env.ConsoleLogEnabled`，直接保存至用户数据目录 `user://.env` 的 `RPG_CONSOLE_LOG_ENABLED=true/false`。启动直接读取该文件，未设置或无效时默认关闭，支持忽略首尾空白、大小写的 true/false、1/0 与成对引号。重建 HUD 保留，重启重新读取文件。保存保留其他键和注释、合并重复日志键，通过同目录临时文件替换后更新内存；失败显示原因且控件恢复原值。EnvService 直接使用 System.IO，不依赖 LogService 或 GameServices；.env 与临时文件不输出日志，不读写系统环境变量，也不写游戏设置或角色存档。隔离测试可指定独立 .env 路径，未指定时只使用内存。关闭时跳过日志专用的请求解码、消息序列化、IO 压缩和字符串拼接，不补发历史日志；消息接口直接接收 IMessage，IO 复用业务写盘文本，无需为每条日志分配内容回调。必要的业务解析、存档序列化和错误报告不受影响。
 
-NetService 与 SettingService 通过构造绑定日志。当前服务器存档仓库不输出成功 IO 日志。日志开启时，请求在调用传输发送前记录，表示发送尝试，传输失败仍保留并沿用网络错误报告；当前代次响应和推送在解析成功后、发布前记录。三类消息分别使用 `[Client][Request]`、`[Client][Response]`、`[Client][Notice]` 前缀并附协议名和 protobuf JSON；只有 Request 标记为绿色、Response/Notice 标记为橙色。成功提交设置和服务端角色 JSON 使用 `[Client][IO][filename]` 与 `[Server][IO][filename]`，附实际写入 JSON 的紧凑单行表示，文件格式保持原样；读取、失败和临时文件不输出 IO。消息 JSON 字符串中的方括号使用 Unicode 转义，IO 走纯文本输出，输出故障不改变业务结果。
+NetService 与 SettingService 通过构造绑定日志。当前服务器存档存储不输出成功 IO 日志。日志开启时，请求在调用传输发送前记录，表示发送尝试，传输失败仍保留并沿用网络错误报告；当前代次响应和推送在解析成功后、发布前记录。三类消息分别使用 `[Client][Request]`、`[Client][Response]`、`[Client][Notice]` 前缀并附协议名和 protobuf JSON；只有 Request 标记为绿色、Response/Notice 标记为橙色。成功提交设置和服务端角色 JSON 使用 `[Client][IO][filename]` 与 `[Server][IO][filename]`，附实际写入 JSON 的紧凑单行表示，文件格式保持原样；读取、失败和临时文件不输出 IO。消息 JSON 字符串中的方括号使用 Unicode 转义，IO 走纯文本输出，输出故障不改变业务结果。
 
 ## 服务端 Actor 与消息
 
@@ -212,7 +214,7 @@ NetService 与 SettingService 通过构造绑定日志。当前服务器存档�
 
 ## 服务端领域存档
 
-账号摘要由 RepoAccountRoleSummary 写入 `<username>.role_summary.json` 数组。RepoRole 保存 `<roleId>.role.json`、`.item.json` 与 `.equipment.json` 三表；创建仅产生摘要，首次进入创建并保存三表。角色编号由独立持久化序列预留，与账号无关，不复用。已有角色完整加载，部分缺表或损坏拒绝进入。RepoWorld 保存 maps/<mapId>/manifest.json 与版本块。模块 Context 只引用所属 Cache，各 DataCache 保存不可变值并以内容基线跟踪待写。
+账号摘要由 LoginStorage 写入 `<username>.role_summary.json` 数组。RoleStorage 保存 `<roleId>.role.json`、`.item.json` 与 `.equipment.json` 三表；创建仅产生摘要，首次进入创建并保存三表。角色编号由独立持久化序列预留，与账号无关，不复用。已有角色完整加载，部分缺表或损坏拒绝进入。WorldStorage 保存 maps/<mapId>/manifest.json 与版本块。模块 Context 只引用所属 Cache，各 DataCache 保存不可变值并以内容基线跟踪待写。
 
 存档根为 EnvService.ServerDirectory，默认 `user://server`。启动先提升原版本子目录，再恢复未完成批次；不迁移已经删除的旧服务器存档格式。
 
@@ -228,7 +230,7 @@ MockServer 自有后台时钟推进权威移动与周期保存。默认五秒检
 
 角色 MapId 必须显式保存，缺失或无效时拒绝加载；新角色使用 basic.initialMapId。当前地图身份位于 RoleWorldPositionPb，PbData 保持独立转换。MockServer 持有不可变地图规格与只读道具配置，验证移动目标的地图边界，不依赖客户端配置服务。
 
-WorldActor 按地图 ID 独占 WorldCache、公开角色与对象缓存，DataWorldLayout 保存固定规格，DataWorldObject 保存独立对象数据。RepoWorld 只负责文件。公开角色和对象均用块索引定位观察范围；对象变化标记受影响观察者，世界帧向其发送对象增删。
+WorldActor 按地图 ID 独占 WorldCache、公开角色与对象缓存，DataWorldLayout 保存固定规格，DataWorldObject 保存独立对象数据。WorldStorage 只负责文件。公开角色和对象均用块索引定位观察范围；对象变化标记受影响观察者，世界帧向其发送对象增删。
 
 文件为 user://server/maps/<mapId>/manifest.json 与 chunks/<x>_<y>.<commitId>.json。版本均为 formatVersion=1，清单保存地图身份、布局、提交 GUID 与有效块引用；块保存坐标、提交 GUID 和完整对象。每轮只写变化的非空块，空块移除引用，最后原子替换清单。清单是唯一提交点，跨块移动两侧共同生效；中断候选不参与恢复。已有清单损坏、缺失引用、重复对象或布局不符明确报错。成功提交后清理旧版本，清理失败报告并在下一检测重试，不撤销已提交状态。文件替换沿用单进程及操作系统持久性边界。
 
@@ -304,7 +306,7 @@ DropItem 的 destroy 字段默认 false；Session 仅发送意图。MockServer �
 
 ## 登录与真实网络托管
 
-角色编号由账号仓库内共享的 RoleIdGenerator 分配，与账号和连接模式无关；全新目录从 1003 开始。RepoRoleIdSequence 独占预留并先持久化最多 256 个编号的上界，生成器异步互斥发放，重启跳过未使用预留段，删除及未落地摘要不会归还编号。LoginActor 在校验创建意图后准备当次编号，Handler 只提交内存，结束回合清除暂存编号；损坏、IO 失败和耗尽拒绝创建。编号上界与服务器角色存档共同保存，旧账号区间数据不兼容，不提供独立目录间的跨服唯一性。
+角色编号由登录存储内共享的 RoleIdGenerator 分配，与账号和连接模式无关；全新目录从 1003 开始。RepoRoleIdSequence 独占预留并先持久化最多 256 个编号的上界，生成器异步互斥发放，重启跳过未使用预留段，删除及未落地摘要不会归还编号。LoginActor 在校验创建意图后准备当次编号，Handler 只提交内存，结束回合清除暂存编号；损坏、IO 失败和耗尽拒绝创建。编号上界与服务器角色存档共同保存，旧账号区间数据不兼容，不提供独立目录间的跨服唯一性。
 
 Net 默认使用 TCP，借用 GameServices 已装配的非空 MockServerService；GameServices 统一在 Net 之后释放该服务。登录选择服务器模式时才创建独立 MockServer，监听成功后转移所有权；纯客户端只连接指定 IP/端口。本机玩家也使用回环 TCP。MockServer 自带后台时钟，服务器生命周期不依赖客户端固定帧；返回登录保持服务器，退出或确认配置切换后有序停止。客户端与回归使用同一正式实现。
 

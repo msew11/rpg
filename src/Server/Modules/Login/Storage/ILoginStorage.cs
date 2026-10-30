@@ -5,7 +5,7 @@ using Rpg.Server.Modules.Login.Data;
 namespace Rpg.Server.Modules.Login.Storage;
 
 /// <summary>账号摘要加载、保存及全服角色编号预留契约，不持有账号业务状态。</summary>
-public interface IAccountRoleSummaryRepo
+public interface ILoginStorage
 {
     /// <summary>从共享持久化序列取号，不以账号划分区间或依赖摘要保存。</summary>
     ValueTask<long> NextRoleIdAsync();

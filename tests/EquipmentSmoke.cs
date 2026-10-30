@@ -24,7 +24,7 @@ public partial class EquipmentSmoke : Node
         try
         {
             RoleTestData.Seed(Path.Combine(directory, "server"));
-            var repo = new RepoRole(Path.Combine(directory, "server"));
+            var storage = new RoleStorage(Path.Combine(directory, "server"));
             RoleTestData.SetItems(Path.Combine(directory, "server"), 1001, Enumerable.Range(1012, 7).Select((id, index) => new DataItem(index + 1, id, index, 1))
                     .Append(new DataItem(8, 1017, 7, 1)).ToArray(), 9);
             main = new DoubleMainController { SettingsDirectory = directory, ServerDirectory = Path.Combine(directory, "server") };
@@ -225,7 +225,7 @@ public partial class EquipmentSmoke : Node
                 GetViewport().GetTexture().GetImage().SavePng(ProjectSettings.GlobalizePath("res://build/equipment-window.png"));
             }
             GameServices.Net.FlushServerWrites();
-            Check((await repo.LoadAsync(1001)).Items.Count(item => item.Equipped) == 2, "装备未持久化");
+            Check((await storage.LoadAsync(1001)).Items.Count(item => item.Equipped) == 2, "装备未持久化");
             var capacity = GameServices.Config.Basic.Value.BagColumns * GameServices.Config.Basic.Value.BagRows;
             GameServices.Session.SendGm($"item 1012 {capacity - GameServices.Session.Bag.Items.Count}");
             await Frames();

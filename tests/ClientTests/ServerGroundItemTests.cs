@@ -51,10 +51,10 @@ public sealed class ServerGroundItemTests : IDisposable
         Assert.Contains(new[] { one, two }.SelectMany(id => ReadAll(server, id)).OfType<WorldUpdateNotice>(),
             notice => notice.Frame.Delta?.Map?.RemovedObjectIds.Contains(drop.ObjectId) == true);
         await server.FlushAsync();
-        var repo = new RepoRole(Path.GetFullPath(_root));
-        Assert.Equal(1, (await repo.LoadAsync(first.State.RoleId)).Items.Length + (await repo.LoadAsync(second.State.RoleId)).Items.Length);
+        var storage = new RoleStorage(Path.GetFullPath(_root));
+        Assert.Equal(1, (await storage.LoadAsync(first.State.RoleId)).Items.Length + (await storage.LoadAsync(second.State.RoleId)).Items.Length);
         var map = config.Map.Items[1];
-        Assert.Empty((await new RepoWorld(Path.GetFullPath(_root)).LoadAsync(new(1, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles))).Objects);
+        Assert.Empty((await new WorldStorage(Path.GetFullPath(_root)).LoadAsync(new(1, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles))).Objects);
         Assert.Equal(new[] { "role_id", "object_id", "move_action_id", "success" }, PickupItemResultNotice.Descriptor.Fields.InDeclarationOrder().Select(field => field.Name));
     }
     /// <summary>走近中背包改变继续到达并按最新容量失败；新移动静默取消，没有取消结果。</summary>
@@ -123,12 +123,12 @@ public sealed class ServerGroundItemTests : IDisposable
             await Exchange(server, id, new DropItem { InstanceId = 1, Count = 1 });
             await server.FlushAsync();
         }
-        var root = Path.GetFullPath(_root); var roles = new RepoRole(root); var worlds = new RepoWorld(root);
+        var root = Path.GetFullPath(_root); var roles = new RoleStorage(root); var worlds = new WorldStorage(root);
         var map = config.Map.Items[1]; var layout = new DataWorldLayout(1, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles);
         var original = await roles.LoadAsync(roleId); var ground = Assert.Single((await worlds.LoadAsync(layout)).Objects);
         var next = original.Role.NextInstanceId;
         var gained = original with { Role = original.Role with { NextInstanceId = next + 1 }, Items = [new(next, 1012, 0, 1)], Equipments = [new() { InstanceId = next }] };
-        var batch = new Rpg.Server.Modules.Common.Storage.RepoItemBatch(root, roles, worlds, new Rpg.Server.Modules.Login.Storage.RepoAccountRoleSummary(root))
+        var batch = new Rpg.Server.Modules.Common.Storage.RepoItemBatch(root, roles, worlds, new Rpg.Server.Modules.Login.Storage.LoginStorage(root))
         { AfterWrite = stage => { if (stage == "world") throw new IOException("模拟中断"); } };
         await Assert.ThrowsAsync<IOException>(() => batch.SaveAsync([new(roleId, gained, Rpg.Server.Modules.Role.Data.DataRoleTables.All)],
             [new(layout, new([]), System.Collections.Immutable.ImmutableHashSet.Create(layout.ChunkAt(ground)))], []).AsTask());

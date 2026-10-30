@@ -27,7 +27,7 @@ internal sealed class ServerModules : IServerModules
     public ActorCallRegistry Calls { get; } = new();
     /// <summary>装配入口确定的统一配置，所有分片必须借用此实例。</summary>
     public ConfigService Config { get; }
-    /// <summary>正式实例的专用共同落盘，注入仓库验收保留原独立保存契约。</summary>
+    /// <summary>正式实例的专用共同落盘，注入存储验收保留原独立保存契约。</summary>
     private readonly Modules.Common.Storage.RepoItemBatch? _itemBatch;
     /// <summary>按规范账号键的分片目录。</summary>
     private readonly ActorDirectory<string> _login;
@@ -39,9 +39,9 @@ internal sealed class ServerModules : IServerModules
     /// <summary>在构造方法内统一声明三类处理器，每次创建分片时构造独立注册表。</summary>
     internal ServerModules(
         ConfigService config,
-        IAccountRoleSummaryRepo summaries,
-        IRoleRepo roles,
-        IWorldRepo worlds,
+        ILoginStorage summaries,
+        IRoleStorage roles,
+        IWorldStorage worlds,
         Action<Exception>? report = null,
         Common.Storage.RepoItemBatch? itemBatch = null)
     {

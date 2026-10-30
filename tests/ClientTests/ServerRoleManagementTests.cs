@@ -45,8 +45,8 @@ public sealed class ServerRoleManagementTests : IDisposable
             Assert.Equal(ErrorCodePb.RoleNotFound, Assert.IsType<ErrorRt>(await Exchange(server, connection, new DeleteRole { RoleId = deletedId })).Code);
             await server.FlushAsync();
         }
-        var repo = new RepoAccountRoleSummary(Path.GetFullPath(_directory));
-        Assert.True(Assert.Single(await repo.LoadAsync("demo1")).IsDeleted);
+        var storage = new LoginStorage(Path.GetFullPath(_directory));
+        Assert.True(Assert.Single(await storage.LoadAsync("demo1")).IsDeleted);
         Assert.Equal(new[] { "demo1.role_summary.json", "role_id_sequence.json", "role_id_sequence.json.lock" },
             Directory.GetFiles(Path.GetFullPath(_directory)).Select(Path.GetFileName).Order());
         Assert.Empty(Directory.GetDirectories(Path.GetFullPath(_directory)));
@@ -57,7 +57,7 @@ public sealed class ServerRoleManagementTests : IDisposable
             var created = Assert.IsType<CreateRoleRt>(await Exchange(server, connection, Create("首个角色", RoleGenderPb.Female, 74)));
             Assert.True(Assert.Single(created.Roles).RoleId > deletedId);
         }
-        Assert.Equal(2, (await repo.LoadAsync("demo1")).Length);
+        Assert.Equal(2, (await storage.LoadAsync("demo1")).Length);
     }
 
     /// <summary>所有校验失败不消耗编号；名称比较、外观边界与溢出均由业务入口拒绝。</summary>
@@ -154,7 +154,7 @@ public sealed class ServerRoleManagementTests : IDisposable
         env.ServerFlushIntervalSeconds = 5;
         server.Tick(5);
         await server.PeriodicFlush;
-        Assert.True(Assert.Single(await new RepoAccountRoleSummary(Path.GetDirectoryName(file)!).LoadAsync("demo1")).IsDeleted);
+        Assert.True(Assert.Single(await new LoginStorage(Path.GetDirectoryName(file)!).LoadAsync("demo1")).IsDeleted);
         Assert.Single(Directory.GetFiles(Path.GetFullPath(_directory), "*.role_summary.json"));
     }
 

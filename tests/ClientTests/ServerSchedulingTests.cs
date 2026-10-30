@@ -27,49 +27,49 @@ public sealed class ServerSchedulingTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
-        var repo = new DoubleTrackingRepo(Path.GetFullPath(_directory));
-        var modules = new DoubleServerModules(config, repo, new DoubleServerRepo(), new DoubleServerRepo(), _ => ServerPersistenceActorTests.LoginHandlers());
+        var storage = new DoubleTrackingStorage(Path.GetFullPath(_directory));
+        var modules = new DoubleServerModules(config, storage, new DoubleServerStorage(), new DoubleServerStorage(), _ => ServerPersistenceActorTests.LoginHandlers());
         await using var server = new MockServerService(env, modules);
         var actor = modules.Login("alice");
         await actor.Ask(new ServerPersistenceActorTests.DataWriteSummary("第一轮"));
         env.ServerFlushIntervalSeconds = 0;
         server.Tick(100);
         await server.PeriodicFlush;
-        Assert.Equal(0, repo.SaveCount);
+        Assert.Equal(0, storage.SaveCount);
         env.ServerFlushIntervalSeconds = 10;
         server.Tick(9);
-        Assert.Equal(0, repo.SaveCount);
+        Assert.Equal(0, storage.SaveCount);
         server.Tick(1);
         await server.PeriodicFlush.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(1, repo.SaveCount);
+        Assert.Equal(1, storage.SaveCount);
         await actor.Ask(new ServerPersistenceActorTests.DataWriteSummary("第二轮"));
         server.Tick(9);
         env.ServerFlushIntervalSeconds = 5;
         server.Tick(4);
-        Assert.Equal(1, repo.SaveCount);
+        Assert.Equal(1, storage.SaveCount);
         server.Tick(1);
         await server.PeriodicFlush.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(2, repo.SaveCount);
+        Assert.Equal(2, storage.SaveCount);
         var release = ServerPersistenceActorTests.Signal();
-        repo.SaveRelease = release.Task;
-        repo.Entered = ServerPersistenceActorTests.Signal();
+        storage.SaveRelease = release.Task;
+        storage.Entered = ServerPersistenceActorTests.Signal();
         await actor.Ask(new ServerPersistenceActorTests.DataWriteSummary("第三轮"));
         server.Tick(5);
-        await repo.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await storage.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var current = server.PeriodicFlush;
         server.Tick(500);
         Assert.Same(current, server.PeriodicFlush);
-        Assert.Equal(3, repo.SaveCount);
+        Assert.Equal(3, storage.SaveCount);
         release.SetResult();
         await current.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(1, repo.MaximumConcurrent);
+        Assert.Equal(1, storage.MaximumConcurrent);
         env.ServerFlushIntervalSeconds = 0;
         await actor.Ask(new ServerPersistenceActorTests.DataWriteSummary("关闭补写"));
         server.Tick(100);
-        Assert.Equal(3, repo.SaveCount);
+        Assert.Equal(3, storage.SaveCount);
         await server.DisposeAsync();
-        Assert.Equal(4, repo.SaveCount);
-        Assert.Equal("关闭补写", (await repo.LoadAsync("alice"))[0].Name);
+        Assert.Equal(4, storage.SaveCount);
+        Assert.Equal("关闭补写", (await storage.LoadAsync("alice"))[0].Name);
         Assert.False(env.IsDisposed);
         Assert.False(config.IsDisposed);
     }
@@ -79,8 +79,8 @@ public sealed class ServerSchedulingTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
-        var repo = new DoubleTrackingRepo(Path.GetFullPath(_directory)) { FailWrites = true };
-        var modules = new DoubleServerModules(config, repo, new DoubleServerRepo(), new DoubleServerRepo(), _ => ServerPersistenceActorTests.LoginHandlers());
+        var storage = new DoubleTrackingStorage(Path.GetFullPath(_directory)) { FailWrites = true };
+        var modules = new DoubleServerModules(config, storage, new DoubleServerStorage(), new DoubleServerStorage(), _ => ServerPersistenceActorTests.LoginHandlers());
         await using var server = new MockServerService(env, modules);
         var errors = new ConcurrentQueue<Exception>();
         server.Error += errors.Enqueue;
@@ -88,13 +88,13 @@ public sealed class ServerSchedulingTests : IDisposable
         server.Tick(5);
         await server.PeriodicFlush.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Single(errors);
-        Assert.Equal(1, repo.SaveCount);
+        Assert.Equal(1, storage.SaveCount);
         Assert.False(Directory.Exists(_directory));
-        repo.FailWrites = false;
+        storage.FailWrites = false;
         server.Tick(5);
         await server.PeriodicFlush.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(2, repo.SaveCount);
-        Assert.Equal("等待重试", (await repo.LoadAsync("alice"))[0].Name);
+        Assert.Equal(2, storage.SaveCount);
+        Assert.Equal("等待重试", (await storage.LoadAsync("alice"))[0].Name);
     }
     /// <summary>Net 的现有显式保存入口等待正在处理的请求，而不是只等字节入队。</summary>
     [Fact]
@@ -106,8 +106,8 @@ public sealed class ServerSchedulingTests : IDisposable
         using var log = new LogService(Console.WriteLine);
         var entered = ServerPersistenceActorTests.Signal();
         var release = ServerPersistenceActorTests.Signal();
-        var repo = new RepoAccountRoleSummary(Path.GetFullPath(_directory));
-        var modules = new DoubleServerModules(config, repo, new DoubleServerRepo(), new DoubleServerRepo(), _ => new ActorHandlers<LoginContext>()
+        var storage = new LoginStorage(Path.GetFullPath(_directory));
+        var modules = new DoubleServerModules(config, storage, new DoubleServerStorage(), new DoubleServerStorage(), _ => new ActorHandlers<LoginContext>()
             .Register<Login, LoginRt>(new ServerWriteBackTests.DoubleMutatingLoginHandler(entered, release.Task)));
         using var server = new MockServerService(env, modules);
         using var net = NetService.CreateInProcess(server, events, log);
@@ -118,7 +118,7 @@ public sealed class ServerSchedulingTests : IDisposable
         Assert.False(Directory.Exists(_directory));
         release.SetResult();
         await flushing.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal("已接纳修改", (await repo.LoadAsync("alice"))[0].Name);
+        Assert.Equal("已接纳修改", (await storage.LoadAsync("alice"))[0].Name);
     }
     /// <summary>默认宿主只加载 子目录，错误凭据被拒绝；损坏 文件走统一错误诊断。</summary>
     [Fact]
@@ -129,7 +129,7 @@ public sealed class ServerSchedulingTests : IDisposable
         Directory.CreateDirectory(_directory);
         await File.WriteAllTextAsync(Path.Combine(_directory, "alice.role_summary.json"), "旧数据不是有效 JSON");
         var message = Path.GetFullPath(_directory);
-        await new RepoAccountRoleSummary(message).SaveAsync("alice", []);
+        await new LoginStorage(message).SaveAsync("alice", []);
         await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection();
@@ -154,8 +154,8 @@ public sealed class ServerSchedulingTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
-        var repo = new DoubleTrackingRepo(Path.GetFullPath(_directory)) { FailWrites = true };
-        var modules = new DoubleServerModules(config, repo, new DoubleServerRepo(), new DoubleServerRepo(), _ => ServerPersistenceActorTests.LoginHandlers());
+        var storage = new DoubleTrackingStorage(Path.GetFullPath(_directory)) { FailWrites = true };
+        var modules = new DoubleServerModules(config, storage, new DoubleServerStorage(), new DoubleServerStorage(), _ => ServerPersistenceActorTests.LoginHandlers());
         var server = new MockServerService(env, modules);
         var actor = modules.Login("alice");
         await actor.Ask(new ServerPersistenceActorTests.DataWriteSummary("无法保存"));
@@ -166,12 +166,12 @@ public sealed class ServerSchedulingTests : IDisposable
         Assert.False(config.IsDisposed);
         Assert.Throws<ObjectDisposedException>(() => { _ = server.FlushAsync(); });
     }
-    /// <summary>带计数和可控故障的真实摘要仓库装饰器，验证调度契约。</summary>
-    private sealed class DoubleTrackingRepo(string directory) : IAccountRoleSummaryRepo
+    /// <summary>带计数和可控故障的真实摘要存储装饰器，验证调度契约。</summary>
+    private sealed class DoubleTrackingStorage(string directory) : ILoginStorage
     {
-        /// <summary>真正执行文件读写的仓库。</summary>
-        private readonly RepoAccountRoleSummary _inner = new(directory);
-        /// <summary>取号复用真实仓库的共享序列。</summary>
+        /// <summary>真正执行文件读写的存储。</summary>
+        private readonly LoginStorage _inner = new(directory);
+        /// <summary>取号复用真实存储的共享序列。</summary>
         public ValueTask<long> NextRoleIdAsync() => _inner.NextRoleIdAsync();
         /// <summary>可选保存屏障。</summary>
         internal Task? SaveRelease { get; set; }
@@ -187,7 +187,7 @@ public sealed class ServerSchedulingTests : IDisposable
         internal int MaximumConcurrent;
         /// <summary>加载真实文件。</summary>
         public ValueTask<ImmutableArray<DataRoleSummary>> LoadAsync(string username) => _inner.LoadAsync(username);
-        /// <summary>计数后等待屏障，最终转发到真实仓库。</summary>
+        /// <summary>计数后等待屏障，最终转发到真实存储。</summary>
         public async ValueTask SaveAsync(string username, ImmutableArray<DataRoleSummary> summaries)
         {
             Interlocked.Increment(ref SaveCount);

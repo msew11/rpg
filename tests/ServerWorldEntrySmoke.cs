@@ -71,18 +71,18 @@ public partial class ServerWorldEntrySmoke : Node
             main.Free(); main = null; await Frames();
             var root = Path.Combine(directory, "server");
             Check(Directory.GetFiles(root).Length == 9, "三表、摘要和编号没有完整落地");
-            var repo = new Rpg.Server.Modules.Role.Storage.RepoRole(root);
-            var stored = await repo.LoadAsync(female);
+            var storage = new Rpg.Server.Modules.Role.Storage.RoleStorage(root);
+            var stored = await storage.LoadAsync(female);
             using (var seedEnv = new Rpg.Config.EnvService(directory, Path.Combine(directory, "server")))
             using (var seedConfig = new Rpg.Config.ConfigService(seedEnv))
             {
                 var map = seedConfig.Map.Items[1];
-                var mapRepo = new Rpg.Server.Modules.World.Storage.RepoWorld(root);
+                var mapRepo = new Rpg.Server.Modules.World.Storage.WorldStorage(root);
                 Check((await mapRepo.LoadAsync(new(1, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles))).Objects.IsEmpty,
                     "重启仍恢复了已经拾取的地面物品");
                 var gear = seedConfig.Item.Items.Values.First(item => item.MaxStack == 1 &&
                     Rpg.Utils.EquipmentSlotUtil.TryGetSlot(item.Category, item.SubCategory, out var slot) && slot == Rpg.Const.EquipmentSlot.MainHand);
-                await repo.SaveAsync(female, stored with { Role = stored.Role with { Level = 3, NextInstanceId = 3 },
+                await storage.SaveAsync(female, stored with { Role = stored.Role with { Level = 3, NextInstanceId = 3 },
                     Items = [new(1, gear.Id, Rpg.Const.EquipmentSlot.MainHand), new(2, gear.Id, 0, 1)],
                     Equipments = [new() { InstanceId = 1 }, new() { InstanceId = 2 }] }, Rpg.Server.Modules.Role.Data.DataRoleTables.All);
             }

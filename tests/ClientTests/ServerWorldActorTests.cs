@@ -60,17 +60,17 @@ public sealed class ServerWorldActorTests : IDisposable
     public async Task FirstHandlerWaitsForCompleteLoadAndOtherMapCanProgress()
     {
         var release = Signal();
-        var repo = new DoubleWorldRepo(new RepoWorld(Storage)) { LoadRelease = release.Task };
+        var storage = new DoubleWorldStorage(new WorldStorage(Storage)) { LoadRelease = release.Task };
         var value = Object(1);
-        await new RepoWorld(Storage).SaveAsync(Map(1), new([value]), Dirty(new DataWorldChunk(0, 0)));
+        await new WorldStorage(Storage).SaveAsync(Map(1), new([value]), Dirty(new DataWorldChunk(0, 0)));
         File.Delete(Path.Combine(_directory, "config", "map.json"));
-        await using var modules = Modules(repo);
+        await using var modules = Modules(storage);
         var actor = modules.World(1);
         Assert.Same(actor, modules.World(1));
         var unused = modules.World(3);
-        Assert.Equal(0, repo.LoadCount);
+        Assert.Equal(0, storage.LoadCount);
         var first = actor.Ask(new DataReadWorld());
-        await repo.LoadEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await storage.LoadEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var second = actor.Ask(new DataReadWorld());
         Assert.False(first.IsCompleted);
         Assert.Empty((await modules.World(2).Ask(new DataReadWorld()).WaitAsync(TimeSpan.FromSeconds(5))).Objects);
@@ -78,21 +78,21 @@ public sealed class ServerWorldActorTests : IDisposable
         AssertObjects([value], await first);
         AssertObjects([value], await second);
         await modules.FlushAsync();
-        Assert.Equal(2, repo.LoadCount);
-        Assert.Equal(0, repo.SaveCount);
+        Assert.Equal(2, storage.LoadCount);
+        Assert.Equal(0, storage.SaveCount);
         Assert.Equal(ActorState.INIT, unused.State);
-        Assert.Equal(200, repo.Layouts[2].Width);
-        Assert.Equal(1000, repo.Layouts[1].Width);
+        Assert.Equal(200, storage.Layouts[2].Width);
+        Assert.Equal(1000, storage.Layouts[1].Width);
     }
-    /// <summary>未知地图在仓库调用前失败；失败引用可替换，必需仓库同步拒绝 null。</summary>
+    /// <summary>未知地图在存储调用前失败；失败引用可替换，必需存储同步拒绝 null。</summary>
     [Fact]
     public async Task UnknownMapDoesNotPerformStorageIo()
     {
-        var repo = new DoubleWorldRepo(new RepoWorld(Storage));
-        await using var modules = Modules(repo);
+        var storage = new DoubleWorldStorage(new WorldStorage(Storage));
+        await using var modules = Modules(storage);
         var actor = modules.World(99);
         await Assert.ThrowsAsync<InvalidDataException>(() => actor.Ask(new DataReadWorld()));
-        Assert.Equal(0, repo.LoadCount);
+        Assert.Equal(0, storage.LoadCount);
         Assert.False(Directory.Exists(Storage));
         Assert.NotSame(actor, modules.World(99));
         Assert.Throws<ArgumentNullException>(() => new WorldActor(_config, modules, 1, null!, Handlers()));
@@ -102,20 +102,20 @@ public sealed class ServerWorldActorTests : IDisposable
     public async Task InitializationFailureRejectsAllWaitersAndNewReferenceRetries()
     {
         var release = Signal();
-        var repo = new DoubleWorldRepo(new RepoWorld(Storage)) { LoadRelease = release.Task, FailLoad = true };
-        await using var modules = Modules(repo);
+        var storage = new DoubleWorldStorage(new WorldStorage(Storage)) { LoadRelease = release.Task, FailLoad = true };
+        await using var modules = Modules(storage);
         var first = modules.World(1);
         var one = first.Ask(new DataReadWorld());
-        await repo.LoadEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await storage.LoadEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var two = first.Ask(new DataReadWorld());
         release.SetResult();
         await Assert.ThrowsAsync<IOException>(() => one);
         await Assert.ThrowsAsync<IOException>(() => two);
-        repo.FailLoad = false;
+        storage.FailLoad = false;
         var retry = modules.World(1);
         Assert.NotSame(first, retry);
         Assert.Empty((await retry.Ask(new DataReadWorld())).Objects);
-        Assert.Equal(2, repo.LoadCount);
+        Assert.Equal(2, storage.LoadCount);
     }
     /// <summary>真实文件清单或引用块损坏以及占用均不能发布部分 Context，修复后新分片完整恢复。</summary>
     [Theory]
@@ -126,16 +126,16 @@ public sealed class ServerWorldActorTests : IDisposable
     [InlineData("io")]
     public async Task RepairingStoredFilesAllowsFreshActorInitialization(string fault)
     {
-        var repo = new RepoWorld(Storage);
+        var storage = new WorldStorage(Storage);
         var layout = Map(1);
         var values = new[] { Object(1), Object(1100) };
-        await repo.SaveAsync(layout, new([.. values]), Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0)));
+        await storage.SaveAsync(layout, new([.. values]), Dirty(new DataWorldChunk(0, 0), new DataWorldChunk(1, 0)));
         var mapDirectory = Path.Combine(Storage, "maps", "1");
         var path = fault.StartsWith("block") ? Directory.GetFiles(Path.Combine(mapDirectory, "chunks"), "1_0.*").Single() : Path.Combine(mapDirectory, "manifest.json");
         var original = await File.ReadAllBytesAsync(path);
         if (fault == "block-missing") File.Delete(path);
         else if (fault != "io") await File.WriteAllTextAsync(path, fault == "null" ? "null" : "{");
-        await using var modules = Modules(repo);
+        await using var modules = Modules(storage);
         var failed = modules.World(1);
         using (var locked = fault == "io" ? new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None) : null)
             await Assert.ThrowsAnyAsync<Exception>(() => failed.Ask(new DataReadWorld()));
@@ -150,7 +150,7 @@ public sealed class ServerWorldActorTests : IDisposable
     {
         var value = Object(1);
         var layout = Map(1);
-        await using var locator = Modules(new DoubleServerRepo());
+        await using var locator = Modules(new DoubleServerStorage());
         var context = new WorldContext(_config, locator, layout, new([value]));
         context.Cache.Commit(new([value with { }]));
         Assert.Empty(context.Cache.DirtyChunks);
@@ -165,13 +165,13 @@ public sealed class ServerWorldActorTests : IDisposable
         Assert.Empty(empty.Cache.Objects.Value);
         Assert.Empty(empty.Cache.DirtyChunks);
         Assert.Throws<ArgumentNullException>(() => context.Cache.Commit(null!));
-        var repo = new DoubleWorldRepo(new RepoWorld(Storage));
-        await using var modules = Modules(repo);
+        var storage = new DoubleWorldStorage(new WorldStorage(Storage));
+        await using var modules = Modules(storage);
         var actor = modules.World(1);
         await actor.Ask(new DataWriteWorld(new([value])));
         await actor.Ask(new DataWriteWorld(new(default)));
         await modules.FlushAsync();
-        Assert.Equal(0, repo.SaveCount);
+        Assert.Equal(0, storage.SaveCount);
         Assert.False(Directory.Exists(Storage));
     }
     /// <summary>本地图保存期间不进入下一回合，其他地图继续；失败内存及脏块保留并可重试。</summary>
@@ -179,15 +179,15 @@ public sealed class ServerWorldActorTests : IDisposable
     public async Task SaveOwnsMailboxAndFailureRetainsSnapshotAndDirtyChunksForRetry()
     {
         var release = Signal();
-        var repo = new DoubleWorldRepo(new RepoWorld(Storage)) { SaveRelease = release.Task, FailSave = true };
-        await using var modules = Modules(repo);
+        var storage = new DoubleWorldStorage(new WorldStorage(Storage)) { SaveRelease = release.Task, FailSave = true };
+        await using var modules = Modules(storage);
         var actor = modules.World(1);
         var value = Object(1);
         await actor.Ask(new DataWriteWorld(new([value])));
         var final = new DataWorldSnapshot([value with { Count = 9 }]);
         await actor.Ask(new DataWriteWorld(final));
         var flushing = actor.Ask(new DataFlush());
-        await repo.SaveEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await storage.SaveEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var read = actor.Ask(new DataReadWorld());
         Assert.False(read.IsCompleted);
         Assert.Empty((await modules.World(2).Ask(new DataReadWorld()).WaitAsync(TimeSpan.FromSeconds(5))).Objects);
@@ -195,36 +195,36 @@ public sealed class ServerWorldActorTests : IDisposable
         await Assert.ThrowsAsync<IOException>(() => flushing);
         AssertObjects(final.Objects, await read);
         Assert.Single(await actor.Ask(new DataWriteWorld(final)));
-        repo.FailSave = false;
+        storage.FailSave = false;
         await modules.FlushAsync();
-        AssertObjects(final.Objects, await new RepoWorld(Storage).LoadAsync(Map(1)));
+        AssertObjects(final.Objects, await new WorldStorage(Storage).LoadAsync(Map(1)));
         Assert.Empty(await actor.Ask(new DataWriteWorld(final)));
         await modules.FlushAsync();
-        Assert.Equal(2, repo.SaveCount);
+        Assert.Equal(2, storage.SaveCount);
     }
     /// <summary>清单提交前真实中断仍保留 Actor 脏标记，后续重试恢复完整新状态。</summary>
     [Fact]
     public async Task InterruptedManifestCommitCanRetryThroughActor()
     {
         var fail = true;
-        var repo = new RepoWorld(Storage) { BeforeManifestCommit = () => { if (fail) throw new IOException("模拟提交中断"); } };
-        await using var modules = Modules(repo);
+        var storage = new WorldStorage(Storage) { BeforeManifestCommit = () => { if (fail) throw new IOException("模拟提交中断"); } };
+        await using var modules = Modules(storage);
         var actor = modules.World(1);
         var value = Object(1);
         await actor.Ask(new DataWriteWorld(new([value])));
         await Assert.ThrowsAsync<IOException>(() => actor.Ask(new DataFlush()));
-        Assert.Empty((await new RepoWorld(Storage).LoadAsync(Map(1))).Objects);
+        Assert.Empty((await new WorldStorage(Storage).LoadAsync(Map(1))).Objects);
         AssertObjects([value], await actor.Ask(new DataReadWorld()));
         fail = false;
         await modules.FlushAsync();
-        AssertObjects([value], await new RepoWorld(Storage).LoadAsync(Map(1)));
+        AssertObjects([value], await new WorldStorage(Storage).LoadAsync(Map(1)));
     }
     /// <summary>地图参与禁用、动态重计时与合并周期；关闭时即使禁用也补写最后内存。</summary>
     [Fact]
     public async Task WorldParticipatesInDynamicPeriodicScheduleAndFinalSave()
     {
-        var repo = new DoubleWorldRepo(new RepoWorld(Storage));
-        var modules = Modules(repo);
+        var storage = new DoubleWorldStorage(new WorldStorage(Storage));
+        var modules = Modules(storage);
         await using var server = new MockServerService(_env, modules);
         var actor = modules.World(1);
         var value = Object(1);
@@ -232,50 +232,50 @@ public sealed class ServerWorldActorTests : IDisposable
         _env.ServerFlushIntervalSeconds = 0;
         server.Tick(100);
         await server.PeriodicFlush;
-        Assert.Equal(0, repo.SaveCount);
+        Assert.Equal(0, storage.SaveCount);
         Assert.False(Directory.Exists(Storage));
         _env.ServerFlushIntervalSeconds = 10;
         server.Tick(9);
-        Assert.Equal(0, repo.SaveCount);
+        Assert.Equal(0, storage.SaveCount);
         server.Tick(1);
         await server.PeriodicFlush.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(1, repo.SaveCount);
+        Assert.Equal(1, storage.SaveCount);
         await actor.Ask(new DataWriteWorld(new([value with { Count = 2 }])));
         server.Tick(9);
         _env.ServerFlushIntervalSeconds = 5;
         server.Tick(4);
-        Assert.Equal(1, repo.SaveCount);
+        Assert.Equal(1, storage.SaveCount);
         server.Tick(1);
         await server.PeriodicFlush.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(2, repo.SaveCount);
+        Assert.Equal(2, storage.SaveCount);
         var release = Signal();
-        repo.SaveRelease = release.Task;
-        repo.SaveEntered = Signal();
+        storage.SaveRelease = release.Task;
+        storage.SaveEntered = Signal();
         await actor.Ask(new DataWriteWorld(new([value with { Count = 3 }])));
         server.Tick(5);
-        await repo.SaveEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await storage.SaveEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var current = server.PeriodicFlush;
         server.Tick(500);
         Assert.Same(current, server.PeriodicFlush);
         release.SetResult();
         await current.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(3, repo.SaveCount);
+        Assert.Equal(3, storage.SaveCount);
         _env.ServerFlushIntervalSeconds = 0;
         await actor.Ask(new DataWriteWorld(new([value with { Count = 4 }])));
         server.Tick(100);
-        Assert.Equal(3, repo.SaveCount);
+        Assert.Equal(3, storage.SaveCount);
         await server.DisposeAsync();
-        Assert.Equal(4, repo.SaveCount);
-        Assert.Equal(4, (await new RepoWorld(Storage).LoadAsync(Map(1))).Objects.Single().Count);
+        Assert.Equal(4, storage.SaveCount);
+        Assert.Equal(4, (await new WorldStorage(Storage).LoadAsync(Map(1))).Objects.Single().Count);
         Assert.Equal(ActorState.STOP, actor.State);
     }
     /// <summary>周期中一个地图失败不阻止另一地图和账号保存，诊断可观察，下一周期重试待写地图。</summary>
     [Fact]
     public async Task PeriodicWorldFailureIsIsolatedAndNextCycleRetries()
     {
-        var repo = new DoubleWorldRepo(new RepoWorld(Storage)) { FailSave = true };
-        var accounts = new RepoAccountRoleSummary(Storage);
-        var modules = new DoubleServerModules(_config, accounts, new DoubleServerRepo(), repo,
+        var storage = new DoubleWorldStorage(new WorldStorage(Storage)) { FailSave = true };
+        var accounts = new LoginStorage(Storage);
+        var modules = new DoubleServerModules(_config, accounts, new DoubleServerStorage(), storage,
             _ => ServerPersistenceActorTests.LoginHandlers(), world: _ => Handlers());
         await using var server = new MockServerService(_env, modules);
         var errors = new ConcurrentQueue<Exception>();
@@ -287,14 +287,14 @@ public sealed class ServerWorldActorTests : IDisposable
         server.Tick(5);
         await server.PeriodicFlush.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Single(errors);
-        AssertObjects([second], await new RepoWorld(Storage).LoadAsync(Map(2)));
+        AssertObjects([second], await new WorldStorage(Storage).LoadAsync(Map(2)));
         Assert.Equal("独立保存", (await accounts.LoadAsync("alice"))[0].Name);
-        Assert.Empty((await new RepoWorld(Storage).LoadAsync(Map(1))).Objects);
-        repo.FailSave = false;
+        Assert.Empty((await new WorldStorage(Storage).LoadAsync(Map(1))).Objects);
+        storage.FailSave = false;
         server.Tick(5);
         await server.PeriodicFlush.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Single((await new RepoWorld(Storage).LoadAsync(Map(1))).Objects);
-        Assert.Equal(3, repo.SaveCount);
+        Assert.Single((await new WorldStorage(Storage).LoadAsync(Map(1))).Objects);
+        Assert.Equal(3, storage.SaveCount);
     }
     /// <summary>已接纳请求尚未结束时保存必须等待；屏障后枚举能捕获此期间才启动的地图。</summary>
     [Theory]
@@ -304,8 +304,8 @@ public sealed class ServerWorldActorTests : IDisposable
     {
         var entered = Signal();
         var release = Signal();
-        var repo = new RepoWorld(Storage);
-        var modules = new DoubleServerModules(_config, new DoubleServerRepo(), new DoubleServerRepo(), repo,
+        var storage = new WorldStorage(Storage);
+        var modules = new DoubleServerModules(_config, new DoubleServerStorage(), new DoubleServerStorage(), storage,
             _ => new ActorHandlers<LoginContext>().Register<Login, LoginRt>(new ServerWriteBackTests.DoubleMutatingLoginHandler(entered, release.Task)),
             world: _ => Handlers());
         var server = new MockServerService(_env, modules);
@@ -319,40 +319,40 @@ public sealed class ServerWorldActorTests : IDisposable
         Assert.False(Directory.Exists(Storage));
         release.SetResult();
         await Task.WhenAll(work, saving).WaitAsync(TimeSpan.FromSeconds(5));
-        AssertObjects([value], await new RepoWorld(Storage).LoadAsync(Map(1)));
+        AssertObjects([value], await new WorldStorage(Storage).LoadAsync(Map(1)));
         await server.DisposeAsync();
     }
     /// <summary>角色组完成才进入地图组，地图组并行且失败仍进入账号组，最终汇总。</summary>
     [Fact]
     public async Task FlushGroupsAreRoleThenParallelWorldThenLoginEvenOnFailure()
     {
-        var repo = new DoubleOrderedRepo();
-        await using var modules = new DoubleServerModules(_config, repo, repo, repo,
+        var storage = new DoubleOrderedStorage();
+        await using var modules = new DoubleServerModules(_config, storage, storage, storage,
             _ => ServerPersistenceActorTests.LoginHandlers(), _ => ServerPersistenceActorTests.RoleHandlers(), _ => Handlers());
         await modules.Role(10).Ask(new ServerPersistenceActorTests.DataWriteRole(new(new() { Name = "待写角色" }, [], [])));
         await modules.World(1).Ask(new DataWriteWorld(new([Object(1)])));
         await modules.World(2).Ask(new DataWriteWorld(new([Object(2)])));
         await modules.Login("alice").Ask(new ServerPersistenceActorTests.DataWriteSummary("待写账号"));
         var flushing = modules.FlushAsync();
-        await repo.RoleEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(new[] { "role" }, repo.Order.ToArray());
-        repo.RoleRelease.SetResult();
-        await Task.WhenAll(repo.OneEntered.Task, repo.TwoEntered.Task).WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.DoesNotContain("login", repo.Order);
-        repo.WorldRelease.SetResult();
+        await storage.RoleEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(new[] { "role" }, storage.Order.ToArray());
+        storage.RoleRelease.SetResult();
+        await Task.WhenAll(storage.OneEntered.Task, storage.TwoEntered.Task).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.DoesNotContain("login", storage.Order);
+        storage.WorldRelease.SetResult();
         var error = await Assert.ThrowsAsync<AggregateException>(() => flushing);
         Assert.Single(error.InnerExceptions);
-        Assert.Equal("role", repo.Order.First());
-        Assert.Equal("login", repo.Order.Last());
-        Assert.Equal(4, repo.Order.Count);
+        Assert.Equal("role", storage.Order.First());
+        Assert.Equal("login", storage.Order.Last());
+        Assert.Equal(4, storage.Order.Count);
     }
     /// <summary>最终地图保存失败仍保存账号并停止全部 Actor，向关闭调用方报告失败。</summary>
     [Fact]
     public async Task ClosingWorldFailureStillSavesAccountAndStopsAllShards()
     {
-        var repo = new DoubleWorldRepo(new RepoWorld(Storage)) { FailSave = true };
-        var accounts = new RepoAccountRoleSummary(Storage);
-        var modules = new DoubleServerModules(_config, accounts, new DoubleServerRepo(), repo,
+        var storage = new DoubleWorldStorage(new WorldStorage(Storage)) { FailSave = true };
+        var accounts = new LoginStorage(Storage);
+        var modules = new DoubleServerModules(_config, accounts, new DoubleServerStorage(), storage,
             _ => ServerPersistenceActorTests.LoginHandlers(), world: _ => Handlers());
         var server = new MockServerService(_env, modules);
         var world = modules.World(1);
@@ -368,7 +368,7 @@ public sealed class ServerWorldActorTests : IDisposable
         Assert.False(_env.IsDisposed);
     }
     /// <summary>完整装配测试模块，不新增生产业务 Handler。</summary>
-    private DoubleServerModules Modules(IWorldRepo repo) => new(_config, new DoubleServerRepo(), new DoubleServerRepo(), repo,
+    private DoubleServerModules Modules(IWorldStorage storage) => new(_config, new DoubleServerStorage(), new DoubleServerStorage(), storage,
         _ => new(), world: _ => Handlers());
     /// <summary>每个地图使用独立读写注册表。</summary>
     internal static ActorHandlers<WorldContext> Handlers() => new ActorHandlers<WorldContext>()
@@ -394,8 +394,8 @@ public sealed class ServerWorldActorTests : IDisposable
         public ValueTask<ImmutableHashSet<DataWorldChunk>> HandleAsync(WorldContext context, DataWriteWorld request)
         { context.Cache.Commit(request.Snapshot); return ValueTask.FromResult(context.Cache.DirtyChunks); }
     }
-    /// <summary>服务地图加载及邮箱保存契约，真实仓库外包可控屏障与故障。</summary>
-    internal sealed class DoubleWorldRepo(IWorldRepo inner) : IWorldRepo
+    /// <summary>服务地图加载及邮箱保存契约，真实存储外包可控屏障与故障。</summary>
+    internal sealed class DoubleWorldStorage(IWorldStorage inner) : IWorldStorage
     {
         /// <summary>地图 1 的加载屏障。</summary>
         internal Task? LoadRelease { get; init; }
@@ -441,8 +441,8 @@ public sealed class ServerWorldActorTests : IDisposable
             await inner.SaveAsync(layout, snapshot, dirtyChunks);
         }
     }
-    /// <summary>只服务三组保存顺序契约的可控内存仓库。</summary>
-    private sealed class DoubleOrderedRepo : IRoleRepo, IWorldRepo, IAccountRoleSummaryRepo
+    /// <summary>只服务三组保存顺序契约的可控内存存储。</summary>
+    private sealed class DoubleOrderedStorage : IRoleStorage, IWorldStorage, ILoginStorage
     {
         /// <summary>保存顺序契约不创建角色。</summary>
         public ValueTask<long> NextRoleIdAsync() => throw new NotSupportedException();

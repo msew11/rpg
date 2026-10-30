@@ -30,8 +30,8 @@ public sealed class ServerActorProtocolTests : ServerModuleTests
         var directory = Path.Combine(Path.GetTempPath(), "rpg-server-protocol-" + Guid.NewGuid());
         try
         {
-            var roles = new RepoRole(directory);
-            var worlds = new RepoWorld(directory);
+            var roles = new RoleStorage(directory);
+            var worlds = new WorldStorage(directory);
             var map = Config.Map.Items[1];
             var layout = new DataWorldLayout(1, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles);
             await roles.SaveAsync(10, new(new() { RoleId = 10, MapId = 1 }, [], []), DataRoleTables.All);
@@ -40,7 +40,7 @@ public sealed class ServerActorProtocolTests : ServerModuleTests
                 [new DataWorldChunk(0, 0)]);
             var files = Directory.GetFiles(directory, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
             foreach (var path in files.Keys) File.SetLastWriteTimeUtc(path, new DateTime(2000, 1, 1));
-            await using (var modules = new ServerModules(Config, new DoubleServerRepo(), roles, worlds))
+            await using (var modules = new ServerModules(Config, new DoubleServerStorage(), roles, worlds))
             {
                 Assert.Equal(2, (await modules.Role(10).Ask<GetRoleWorldObjectCountRt>(new GetRoleWorldObjectCount())).Count);
                 Assert.Equal(2, (await modules.World(1).Ask<GetWorldObjectCountRt>(new GetWorldObjectCount())).Count);
@@ -180,17 +180,17 @@ public sealed class ServerActorProtocolTests : ServerModuleTests
 
     /// <summary>建立带确定角色 MapId 的模块，空可选工厂使用生产示例。</summary>
     private DoubleServerModules Modules(Func<long, ActorHandlers<RoleContext>>? role = null, Func<int, ActorHandlers<WorldContext>>? world = null) =>
-        new(Config, new DoubleServerRepo(), new DoubleRoleRepo(), new DoubleServerRepo(), LoginHandlers, role, world);
+        new(Config, new DoubleServerStorage(), new DoubleRoleStorage(), new DoubleServerStorage(), LoginHandlers, role, world);
     /// <summary>使用正式未实现登录处理器，避免测试成功替身掩盖默认行为。</summary>
     private static ActorHandlers<LoginContext> LoginHandlers(string _) => new ActorHandlers<LoginContext>().Register<Login, LoginRt>(new LoginHandler());
     /// <summary>三个 Context 共用只返回引用的测试契约，目标身份从未被投递消息。</summary>
-    private DoubleServerModules LocatorModules() => new(Config, new DoubleServerRepo(), new DoubleRoleRepo(), new DoubleServerRepo(),
+    private DoubleServerModules LocatorModules() => new(Config, new DoubleServerStorage(), new DoubleRoleStorage(), new DoubleServerStorage(),
         _ => new ActorHandlers<LoginContext>().Register<DataLocateTargets, DataTargets>(new DoubleLocateHandler<LoginContext>()),
         _ => new ActorHandlers<RoleContext>().Register<DataLocateTargets, DataTargets>(new DoubleLocateHandler<RoleContext>()),
         _ => new ActorHandlers<WorldContext>().Register<DataLocateTargets, DataTargets>(new DoubleLocateHandler<WorldContext>()));
 
     /// <summary>服务角色所属地图查询契约，返回完整且确定的不可变角色基线。</summary>
-    private sealed class DoubleRoleRepo : IRoleRepo
+    private sealed class DoubleRoleStorage : IRoleStorage
     {
         /// <summary>所有角色都明确归属地图 1，不使用默认 MapId 掩盖定位行为。</summary>
         public ValueTask<DataRoleSnapshot> LoadAsync(long roleId) => ValueTask.FromResult(new DataRoleSnapshot(new() { RoleId = roleId, MapId = 1 }, [], []));
@@ -248,7 +248,7 @@ public sealed class ServerActorProtocolTests : ServerModuleTests
     /// <summary>验证全部 Context 借用同一所属定位接口的契约。</summary>
     private sealed class DoubleLocateHandler<TContext> : IActorHandler<TContext, DataLocateTargets, DataTargets> where TContext : ModuleContext
     {
-        /// <summary>仅获取尚未初始化的目标分片，不返回上下文或仓库。</summary>
+        /// <summary>仅获取尚未初始化的目标分片，不返回上下文或存储。</summary>
         public ValueTask<DataTargets> HandleAsync(TContext context, DataLocateTargets request) =>
             ValueTask.FromResult(new DataTargets(context.Actors.Login("target"), context.Actors.Role(99), context.Actors.World(99)));
     }

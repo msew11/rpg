@@ -31,7 +31,7 @@ public partial class ItemMovementSmoke : Node
                 ["subCategory"] = 2, ["relatedId"] = 1012, ["maxStack"] = 10 });
             File.WriteAllText(Path.Combine(config, "item.json"), definitions.ToJsonString());
             RoleTestData.Seed(server);
-            var repo = new RepoRole(server);
+            var storage = new RoleStorage(server);
             RoleTestData.SetItems(server, 1001, [new(1, 1012, 0, 1), new(2, 2000, 1, 8), new(3, 2000, 2, 3), new(4, 2000, 3, 2)], 5);
             main = await StartMain(directory, config);
             var bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
@@ -100,11 +100,11 @@ public partial class ItemMovementSmoke : Node
 
             // server-write-back：先推进到落地节点，再核对失败请求与重启文件。
             await GameServices.MockServer.FlushAsync();
-            var saved = (await repo.LoadAsync(1001));
+            var saved = (await storage.LoadAsync(1001));
             GameServices.Session.MoveItem(99999, 4);
             await Frames();
             Check(bag.FindChild("ItemMoveStatus", true, false) is Label { Visible: true, Text: "源物品不存在" }, "失败响应没有提示");
-            Check((await repo.LoadAsync(1001)).Items.SequenceEqual(saved.Items), "失败请求修改了存档");
+            Check((await storage.LoadAsync(1001)).Items.SequenceEqual(saved.Items), "失败请求修改了存档");
             await BeginDrag(grid.GetChild<Control>(2));
             PressTitle(main, "系统");
             PressTitle(main, "返回角色选择");
@@ -116,7 +116,7 @@ public partial class ItemMovementSmoke : Node
             await Frames();
             var otherBag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
             await EndDrag(((GridContainer)otherBag.FindChild("BagGrid", true, false)).GetChild<Control>(0).GetGlobalRect().GetCenter());
-            Check(GameServices.Session.RoleId == 1002 && GameServices.Session.Bag.Items.Count == 0 && (await repo.LoadAsync(1001)).Items.SequenceEqual(saved.Items),
+            Check(GameServices.Session.RoleId == 1002 && GameServices.Session.Bag.Items.Count == 0 && (await storage.LoadAsync(1001)).Items.SequenceEqual(saved.Items),
                 "切角后的旧拖放影响了角色背包");
             main.QueueFree();
             await Frames();

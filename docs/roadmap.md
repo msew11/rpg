@@ -2,6 +2,8 @@
 
 ## 当前阶段：客户端基础纵切
 
+- [x] 模块持久化统一为 ILoginStorage、IRoleStorage、IWorldStorage 及同名 Storage 实现；文件、UID、装配、测试与文档同步，Cache 保持内存数据和保存基线职责，存档格式与读写行为保持一致。
+
 - [x] ServerModules 统一在构造方法内注册 Login、Role、World 处理器，去掉三类工厂参数；MockServer 仅传基础设施依赖，自定义处理器组合留在测试侧。
 
 - [x] Actor Handler 按请求逐一拆分：每类单一 IActorHandler，跨 Actor 编排归 Async、本地消息归 Handler；处理器目录只放 Handler，跨 Actor 共用逻辑归 Common/Utils，Actor 内共用逻辑归各模块 Utils，保留原消息注册和业务行为。

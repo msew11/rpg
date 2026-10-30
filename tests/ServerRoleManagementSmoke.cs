@@ -107,7 +107,7 @@ public partial class ServerRoleManagementSmoke : Node
             await Click(Button(main, "ReturnLogin"));
             await Frames();
             Check(!GameServices.Session.IsLoggedIn && GameServices.Session.Roles.Count == 0, "返回登录未清理缓存");
-            var saved = await new Rpg.Server.Modules.Login.Storage.RepoAccountRoleSummary(root).LoadAsync("demo1");
+            var saved = await new Rpg.Server.Modules.Login.Storage.LoginStorage(root).LoadAsync("demo1");
             Check(saved.Any(summary => summary.RoleId == restartedId && !summary.IsDeleted),
                 "返回登录没有显式保存最新摘要");
             GD.Print("Server role management smoke passed: real buttons, drafts, preview, cancellation, tombstones and restart.");

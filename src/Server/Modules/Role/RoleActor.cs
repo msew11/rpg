@@ -16,15 +16,15 @@ internal sealed class RoleActor : ModuleActor<RoleContext>
     private readonly IActorLocator _actors;
     /// <summary>本分片固定角色身份。</summary>
     private readonly long _roleId;
-    /// <summary>无业务状态的三表仓库。</summary>
-    private readonly IRoleRepo _repo;
+    /// <summary>无业务状态的三表存储。</summary>
+    private readonly IRoleStorage _storage;
     /// <summary>构建角色工作区时借用宿主配置。</summary>
     private readonly ConfigService _config;
-    /// <summary>绑定专用处理器表、角色身份和仓库。</summary>
-    internal RoleActor(ConfigService config, IActorLocator actors, long roleId, IRoleRepo repo, ActorHandlers<RoleContext> handlers) : base(handlers)
-    { _roleId = roleId; _repo = repo; _config = config; _actors = actors; }
+    /// <summary>绑定专用处理器表、角色身份和存储。</summary>
+    internal RoleActor(ConfigService config, IActorLocator actors, long roleId, IRoleStorage storage, ActorHandlers<RoleContext> handlers) : base(handlers)
+    { _roleId = roleId; _storage = storage; _config = config; _actors = actors; }
     /// <summary>已有三表完整加载或明确全缺失后进入 RUN，不发布部分加载状态。</summary>
-    protected override async ValueTask<RoleContext> CreateContextAsync() => new(_config, _actors, _roleId, await _repo.TryLoadExistingAsync(_roleId).ConfigureAwait(false));
+    protected override async ValueTask<RoleContext> CreateContextAsync() => new(_config, _actors, _roleId, await _storage.TryLoadExistingAsync(_roleId).ConfigureAwait(false));
     /// <summary>串行保存本角色变化表，失败不改变内存和保存基线。</summary>
     protected override async ValueTask<object?> DispatchAsync(RoleContext context, object message)
     {
@@ -58,7 +58,7 @@ internal sealed class RoleActor : ModuleActor<RoleContext>
         var dirty = context.Cache.DirtyTables;
         if (dirty != DataRoleTables.None)
         {
-            await _repo.SaveAsync(_roleId, context.Cache.Snapshot(), dirty).ConfigureAwait(false);
+            await _storage.SaveAsync(_roleId, context.Cache.Snapshot(), dirty).ConfigureAwait(false);
             context.Cache.AcceptSaved();
         }
     }

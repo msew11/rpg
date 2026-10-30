@@ -21,8 +21,8 @@ public sealed class ServerStorageTests : IDisposable
     public async Task PromotedStorageKeepsExistingTablesAndMapFiles()
     {
         var previous = Path.Combine(_directory, "v2");
-        await new RepoRole(previous).SaveAsync(10, Sample(), DataRoleTables.All);
-        await new RepoAccountRoleSummary(previous).SaveAsync("demo1", [new(10, "原角色", 1, RoleGender.Male, 1, [])]);
+        await new RoleStorage(previous).SaveAsync(10, Sample(), DataRoleTables.All);
+        await new LoginStorage(previous).SaveAsync("demo1", [new(10, "原角色", 1, RoleGender.Male, 1, [])]);
         Directory.CreateDirectory(Path.Combine(previous, "maps"));
         await File.WriteAllTextAsync(Path.Combine(previous, "maps", "existing.json"), "地图原始字节");
         var bytes = Directory.GetFiles(previous, "*", SearchOption.AllDirectories)
@@ -30,8 +30,8 @@ public sealed class ServerStorageTests : IDisposable
         Assert.Equal(Path.GetFullPath(_directory), Rpg.Server.Hosting.MockServer.PrepareStorageDirectory(_directory));
         Assert.False(Directory.Exists(previous));
         foreach (var (path, content) in bytes) Assert.Equal(content, await File.ReadAllBytesAsync(Path.Combine(_directory, path)));
-        Assert.Equal(Sample().Role, (await new RepoRole(_directory).LoadAsync(10)).Role);
-        Assert.Single(await new RepoAccountRoleSummary(_directory).LoadAsync("demo1"));
+        Assert.Equal(Sample().Role, (await new RoleStorage(_directory).LoadAsync(10)).Role);
+        Assert.Single(await new LoginStorage(_directory).LoadAsync("demo1"));
         Rpg.Server.Hosting.MockServer.PrepareStorageDirectory(_directory);
         Assert.False(Directory.Exists(previous));
     }
@@ -55,8 +55,8 @@ public sealed class ServerStorageTests : IDisposable
         Directory.CreateDirectory(_directory);
         var pending = PathOf("pending");
         await File.WriteAllTextAsync(pending, "未完成且无法解析的回滚记录");
-        var roles = new RepoRole(_directory);
-        var accounts = new RepoAccountRoleSummary(_directory);
+        var roles = new RoleStorage(_directory);
+        var accounts = new LoginStorage(_directory);
         await Assert.ThrowsAsync<ArgumentNullException>(async () => await roles.SaveAsync(10, null!, DataRoleTables.All));
         Assert.Throws<ArgumentNullException>(() => accounts.SaveAsync(null!, []));
         Assert.Equal("未完成且无法解析的回滚记录", await File.ReadAllTextAsync(pending));
@@ -77,17 +77,17 @@ public sealed class ServerStorageTests : IDisposable
     [Fact]
     public async Task MissingAccountStaysInMemoryAndSavedArrayUsesNormalizedName()
     {
-        var repo = new RepoAccountRoleSummary(_directory);
-        Assert.Empty(await repo.LoadAsync(" Alice "));
+        var storage = new LoginStorage(_directory);
+        Assert.Empty(await storage.LoadAsync(" Alice "));
         Assert.False(Directory.Exists(_directory));
         ImmutableArray<DataRoleSummary> data = [new(8, "角色", -2, RoleGender.Unspecified, 0, [999])];
-        await repo.SaveAsync(" ALICE ", data);
+        await storage.SaveAsync(" ALICE ", data);
         var path = Path.Combine(_directory, "alice.role_summary.json");
         using var json = JsonDocument.Parse(await File.ReadAllTextAsync(path));
         Assert.Equal(JsonValueKind.Array, json.RootElement.ValueKind);
         Assert.Equal(8, json.RootElement[0].GetProperty("roleId").GetInt64());
         Assert.Equal(0, json.RootElement[0].GetProperty("gender").GetInt32());
-        Assert.Equal(data[0].Name, (await repo.LoadAsync("alice"))[0].Name);
+        Assert.Equal(data[0].Name, (await storage.LoadAsync("alice"))[0].Name);
         Assert.Single(Directory.GetFiles(_directory));
     }
     /// <summary>验证 server-account 的路径安全契约：非法账号在读写前拒绝，不创建目录。</summary>
@@ -97,39 +97,39 @@ public sealed class ServerStorageTests : IDisposable
     [InlineData("name.")]
     public async Task UnsafeAccountKeysFailBeforeAnyFileOperation(string username)
     {
-        var repo = new RepoAccountRoleSummary(_directory);
-        await Assert.ThrowsAsync<ArgumentException>(async () => await repo.LoadAsync(username));
-        Assert.Throws<ArgumentException>(() => repo.SaveAsync(username, []));
+        var storage = new LoginStorage(_directory);
+        await Assert.ThrowsAsync<ArgumentException>(async () => await storage.LoadAsync(username));
+        Assert.Throws<ArgumentException>(() => storage.SaveAsync(username, []));
         Assert.False(Directory.Exists(_directory));
     }
     /// <summary>验证 server-storage 的空表格式：默认不可变数组保存为 [] 并可重新加载。</summary>
     [Fact]
     public async Task DefaultAccountArrayIsSavedAsEmptyJsonArray()
     {
-        var repo = new RepoAccountRoleSummary(_directory);
-        await repo.SaveAsync(" ALICE ", default);
+        var storage = new LoginStorage(_directory);
+        await storage.SaveAsync(" ALICE ", default);
         Assert.Equal("[]", await File.ReadAllTextAsync(Path.Combine(_directory, "alice.role_summary.json")));
-        Assert.Empty(await repo.LoadAsync("alice"));
+        Assert.Empty(await storage.LoadAsync("alice"));
     }
     /// <summary>三表按角色加载，不做身份、重复实例、数值或关联校验。</summary>
     [Fact]
     public async Task RoleRoundTripKeepsUnvalidatedDataAndOnlyWritesSelectedTables()
     {
-        var repo = new RepoRole(_directory);
+        var storage = new RoleStorage(_directory);
         var original = Sample() with
         {
             Role = new DataRole { RoleId = 999, Level = -1, IsDeleted = true },
             Items = [new(1, -5, -2, 0), new(1, 0, 0, -1)], Equipments = [new() { InstanceId = 200 }]
         };
-        await repo.SaveAsync(10, original, DataRoleTables.All);
-        var loaded = await repo.LoadAsync(10);
+        await storage.SaveAsync(10, original, DataRoleTables.All);
+        var loaded = await storage.LoadAsync(10);
         Assert.Equal(original.Role, loaded.Role);
         Assert.Equal(original.Items.ToArray(), loaded.Items.ToArray());
         Assert.Equal(original.Equipments.ToArray(), loaded.Equipments.ToArray());
         var itemBytes = await File.ReadAllBytesAsync(PathOf("item"));
         var equipmentBytes = await File.ReadAllBytesAsync(PathOf("equipment"));
-        await repo.SaveAsync(10, loaded with { Role = loaded.Role with { Name = "更新" }, Items = [] }, DataRoleTables.Role);
-        Assert.Equal("更新", (await repo.LoadAsync(10)).Role.Name);
+        await storage.SaveAsync(10, loaded with { Role = loaded.Role with { Name = "更新" }, Items = [] }, DataRoleTables.Role);
+        Assert.Equal("更新", (await storage.LoadAsync(10)).Role.Name);
         Assert.Equal(itemBytes, await File.ReadAllBytesAsync(PathOf("item")));
         Assert.Equal(equipmentBytes, await File.ReadAllBytesAsync(PathOf("equipment")));
         Assert.False(File.Exists(PathOf("pending")));
@@ -141,11 +141,11 @@ public sealed class ServerStorageTests : IDisposable
     [InlineData("equipment")]
     public async Task MissingRequiredRoleTableFails(string table)
     {
-        var repo = new RepoRole(_directory);
-        await repo.SaveAsync(10, Sample(), DataRoleTables.All);
-        Assert.Empty((await repo.LoadAsync(10)).Items);
+        var storage = new RoleStorage(_directory);
+        await storage.SaveAsync(10, Sample(), DataRoleTables.All);
+        Assert.Empty((await storage.LoadAsync(10)).Items);
         File.Delete(PathOf(table));
-        await Assert.ThrowsAsync<FileNotFoundException>(async () => await repo.LoadAsync(10));
+        await Assert.ThrowsAsync<FileNotFoundException>(async () => await storage.LoadAsync(10));
     }
     /// <summary>拒绝不能反序列化的根，而不增加业务字段校验。</summary>
     [Theory]
@@ -157,10 +157,10 @@ public sealed class ServerStorageTests : IDisposable
     [InlineData("equipment", "[false]")]
     public async Task InvalidRoleJsonFailsWithoutChangingSource(string table, string text)
     {
-        var repo = new RepoRole(_directory);
-        await repo.SaveAsync(10, Sample(), DataRoleTables.All);
+        var storage = new RoleStorage(_directory);
+        await storage.SaveAsync(10, Sample(), DataRoleTables.All);
         await File.WriteAllTextAsync(PathOf(table), text);
-        await Assert.ThrowsAnyAsync<JsonException>(async () => await repo.LoadAsync(10));
+        await Assert.ThrowsAnyAsync<JsonException>(async () => await storage.LoadAsync(10));
         Assert.Equal(text, await File.ReadAllTextAsync(PathOf(table)));
     }
     /// <summary>摘要损坏不能被误判成新账号。</summary>
@@ -173,7 +173,7 @@ public sealed class ServerStorageTests : IDisposable
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, "alice.role_summary.json");
         await File.WriteAllTextAsync(path, text);
-        await Assert.ThrowsAnyAsync<JsonException>(async () => await new RepoAccountRoleSummary(_directory).LoadAsync("alice"));
+        await Assert.ThrowsAnyAsync<JsonException>(async () => await new LoginStorage(_directory).LoadAsync("alice"));
         Assert.Equal(text, await File.ReadAllTextAsync(path));
     }
     /// <summary>分别在各表替换后模拟中断，重载必须恢复完整旧数据，再次保存可成功。</summary>
@@ -183,19 +183,19 @@ public sealed class ServerStorageTests : IDisposable
     [InlineData("equipment")]
     public async Task InterruptedMultiTableCommitRestoresOriginalBytesBeforeReadAndRetry(string interruption)
     {
-        var repo = new RepoRole(_directory);
+        var storage = new RoleStorage(_directory);
         var original = Sample();
-        await repo.SaveAsync(10, original, DataRoleTables.All);
+        await storage.SaveAsync(10, original, DataRoleTables.All);
         var originalBytes = new[] { "role", "item", "equipment" }.ToDictionary(table => table, table => File.ReadAllBytes(PathOf(table)));
         var updated = original with { Role = original.Role with { Name = "新" }, Items = [new(1, 4, 0, 2)], Equipments = [new() { InstanceId = 1 }] };
-        var interrupted = new RepoRole(_directory) { AfterTableWritten = table => { if (table == interruption) throw new IOException("模拟进程中断"); } };
+        var interrupted = new RoleStorage(_directory) { AfterTableWritten = table => { if (table == interruption) throw new IOException("模拟进程中断"); } };
         await Assert.ThrowsAsync<IOException>(async () => await interrupted.SaveAsync(10, updated, DataRoleTables.All));
         Assert.True(File.Exists(PathOf("pending")));
-        Assert.Equal(original.Role, (await repo.LoadAsync(10)).Role);
+        Assert.Equal(original.Role, (await storage.LoadAsync(10)).Role);
         foreach (var (table, bytes) in originalBytes) Assert.Equal(bytes, await File.ReadAllBytesAsync(PathOf(table)));
         Assert.False(File.Exists(PathOf("pending")));
-        await repo.SaveAsync(10, updated, DataRoleTables.All);
-        Assert.Equal(updated.Role, (await repo.LoadAsync(10)).Role);
+        await storage.SaveAsync(10, updated, DataRoleTables.All);
+        Assert.Equal(updated.Role, (await storage.LoadAsync(10)).Role);
         Assert.Empty(Directory.GetFiles(_directory, "*.tmp"));
     }
     /// <summary>恢复失败保留记录，非法表名也不得产生任意路径写入。</summary>
@@ -204,14 +204,14 @@ public sealed class ServerStorageTests : IDisposable
     [InlineData(true)]
     public async Task RecoveryFailurePreservesJournalAndBlocksFurtherWrites(bool unsafeTable)
     {
-        var repo = new RepoRole(_directory);
-        await repo.SaveAsync(10, Sample(), DataRoleTables.All);
+        var storage = new RoleStorage(_directory);
+        await storage.SaveAsync(10, Sample(), DataRoleTables.All);
         var table = unsafeTable ? "../outside" : "role";
         await File.WriteAllTextAsync(PathOf("pending"), JsonSerializer.Serialize(new Dictionary<string, byte[]?>
         { [table] = [1, 2, 3], ["item"] = [] }));
         if (!unsafeTable) { File.Delete(PathOf("role")); Directory.CreateDirectory(PathOf("role")); }
-        await Assert.ThrowsAnyAsync<Exception>(async () => await repo.LoadAsync(10));
-        await Assert.ThrowsAnyAsync<Exception>(async () => await repo.SaveAsync(10, Sample(), DataRoleTables.All));
+        await Assert.ThrowsAnyAsync<Exception>(async () => await storage.LoadAsync(10));
+        await Assert.ThrowsAnyAsync<Exception>(async () => await storage.SaveAsync(10, Sample(), DataRoleTables.All));
         Assert.True(File.Exists(PathOf("pending")));
         Assert.False(File.Exists(Path.Combine(_directory, "outside")));
     }
@@ -222,8 +222,8 @@ public sealed class ServerStorageTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv();
         using var config = new Rpg.Config.ConfigService(env);
-        var repo = new DoubleServerRepo();
-        await using var locator = new Rpg.Server.Modules.ServerModules(config, repo, repo, repo);
+        var storage = new DoubleServerStorage();
+        await using var locator = new Rpg.Server.Modules.ServerModules(config, storage, storage, storage);
         var original = Sample();
         var role = new RoleContext(config, locator, 10, original);
         Assert.Throws<ArgumentNullException>(() => role.Cache.Commit(null!));
@@ -265,8 +265,8 @@ public sealed class ServerStorageTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv();
         using var config = new Rpg.Config.ConfigService(env);
-        var repo = new DoubleServerRepo();
-        await using var locator = new Rpg.Server.Modules.ServerModules(config, repo, repo, repo);
+        var storage = new DoubleServerStorage();
+        await using var locator = new Rpg.Server.Modules.ServerModules(config, storage, storage, storage);
         var account = new LoginContext(config, locator, "alice", new(default));
         Assert.Empty(account.Cache.Snapshot().Summaries);
         account.Cache.Commit(new([]));

@@ -23,7 +23,7 @@ public sealed class ServerItemBatchTests : IDisposable
     [InlineData("login")]
     public async Task InterruptedBatchRestoresAllSidesAndCanRetry(string stage)
     {
-        var roles = new RepoRole(_root); var worlds = new RepoWorld(_root); var logins = new RepoAccountRoleSummary(_root);
+        var roles = new RoleStorage(_root); var worlds = new WorldStorage(_root); var logins = new LoginStorage(_root);
         var layout = new DataWorldLayout(1, 100, 100, 32, 32);
         var original = new DataRoleSnapshot(new DataRole { RoleId = 1003, Name = "原角色", NextInstanceId = 1 }, [], []);
         var ground = new DataWorldObject { ObjectId = Guid.NewGuid(), Revision = 1, X = 10, Y = 10, ItemId = 1012, Count = 1 };
@@ -56,7 +56,7 @@ public sealed class ServerItemBatchTests : IDisposable
     [Fact]
     public async Task RecoveryDeletesNewFilesAndRejectsUnsafeKeysBeforeAnyWrite()
     {
-        var roles = new RepoRole(_root); var worlds = new RepoWorld(_root); var logins = new RepoAccountRoleSummary(_root);
+        var roles = new RoleStorage(_root); var worlds = new WorldStorage(_root); var logins = new LoginStorage(_root);
         var candidate = new DataRoleSnapshot(new DataRole { RoleId = 1003 }, [], []);
         var interrupted = new RepoItemBatch(_root, roles, worlds, logins) { AfterWrite = _ => throw new IOException("中断") };
         await Assert.ThrowsAsync<IOException>(() => interrupted.SaveAsync([new(1003, candidate, DataRoleTables.All)], [], []).AsTask());

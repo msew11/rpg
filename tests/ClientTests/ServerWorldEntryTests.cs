@@ -76,10 +76,10 @@ public sealed class ServerWorldEntryTests : IDisposable
             await Exchange(server, one, new Rpg.Protocol.Login { Username = "demo1", Password = "wrong" }, generation);
             Assert.Equal(0, server.Session(one).RoleId);
         }
-        var repo = new RepoRole(Root);
-        var saved = await repo.LoadAsync(male);
+        var storage = new RoleStorage(Root);
+        var saved = await storage.LoadAsync(male);
         Assert.Equal(1, saved.Role.NextInstanceId);
-        await repo.SaveAsync(male, saved with { Role = saved.Role with { Health = 37, X = 0, Y = 0, Level = 4, Name = "存档名称" } }, DataRoleTables.Role);
+        await storage.SaveAsync(male, saved with { Role = saved.Role with { Health = 37, X = 0, Y = 0, Level = 4, Name = "存档名称" } }, DataRoleTables.Role);
         await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
@@ -109,9 +109,9 @@ public sealed class ServerWorldEntryTests : IDisposable
             var id = server.OpenConnection(); await Login(server, id); roleId = await Create(server, id, "已有实例");
             await Exchange(server, id, new EnterWorld { RoleId = roleId });
         }
-        var repo = new RepoRole(Root);
-        var saved = await repo.LoadAsync(roleId);
-        await repo.SaveAsync(roleId, saved with { Role = saved.Role with { NextInstanceId = 3, Health = 19, Level = 7 },
+        var storage = new RoleStorage(Root);
+        var saved = await storage.LoadAsync(roleId);
+        await storage.SaveAsync(roleId, saved with { Role = saved.Role with { NextInstanceId = 3, Health = 19, Level = 7 },
             Items = [new DataItem(1, equipment.Id, Rpg.Const.EquipmentSlot.MainHand), new DataItem(2, equipment.Id, 0, 1)],
             Equipments = [new() { InstanceId = 1 }, new() { InstanceId = 2 }] }, DataRoleTables.All);
         var map = config.Map.Items[config.Basic.Value.InitialMapId];
@@ -119,7 +119,7 @@ public sealed class ServerWorldEntryTests : IDisposable
         var itemObject = new Rpg.Server.Modules.World.Data.DataWorldObject { ObjectId = Guid.NewGuid(), Revision = 3,
             X = saved.Role.X, Y = saved.Role.Y, ItemId = equipment.Id, Count = 1 };
         var monster = itemObject with { ObjectId = Guid.NewGuid(), Revision = 8, ItemId = 0, Count = 0, MonsterTypeId = "演示怪物" };
-        await new RepoWorld(Root).SaveAsync(layout, new([itemObject, monster]), ImmutableHashSet.Create(layout.ChunkAt(itemObject)));
+        await new WorldStorage(Root).SaveAsync(layout, new([itemObject, monster]), ImmutableHashSet.Create(layout.ChunkAt(itemObject)));
         var files = Directory.GetFiles(Root, "*", SearchOption.AllDirectories).Where(path => !path.EndsWith("role_summary.json"))
             .ToDictionary(path => path, File.ReadAllBytes);
         await using (var server = MockServerService.CreateInProcess(env, config))
@@ -135,7 +135,7 @@ public sealed class ServerWorldEntryTests : IDisposable
             Assert.Equal(3, objects.Single(value => value.ObjectId == itemObject.ObjectId.ToString("N")).Revision);
             Assert.Equal("演示怪物", objects.Single(value => value.Monster is not null).Monster.MonsterTypeId);
             await server.FlushAsync();
-            var summary = (await new RepoAccountRoleSummary(Root).LoadAsync("demo1")).Single();
+            var summary = (await new LoginStorage(Root).LoadAsync("demo1")).Single();
             Assert.Equal(7, summary.Level); Assert.Equal(new[] { equipment.Id }, summary.EquippedItems);
         }
         foreach (var (path, bytes) in files) Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
@@ -156,13 +156,13 @@ public sealed class ServerWorldEntryTests : IDisposable
             var id = server.OpenConnection(); await Login(server, id); roleId = await Create(server, id, "非法存档");
             await Exchange(server, id, new EnterWorld { RoleId = roleId });
         }
-        var repo = new RepoRole(Root); var original = await repo.LoadAsync(roleId);
+        var storage = new RoleStorage(Root); var original = await storage.LoadAsync(roleId);
         var broken = fault switch {
             "identity" => original with { Role = original.Role with { RoleId = roleId + 1 } },
             "position" => original with { Role = original.Role with { MapId = int.MaxValue } },
             _ => original with { Equipments = [new() { InstanceId = 9 }] }
         };
-        await repo.SaveAsync(roleId, broken, DataRoleTables.All);
+        await storage.SaveAsync(roleId, broken, DataRoleTables.All);
         var files = Directory.GetFiles(Root).ToDictionary(path => path, File.ReadAllBytes);
         await using (var server = MockServerService.CreateInProcess(env, config))
         {
@@ -170,7 +170,7 @@ public sealed class ServerWorldEntryTests : IDisposable
             Assert.Equal(ErrorCodePb.InternalError, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId })).Code);
         }
         foreach (var (path, bytes) in files) Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
-        await repo.SaveAsync(roleId, original, DataRoleTables.All);
+        await storage.SaveAsync(roleId, original, DataRoleTables.All);
         await using (var repaired = MockServerService.CreateInProcess(env, config))
         {
             var id = repaired.OpenConnection(); await Login(repaired, id);
@@ -191,20 +191,20 @@ public sealed class ServerWorldEntryTests : IDisposable
             var id = server.OpenConnection(); await Login(server, id); roleId = await Create(server, id, "地图数量");
             await Exchange(server, id, new EnterWorld { RoleId = roleId });
         }
-        var data = (await new RepoRole(Root).LoadAsync(roleId)).Role;
+        var data = (await new RoleStorage(Root).LoadAsync(roleId)).Role;
         var map = config.Map.Items[data.MapId];
         var layout = new Rpg.Server.Modules.World.Data.DataWorldLayout(map.Id, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles);
         var ground = new Rpg.Server.Modules.World.Data.DataWorldObject { ObjectId = Guid.NewGuid(), Revision = 1,
             X = data.X, Y = data.Y, ItemId = definition.Id, Count = 2 };
-        var repo = new RepoWorld(Root);
-        await repo.SaveAsync(layout, new([ground]), ImmutableHashSet.Create(layout.ChunkAt(ground)));
+        var storage = new WorldStorage(Root);
+        await storage.SaveAsync(layout, new([ground]), ImmutableHashSet.Create(layout.ChunkAt(ground)));
         await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
             Assert.Equal(ErrorCodePb.InternalError, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId })).Code);
             Assert.Equal(0, server.Session(id).RoleId);
         }
-        await repo.SaveAsync(layout, new([ground with { Count = 1 }]), ImmutableHashSet.Create(layout.ChunkAt(ground)));
+        await storage.SaveAsync(layout, new([ground with { Count = 1 }]), ImmutableHashSet.Create(layout.ChunkAt(ground)));
         await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
@@ -281,8 +281,8 @@ public sealed class ServerWorldEntryTests : IDisposable
         env.ServerFlushIntervalSeconds = 0;
         var interrupted = false;
         var fail = true;
-        var repo = new RepoRole(Root) { AfterTableWritten = _ => { if (fail) { interrupted = true; throw new IOException("首次提交中断"); } } };
-        await using var server = new MockServerService(env, Modules(config, repo));
+        var storage = new RoleStorage(Root) { AfterTableWritten = _ => { if (fail) { interrupted = true; throw new IOException("首次提交中断"); } } };
+        await using var server = new MockServerService(env, Modules(config, storage));
         var id = server.OpenConnection(); await Login(server, id);
         var roleId = await Create(server, id, "候选保留");
         Assert.Equal(ErrorCodePb.InternalError, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId })).Code);
@@ -292,7 +292,7 @@ public sealed class ServerWorldEntryTests : IDisposable
         fail = false;
         await server.FlushAsync();
         Assert.False(File.Exists(Path.Combine(Root, roleId + ".pending.json")));
-        var saved = await repo.LoadAsync(roleId);
+        var saved = await storage.LoadAsync(roleId);
         Assert.Empty(saved.Items); Assert.Empty(saved.Equipments);
         Assert.Equal("候选保留", saved.Role.Name);
         Assert.IsType<EnterWorldRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId }));
@@ -304,7 +304,7 @@ public sealed class ServerWorldEntryTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
-        await using var modules = Modules(config, new RepoRole(Root));
+        await using var modules = Modules(config, new RoleStorage(Root));
         var actor = modules.Role(1003);
         await Assert.ThrowsAsync<InvalidOperationException>(() => actor.Ask<GetRoleWorldObjectCountRt>(new GetRoleWorldObjectCount()));
         await modules.FlushAsync();
@@ -346,7 +346,7 @@ public sealed class ServerWorldEntryTests : IDisposable
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
         var gate = new DoubleEntryGate();
-        await using var server = new MockServerService(env, Modules(config, new RepoRole(Root), gate));
+        await using var server = new MockServerService(env, Modules(config, new RoleStorage(Root), gate));
         var id = server.OpenConnection(); await Login(server, id);
         var first = await Create(server, id, "原角色");
         var second = await Create(server, id, "迟到角色");
@@ -362,8 +362,8 @@ public sealed class ServerWorldEntryTests : IDisposable
     }
 
     /// <summary>复用正式处理器，只允许注入文件故障或可控地图等待。</summary>
-    private DoubleServerModules Modules(ConfigService config, IRoleRepo repo, DoubleEntryGate? gate = null) => new(config,
-        new RepoAccountRoleSummary(Root), repo, new RepoWorld(Root), _ => new ActorHandlers<LoginContext>()
+    private DoubleServerModules Modules(ConfigService config, IRoleStorage storage, DoubleEntryGate? gate = null) => new(config,
+        new LoginStorage(Root), storage, new WorldStorage(Root), _ => new ActorHandlers<LoginContext>()
             .Register<Rpg.Protocol.Login, LoginRt>(new LoginHandler()).Register<CreateRole, CreateRoleRt>(new CreateRoleHandler())
             .Register<DeleteRole, DeleteRoleRt>(new DeleteRoleHandler()).Register<EnterWorld, EnterWorldRt>(new EnterWorldHandler()),
         world: gate is null ? null : _ => new ActorHandlers<WorldContext>().Register<GetWorldEntrySnapshot, GetWorldEntrySnapshotRt>(gate));

@@ -32,7 +32,7 @@ public partial class GroundItemPickupSmoke : Node
             definitions.Add(new JsonObject { ["id"] = 2000, ["name"] = "拾取验收", ["category"] = 1, ["subCategory"] = 2, ["relatedId"] = 1012, ["maxStack"] = 10 });
             File.WriteAllText(Path.Combine(config, "item.json"), definitions.ToJsonString());
             RoleTestData.Seed(server);
-            var repo = new RepoRole(server);
+            var storage = new RoleStorage(server);
             RoleTestData.SetItems(server, 1001, [new(1, 1012, 0, 1), new(2, 2000, 1, 5)], 3);
             main = await StartMain(directory, config);
             var bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
@@ -136,7 +136,7 @@ public partial class GroundItemPickupSmoke : Node
             await Until(() => ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("拾取失败"));
             Check(GameServices.Session.Map.Objects.Count == 1 && ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("拾取失败"), "背包满未保留地面物品和反馈");
             await GameServices.MockServer.FlushAsync();
-            var savedTotal = (await repo.LoadAsync(1001)).Items.Sum(item => item.Count);
+            var savedTotal = (await storage.LoadAsync(1001)).Items.Sum(item => item.Count);
             main.QueueFree(); await Frames(); main = null;
             main = await StartMain(directory, config);
             Check(GameServices.Session.Bag.Items.Sum(item => item.Count) == savedTotal && GameServices.Session.Map!.Objects.Count == 1, "重启未恢复拾取和失败后的完整状态");

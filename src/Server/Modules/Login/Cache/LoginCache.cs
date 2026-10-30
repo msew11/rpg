@@ -18,6 +18,6 @@ public sealed class LoginCache
     public DataLoginSnapshot Snapshot() => new(Summaries.Value);
     /// <summary>一次接纳完整账号数据，默认数组按空数组处理。</summary>
     public void Commit(DataLoginSnapshot snapshot) { ArgumentNullException.ThrowIfNull(snapshot); Summaries.Commit(snapshot.Summaries); }
-    /// <summary>仓库保存成功后接受所有数据缓存的基线。</summary>
+    /// <summary>存储保存成功后接受所有数据缓存的基线。</summary>
     internal void AcceptSaved() => Summaries.AcceptSaved();
 }

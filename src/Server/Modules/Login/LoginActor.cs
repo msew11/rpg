@@ -16,14 +16,14 @@ internal sealed class LoginActor : ModuleActor<LoginContext>
     /// <summary>不可变分片身份。</summary>
     private readonly string _username;
     /// <summary>只负责文件 IO 的构造依赖。</summary>
-    private readonly IAccountRoleSummaryRepo _repo;
+    private readonly ILoginStorage _storage;
     /// <summary>创建工作区时借用宿主配置，不由本分片释放。</summary>
     private readonly ConfigService _config;
-    /// <summary>绑定专用处理器与仓库，不预加载。</summary>
-    internal LoginActor(ConfigService config, IActorLocator actors, string username, IAccountRoleSummaryRepo repo, ActorHandlers<LoginContext> handlers) : base(handlers)
-    { _username = username; _repo = repo; _config = config; _actors = actors; }
+    /// <summary>绑定专用处理器与存储，不预加载。</summary>
+    internal LoginActor(ConfigService config, IActorLocator actors, string username, ILoginStorage storage, ActorHandlers<LoginContext> handlers) : base(handlers)
+    { _username = username; _storage = storage; _config = config; _actors = actors; }
     /// <summary>首次消息进入 INIT，完整加载后才发布工作区。</summary>
-    protected override async ValueTask<LoginContext> CreateContextAsync() => new(_config, _actors, _username, new(await _repo.LoadAsync(_username).ConfigureAwait(false)));
+    protected override async ValueTask<LoginContext> CreateContextAsync() => new(_config, _actors, _username, new(await _storage.LoadAsync(_username).ConfigureAwait(false)));
     /// <summary>取号和保存由基础设施在同邮箱串行准备，Handler 只提交内存。</summary>
     protected override async ValueTask<object?> DispatchAsync(LoginContext context, object message)
     {
@@ -32,7 +32,7 @@ internal sealed class LoginActor : ModuleActor<LoginContext>
         if (message is global::Rpg.Protocol.CreateRole create)
         {
             context.Cache.Summaries.ValidateCreation(create.Name, (RoleGender)create.Gender, create.HeadId);
-            context.AllocatedRoleId = await _repo.NextRoleIdAsync().ConfigureAwait(false);
+            context.AllocatedRoleId = await _storage.NextRoleIdAsync().ConfigureAwait(false);
             try { return await base.DispatchAsync(context, message).ConfigureAwait(false); }
             finally { context.AllocatedRoleId = 0; }
         }
@@ -51,7 +51,7 @@ internal sealed class LoginActor : ModuleActor<LoginContext>
     {
         if (context.Cache.SummariesDirty)
         {
-            await _repo.SaveAsync(_username, context.Cache.Snapshot().Summaries).ConfigureAwait(false);
+            await _storage.SaveAsync(_username, context.Cache.Snapshot().Summaries).ConfigureAwait(false);
             context.Cache.AcceptSaved();
         }
     }

@@ -85,7 +85,7 @@ public sealed class ServerItemTests : IDisposable
                 if (account == "admin") await Exchange(server, id, new EnterWorld { RoleId = role });
             }
         }
-        var stored = await new RepoRole(Path.GetFullPath(_root)).LoadAsync(savedId);
+        var stored = await new RoleStorage(Path.GetFullPath(_root)).LoadAsync(savedId);
         Assert.True(Assert.Single(stored.Items).Equipped); Assert.Single(stored.Equipments);
     }
     /// <summary>保留推送以检验顺序，只在请求对应回复到达时返回。</summary>

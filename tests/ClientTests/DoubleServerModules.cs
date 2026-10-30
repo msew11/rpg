@@ -38,9 +38,9 @@ internal sealed class DoubleServerModules : IServerModules
     /// <summary>每次创建 Actor 时构造专用注册表，工厂不在消息中流转。</summary>
     internal DoubleServerModules(
         ConfigService config,
-        IAccountRoleSummaryRepo summaries,
-        IRoleRepo roles,
-        IWorldRepo worlds,
+        ILoginStorage summaries,
+        IRoleStorage roles,
+        IWorldStorage worlds,
         Func<string, ActorHandlers<LoginContext>> login,
         Func<long, ActorHandlers<RoleContext>>? role = null,
         Func<int, ActorHandlers<WorldContext>>? world = null,

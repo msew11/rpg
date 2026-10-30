@@ -33,7 +33,7 @@ public partial class GroundItemDropSmoke : Node
             items.Add(new JsonObject { ["id"] = 2000, ["name"] = "验收堆叠", ["category"] = 1, ["subCategory"] = 2, ["relatedId"] = 1012, ["maxStack"] = 10 });
             File.WriteAllText(Path.Combine(config, "item.json"), items.ToJsonString());
             RoleTestData.Seed(server);
-            var repo = new RepoRole(server);
+            var storage = new RoleStorage(server);
             RoleTestData.SetItems(server, 1001, [new(1, 2000, 0, 5), new(2, 1012, 1, 1)], 3);
             main = await StartMain(directory, config);
             var bag = main.FindChildren("*", "Control", true, false).OfType<BagControl>().Single();
@@ -174,7 +174,7 @@ public partial class GroundItemDropSmoke : Node
             Check(!dialog.Visible, "关闭背包未关闭数量确认");
             Check(GameServices.Session.Bag.Items.Single().Count == 4, "关闭数量窗修改背包");
             await GameServices.MockServer.FlushAsync();
-            var saved = (await repo.LoadAsync(1001));
+            var saved = (await storage.LoadAsync(1001));
             anchorToggle.ButtonPressed = true; await Frames();
             Check(File.ReadAllText(Path.Combine(directory, ".env")).Contains("RPG_SHOW_ENTITY_ANCHORS=true"),
                 "开启锚点未保存 .env");
