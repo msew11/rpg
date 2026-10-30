@@ -130,7 +130,9 @@ godot-mono --path . res://tests/server_v2_role_management.tscn
 
 使用 admin/123、demo1/123 或 demo2/123 登录；username 沿用 Trim().ToLowerInvariant()，密码原样匹配。LoginRt、CreateRoleRt、DeleteRoleRt 都只返回按 role_id 升序的完整可见 roles，不含 success/error。统一 ErrorRt 新增 InvalidCredentials、RoleNotFound、RoleNameConflict；非法输入沿用 InvalidRequest。创建和删除从连接 Session 取得账号，不接受载荷账号键。
 
-创建由 LoginCache.Summaries.Create(...) 校验并一次提交 summary，删除由其 Delete(...) 标记墓碑：名称去首尾空白后为 1–16 个 UTF-16 字符、无控制字符，当前未删除名称忽略大小写唯一；性别为男女，服务端头型 1–74，页面为 9–72；初始等级 1，装备为空。DataRoleSummary 的 IsDeleted 默认为 false，删除不物理移除摘要。编号从包含墓碑的最大值加一；demo1从1003、admin从2^32+1003、demo2从2×2^32+1003开始，各自不能跨越32位区间，耗尽拒绝。不同账号列表、三表身份隔离，旧数据不迁移。
+创建由 LoginCache.Summaries.ValidateCreation(...) 校验，LoginActor 在同一串行回合通过账号仓库取得全服唯一编号，交给 Handler 调用 Summaries.Create(...) 一次提交 summary，回合结束清除暂存编号；删除由 Delete(...) 标记墓碑。名称去首尾空白后为 1–16 个 UTF-16 字符、无控制字符，当前未删除名称忽略大小写唯一；性别为男女，服务端头型 1–74，页面为 9–72；初始等级 1，装备为空。DataRoleSummary 的 IsDeleted 默认为 false，删除不物理移除摘要。不同账号列表、三表身份隔离，旧数据不迁移。
+
+所有账号通过同一 RoleIdGenerator 取得正 int64 编号，全新目录从 1003 递增；账号和连接模式不参与计算。RepoRoleIdSequence 在 v2/role_id_sequence.json 保存已预留上界，每次最多预留 256 个编号，使用独占 .lock 文件保护预留，先刷盘并原子替换再发号；生成器用异步互斥锁串行发放。重启跳过未用编号段，删除不归还编号，摘要丢失也不复用已发放编号，不承诺连续。预留 IO 仅在 Actor 基础设施中发生，Handler 仍只操作内存。损坏或非法编号文件、预留失败、int64 耗尽均拒绝创建，不回退重置；可恢复 IO 故障可以重试。同数据目录不支持多个服务器共享业务存档运行；唯一性范围为这一套完整数据目录。编号文件不可单独删除或回滚；原账号区间数据须整套清除后使用新规则。
 
 创建、删除不启动 RoleActor/WorldActor，不产生角色三表或地图文件。摘要沿用周期、显式 Flush、关闭补写和失败重试；成功响应表示内存提交，强杀可能丢失未落地变更。进入世界先检查未删除账号归属，再加载或首次创建三表；不读取旧存档。
 

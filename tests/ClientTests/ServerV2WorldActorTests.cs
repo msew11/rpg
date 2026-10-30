@@ -444,6 +444,8 @@ public sealed class ServerV2WorldActorTests : IDisposable
     /// <summary>只服务三组保存顺序契约的可控内存仓库。</summary>
     private sealed class DoubleOrderedRepo : IRoleRepo, IWorldRepo, IAccountRoleSummaryRepo
     {
+        /// <summary>保存顺序契约不创建角色。</summary>
+        public ValueTask<long> NextRoleIdAsync() => throw new NotSupportedException();
         /// <summary>各组实际进入保存的顺序。</summary>
         internal ConcurrentQueue<string> Order { get; } = new();
         /// <summary>角色保存已进入。</summary>

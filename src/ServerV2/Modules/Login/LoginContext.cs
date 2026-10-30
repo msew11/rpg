@@ -10,6 +10,8 @@ public sealed class LoginContext : ModuleContext
 {
     /// <summary>所属邮箱独占的可变数据工作区。</summary>
     public LoginCache Cache { get; }
+    /// <summary>所属 Actor 为当前创建回合预留的编号，回合结束即清除。</summary>
+    internal long AllocatedRoleId { get; set; }
     /// <summary>完整加载后建立工作区，借用基类配置及 Actor 定位服务。</summary>
     internal LoginContext(ConfigService config, IActorLocator actors, string username, DataLoginSnapshot snapshot) : base(config, actors)
         => Cache = new(username, snapshot);

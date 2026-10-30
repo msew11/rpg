@@ -230,6 +230,8 @@ public sealed class ServerV2PersistenceActorTests : ServerV2ModuleTests
     /// <summary>统计账号写回次数的摘要仓库替身。</summary>
     private sealed class DoubleAccountRepo : IAccountRoleSummaryRepo
     {
+        /// <summary>保存次数契约不涉及角色创建。</summary>
+        public ValueTask<long> NextRoleIdAsync() => throw new NotSupportedException();
         /// <summary>写回次数。</summary>
         internal int SaveCount;
         /// <summary>每个账号从空摘要开始。</summary>

@@ -32,8 +32,8 @@ public sealed class DataCacheRoleSummary : DataCacheArray<DataRoleSummary>
             EquippedItems = state.Equipment.EquippedItems.ToImmutableArray() };
         Commit(Value.Replace(owned, updated));
     }
-    /// <summary>所有校验成功后一次创建摘要，失败不修改数据或消耗编号。</summary>
-    public void Create(string requestedName, RoleGender gender, int headId, long firstRoleId = 1003)
+    /// <summary>取号前校验创建意图；不修改摘要，返回规范角色名。</summary>
+    public string ValidateCreation(string requestedName, RoleGender gender, int headId)
     {
         var name = requestedName.Trim();
         if (name.Length is < 1 or > 16 || name.Any(char.IsControl))
@@ -42,10 +42,15 @@ public sealed class DataCacheRoleSummary : DataCacheArray<DataRoleSummary>
             throw new ServerRequestException(ErrorCodePb.InvalidRequest, "性别或头型无效");
         if (Value.Any(role => !role.IsDeleted && string.Equals(role.Name, name, StringComparison.OrdinalIgnoreCase)))
             throw new ServerRequestException(ErrorCodePb.RoleNameConflict, "角色名字已存在");
-        var maximum = Value.Select(role => role.RoleId).Append(firstRoleId - 1).Max();
-        if (maximum == long.MaxValue || maximum >= ((firstRoleId >> 32) << 32) + uint.MaxValue)
-            throw new ServerRequestException(ErrorCodePb.InvalidRequest, "角色编号已耗尽");
-        var summary = new DataRoleSummary(maximum + 1, name, 1,
+        return name;
+    }
+    /// <summary>使用基础设施已分配的编号一次提交摘要，不在缓存内生成编号。</summary>
+    public void Create(long roleId, string requestedName, RoleGender gender, int headId)
+    {
+        var name = ValidateCreation(requestedName, gender, headId);
+        if (roleId <= 0 || Value.Any(role => role.RoleId == roleId))
+            throw new InvalidOperationException("角色编号尚未分配或已被使用");
+        var summary = new DataRoleSummary(roleId, name, 1,
             gender, headId, []);
         Commit(Value.Add(summary));
     }

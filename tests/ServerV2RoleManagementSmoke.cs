@@ -50,7 +50,7 @@ public partial class ServerV2RoleManagementSmoke : Node
             Check(role.Name == "V2 草稿角色" && role.Gender == RoleGender.Female && role.HeadId == 17, "外观草稿没有进入摘要");
             Check(!Button(main, "EnterRole").Disabled, "V2 进入按钮未启用");
             Check(main.FindChild("PreviewActor", true, false) is not null && !GameServices.World.HasWorld, "未显示预览或初始化了世界");
-            Check(!Directory.Exists(Path.Combine(directory, "server", "v2")), "禁用周期后仍提前保存了摘要");
+            Check(!File.Exists(Path.Combine(directory, "server", "v2", "demo1.role_summary.json")), "禁用周期后仍提前保存了摘要");
             await Click(Button(main, $"DeleteRole{role.RoleId}"));
             await Frames();
             var dialog = (ConfirmationDialog)main.FindChild("ConfirmDeleteRole", true, false);
@@ -66,7 +66,7 @@ public partial class ServerV2RoleManagementSmoke : Node
             main = null;
             await Frames();
             var root = Path.Combine(directory, "server", "v2");
-            Check(Directory.GetFiles(root).Select(Path.GetFileName).SequenceEqual(new[] { "demo1.role_summary.json" }) &&
+            Check(Directory.GetFiles(root).Select(Path.GetFileName).Order().SequenceEqual(new[] { "demo1.role_summary.json", "role_id_sequence.json", "role_id_sequence.json.lock" }) &&
                 Directory.GetDirectories(root).Length == 0, "关闭未仅保存摘要");
             main = Start(directory);
             await Frames();
@@ -80,7 +80,8 @@ public partial class ServerV2RoleManagementSmoke : Node
             ((LineEdit)page.FindChild("RoleName", true, false)).Text = "重启后角色";
             await Click(Button(page, "ConfirmCreate"));
             await Until(() => GameServices.Session.Roles.Count == 1);
-            Check(GameServices.Session.Roles[0].RoleId == role.RoleId + 1, "墓碑编号被重用");
+            var restartedId = GameServices.Session.Roles[0].RoleId;
+            Check(restartedId > role.RoleId, "墓碑编号被重用");
             var summaryFile = Path.Combine(root, "demo1.role_summary.json");
             var backup = Path.Combine(directory, "summary-backup.json");
             File.Move(summaryFile, backup);
@@ -107,7 +108,7 @@ public partial class ServerV2RoleManagementSmoke : Node
             await Frames();
             Check(!GameServices.Session.IsLoggedIn && GameServices.Session.Roles.Count == 0, "返回登录未清理缓存");
             var saved = await new Rpg.ServerV2.Modules.Login.Storage.RepoAccountRoleSummary(root).LoadAsync("demo1");
-            Check(saved.Any(summary => summary.RoleId == role.RoleId + 1 && !summary.IsDeleted),
+            Check(saved.Any(summary => summary.RoleId == restartedId && !summary.IsDeleted),
                 "返回登录没有显式保存最新摘要");
             GD.Print("Server V2 role management smoke passed: real buttons, drafts, preview, cancellation, tombstones and restart.");
             GetTree().Quit(0);

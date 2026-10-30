@@ -47,7 +47,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
             await Login(server, one);
             male = await Create(server, one, "男角色");
             female = await Create(server, one, "女角色", RoleGenderPb.Female);
-            Assert.False(Directory.Exists(Root));
+            Assert.False(File.Exists(Path.Combine(Root, "demo1.role_summary.json")));
             var first = Assert.IsType<EnterWorldRt>(await Exchange(server, one, new EnterWorld { RoleId = male }));
             Assert.Equal(male, server.Session(one).RoleId);
             Assert.Equal(100, first.State.Status.Health);
@@ -57,7 +57,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
             Assert.Equal(9, first.Map.Chunks.Count);
             Assert.All(first.Map.Chunks, chunk => Assert.Empty(chunk.Objects));
             Assert.Equal(16016, first.State.Position.X);
-            Assert.Equal(4, Directory.GetFiles(Root).Length);
+            Assert.Equal(6, Directory.GetFiles(Root).Length);
             Assert.Empty(Directory.GetDirectories(Root));
             var same = Assert.IsType<EnterWorldRt>(await Exchange(server, one, new EnterWorld { RoleId = male }));
             Assert.Equal(first, same);
@@ -91,7 +91,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
             Assert.Equal("存档名称", login.Roles.Single(role => role.RoleId == male).Name);
             Assert.Equal(4, login.Roles.Single(role => role.RoleId == male).Level);
         }
-        Assert.Equal(7, Directory.GetFiles(Root).Length);
+        Assert.Equal(9, Directory.GetFiles(Root).Length);
         Assert.Empty(Directory.GetDirectories(Root));
     }
 
@@ -228,12 +228,13 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         var deleted = await Create(server, id, "墓碑");
         await Exchange(server, id, new DeleteRole { RoleId = deleted });
         Assert.Equal(ErrorCodePb.RoleNotFound, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = deleted })).Code);
-        Assert.False(Directory.Exists(Root));
+        Assert.False(File.Exists(Path.Combine(Root, deleted + ".role.json")));
         var owned = await Create(server, id, "待保存");
         var blocked = Path.Combine(Root, "demo1.role_summary.json");
         Directory.CreateDirectory(blocked);
         Assert.Equal(ErrorCodePb.InternalError, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = owned })).Code);
-        Assert.Empty(Directory.GetFiles(Root));
+        Assert.Equal(new[] { "role_id_sequence.json", "role_id_sequence.json.lock" },
+            Directory.GetFiles(Root).Select(Path.GetFileName).Order());
         Directory.Delete(blocked);
         Assert.IsType<EnterWorldRt>(await Exchange(server, id, new EnterWorld { RoleId = owned }));
         Assert.False(File.Exists(Path.Combine(Root, deleted + ".role.json")));

@@ -171,6 +171,8 @@ public sealed class ServerV2SchedulingTests : IDisposable
     {
         /// <summary>真正执行文件读写的仓库。</summary>
         private readonly RepoAccountRoleSummary _inner = new(directory);
+        /// <summary>取号复用真实仓库的共享序列。</summary>
+        public ValueTask<long> NextRoleIdAsync() => _inner.NextRoleIdAsync();
         /// <summary>可选保存屏障。</summary>
         internal Task? SaveRelease { get; set; }
         /// <summary>下一轮保存进入信号。</summary>

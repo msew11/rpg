@@ -24,9 +24,16 @@ internal sealed class LoginActor : ModuleActor<LoginContext>
     { _username = username; _repo = repo; _config = config; _actors = actors; }
     /// <summary>首次消息进入 INIT，完整加载后才发布工作区。</summary>
     protected override async ValueTask<LoginContext> CreateContextAsync() => new(_config, _actors, _username, new(await _repo.LoadAsync(_username).ConfigureAwait(false)));
-    /// <summary>保存与业务同邮箱串行；仅成功后清除待写标记。</summary>
+    /// <summary>取号和保存由基础设施在同邮箱串行准备，Handler 只提交内存。</summary>
     protected override async ValueTask<object?> DispatchAsync(LoginContext context, object message)
     {
+        if (message is ProtocolV2.CreateRole create)
+        {
+            context.Cache.Summaries.ValidateCreation(create.Name, (RoleGender)create.Gender, create.HeadId);
+            context.AllocatedRoleId = await _repo.NextRoleIdAsync().ConfigureAwait(false);
+            try { return await base.DispatchAsync(context, message).ConfigureAwait(false); }
+            finally { context.AllocatedRoleId = 0; }
+        }
         if (message is ProtocolV2.EnterWorld enter)
         {
             context.Cache.Summaries.Owned(enter.RoleId);

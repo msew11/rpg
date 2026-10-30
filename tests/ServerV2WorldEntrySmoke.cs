@@ -53,7 +53,7 @@ public partial class ServerV2WorldEntrySmoke : Node
             await ReturnToRoles(main);
             main.Free(); main = null; await Frames();
             var root = Path.Combine(directory, "server", "v2");
-            Check(Directory.GetFiles(root).Length == 7 && Directory.GetDirectories(root).Length == 0, "三表没有完整落地或只读空地图产生文件");
+            Check(Directory.GetFiles(root).Length == 9 && Directory.GetDirectories(root).Length == 0, "三表和编号没有完整落地或只读空地图产生文件");
             var repo = new Rpg.ServerV2.Modules.Role.Storage.RepoRole(root);
             var stored = await repo.LoadAsync(female);
             using (var seedEnv = new Rpg.Config.EnvService(directory, Path.Combine(directory, "server")))

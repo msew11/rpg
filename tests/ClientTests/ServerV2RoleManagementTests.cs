@@ -40,21 +40,22 @@ public sealed class ServerV2RoleManagementTests : IDisposable
             Assert.Equal(1, role.Level);
             Assert.Empty(role.EquippedItems);
             server.Tick(100);
-            Assert.False(Directory.Exists(_directory));
+            Assert.False(File.Exists(Path.Combine(_directory, "v2", "demo1.role_summary.json")));
             Assert.Empty(Assert.IsType<DeleteRoleRt>(await Exchange(server, connection, new DeleteRole { RoleId = deletedId })).Roles);
             Assert.Equal(ErrorCodePb.RoleNotFound, Assert.IsType<ErrorRt>(await Exchange(server, connection, new DeleteRole { RoleId = deletedId })).Code);
             await server.FlushAsync();
         }
         var repo = new RepoAccountRoleSummary(Path.Combine(_directory, "v2"));
         Assert.True(Assert.Single(await repo.LoadAsync("demo1")).IsDeleted);
-        Assert.Equal(new[] { "demo1.role_summary.json" }, Directory.GetFiles(Path.Combine(_directory, "v2")).Select(Path.GetFileName));
+        Assert.Equal(new[] { "demo1.role_summary.json", "role_id_sequence.json", "role_id_sequence.json.lock" },
+            Directory.GetFiles(Path.Combine(_directory, "v2")).Select(Path.GetFileName).Order());
         Assert.Empty(Directory.GetDirectories(Path.Combine(_directory, "v2")));
         await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var connection = server.OpenConnection();
             Assert.Empty(Assert.IsType<LoginRt>(await Exchange(server, connection, Credentials())).Roles);
             var created = Assert.IsType<CreateRoleRt>(await Exchange(server, connection, Create("首个角色", RoleGenderPb.Female, 74)));
-            Assert.Equal(deletedId + 1, Assert.Single(created.Roles).RoleId);
+            Assert.True(Assert.Single(created.Roles).RoleId > deletedId);
         }
         Assert.Equal(2, (await repo.LoadAsync("demo1")).Length);
     }
@@ -117,20 +118,21 @@ public sealed class ServerV2RoleManagementTests : IDisposable
         Assert.Equal(new long[] { 1003, 1004 }, result.Roles.Select(role => role.RoleId));
     }
 
-    /// <summary>旧摘要缺少墓碑可正常登录，溢出失败不破坏已有内容。</summary>
+    /// <summary>全服编号耗尽使创建失败，账号摘要仍为空且不会回绕。</summary>
     [Fact]
-    public async Task MissingTombstoneDefaultsFalseAndOverflowIsRejected()
+    public async Task ExhaustedSequenceRejectsCreationWithoutChangingSummary()
     {
         var root = Path.Combine(_directory, "v2");
         Directory.CreateDirectory(root);
-        await File.WriteAllTextAsync(Path.Combine(root, "demo1.role_summary.json"),
-            "[{\"roleId\":9223372036854775807,\"name\":\"已有\",\"level\":1,\"gender\":1,\"headId\":9,\"equippedItems\":[]}]");
+        await File.WriteAllTextAsync(Path.Combine(root, "role_id_sequence.json"), long.MaxValue.ToString());
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
         await using var server = MockServerService.CreateInProcess(env, config);
         var id = server.OpenConnection();
-        Assert.Single(Assert.IsType<LoginRt>(await Exchange(server, id, Credentials())).Roles);
+        Assert.Empty(Assert.IsType<LoginRt>(await Exchange(server, id, Credentials())).Roles);
         Assert.Equal(ErrorCodePb.InvalidRequest, Assert.IsType<ErrorRt>(await Exchange(server, id, Create("溢出"))).Code);
+        Assert.Empty(Assert.IsType<LoginRt>(await Exchange(server, id, Credentials())).Roles);
+        Assert.False(File.Exists(Path.Combine(root, "demo1.role_summary.json")));
     }
 
     /// <summary>真实 IO 故障保留摘要变更，修复后显式保存和周期保存都可恢复。</summary>
@@ -153,7 +155,43 @@ public sealed class ServerV2RoleManagementTests : IDisposable
         server.Tick(5);
         await server.PeriodicFlush;
         Assert.True(Assert.Single(await new RepoAccountRoleSummary(Path.GetDirectoryName(file)!).LoadAsync("demo1")).IsDeleted);
-        Assert.Single(Directory.GetFiles(Path.Combine(_directory, "v2")));
+        Assert.Single(Directory.GetFiles(Path.Combine(_directory, "v2"), "*.role_summary.json"));
+    }
+
+    /// <summary>三个账号并发创建来自同一编号序列，列表和角色身份保持隔离。</summary>
+    [Fact]
+    public async Task ConcurrentAccountsShareOneSequence()
+    {
+        using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
+        using var config = new ConfigService(env);
+        await using var server = MockServerService.CreateInProcess(env, config);
+        var accounts = new[] { "admin", "demo1", "demo2" };
+        var connections = accounts.Select(_ => server.OpenConnection()).ToArray();
+        for (var i = 0; i < accounts.Length; i++) await Exchange(server, connections[i], Credentials(accounts[i]));
+        var replies = await Task.WhenAll(connections.Select(id => Exchange(server, id, Create("同名角色"))));
+        var ids = replies.Select(reply => Assert.Single(Assert.IsType<CreateRoleRt>(reply).Roles).RoleId).ToArray();
+        Assert.Equal(new long[] { 1003, 1004, 1005 }, ids.Order());
+        for (var i = 0; i < accounts.Length; i++)
+            Assert.Equal(ids[i], Assert.Single(Assert.IsType<LoginRt>(await Exchange(server, connections[i], Credentials(accounts[i]))).Roles).RoleId);
+    }
+
+    /// <summary>编号预留写入故障不产生摘要，修复后同一连接可以重新创建。</summary>
+    [Fact]
+    public async Task ReservationFailureLeavesNoSummaryAndCanRetry()
+    {
+        using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
+        using var config = new ConfigService(env);
+        await using var server = MockServerService.CreateInProcess(env, config);
+        var connection = server.OpenConnection();
+        await Exchange(server, connection, Credentials());
+        var sequence = Path.Combine(_directory, "v2", "role_id_sequence.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(sequence)!);
+        await File.WriteAllTextAsync(sequence, "1002");
+        using (var locked = new FileStream(sequence, FileMode.Open, FileAccess.Read, FileShare.Read))
+            Assert.IsType<ErrorRt>(await Exchange(server, connection, Create("重试角色")));
+        Assert.Empty(Assert.IsType<LoginRt>(await Exchange(server, connection, Credentials())).Roles);
+        var created = Assert.IsType<CreateRoleRt>(await Exchange(server, connection, Create("重试角色")));
+        Assert.Equal(1003, Assert.Single(created.Roles).RoleId);
     }
 
     /// <summary>按真实信封请求并检查成功、失败均保留请求关联和代次。</summary>

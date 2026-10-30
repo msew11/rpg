@@ -48,11 +48,11 @@ public sealed class ServerV2DataCacheTests
     public void SummaryCacheOwnsValidationTombstonesAndVisibleOrdering()
     {
         var cache = new LoginCache("demo1", new(default));
-        cache.Summaries.Create("  Alpha  ", RoleGender.Male, 1);
+        cache.Summaries.Create(1003, "  Alpha  ", RoleGender.Male, 1);
         var created = cache.Snapshot();
         Assert.True(cache.SummariesDirty);
         Assert.Equal(1003, Assert.Single(cache.Summaries.Visible()).RoleId);
-        var duplicate = Assert.Throws<ServerRequestException>(() => cache.Summaries.Create("alpha", RoleGender.Female, 74));
+        var duplicate = Assert.Throws<ServerRequestException>(() => cache.Summaries.Create(1004, "alpha", RoleGender.Female, 74));
         Assert.Equal(ErrorCodePb.RoleNameConflict, duplicate.Code);
         Assert.Equal(created, cache.Snapshot());
         cache.AcceptSaved();
@@ -62,7 +62,7 @@ public sealed class ServerV2DataCacheTests
         Assert.True(Assert.Single(cache.Summaries.Value).IsDeleted);
         Assert.False(Assert.Single(created.Summaries).IsDeleted);
         cache.AcceptSaved();
-        cache.Summaries.Create("Alpha", RoleGender.Female, 74);
+        cache.Summaries.Create(1004, "Alpha", RoleGender.Female, 74);
         Assert.Equal(1004, Assert.Single(cache.Summaries.Visible()).RoleId);
         cache.Summaries.Commit([cache.Summaries.Value[1], cache.Summaries.Value[0]]);
         Assert.Equal(1004, Assert.Single(cache.Summaries.Visible()).RoleId);
