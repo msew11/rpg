@@ -9,6 +9,14 @@ namespace Rpg.ServerV2.Connections;
 /// <summary>连接独占的接纳队列、代次和账号绑定，不持有角色或地图业务状态。</summary>
 internal sealed class ConnectionSession
 {
+    /// <summary>全局输出预算。</summary>
+    private readonly OutputBudget _budget;
+    /// <summary>当前连接排队字节。</summary>
+    private int _outputBytes;
+    /// <summary>输出可读或连接结束信号。</summary>
+    private readonly System.Threading.SemaphoreSlim _outputReady = new(0);
+    /// <summary>等待输出，网络循环无需轮询。</summary>
+    internal Task WaitOutgoingAsync(System.Threading.CancellationToken cancellation) => _outputReady.WaitAsync(cancellation);
     /// <summary>保护会话身份、接纳和输出的短锁。</summary>
     private readonly object _gate = new();
     /// <summary>逐个处理本连接请求，其他连接不共用此消费任务。</summary>
@@ -33,8 +41,8 @@ internal sealed class ConnectionSession
     internal DataConnectionId Id { get; }
 
     /// <summary>建立连接会话，尚无账号身份。</summary>
-    internal ConnectionSession(DataConnectionId id, Func<ConnectionSession, byte[], Task> process)
-    { Id = id; _process = process; }
+    internal ConnectionSession(DataConnectionId id, Func<ConnectionSession, byte[], Task> process, OutputBudget? budget = null)
+    { Id = id; _process = process; _budget = budget ?? new OutputBudget(); }
 
     /// <summary>取得独立只读身份，已断开的连接不可读取。</summary>
     internal DataSessionSnapshot Snapshot()
@@ -71,7 +79,8 @@ internal sealed class ConnectionSession
     {
         lock (_gate)
         {
-            if (!_active || generation != _generation) return null;
+            if (!_active || generation < _generation) return null;
+            if (generation > _generation) { _generation = generation; ClearOutput(); }
             if (login) { _username = null; _roleId = 0; }
             return new(Id, _generation, _username, _roleId);
         }
@@ -85,7 +94,9 @@ internal sealed class ConnectionSession
             if (!_active || generation != _generation) return;
             if (username is not null) _username = username;
             if (roleId.HasValue) _roleId = roleId.Value;
-            _outgoing.Enqueue(packet);
+            if (_outgoing.Count >= 64 || _outputBytes + packet.Length > 8 * 1024 * 1024 || !_budget.Reserve(packet.Length))
+            { _active = false; _username = null; _roleId = 0; ClearOutput(); _outputReady.Release(); return; }
+            _outgoing.Enqueue(packet); _outputBytes += packet.Length; _outputReady.Release();
         }
     }
 
@@ -96,7 +107,7 @@ internal sealed class ConnectionSession
         {
             EnsureActive();
             _generation = checked(_generation + 1);
-            _outgoing.Clear();
+            ClearOutput();
             return _generation;
         }
     }
@@ -107,7 +118,8 @@ internal sealed class ConnectionSession
         lock (_gate)
         {
             EnsureActive();
-            return _outgoing.TryDequeue(out packet!);
+            if (!_outgoing.TryDequeue(out packet!)) return false;
+            _outputBytes -= packet.Length; _budget.Release(packet.Length); return true;
         }
     }
 
@@ -117,7 +129,7 @@ internal sealed class ConnectionSession
         lock (_gate)
         {
             _accepting = false;
-            if (disconnect) { _active = false; _username = null; _roleId = 0; _outgoing.Clear(); }
+            if (disconnect) { _active = false; _username = null; _roleId = 0; ClearOutput(); _outputReady.Release(); }
             _requests.Writer.TryComplete();
             return _loop ?? Task.CompletedTask;
         }
@@ -137,6 +149,8 @@ internal sealed class ConnectionSession
         }
     }
 
+    /// <summary>归还所有待发预算，调用方持有会话锁。</summary>
+    private void ClearOutput() { while (_outgoing.TryDequeue(out var packet)) _budget.Release(packet.Length); _outputBytes = 0; }
     /// <summary>拒绝已经断开的连接继续操作。</summary>
     private void EnsureActive() => ObjectDisposedException.ThrowIf(!_active, this);
     /// <summary>一条已复制的请求与其处理完成句柄。</summary>

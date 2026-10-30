@@ -16,6 +16,11 @@ namespace Rpg.ServerV2.Hosting;
 /// <summary>纯 .NET 宿主，装配连接、路由和模块，不执行具体业务或磁盘操作。</summary>
 internal sealed class ServerRuntime : IAsyncDisposable
 {
+    /// <summary>当前实例输出预算。</summary>
+    private readonly OutputBudget _outputBudget = new();
+    /// <summary>异步等待指定连接输出。</summary>
+    internal Task WaitOutgoingAsync(DataConnectionId id, System.Threading.CancellationToken cancellation)
+    { lock (_gate) return Find(id).WaitOutgoingAsync(cancellation); }
     /// <summary>只保护外部接纳与连接目录。</summary>
     private readonly object _gate = new();
     /// <summary>当前连接及仍在排空的已断开连接。</summary>
@@ -40,7 +45,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
         {
             EnsureAccepting();
             var id = new DataConnectionId(Guid.NewGuid());
-            _connections.Add(id, new(id, ProcessAsync));
+            _connections.Add(id, new(id, ProcessAsync, _outputBudget));
             return id;
         }
     }

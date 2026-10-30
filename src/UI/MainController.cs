@@ -61,7 +61,7 @@ public partial class MainController : Control
             ApplySystemSettings();
             GameServices.Net.Error += OnNetworkError;
             GameServices.EventBus.Error += OnNetworkError;
-            if (GameServices.Net.MockServer is not null)
+            if (GameServices.Net.IsV2)
             {
                 _previousAutoAcceptQuit = GetTree().AutoAcceptQuit;
                 _quitPolicyManaged = true;
@@ -185,15 +185,46 @@ public partial class MainController : Control
         box.AddChild(fields);
         fields.AddChild(username);
         fields.AddChild(password);
+        var mode = new OptionButton { Name = "ConnectionMode" };
+        mode.AddItem("服务器模式"); mode.AddItem("纯客户端模式");
+        var ip = new LineEdit { Name = "ServerIp", Text = "127.0.0.1", PlaceholderText = "服务器 IP", Visible = false };
+        var port = new LineEdit { Name = "ServerPort", Text = "7777", PlaceholderText = "端口" };
+        if (GameServices.Net.UsesTcp)
+        {
+            box.AddChild(mode); box.AddChild(ip); box.AddChild(port);
+            mode.ItemSelected += index => ip.Visible = index == 1;
+        }
+        else { mode.Free(); ip.Free(); port.Free(); }
         _feedback = Label("", 14);
         box.AddChild(_feedback);
         var login = new Button { Text = "登录", CustomMinimumSize = new Vector2(180, 38) };
         _loginButton = login;
-        login.Pressed += () =>
+        async System.Threading.Tasks.Task ConnectAndLogin(bool stopExisting)
         {
             login.Disabled = true;
-            _feedback!.Text = "正在连接模拟服务器…";
-            GameServices.Session.Login(username.Text, password.Text);
+            try
+            {
+                _feedback!.Text = "正在连接服务器…";
+                if (GameServices.Net.UsesTcp)
+                {
+                    if (!int.TryParse(port.Text, out var value)) throw new ArgumentException("端口必须为整数");
+                    await GameServices.Net.ConnectAsync(new Rpg.Net.ConnectionOptions(mode.Selected == 0, ip.Text.Trim(), value), stopExisting);
+                }
+                if (!IsInsideTree() || _servicesLifetime is null) return;
+                GameServices.Session.Login(username.Text, password.Text);
+            }
+            catch (Exception error) { if (IsInstanceValid(login)) { login.Disabled = false; _feedback!.Text = error.Message; } }
+        }
+        login.Pressed += async () =>
+        {
+            if (GameServices.Net.UsesTcp && int.TryParse(port.Text, out var value) &&
+                GameServices.Net.RequiresServerStop(new Rpg.Net.ConnectionOptions(mode.Selected == 0, ip.Text.Trim(), value)))
+            {
+                var confirm = new ConfirmationDialog { Title = "切换服务器配置", DialogText = "停止当前服务器会断开其他客户端，是否继续？" };
+                AddChild(confirm); confirm.Confirmed += async () => { confirm.QueueFree(); await ConnectAndLogin(true); };
+                confirm.Canceled += confirm.QueueFree; confirm.PopupCentered(); return;
+            }
+            await ConnectAndLogin(false);
         };
         box.AddChild(login);
     }

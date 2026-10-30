@@ -60,7 +60,7 @@ public sealed class SessionService : Service
     {
         ArgumentNullException.ThrowIfNull(net);
         _net = net;
-        _useV2 = net.MockServer is not null;
+        _useV2 = net.IsV2;
         _generation = net.Generation;
     }
 

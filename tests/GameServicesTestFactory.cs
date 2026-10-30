@@ -41,11 +41,11 @@ internal static class GameServicesTestFactory
             NetService net;
             if (useV2)
             {
-                var server = new MockServerService(env, config);
+                var server = MockServerService.CreateInProcess(env, config);
                 created.Add(server);
                 net = new NetService(server, eventBus, log);
             }
-            else net = new NetService(env, eventBus, config, log);
+            else net = NetService.CreateLegacy(env, eventBus, config, log);
             created.Add(net);
             return Register(env, eventBus, config, setting, net);
         }

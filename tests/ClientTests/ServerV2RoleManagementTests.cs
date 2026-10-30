@@ -27,7 +27,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
         using var config = new ConfigService(env);
         env.ServerFlushIntervalSeconds = 0;
         long deletedId;
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var connection = server.OpenConnection();
             Assert.Empty(Assert.IsType<LoginRt>(await Exchange(server, connection, Credentials(" DEMO "))).Roles);
@@ -49,7 +49,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
         Assert.True(Assert.Single(await repo.LoadAsync("demo")).IsDeleted);
         Assert.Equal(new[] { "demo.role_summary.json" }, Directory.GetFiles(Path.Combine(_directory, "v2")).Select(Path.GetFileName));
         Assert.Empty(Directory.GetDirectories(Path.Combine(_directory, "v2")));
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var connection = server.OpenConnection();
             Assert.Empty(Assert.IsType<LoginRt>(await Exchange(server, connection, Credentials())).Roles);
@@ -65,7 +65,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
-        await using var server = new MockServerService(env, config);
+        await using var server = MockServerService.CreateInProcess(env, config);
         var id = server.OpenConnection();
         Assert.Equal(ErrorCodePb.NotAuthenticated, Assert.IsType<ErrorRt>(await Exchange(server, id, Create("未认证"))).Code);
         await Exchange(server, id, Credentials());
@@ -91,7 +91,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
-        await using var server = new MockServerService(env, config);
+        await using var server = MockServerService.CreateInProcess(env, config);
         var id = server.OpenConnection();
         await Exchange(server, id, Credentials());
         Assert.Equal(ErrorCodePb.InvalidCredentials, Assert.IsType<ErrorRt>(await Exchange(server, id, new Login { Username = username, Password = password })).Code);
@@ -105,7 +105,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
-        await using var server = new MockServerService(env, config);
+        await using var server = MockServerService.CreateInProcess(env, config);
         var one = server.OpenConnection();
         var two = server.OpenConnection();
         await Exchange(server, one, Credentials());
@@ -127,7 +127,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
             "[{\"roleId\":9223372036854775807,\"name\":\"已有\",\"level\":1,\"gender\":1,\"headId\":9,\"equippedItems\":[]}]");
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
-        await using var server = new MockServerService(env, config);
+        await using var server = MockServerService.CreateInProcess(env, config);
         var id = server.OpenConnection();
         Assert.Single(Assert.IsType<LoginRt>(await Exchange(server, id, Credentials())).Roles);
         Assert.Equal(ErrorCodePb.InvalidRequest, Assert.IsType<ErrorRt>(await Exchange(server, id, Create("溢出"))).Code);
@@ -139,7 +139,7 @@ public sealed class ServerV2RoleManagementTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
-        await using var server = new MockServerService(env, config);
+        await using var server = MockServerService.CreateInProcess(env, config);
         var id = server.OpenConnection();
         await Exchange(server, id, Credentials());
         await Exchange(server, id, Create("待保存"));

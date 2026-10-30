@@ -1,145 +1,90 @@
-using System.IO;
-using System.Threading.Tasks;
 using System;
+using System.Threading.Tasks;
 using Rpg.Config;
-using Rpg.ServerV2.Connections.Data;
-using Rpg.ServerV2.Connections;
-using Rpg.ServerV2.Modules.Login.Storage;
-using Rpg.ServerV2.Modules.Login;
-using Rpg.ServerV2.Modules.Login.Handler;
-using Rpg.ServerV2.Modules.Role.Storage;
-using Rpg.ServerV2.Modules.World.Storage;
-using Rpg.ServerV2.Modules;
-using Rpg.ServerV2.Runtime;
 using Rpg.Services;
+using Rpg.ServerV2.Connections.Data;
+using Rpg.ServerV2.Modules;
 
 namespace Rpg.ServerV2.Hosting;
 
-/// <summary>Net 拥有的进程内服务端子服务，持有配置并装配 V2 框架。</summary>
+/// <summary>Net 拥有的服务器持有服务；构造时不创建服务器。</summary>
 public sealed class MockServerService : Service, IAsyncDisposable
 {
-    /// <summary>借用先于本服务创建、后于本服务释放的配置。</summary>
-    private readonly ConfigService _config;
-    /// <summary>借用环境路径与动态保存间隔，生命周期长于本服务。</summary>
+    /// <summary>借用环境与配置，仅在登录启动服务器时使用。</summary>
     private readonly EnvService _env;
-    /// <summary>本服务拥有的纯 .NET 运行实例。</summary>
-    private readonly ServerRuntime _runtime;
-    /// <summary>并发释放共享的停止任务。</summary>
-    private readonly object _disposeGate = new();
-    /// <summary>非空后不再接纳外部工作。</summary>
-    private Task? _disposing;
-    /// <summary>当前唯一周期保存任务；异常由周期入口报告。</summary>
-    private Task _periodicFlush = Task.CompletedTask;
-    /// <summary>宿主验收观察当前周期轮次完成，不触发新的保存。</summary>
-    internal Task PeriodicFlush { get { lock (_disposeGate) return _periodicFlush; } }
-    /// <summary>上次观察到的间隔，改变时重新计时。</summary>
-    private int _lastInterval = -1;
-    /// <summary>尚未到保存节点的累计帧时间。</summary>
-    private double _flushElapsed;
-    /// <summary>后续业务装配可使用同一个配置实例。</summary>
-    public ConfigService Config { get { EnsureActive(); return _config; } }
-    /// <summary>意外处理失败与 Actor 通知错误的诊断，不包含完整请求载荷。</summary>
+    /// <summary>共享只读配置。</summary>
+    public ConfigService Config { get { ThrowIfDisposed(); ObjectDisposedException.ThrowIf(_config.IsDisposed, _config); return _config; } }
+    /// <summary>借用的配置实例。</summary>
+    private readonly ConfigService _config;
+    /// <summary>当前拥有的服务器；纯客户端与初始启动均为空。</summary>
+    public MockServer? Server { get; private set; }
+    /// <summary>服务器诊断事件。</summary>
     public event Action<Exception>? Error;
-
-    /// <summary>公开构造只声明服务依赖，默认装配演示账号业务与内部只读查询。</summary>
+    /// <summary>仅保存依赖，不组装服务器。</summary>
     public MockServerService(EnvService env, ConfigService config)
     {
-        ValidateDependencies(env, config);
-        _env = env;
-        _config = config;
-        var directory = Path.Combine(Path.GetFullPath(env.ServerDirectory), "v2");
-        var modules = new ServerModules(config, new RepoAccountRoleSummary(directory), new RepoRole(directory), new RepoWorld(directory, Report), _ => new ActorHandlers<LoginContext>()
-            .Register<ProtocolV2.Login, ProtocolV2.LoginRt>(new LoginHandler())
-            .Register<ProtocolV2.CreateRole, ProtocolV2.CreateRoleRt>(new CreateRoleHandler())
-            .Register<ProtocolV2.DeleteRole, ProtocolV2.DeleteRoleRt>(new DeleteRoleHandler())
-            .Register<ProtocolV2.EnterWorld, ProtocolV2.EnterWorldRt>(new Modules.Login.Async.EnterWorldHandler()), report: Report);
-        _runtime = CreateRuntime(modules);
+        ArgumentNullException.ThrowIfNull(env); ArgumentNullException.ThrowIfNull(config);
+        ObjectDisposedException.ThrowIf(env.IsDisposed, env); ObjectDisposedException.ThrowIf(config.IsDisposed, config);
+        _env = env; _config = config;
     }
-    /// <summary>验收注入已完整装配的模块，配置直接来自模块，避免重复传入与不一致。</summary>
-    internal MockServerService(EnvService env, ServerModules modules)
+    /// <summary>测试显式提供已组装模块，避免生产隐式创建服务器。</summary>
+    internal MockServerService(EnvService env, ServerModules modules) : this(env, modules?.Config ?? throw new ArgumentNullException(nameof(modules))) => Attach(new MockServer(env, modules));
+    /// <summary>测试显式创建进程内宿主，不占用端口。</summary>
+    internal static MockServerService CreateInProcess(EnvService env, ConfigService config)
+    { var service = new MockServerService(env, config); service.Attach(new MockServer(env, config)); return service; }
+    /// <summary>接管已经启动或显式测试组装的实例。</summary>
+    public void Attach(MockServer server)
     {
-        ArgumentNullException.ThrowIfNull(modules);
-        ValidateDependencies(env, modules.Config);
-        _env = env;
-        _config = modules.Config;
-        _runtime = CreateRuntime(modules);
+        ThrowIfDisposed(); ArgumentNullException.ThrowIfNull(server);
+        if (Server is not null) throw new InvalidOperationException("已有服务器实例");
+        Server = server; server.Error += Report;
     }
-    /// <summary>只在服务入口拒绝缺失或失效依赖，后续装配不传递空配置。</summary>
-    private static void ValidateDependencies(EnvService env, ConfigService config)
+    /// <summary>相同端口复用；新实例监听成功后才交付所有权。</summary>
+    public async Task StartAsync(int port)
     {
-        ArgumentNullException.ThrowIfNull(env);
-        ArgumentNullException.ThrowIfNull(config);
-        ObjectDisposedException.ThrowIf(env.IsDisposed, env);
-        ObjectDisposedException.ThrowIf(config.IsDisposed, config);
+        ThrowIfDisposed();
+        if (Server?.Port == port) return;
+        if (Server is not null) throw new InvalidOperationException("请先确认并停止原服务器");
+        var candidate = new MockServer(_env, Config);
+        try { candidate.Start(port); Attach(candidate); }
+        catch { await candidate.DisposeAsync().ConfigureAwait(false); throw; }
     }
-    /// <summary>接管完整模块并绑定本服务诊断，不再兜底创建依赖。</summary>
-    private ServerRuntime CreateRuntime(ServerModules modules)
+    /// <summary>关闭当前服务器，保存失败时保留引用供错误处理。</summary>
+    public async Task StopAsync()
     {
-        var runtime = new ServerRuntime(modules);
-        runtime.Error += Report;
-        return runtime;
+        var server = Server; if (server is null) return;
+        if (!server.IsDisposed) await server.FlushAsync().ConfigureAwait(false);
+        await server.DisposeAsync().ConfigureAwait(false); server.Error -= Report; Server = null;
     }
-    /// <summary>由 Net 的传输端建立连接，生成的身份不来自协议载荷。</summary>
-    public DataConnectionId OpenConnection() { EnsureActive(); return _runtime.OpenConnection(); }
-    /// <summary>接纳指定连接的字节副本并等待该请求处理完成。</summary>
-    public Task ReceiveAsync(DataConnectionId id, byte[] packet) { EnsureActive(); return _runtime.ReceiveAsync(id, packet); }
-    /// <summary>切换同一连接的代次，保留已经绑定的账号。</summary>
-    public ulong ResetSession(DataConnectionId id) { EnsureActive(); return _runtime.ResetSession(id); }
-    /// <summary>在 Net 固定帧中读取独立输出字节。</summary>
-    public bool TryReadOutgoing(DataConnectionId id, out byte[] packet) { EnsureActive(); return _runtime.TryReadOutgoing(id, out packet); }
-    /// <summary>返回独立的连接身份快照。</summary>
-    public DataSessionSnapshot Session(DataConnectionId id) { EnsureActive(); return _runtime.Session(id); }
-    /// <summary>断开立即使结果失效，随后等待该连接已接纳工作结束。</summary>
-    public Task CloseConnectionAsync(DataConnectionId id) { EnsureActive(); return _runtime.CloseConnectionAsync(id); }
-    /// <summary>显式保存等待调用前已接纳请求，不受周期禁用影响。</summary>
-    public Task FlushAsync() { EnsureActive(); return _runtime.FlushAsync(); }
-    /// <summary>由 Net 帧推进计时，文件保存留在后台；已有周期轮次未完则合并本次触发。</summary>
-    public void Tick(double delta)
-    {
-        lock (_disposeGate)
-        {
-            EnsureActive();
-            if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
-            var interval = _env.ServerFlushIntervalSeconds;
-            if (_lastInterval != interval) { _lastInterval = interval; _flushElapsed = 0; }
-            if (interval == 0) return;
-            _flushElapsed += delta;
-            if (_flushElapsed < interval) return;
-            _flushElapsed %= interval;
-            if (!_periodicFlush.IsCompleted) return;
-            _periodicFlush = Task.Run(async () =>
-            {
-                try { await _runtime.FlushAsync().ConfigureAwait(false); }
-                catch (Exception error) { Report(error); }
-            });
-        }
-    }
-
-    /// <summary>客户端同步服务生命周期等待纯后台框架有序停止。</summary>
+    /// <summary>要求调用者已显式创建服务器。</summary>
+    private MockServer Required { get { ThrowIfDisposed(); return Server ?? throw new InvalidOperationException("服务器尚未启动"); } }
+    /// <summary>进程内测试适配入口。</summary>
+    public DataConnectionId OpenConnection() => Required.OpenConnection();
+    /// <summary>转交字节请求。</summary>
+    public Task ReceiveAsync(DataConnectionId id, byte[] packet) => Required.ReceiveAsync(id, packet);
+    /// <summary>转交测试会话重置。</summary>
+    public ulong ResetSession(DataConnectionId id) => Required.ResetSession(id);
+    /// <summary>转交测试输出读取。</summary>
+    public bool TryReadOutgoing(DataConnectionId id, out byte[] packet) => Required.TryReadOutgoing(id, out packet);
+    /// <summary>返回测试会话快照。</summary>
+    public DataSessionSnapshot Session(DataConnectionId id) => Required.Session(id);
+    /// <summary>关闭测试连接。</summary>
+    public Task CloseConnectionAsync(DataConnectionId id) => Required.CloseConnectionAsync(id);
+    /// <summary>提交当前服务器，不启动新实例。</summary>
+    public Task FlushAsync() { ThrowIfDisposed(); return Server?.FlushAsync() ?? Task.CompletedTask; }
+    /// <summary>仅无监听的测试宿主使用手动时钟。</summary>
+    public void Tick(double delta) { ThrowIfDisposed(); if (Server is { Port: 0 } server) server.Tick(delta); }
+    /// <summary>供周期保存验收观察。</summary>
+    internal Task PeriodicFlush => Required.PeriodicFlush;
+    /// <summary>同步服务释放入口。</summary>
     public override void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
-    /// <summary>停止期间拒绝新请求，重复释放等待同一任务。</summary>
-    public ValueTask DisposeAsync()
-    { lock (_disposeGate) return new(_disposing ??= DisposeCoreAsync()); }
-    /// <summary>先排空所有请求及 Actor，再撤销诊断；不释放借用配置。</summary>
-    private async Task DisposeCoreAsync()
+    /// <summary>释放拥有的实例，不释放借用依赖。</summary>
+    public async ValueTask DisposeAsync()
     {
-        IsDisposed = true;
-        try
-        {
-            await _periodicFlush.ConfigureAwait(false);
-            await _runtime.StopAsync().ConfigureAwait(false);
-        }
-        finally { Error = null; }
+        if (IsDisposed) return; IsDisposed = true;
+        try { if (Server is { } server) await server.DisposeAsync().ConfigureAwait(false); }
+        finally { Server = null; Error = null; }
     }
-    /// <summary>服务和借用配置都必须仍然有效。</summary>
-    private void EnsureActive()
-    { ThrowIfDisposed(); ObjectDisposedException.ThrowIf(_config.IsDisposed, _config); ObjectDisposedException.ThrowIf(_env.IsDisposed, _env); }
-    /// <summary>逐一隔离诊断监听，避免影响业务回合或其他连接。</summary>
-    private void Report(Exception error)
-    {
-        if (Error is not { } observers) return;
-        foreach (Action<Exception> observer in observers.GetInvocationList())
-            try { observer(error); }
-            catch (Exception observerError) { System.Diagnostics.Trace.WriteLine(observerError); }
-    }
+    /// <summary>转发服务器诊断。</summary>
+    private void Report(Exception error) { if (Error is { } handlers) foreach (Action<Exception> handler in handlers.GetInvocationList()) try { handler(error); } catch { } }
 }

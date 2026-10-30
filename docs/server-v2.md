@@ -1,6 +1,6 @@
 # Server V2 框架
 
-V2 在 `src/ServerV2` 独立开发，现有客户端默认仍使用旧 Server。这里的协议、账号摘要存储契约不兼容旧实现；不读取、改写或迁移旧存档。
+V2 在 `src/ServerV2` 独立开发，默认客户端使用 V2 TCP；旧 Server 由测试显式装配。这里的协议、账号摘要存储契约不兼容旧实现；不读取、改写或迁移旧存档。
 
 ## Actor 运行时
 
@@ -14,7 +14,7 @@ V2 在 `src/ServerV2` 独立开发，现有客户端默认仍使用旧 Server。
 
 | 目录 | 负责的事 |
 | --- | --- |
-| `Hosting` | MockServerService 生命周期、配置依赖与纯 .NET ServerRuntime 装配 |
+| `Hosting` | 可空 MockServerService 所有权、独立 MockServer、TCP 监听与 ServerRuntime 装配 |
 | `Connections` | 连接 ID、会话代次、账号与当前角色绑定、每连接串行入口和输出队列 |
 | `Protocol` | 显式协议方向表、protobuf 编解码、统一错误 |
 | `ActorProtocol/Generated` | 由 protov2/actor 生成的内部消息，不进入客户端编解码注册表 |
@@ -34,7 +34,7 @@ NetService --> V2 transport --> connection queue --> codec --> router
 NetService <-- connection output queue <-- response codec <-- result
 ```
 
-`MockServerService(EnvService, ConfigService)` 在公开构造入口校验依赖，再装配完整模块。内部注入构造只接收 `EnvService` 和非空 `ServerModules`，配置直接取自模块，消除重复传递配置造成的不一致。模块装配入口要求有效 ConfigService、账号/角色/地图三种非空仓库与登录处理器工厂；可选的角色/地图工厂及诊断回调在这里一次补齐，内部直接调用。
+`MockServerService(EnvService, ConfigService)` 仅校验并保存依赖，Server 初始为空。服务器模式登录时创建普通 MockServer，监听成功后交付持有；纯客户端不创建实例。内部注入构造只接收 `EnvService` 和非空 `ServerModules`，配置直接取自模块，消除重复传递配置造成的不一致。模块装配入口要求有效 ConfigService、账号/角色/地图三种非空仓库与登录处理器工厂；可选的角色/地图工厂及诊断回调在这里一次补齐，内部直接调用。
 
 配置经模块装配和 Actor 必填构造参数传入 Context。LoginContext、RoleContext、WorldContext 继承 `Modules/Common/ModuleContext`，Handler 统一通过 `context.Config` 读取，例如 `context.Config.Basic.Value`、`context.Config.Item.Items`。Handler 不持有 ConfigService 字段或配置构造参数，也不访问全局服务。Config 在构造时保证非空，不再支持省略配置的测试装配；账号 Context 也必须接收完整的加载摘要。模块集成测试使用真实配置并在 Godot 宿主执行，通用邮箱和文件仓库测试仍可独立运行。
 
@@ -44,7 +44,7 @@ NetService <-- connection output queue <-- response codec <-- result
 
 空请求、回复回调、保存快照在各自公开入口拒绝，避免入队或文件 IO 后才发现缺失。内部非空依赖不再逐层兜底；匿名账号、尚未启动或停止的任务、通知无回复、连接屏障无载荷、无效代次及回滚原文件缺失仍以可空值表达。JSON 根 null 的读取检查与已释放状态检查属于边界契约，继续保留。
 
-V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Net 接管服务，负责序列化、排队、固定帧拉取输出及释放；传输只关闭自己绑定的连接。Env 与 Config 的所有者在 Net 释放后再释放它们。当前 `GameServices.Initialize()` 的旧构造仍运行旧业务；不增加全局 MockServer 注册。
+V2 显式接入方式是 `new NetService(mockServerService, eventBus, log)`。Net 接管服务，负责序列化、排队、固定帧拉取输出及释放；传输只关闭自己绑定的连接。Env 与 Config 的所有者在 Net 释放后再释放它们。当前 `GameServices.Initialize()` 默认使用 V2 TCP，Net 构造仅创建空的服务器持有服务；显式进程内构造只服务隔离测试，不增加全局 MockServer 注册。
 
 ## 身份和协议
 
@@ -65,7 +65,7 @@ var reply = await context.Actors.World(context.Cache.Role.Value.MapId)
 
 目标初始化与处理错误传播到源调用者。默认 Role/World 注册对应处理器；显式提供注册工厂时保持调用者控制，不隐式追加示例。此查询不修改存档或保存基线，不扩展通知框架。
 
-会话初始代次是 1。`ResetSession` 在服务端推进一代，保留账号和当前角色绑定并清空旧输出；Net 同步本连接的代次。网络适配需要以后为远程连接定义代次同步，当前只是进程内控制调用。旧代次请求和迟到结果丢弃，响应不得改用完成时最新代次。
+会话初始代次是 1。`ResetSession` 在服务端推进一代，保留账号和当前角色绑定并清空旧输出；Net 同步本连接的代次。TCP 请求携带更高代次时直接采用，允许跳号；不增加握手业务消息。旧代次请求和迟到结果丢弃，响应不得改用完成时最新代次。
 
 有效信封内的未知消息、错误方向、损坏载荷和明确处理失败返回关联 ErrorRt；无法解析信封或零请求编号因不能形成有效响应关联，返回调用方错误。意外 Handler 错误另外进入服务诊断，不回传异常堆栈或请求凭据。
 
@@ -90,7 +90,7 @@ Context 只引用所属模块 Cache，并继承 `ModuleContext` 的 Config/Actor
 
 单文件同目录临时写入、刷盘后替换。角色一次修改多表时，先持久化 `<roleId>.pending.json` 原始字节回滚记录，全部替换后删除记录作为提交完成。下次读取或保存前先回滚未完成提交；恢复错误保留记录并阻止继续 IO。只从固定表名生成恢复路径，不把元数据当作路径。账号摘要与角色三表分别提交，仓库不自动同步摘要，也不提供跨 Actor 事务；进入业务显式根据实际角色同步摘要。
 
-`MockServerService.Tick(delta)` 由 V2 传输在 Net Tick 中推进，沿用 `EnvService.ServerFlushIntervalSeconds`：默认 5 秒、0 禁用周期、改变后重新计时。周期保存留在后台，每服务最多一个周期任务；重复到期合并，错误进入服务诊断。
+监听成功后由 MockServer 的独立后台时钟推进保存检测；无监听的进程内测试可手动 Tick，沿用 `EnvService.ServerFlushIntervalSeconds`：默认 5 秒、0 禁用周期、改变后重新计时。周期保存留在后台，每服务最多一个周期任务；重复到期合并，错误进入服务诊断。
 
 `MockServerService.FlushAsync()` 捕获各连接当前队尾屏障，等待先前已接纳请求，再保存已启动分片；不启动未收消息的分片。角色组完成后保存地图组，再保存账号组，各组内并行，独立失败继续其他分片，最后汇总。各保存轮次串行衔接，失败不阻止下一次重试。V2 传输实现 `IServerWriteBackTransport`，所以 `NetService.FlushServerWrites()` 会先发送 Net 已排队消息，再同步等待服务端保存；即使周期禁用也生效。
 
@@ -155,3 +155,9 @@ Session 的 WorldEntryCache 在 Cache 阶段直接将 V2 转成现有不可变�
 返回选角、返回登录、菜单退出和 V2 系统关闭共用现有本地写回能力，失败时保留页面并显示错误供重试。成功后清理客户端世界、角色及地图，隔离旧结果；不发送 LeaveWorld、网络保存或退出补同步消息，不停止共享 Actor。真实传输没有本地写回能力时不发送保存消息，服务端自行周期、失败重试和关闭补写。强杀允许丢失未落盘变更。
 
 自动验收 `tests/server_v2_world_entry_smoke.tscn` 通过真实鼠标覆盖进入、地图人物HUD、只读背包装备、返回、切角、重启及保存失败后页面/系统关闭保留与修复重试，已纳入 `tools/check.ps1 -Tests`。角色管理烟测还覆盖尚未进入世界时，返回登录及系统关闭也执行本地写回，失败保留选角页并显示错误、修复后重新返回。字节与文件测试覆盖归属先于建档、部分缺失/损坏、首次保存失败重试、已有实例/地图对象不改写、九块边缘及迟到绑定；客户端测试覆盖跨领域原子校验、只读写入口和旧代次隔离。
+
+## TCP 托管与登录配置
+
+默认登录可选服务器模式（端口）或纯客户端（字面 IP 和端口），初始 7777 / 127.0.0.1。服务器模式的本机玩家也通过真实 TCP；返回登录或认证失败不关闭监听，相同配置重试复用服务器，修改模式或监听端口须确认后关闭原服务器。应用退出排空并保存。
+
+TCP 为四字节大端长度加 EnvelopePb，单包 4 MiB；每连接输出最多 64 包或 8 MiB，全实例 64 MiB。后台 IO 只排队，固定帧分发事件。连接五秒、请求十五秒超时，失败后手动重试。本地显式写回先等待后台收到此前请求响应再 Flush，纯客户端没有此能力。业务协议不增加连接配置或会话隔离字段。

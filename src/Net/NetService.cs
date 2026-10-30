@@ -19,11 +19,43 @@ public sealed class NetService : Service
     /// <summary>构造绑定的通信日志，生命周期长于网络。</summary>
     internal LogService Log { get; }
     /// <summary>当前使用的可替换传输。</summary>
-    private readonly INetTransport _transport;
+    private INetTransport _transport;
     /// <summary>显式 V2 模式下由本 Net 拥有的服务端子服务；旧链路为空。</summary>
     private readonly MockServerService? _mockServer;
     /// <summary>当前 Net 拥有的 V2 服务入口，不另建全局服务注册。</summary>
     public MockServerService? MockServer => _mockServer;
+    /// <summary>协议版本由装配指定，不依赖本地服务器是否存在。</summary>
+    public bool IsV2 { get; private set; }
+    /// <summary>当前连接是否由登录界面配置。</summary>
+    public bool UsesTcp => _transport is TcpClientTransport;
+    /// <summary>当前是否支持移动；多人移动接入后启用。</summary>
+    public bool CanMove => !IsV2;
+    /// <summary>未迁移的物品、装备和 GM 写操作能力。</summary>
+    public bool CanWriteItems => !IsV2;
+    /// <summary>创建默认 V2 网络，服务器保持为空。</summary>
+    public NetService(EnvService env, EventBusService eventBus, ConfigService config, LogService log)
+        : this(new TcpClientTransport(), eventBus, log)
+    { IsV2 = true; _mockServer = new MockServerService(env, config); }
+    /// <summary>已有本机服务器是否需要配置切换确认。</summary>
+    public bool RequiresServerStop(ConnectionOptions options) => _mockServer?.Server is { } server && (!options.HostServer || server.Port != options.Port);
+    /// <summary>确认配置后连接，失败不停止相同配置的本机服务器。</summary>
+    public async System.Threading.Tasks.Task ConnectAsync(ConnectionOptions options, bool stopExisting = false)
+    {
+        ThrowIfDisposed(); options.Validate();
+        if (!IsV2 || _mockServer is null) throw new InvalidOperationException("当前宿主不支持 TCP 配置");
+        if (RequiresServerStop(options))
+        {
+            if (!stopExisting) throw new InvalidOperationException("切换配置需要确认停止原服务器");
+            _transport.Received -= OnReceived; _transport.Dispose();
+            await _mockServer.StopAsync();
+        }
+        if (options.HostServer) await _mockServer.StartAsync(options.Port);
+        var candidate = new TcpClientTransport(); candidate.ResetSession(_generation);
+        try { await candidate.ConnectAsync(options.HostServer ? "127.0.0.1" : options.Ip, options.Port); }
+        catch { candidate.Dispose(); throw; }
+        _transport.Received -= OnReceived; _transport.Dispose();
+        _transport = candidate; _transport.Received += OnReceived;
+    }
     /// <summary>构造时绑定的事件服务，后于网络释放。</summary>
     private readonly EventBusService _eventBus;
     /// <summary>发送时已冻结的请求信封。</summary>
@@ -43,14 +75,16 @@ public sealed class NetService : Service
     public event Action<Exception>? Error;
 
     /// <summary>在服务内部初始化当前阶段的进程内传输。</summary>
-    public NetService(EnvService env, EventBusService eventBus, ConfigService config, LogService log)
-        : this(new MockTransport(new MockServer(env.ServerDirectory,
+    private NetService(EnvService env, EventBusService eventBus, ConfigService config, LogService log, bool legacy)
+        : this(new MockTransport(new Rpg.Server.MockServer(env.ServerDirectory,
             new BagRules(config.Basic.Value.BagColumns, config.Basic.Value.BagRows,
                 config.Item.Items.Values.ToArray()),
             log.ServerIO, () => env.ServerFlushIntervalSeconds,
             config.Map.Items.Values.Select(map => new MapLayout(map.Id, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles)),
             config.Basic.Value.InitialMapId, () => env.MovementSpeed)), eventBus, log) { }
 
+    /// <summary>旧链路测试显式创建原宿主。</summary>
+    internal static NetService CreateLegacy(EnvService env, EventBusService eventBus, ConfigService config, LogService log) => new(env, eventBus, config, log, true);
     /// <summary>隔离测试绑定替身传输并建立首个会话代次。</summary>
     internal NetService(INetTransport transport, EventBusService eventBus, LogService log)
     {
@@ -66,7 +100,7 @@ public sealed class NetService : Service
 
     /// <summary>显式接入 V2 并接管服务生命周期；迁移完成前不替换默认旧入口。</summary>
     public NetService(MockServerService mockServer, EventBusService eventBus, LogService log)
-        : this(CreateV2Transport(mockServer, eventBus, log), eventBus, log) => _mockServer = mockServer;
+        : this(CreateV2Transport(mockServer, eventBus, log), eventBus, log) { _mockServer = mockServer; IsV2 = true; }
 
     /// <summary>先验证服务依赖，再建立连接，避免非法装配遗留连接。</summary>
     private static INetTransport CreateV2Transport(MockServerService server, EventBusService eventBus, LogService log)
@@ -85,7 +119,7 @@ public sealed class NetService : Service
     {
         ThrowIfDisposed();
         var id = checked(++_revision);
-        _outbound.Enqueue(_mockServer is null ? MessageCodec.Encode(request, _generation, true, id)
+        _outbound.Enqueue(!IsV2 ? MessageCodec.Encode(request, _generation, true, id)
             : V2Codec.Encode(request, checked((ulong)_generation), checked((ulong)id), true));
     }
 
@@ -145,9 +179,14 @@ public sealed class NetService : Service
     public void FlushServerWrites()
     {
         ThrowIfDisposed();
+        if (_transport is TcpClientTransport tcp)
+        {
+            if (_mockServer?.Server is null) return;
+            Tick(0); tcp.WaitResponsesAsync().GetAwaiter().GetResult();
+            _mockServer.FlushAsync().GetAwaiter().GetResult(); return;
+        }
         if (_transport is not IServerWriteBackTransport local) return;
-        Tick(0);
-        local.FlushServerWrites();
+        Tick(0); local.FlushServerWrites();
     }
 
     /// <summary>释放传输及网络队列，事件服务由 GameServices 管理。</summary>
@@ -176,14 +215,14 @@ public sealed class NetService : Service
     private void OnReceived(byte[] packet) => _inbound.Enqueue((byte[])packet.Clone());
 
     /// <summary>按当前传输使用对应协议表，防止 V1/V2 类型混用。</summary>
-    private IMessage ReadMessage(byte[] packet, bool request) => _mockServer is null
+    private IMessage ReadMessage(byte[] packet, bool request) => !IsV2
         ? MessageCodec.ReadPayload(MessageCodec.ReadEnvelope(packet), request)
         : V2Codec.ReadPayload(V2Codec.ReadEnvelope(packet), request);
 
     /// <summary>先按当前版本检查代次，再解析并发布业务载荷。</summary>
     private IMessage? ReadCurrentMessage(byte[] packet)
     {
-        if (_mockServer is null)
+        if (!IsV2)
         {
             var envelope = MessageCodec.ReadEnvelope(packet);
             return envelope.Generation == _generation ? MessageCodec.ReadPayload(envelope, false) : null;

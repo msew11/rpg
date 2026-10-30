@@ -130,7 +130,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(_directory, "alice.role_summary.json"), "旧数据不是有效 JSON");
         var v2 = Path.Combine(_directory, "v2");
         await new RepoAccountRoleSummary(v2).SaveAsync("alice", []);
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection();
             await server.ReceiveAsync(id, ServerV2WriteBackTests.LoginPacket());
@@ -139,7 +139,7 @@ public sealed class ServerV2SchedulingTests : IDisposable
             Assert.Equal(ErrorCodePb.InvalidCredentials, response.Code);
         }
         await File.WriteAllTextAsync(Path.Combine(v2, "alice.role_summary.json"), "{");
-        await using var broken = new MockServerService(env, config);
+        await using var broken = MockServerService.CreateInProcess(env, config);
         var errors = new ConcurrentQueue<Exception>();
         broken.Error += errors.Enqueue;
         var connection = broken.OpenConnection();

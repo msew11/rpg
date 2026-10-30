@@ -41,7 +41,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         using var config = new ConfigService(env);
         env.ServerFlushIntervalSeconds = 0;
         long male; long female;
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var one = server.OpenConnection();
             await Login(server, one);
@@ -79,7 +79,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         var saved = await repo.LoadAsync(male);
         Assert.Equal(1, saved.Role.NextInstanceId);
         await repo.SaveAsync(male, saved with { Role = saved.Role with { Health = 37, X = 0, Y = 0, Level = 4, Name = "存档名称" } }, DataRoleTables.Role);
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
             var entered = Assert.IsType<EnterWorldRt>(await Exchange(server, id, new EnterWorld { RoleId = male }));
@@ -103,7 +103,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         var equipment = config.Item.Items.Values.First(item => item.MaxStack == 1 &&
             Rpg.Utils.EquipmentSlotUtil.TryGetSlot(item.Category, item.SubCategory, out var slot) && slot == Rpg.Const.EquipmentSlot.MainHand);
         long roleId;
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id); roleId = await Create(server, id, "已有实例");
             await Exchange(server, id, new EnterWorld { RoleId = roleId });
@@ -121,7 +121,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         await new RepoWorld(Root).SaveAsync(layout, new([itemObject, monster]), ImmutableHashSet.Create(layout.ChunkAt(itemObject)));
         var files = Directory.GetFiles(Root, "*", SearchOption.AllDirectories).Where(path => !path.EndsWith("role_summary.json"))
             .ToDictionary(path => path, File.ReadAllBytes);
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
             var reply = Assert.IsType<EnterWorldRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId }));
@@ -150,7 +150,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
         long roleId;
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id); roleId = await Create(server, id, "非法存档");
             await Exchange(server, id, new EnterWorld { RoleId = roleId });
@@ -163,14 +163,14 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         };
         await repo.SaveAsync(roleId, broken, DataRoleTables.All);
         var files = Directory.GetFiles(Root).ToDictionary(path => path, File.ReadAllBytes);
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
             Assert.Equal(ErrorCodePb.InternalError, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId })).Code);
         }
         foreach (var (path, bytes) in files) Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
         await repo.SaveAsync(roleId, original, DataRoleTables.All);
-        await using (var repaired = new MockServerService(env, config))
+        await using (var repaired = MockServerService.CreateInProcess(env, config))
         {
             var id = repaired.OpenConnection(); await Login(repaired, id);
             Assert.IsType<EnterWorldRt>(await Exchange(repaired, id, new EnterWorld { RoleId = roleId }));
@@ -185,7 +185,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         using var config = new ConfigService(env);
         var definition = config.Item.Items.Values.First(item => item.MaxStack == 1);
         long roleId;
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id); roleId = await Create(server, id, "地图数量");
             await Exchange(server, id, new EnterWorld { RoleId = roleId });
@@ -197,14 +197,14 @@ public sealed class ServerV2WorldEntryTests : IDisposable
             X = data.X, Y = data.Y, ItemId = definition.Id, Count = 2 };
         var repo = new RepoWorld(Root);
         await repo.SaveAsync(layout, new([ground]), ImmutableHashSet.Create(layout.ChunkAt(ground)));
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
             Assert.Equal(ErrorCodePb.InternalError, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId })).Code);
             Assert.Equal(0, server.Session(id).RoleId);
         }
         await repo.SaveAsync(layout, new([ground with { Count = 1 }]), ImmutableHashSet.Create(layout.ChunkAt(ground)));
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
             Assert.IsType<EnterWorldRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId }));
@@ -217,7 +217,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
-        await using var server = new MockServerService(env, config);
+        await using var server = MockServerService.CreateInProcess(env, config);
         var id = server.OpenConnection();
         Assert.Equal(ErrorCodePb.NotAuthenticated, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = 1003 })).Code);
         await Login(server, id);
@@ -248,7 +248,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
         using var config = new ConfigService(env);
         long roleId;
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
             roleId = await Create(server, id, "修复角色");
@@ -258,7 +258,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         if (fault == "missing") File.Delete(path);
         else await File.WriteAllTextAsync(path, fault == "null" ? "null" : "{");
         var roleBytes = await File.ReadAllBytesAsync(Path.Combine(Root, roleId + ".role.json"));
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
             Assert.Equal(ErrorCodePb.InternalError, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId })).Code);
@@ -319,7 +319,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(manifest)!);
         await File.WriteAllTextAsync(manifest, "{");
         long roleId;
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id); roleId = await Create(server, id, "地图修复");
             Assert.Equal(ErrorCodePb.InternalError, Assert.IsType<ErrorRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId })).Code);
@@ -330,7 +330,7 @@ public sealed class ServerV2WorldEntryTests : IDisposable
             Assert.Equal(original, await File.ReadAllBytesAsync(path));
         }
         foreach (var table in new[] { "role", "item", "equipment" }) File.Delete(Path.Combine(Root, roleId + "." + table + ".json"));
-        await using (var server = new MockServerService(env, config))
+        await using (var server = MockServerService.CreateInProcess(env, config))
         {
             var id = server.OpenConnection(); await Login(server, id);
             Assert.IsType<EnterWorldRt>(await Exchange(server, id, new EnterWorld { RoleId = roleId }));
