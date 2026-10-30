@@ -19,6 +19,16 @@ public sealed record RoleWorldPositionPbData(long RoleId, int MapId, Vector2 Pos
         return data;
     }
 
+    /// <summary>直接验证并复制 V2 结构，身份来自完整状态根节点。</summary>
+    public static RoleWorldPositionPbData FromPb(ProtocolV2.RoleWorldPositionPb message, long roleId)
+    {
+        if (message is null) throw new InvalidDataException("角色位置协议不能为空");
+        var data = new RoleWorldPositionPbData(roleId, message.MapId,
+            new Vector2(message.X, message.Y), 0, 0);
+        data.Validate();
+        return data;
+    }
+
     /// <summary>创建新的角色位置协议对象。</summary>
     public RoleWorldPositionPb ToPb()
     {

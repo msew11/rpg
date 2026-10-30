@@ -33,6 +33,16 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
             RolePbData.FromPb(role), RoleWorldEquipmentPbData.FromPb(message.Equipment, definitions));
     }
 
+    /// <summary>直接组合 V2 根身份和公开、私有字段。</summary>
+    public static RoleWorldStatePbData FromPb(ProtocolV2.RoleWorldStatePb message, ProtocolV2.RolePb role, IReadOnlyDictionary<int, ItemCfg> definitions)
+    {
+        if (message?.Profile is null || message.Status is null || message.Position is null || message.Equipment is null || message.RoleId <= 0)
+            throw new InvalidDataException("角色世界状态不完整");
+        return FromParts(RoleWorldProfilePbData.FromPb(message.Profile, message.RoleId),
+            RoleWorldStatusPbData.FromPb(message.Status, message.RoleId), RoleWorldPositionPbData.FromPb(message.Position, message.RoleId),
+            RolePbData.FromPb(role, message.RoleId), RoleWorldEquipmentPbData.FromPb(message.Equipment, message.RoleId, definitions));
+    }
+
     /// <summary>把五份已校验数据合成仅供当前玩家读取的快照。</summary>
     public static RoleWorldStatePbData FromParts(RoleWorldProfilePbData profile, RoleWorldStatusPbData status,
         RoleWorldPositionPbData position, RolePbData role, RoleWorldEquipmentPbData equipment)

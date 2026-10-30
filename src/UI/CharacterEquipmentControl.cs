@@ -61,6 +61,7 @@ public partial class CharacterEquipmentControl : VBoxContainer
         AddSlot(hands, EquipmentSlot.MainHand, "主手");
         AddSlot(hands, EquipmentSlot.OffHand, "副手");
         AddChild(_status);
+        if (GameServices.Session.IsWorldReadOnly) { _status.Text = "V2 装备仅供只读展示"; _status.Visible = true; }
         _subscription = GameServices.EventBus.Subscribe<EquipItemRt>(response =>
         {
             if (response.RoleId != GameServices.Session.RoleId) return;

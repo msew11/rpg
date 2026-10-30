@@ -48,7 +48,7 @@ public partial class ServerV2RoleManagementSmoke : Node
             await Until(() => main.FindChild("RoleSelectionPage", true, false) is not null);
             var role = GameServices.Session.Roles.Single();
             Check(role.Name == "V2 草稿角色" && role.Gender == RoleGender.Female && role.HeadId == 17, "外观草稿没有进入摘要");
-            Check(Button(main, "EnterRole").Disabled && Button(main, "EnterRole").Text == "进入世界待迁移", "V2 允许进入未迁移世界");
+            Check(!Button(main, "EnterRole").Disabled, "V2 进入按钮未启用");
             Check(main.FindChild("PreviewActor", true, false) is not null && !GameServices.World.HasWorld, "未显示预览或初始化了世界");
             Check(!Directory.Exists(Path.Combine(directory, "server", "v2")), "禁用周期后仍提前保存了摘要");
             await Click(Button(main, $"DeleteRole{role.RoleId}"));
@@ -81,9 +81,34 @@ public partial class ServerV2RoleManagementSmoke : Node
             await Click(Button(page, "ConfirmCreate"));
             await Until(() => GameServices.Session.Roles.Count == 1);
             Check(GameServices.Session.Roles[0].RoleId == role.RoleId + 1, "墓碑编号被重用");
+            var summaryFile = Path.Combine(root, "demo.role_summary.json");
+            var backup = Path.Combine(directory, "summary-backup.json");
+            File.Move(summaryFile, backup);
+            Directory.CreateDirectory(summaryFile);
+            var printErrors = Engine.PrintErrorMessages;
+            try
+            {
+                // 未进入世界也必须在离开账号前保存；预期故障由页面与关闭保留断言验证。
+                Engine.PrintErrorMessages = false;
+                await Click(Button(main, "ReturnLogin")); await Frames();
+                var selection = (RoleSelectionControl)main.FindChild("RoleSelectionPage", true, false);
+                Check(GameServices.Session.IsLoggedIn && selection is not null && selection.Feedback.Text.Length > 0,
+                    "选角页保存失败仍返回登录或没有错误反馈");
+                main.Notification((int)NotificationWMCloseRequest);
+                Check(!GetTree().AutoAcceptQuit && GameServices.Session.IsLoggedIn,
+                    "未进入世界时关闭绕过了失败保存");
+            }
+            finally
+            {
+                Engine.PrintErrorMessages = printErrors;
+                Directory.Delete(summaryFile); File.Move(backup, summaryFile);
+            }
             await Click(Button(main, "ReturnLogin"));
             await Frames();
             Check(!GameServices.Session.IsLoggedIn && GameServices.Session.Roles.Count == 0, "返回登录未清理缓存");
+            var saved = await new Rpg.ServerV2.Modules.Login.Storage.RepoAccountRoleSummary(root).LoadAsync("demo");
+            Check(saved.Any(summary => summary.RoleId == role.RoleId + 1 && !summary.IsDeleted),
+                "返回登录没有显式保存最新摘要");
             GD.Print("Server V2 role management smoke passed: real buttons, drafts, preview, cancellation, tombstones and restart.");
             GetTree().Quit(0);
         }

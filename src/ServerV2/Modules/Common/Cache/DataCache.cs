@@ -11,7 +11,11 @@ public abstract class DataCache<T>
     /// <summary>最近加载或成功保存的数据值。</summary>
     protected T Saved { get; private set; }
     /// <summary>按数据内容判断是否需要写回。</summary>
-    public bool IsDirty => !ContentEquals(Value, Saved);
+    public bool IsDirty => !_hasSaved || !ContentEquals(Value, Saved);
+    /// <summary>首次建档尚无落盘基线，空表也必须保存。</summary>
+    private bool _hasSaved = true;
+    /// <summary>仅在首次建立候选数据时撤销保存基线。</summary>
+    internal void MarkUnsaved() => _hasSaved = false;
     /// <summary>用已规范化的完整加载值建立基线，不调用虚方法。</summary>
     protected DataCache(T value) { ArgumentNullException.ThrowIfNull(value); Value = value; Saved = value; }
     /// <summary>回合内替换当前值，失败不改变基线。</summary>
@@ -21,5 +25,5 @@ public abstract class DataCache<T>
     /// <summary>默认按值比较，嵌套数组或分块数据可覆盖。</summary>
     protected virtual bool ContentEquals(T left, T right) => EqualityComparer<T>.Default.Equals(left, right);
     /// <summary>只在所属 Actor 确认仓库保存成功后更新基线。</summary>
-    internal void AcceptSaved() => Saved = Value;
+    internal void AcceptSaved() { Saved = Value; _hasSaved = true; }
 }

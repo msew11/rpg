@@ -27,12 +27,23 @@ internal sealed class LoginActor : ModuleActor<LoginContext>
     /// <summary>保存与业务同邮箱串行；仅成功后清除待写标记。</summary>
     protected override async ValueTask<object?> DispatchAsync(LoginContext context, object message)
     {
+        if (message is ProtocolV2.EnterWorld enter)
+        {
+            context.Cache.Summaries.Owned(enter.RoleId);
+            await SaveAsync(context).ConfigureAwait(false);
+            return await base.DispatchAsync(context, message).ConfigureAwait(false);
+        }
         if (message is not DataFlush) return await base.DispatchAsync(context, message).ConfigureAwait(false);
+        await SaveAsync(context).ConfigureAwait(false);
+        return true;
+    }
+    /// <summary>在可信首次建档前或显式写回时保存摘要基线。</summary>
+    private async ValueTask SaveAsync(LoginContext context)
+    {
         if (context.Cache.SummariesDirty)
         {
             await _repo.SaveAsync(_username, context.Cache.Snapshot().Summaries).ConfigureAwait(false);
             context.Cache.AcceptSaved();
         }
-        return true;
     }
 }

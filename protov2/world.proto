@@ -1,0 +1,24 @@
+syntax = "proto3";
+package rpg.v2;
+option csharp_namespace = "Rpg.ProtocolV2";
+
+import "role.proto";
+import "bag.proto";
+import "map.proto";
+
+// 进入当前账号拥有的角色。
+message EnterWorld {
+  // 要进入的角色编号。
+  int64 role_id = 1;
+}
+// 进入成功所需完整初始数据。
+message EnterWorldRt {
+  // 完整公开状态。
+  RoleWorldStatePb state = 1;
+  // 本人私有玩法数据。
+  RolePb role = 2;
+  // 本人完整私有物品。
+  BagPb bag = 3;
+  // 初始可见范围。
+  MapAoiSnapshotPb map = 4;
+}

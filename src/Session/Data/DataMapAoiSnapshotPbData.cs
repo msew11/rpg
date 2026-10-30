@@ -47,6 +47,20 @@ public sealed class DataMapAoiSnapshotPbData
         return new(message.MapId, message.RoleId, message.Sequence, layout, center, expected, objects);
     }
 
+    /// <summary>直接接纳 V2 初始范围，内部序号仅供现有只读视图使用。</summary>
+    public static DataMapAoiSnapshotPbData FromPb(ProtocolV2.MapAoiSnapshotPb message, long roleId)
+    {
+        if (message is null || message.MapId <= 0 || roleId <= 0) throw new InvalidDataException("地图快照身份或序号无效");
+        var layout = DataMapLayoutPbData.FromPb(message.Layout);
+        var center = Coordinate(message.Center);
+        var expected = layout.Neighborhood(center);
+        var seen = new HashSet<(int, int)>();
+        var objects = new Dictionary<Guid, DataMapObjectPbData>();
+        foreach (var chunk in message.Chunks) ReadChunk(chunk, layout, expected, seen, objects);
+        if (!seen.SetEquals(expected)) throw new InvalidDataException("地图快照缺少有效订阅块");
+        return new(message.MapId, roleId, 1, layout, center, expected, objects);
+    }
+
     /// <summary>先在独立候选集合中验证整个增量，成功才生成下一份不可变快照。</summary>
     public DataMapAoiSnapshotPbData Apply(MapAoiDeltaPb delta, long sequence)
     {
@@ -98,5 +112,22 @@ public sealed class DataMapAoiSnapshotPbData
 
     /// <summary>缺失的坐标不隐式解释为原点。</summary>
     private static (int X, int Y) Coordinate(MapChunkCoordPb? value) => value is null
+        ? throw new InvalidDataException("缺少地图块坐标") : (value.X, value.Y);
+    /// <summary>检查 V2 块与对象归属及唯一性。</summary>
+    private static void ReadChunk(ProtocolV2.MapChunkPb chunk, DataMapLayoutPbData layout, HashSet<(int X, int Y)> expected,
+        HashSet<(int X, int Y)> seen, Dictionary<Guid, DataMapObjectPbData> objects)
+    {
+        var coordinate = Coordinate(chunk.Coordinate);
+        if (!expected.Contains(coordinate) || !seen.Add(coordinate)) throw new InvalidDataException("地图块越界或重复");
+        foreach (var item in chunk.Objects)
+        {
+            var value = DataMapObjectPbData.FromPb(item);
+            if (layout.ChunkAt(value.X, value.Y) != coordinate || !objects.TryAdd(value.ObjectId, value))
+                throw new InvalidDataException("地图对象归属错误或重复");
+        }
+    }
+
+    /// <summary>缺失的坐标不隐式解释为原点。</summary>
+    private static (int X, int Y) Coordinate(ProtocolV2.MapChunkCoordPb? value) => value is null
         ? throw new InvalidDataException("缺少地图块坐标") : (value.X, value.Y);
 }

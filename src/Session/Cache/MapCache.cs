@@ -35,6 +35,13 @@ public sealed class MapCache : CacheBase
         _roleId = roleId; _mapId = 0; _expectedLayout = null; Snapshot = null; NeedsResync = false; ResyncPending = false;
     }
 
+    /// <summary>接纳已经完整验证的 V2 初始快照。</summary>
+    internal void AcceptEntry(DataMapAoiSnapshotPbData snapshot)
+    {
+        _roleId = snapshot.RoleId; _mapId = snapshot.MapId; _expectedLayout = snapshot.Layout;
+        Snapshot = snapshot; NeedsResync = false; ResyncPending = false;
+    }
+
     /// <summary>仅在已成功入队后标记在途，由 Session 显式调用。</summary>
     internal void MarkResyncPending() => ResyncPending = true;
 

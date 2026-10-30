@@ -27,6 +27,8 @@ internal sealed class ConnectionSession
     private ulong _generation = 1;
     /// <summary>本连接认证后绑定的账号；与其他连接分别保存。</summary>
     private string? _username;
+    /// <summary>当前连接进入成功的角色元数据，不表示在线成员或独占。</summary>
+    private long _roleId;
     /// <summary>服务端生成的不可变连接身份。</summary>
     internal DataConnectionId Id { get; }
 
@@ -36,7 +38,7 @@ internal sealed class ConnectionSession
 
     /// <summary>取得独立只读身份，已断开的连接不可读取。</summary>
     internal DataSessionSnapshot Snapshot()
-    { lock (_gate) { EnsureActive(); return new(Id, _generation, _username); } }
+    { lock (_gate) { EnsureActive(); return new(Id, _generation, _username, _roleId); } }
 
     /// <summary>复制后入队，返回任务表示本请求已经处理完成或明确失败。</summary>
     internal Task ReceiveAsync(byte[] packet)
@@ -70,18 +72,19 @@ internal sealed class ConnectionSession
         lock (_gate)
         {
             if (!_active || generation != _generation) return null;
-            if (login) _username = null;
-            return new(Id, _generation, _username);
+            if (login) { _username = null; _roleId = 0; }
+            return new(Id, _generation, _username, _roleId);
         }
     }
 
     /// <summary>在同一短锁内验证代次、绑定成功账号并排入输出。</summary>
-    internal void Complete(ulong generation, byte[] packet, string? username = null)
+    internal void Complete(ulong generation, byte[] packet, string? username = null, long? roleId = null)
     {
         lock (_gate)
         {
             if (!_active || generation != _generation) return;
             if (username is not null) _username = username;
+            if (roleId.HasValue) _roleId = roleId.Value;
             _outgoing.Enqueue(packet);
         }
     }
@@ -114,7 +117,7 @@ internal sealed class ConnectionSession
         lock (_gate)
         {
             _accepting = false;
-            if (disconnect) { _active = false; _username = null; _outgoing.Clear(); }
+            if (disconnect) { _active = false; _username = null; _roleId = 0; _outgoing.Clear(); }
             _requests.Writer.TryComplete();
             return _loop ?? Task.CompletedTask;
         }

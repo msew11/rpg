@@ -3,6 +3,8 @@ syntax = "proto3";
 package rpg.v2.actor;
 option csharp_namespace = "Rpg.ServerV2.ActorProtocol";
 
+import "map.proto";
+
 // 查询接收地图的完整动态对象数量。
 message GetWorldObjectCount {}
 
@@ -10,4 +12,17 @@ message GetWorldObjectCount {}
 message GetWorldObjectCountRt {
   // 完整内存对象数组的长度。
   int32 count = 1;
+}
+
+// 按权威位置查询接收地图的初始范围。
+message GetWorldEntrySnapshot {
+  // 权威逻辑横坐标。
+  float x = 1;
+  // 权威逻辑纵坐标。
+  float y = 2;
+}
+// 初始可见范围。
+message GetWorldEntrySnapshotRt {
+  // 裁剪九块完整快照。
+  rpg.v2.MapAoiSnapshotPb map = 1;
 }

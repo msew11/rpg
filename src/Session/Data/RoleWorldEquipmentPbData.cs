@@ -40,7 +40,20 @@ public sealed class RoleWorldEquipmentPbData
     {
         if (message is null || message.RoleId <= 0 || message.GetRevision() < 0)
             throw new InvalidDataException("装备协议缺少有效身份或信封版本");
-        var items = message.EquippedItems.Select(id => EquipmentDisplayData.FromItemId(id, definitions))
+        return FromItems(message.RoleId, message.GetRevision(), message.EquippedItems, definitions);
+    }
+
+    /// <summary>从 V2 公开装备直接构建不可变展示。</summary>
+    public static RoleWorldEquipmentPbData FromPb(ProtocolV2.RoleWorldEquipmentPb message, long roleId, IReadOnlyDictionary<int, ItemCfg> definitions)
+    {
+        if (message is null || roleId <= 0) throw new InvalidDataException("公开装备身份无效");
+        return FromItems(roleId, 0, message.EquippedItems, definitions);
+    }
+
+    /// <summary>两个协议版本共用配置及双手展示规则。</summary>
+    internal static RoleWorldEquipmentPbData FromItems(long roleId, long revision, IEnumerable<int> ids, IReadOnlyDictionary<int, ItemCfg> definitions)
+    {
+        var items = ids.Select(id => EquipmentDisplayData.FromItemId(id, definitions))
             .OrderBy(item => item.Slot).ToList();
         if (items.Select(item => item.Slot).Distinct().Count() != items.Count)
             throw new InvalidDataException("装备展示包含重复槽位");
@@ -51,7 +64,7 @@ public sealed class RoleWorldEquipmentPbData
             if (EquipmentSlotUtil.OccupiesBothHands(cfg.Category, cfg.SubCategory))
                 throw new InvalidDataException("双手武器不能同时装备副手物品");
         }
-        return new(message.RoleId, message.GetRevision(), items);
+        return new(roleId, revision, items);
     }
 
     /// <summary>忽略消息版本比较实际公开展示内容。</summary>

@@ -29,6 +29,17 @@ public sealed class ServerV2StorageTests : IDisposable
         Assert.Equal("未完成且无法解析的回滚记录", await File.ReadAllTextAsync(pending));
         Assert.Single(Directory.GetFiles(_directory));
     }
+    /// <summary>验证 server-v2-world-entry：男女首次出生点都裁剪在小地图最后一个逻辑像素。</summary>
+    [Theory]
+    [InlineData(Rpg.ProtocolV2.RoleGenderPb.Male)]
+    [InlineData(Rpg.ProtocolV2.RoleGenderPb.Female)]
+    public void InitialRoleClipsSpawnToMapBounds(Rpg.ProtocolV2.RoleGenderPb gender)
+    {
+        var role = Rpg.ServerV2.Modules.Role.Cache.DataCacheRole.CreateInitial(new() { RoleId = 1003,
+            Name = "边缘角色", Level = 1, Gender = gender, HeadId = 17 }, new() { Id = 9, Width = 2, Height = 3, TileSize = 32 });
+        Assert.Equal(9, role.MapId); Assert.Equal(63, role.X); Assert.Equal(95, role.Y);
+    }
+
     /// <summary>摘要缺失不写盘，保存数组并使用规范账号名。</summary>
     [Fact]
     public async Task MissingAccountStaysInMemoryAndSavedArrayUsesNormalizedName()

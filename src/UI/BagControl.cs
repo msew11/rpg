@@ -67,7 +67,7 @@ public partial class BagControl : PanelContainer
         AddChild(_column);
         _header = new HBoxContainer { Name = "PanelHeader" };
         _column.AddChild(_header);
-        _header.AddChild(PopupPanelStyle.CreateTitle("背包"));
+        _header.AddChild(PopupPanelStyle.CreateTitle(GameServices.Session.IsWorldReadOnly ? "背包（只读）" : "背包"));
         var close = new Button { Text = "关闭" };
         close.Pressed += Hide;
         _header.AddChild(close);
@@ -174,6 +174,7 @@ public partial class BagControl : PanelContainer
     /// <summary>首次点击拿起，下一次点击校验并提交，然后释放预览。</summary>
     internal void ClickItem(int slotIndex)
     {
+        if (GameServices.Session.IsWorldReadOnly) return;
         if (_itemPreview is not null)
         {
             var data = _pickedItem;
@@ -281,6 +282,7 @@ public partial class BagControl : PanelContainer
     /// <summary>角色槽点击复用同一拿起状态，背包物品只在服务器确认后穿戴。</summary>
     internal void ClickEquipment(EquipmentSlot slot)
     {
+        if (GameServices.Session.IsWorldReadOnly) return;
         if (_itemPreview is not null)
         {
             var data = _pickedItem;
@@ -309,6 +311,7 @@ public partial class BagControl : PanelContainer
     /// <summary>Ctrl 快捷穿戴拳套时，主手已是拳套则选副手；替换仍由服务器原子处理。</summary>
     internal void AutoEquip(int slotIndex)
     {
+        if (GameServices.Session.IsWorldReadOnly) return;
         CancelItemDrag();
         if (!IsVisibleInTree() || !GameServices.Session.HasRole) return;
         var bag = GameServices.Session.Bag;
@@ -323,6 +326,7 @@ public partial class BagControl : PanelContainer
     /// <summary>Ctrl 快捷卸下到首个空格，不使用乐观修改。</summary>
     internal void Unequip(EquipmentSlot slot)
     {
+        if (GameServices.Session.IsWorldReadOnly) return;
         CancelItemDrag();
         if (GameServices.Session.Bag.Equipment.All(item => item.Slot != slot)) return;
         GameServices.Session.EquipItem(0, slot, GameServices.Session.Bag.Revision, GameServices.Session.Equipment.Revision);
@@ -350,7 +354,7 @@ public partial class BagControl : PanelContainer
     /// <summary>记录拖动开始时的角色、版本与实例，禁止空格创建拖放。</summary>
     internal Variant CreateItemDrag(int sourceSlot)
     {
-        if (!IsVisibleInTree() || !GameServices.Session.HasRole) return default;
+        if (GameServices.Session.IsWorldReadOnly || !IsVisibleInTree() || !GameServices.Session.HasRole) return default;
         var item = GameServices.Session.Bag.Items.FirstOrDefault(item => item.SlotIndex == sourceSlot);
         if (item is null) return default;
         ShowMoveStatus("");
@@ -365,7 +369,7 @@ public partial class BagControl : PanelContainer
     /// <summary>校验载荷来源与快照，不允许跨面板、跨角色或刷新前的拖放。</summary>
     internal bool CanDropItem(Variant data, int targetSlot)
     {
-        if (!IsVisibleInTree() || !GameServices.Session.HasRole || targetSlot < 0 || targetSlot >= _slots.Count ||
+        if (GameServices.Session.IsWorldReadOnly || !IsVisibleInTree() || !GameServices.Session.HasRole || targetSlot < 0 || targetSlot >= _slots.Count ||
             data.VariantType != Variant.Type.Dictionary) return false;
         var payload = data.AsGodotDictionary();
         foreach (var key in new[] { "panel", "epoch", "role", "revision", "equipment_revision", "instance" })
@@ -383,6 +387,7 @@ public partial class BagControl : PanelContainer
     /// <summary>只发送仍有效的整份物品移动，权威快照到达前保留原图标与数量。</summary>
     internal void DropItem(Variant data, int targetSlot)
     {
+        if (GameServices.Session.IsWorldReadOnly) return;
         if (!CanDropItem(data, targetSlot)) { ShowMoveStatus("背包已更新，请重新拖动物品"); return; }
         var payload = data.AsGodotDictionary();
         var instanceId = payload["instance"].AsInt64();

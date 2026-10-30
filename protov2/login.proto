@@ -1,12 +1,13 @@
 syntax = "proto3";
 package rpg.v2;
 option csharp_namespace = "Rpg.ProtocolV2";
+import "role.proto";
 
 // 首次定位账号分片的登录请求；不在其他账号请求重复提交 username。
 message Login {
   // 入口统一去除首尾空白并转小写的账号键。
   string username = 1;
-  // 供后续认证业务使用，框架不验证密码。
+  // 演示账号密码，原样验证。
   string password = 2;
 }
 
@@ -42,30 +43,4 @@ message DeleteRole {
 message DeleteRoleRt {
   // 不包含删除墓碑的摘要。
   repeated RoleSummaryPb roles = 1;
-}
-
-// 摘要展示所用的角色性别。
-enum RoleGenderPb {
-  // 未指定性别。
-  ROLE_GENDER_PB_UNSPECIFIED = 0;
-  // 男性身体。
-  ROLE_GENDER_PB_MALE = 1;
-  // 女性身体。
-  ROLE_GENDER_PB_FEMALE = 2;
-}
-
-// 账号下单个角色的展示摘要，不包含私有玩法数据。
-message RoleSummaryPb {
-  // 全局角色身份。
-  int64 role_id = 1;
-  // 显示名称。
-  string name = 2;
-  // 当前等级。
-  int32 level = 3;
-  // 基础身体性别。
-  RoleGenderPb gender = 4;
-  // 性别内头型编号。
-  int32 head_id = 5;
-  // 已穿戴物品的配置编号，仅供展示。
-  repeated int32 equipped_items = 6;
 }

@@ -23,18 +23,29 @@ internal sealed class RoleActor : ModuleActor<RoleContext>
     /// <summary>绑定专用处理器表、角色身份和仓库。</summary>
     internal RoleActor(ConfigService config, IActorLocator actors, long roleId, IRoleRepo repo, ActorHandlers<RoleContext> handlers) : base(handlers)
     { _roleId = roleId; _repo = repo; _config = config; _actors = actors; }
-    /// <summary>三表全部加载成功后才进入 RUN。</summary>
-    protected override async ValueTask<RoleContext> CreateContextAsync() => new(_config, _actors, _roleId, await _repo.LoadAsync(_roleId).ConfigureAwait(false));
+    /// <summary>已有三表完整加载或明确全缺失后进入 RUN，不发布部分加载状态。</summary>
+    protected override async ValueTask<RoleContext> CreateContextAsync() => new(_config, _actors, _roleId, await _repo.TryLoadExistingAsync(_roleId).ConfigureAwait(false));
     /// <summary>串行保存本角色变化表，失败不改变内存和保存基线。</summary>
     protected override async ValueTask<object?> DispatchAsync(RoleContext context, object message)
     {
+        if (message is ActorProtocol.PrepareRole prepare)
+        {
+            context.Cache.Prepare(prepare.Summary, context.Config);
+            await SaveAsync(context).ConfigureAwait(false);
+            return await base.DispatchAsync(context, message).ConfigureAwait(false);
+        }
         if (message is not DataFlush) return await base.DispatchAsync(context, message).ConfigureAwait(false);
+        await SaveAsync(context).ConfigureAwait(false);
+        return true;
+    }
+    /// <summary>只保存已建立的候选，失败保留全部待写数据以便重试。</summary>
+    private async ValueTask SaveAsync(RoleContext context)
+    {
         var dirty = context.Cache.DirtyTables;
         if (dirty != DataRoleTables.None)
         {
             await _repo.SaveAsync(_roleId, context.Cache.Snapshot(), dirty).ConfigureAwait(false);
             context.Cache.AcceptSaved();
         }
-        return true;
     }
 }

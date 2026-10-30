@@ -14,6 +14,10 @@ public partial class MainController : Control
 {
     /// <summary>本次启动拥有的常驻服务释放句柄。</summary>
     private IDisposable? _servicesLifetime;
+    /// <summary>独立 V2 场景接管系统关闭，以便保存失败时保留页面。</summary>
+    private bool _quitPolicyManaged;
+    /// <summary>场景结束时恢复原有 SceneTree 关闭策略。</summary>
+    private bool _previousAutoAcceptQuit;
     /// <summary>主控制器拥有的常驻消息订阅。</summary>
     private readonly List<IDisposable> _subscriptions = [];
     /// <summary>登录或选角页的请求状态与错误反馈。</summary>
@@ -59,9 +63,13 @@ public partial class MainController : Control
             GameServices.EventBus.Error += OnNetworkError;
             if (GameServices.Net.MockServer is not null)
             {
+                _previousAutoAcceptQuit = GetTree().AutoAcceptQuit;
+                _quitPolicyManaged = true;
+                GetTree().AutoAcceptQuit = false;
                 _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.LoginRt>(_ => { if (_loginButton is not null) ShowRoles(); }));
                 _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.CreateRoleRt>(_ => { if (_roleRequestPending) ShowRoles(); }));
                 _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.DeleteRoleRt>(_ => { if (_roleRequestPending) ShowRoles(); }));
+                _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.EnterWorldRt>(OnEnteredWorld));
                 _subscriptions.Add(GameServices.EventBus.Subscribe<ProtocolV2.ErrorRt>(reply => OnNetworkError(new InvalidOperationException(reply.Message))));
             }
             else _subscriptions.Add(GameServices.EventBus.Subscribe<LoginRt>(OnLoggedIn));
@@ -98,7 +106,7 @@ public partial class MainController : Control
     /// <summary>将未被 UI 消费的地图点击转为移动 Action，并在点击世界位置显示光圈。</summary>
     public override void _UnhandledInput(InputEvent input)
     {
-        if (_servicesLifetime is null || _worldVisual is null || input is not InputEventMouseButton click) return;
+        if (_servicesLifetime is null || _worldVisual is null || GameServices.Session.IsWorldReadOnly || input is not InputEventMouseButton click) return;
         if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && _groundOverlay?.ItemAt(click.Position) is { } objectId)
         {
             RequestPickup(objectId);
@@ -116,6 +124,7 @@ public partial class MainController : Control
     /// <summary>图标或 UI 信息框拾取均使用同一世界服务入口。</summary>
     private void RequestPickup(Guid objectId)
     {
+        if (GameServices.Session.IsWorldReadOnly) return;
         try { GameServices.World.PickupItem(objectId); }
         catch (Exception error) { _hud?.ShowNetworkError(error.Message); }
     }
@@ -125,6 +134,12 @@ public partial class MainController : Control
     {
         Input.SetCustomMouseCursor(null);
         ReleaseServices();
+    }
+
+    /// <summary>系统关闭与菜单退出共用保存失败可重试的离开流程。</summary>
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest && _quitPolicyManaged && _servicesLifetime is not null) QuitGame();
     }
 
     /// <summary>启动完整服务组，场景测试可覆盖整组初始化以隔离环境。</summary>
@@ -146,13 +161,17 @@ public partial class MainController : Control
             foreach (var subscription in _subscriptions) subscription.Dispose();
             _subscriptions.Clear();
         }
-        finally { lifetime?.Dispose(); }
+        finally
+        {
+            if (_quitPolicyManaged) { GetTree().AutoAcceptQuit = _previousAutoAcceptQuit; _quitPolicyManaged = false; }
+            lifetime?.Dispose();
+        }
     }
 
     /// <summary>展示用户名和密码输入及失败反馈。</summary>
     private void ShowLogin()
     {
-        if (!TryFlushBeforeLeavingRole()) return;
+        if (!TryFlushBeforeLeavingRole(includeAccount: true)) return;
         ClearGame();
         GameServices.Session.Logout();
         _bgm?.PlayTrack("M001");
@@ -187,7 +206,7 @@ public partial class MainController : Control
         _bgm?.PlayTrack("M001");
         _screen = new CanvasLayer { Name = "ScreenLayer", Layer = 10 };
         AddChild(_screen);
-        var page = new RoleSelectionControl { Name = "RoleSelectionPage", CanEnterWorld = GameServices.Net.MockServer is null };
+        var page = new RoleSelectionControl { Name = "RoleSelectionPage", CanEnterWorld = true };
         page.EnterRequested += StartRole;
         page.CreateRequested += ShowCreateRole;
         page.DeleteRequested += ConfirmDeleteRole;
@@ -260,6 +279,7 @@ public partial class MainController : Control
     {
         if (_roleRequestPending || !GameServices.Session.IsLoggedIn || GameServices.Session.RoleId != 0) return;
         GameServices.Session.SelectRole(roleId);
+        _roleRequestPending = true;
         if (_feedback is not null) _feedback.Text = "正在进入角色…";
         if (_screen is not null)
             foreach (var node in _screen.FindChildren("*", "Button", true, false)) ((Button)node).Disabled = true;
@@ -286,6 +306,20 @@ public partial class MainController : Control
             return;
         }
         if (!GameServices.Session.HasRole) throw new InvalidOperationException("选角响应未完成角色缓存初始化");
+        PresentEnteredWorld();
+    }
+
+    /// <summary>完整 V2 缓存接纳后复用世界展示，不构造旧响应。</summary>
+    private void OnEnteredWorld(ProtocolV2.EnterWorldRt response)
+    {
+        if (!_roleRequestPending || !GameServices.Session.HasRole || response.State.RoleId != GameServices.Session.RoleId) return;
+        PresentEnteredWorld();
+    }
+
+    /// <summary>两个入口共用物品素材预热和世界节点创建。</summary>
+    private void PresentEnteredWorld()
+    {
+        _roleRequestPending = false;
         var bag = GameServices.Session.Bag;
         GameServices.Items.Preload(bag.Items.Select(item => item.ItemId)
             .Concat(GameServices.Session.Equipment.Items.Select(item => item.ItemId))
@@ -350,7 +384,7 @@ public partial class MainController : Control
         _worldVisual.AddChild(_groundItems);
         _groundOverlay = new GroundItemOverlayControl(_groundItems) { Name = "GroundItemOverlay" };
         AddChild(_groundOverlay);
-        _groundOverlay.PickupRequested += RequestPickup;
+        if (!GameServices.Session.IsWorldReadOnly) _groundOverlay.PickupRequested += RequestPickup;
         _actor = new ActorView { Name = "ActorView", ZIndex = 1, Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
         _worldVisual.AddChild(_actor);
         _actor.Present(GameServices.World.ActorState!);
@@ -384,15 +418,16 @@ public partial class MainController : Control
     /// <summary>释放当前世界与会话后正常关闭客户端。</summary>
     private void QuitGame()
     {
-        if (!TryFlushBeforeLeavingRole()) return;
+        if (!TryFlushBeforeLeavingRole(includeAccount: true)) return;
         ClearGame();
         GetTree().Quit();
     }
 
-    /// <summary>离开当前角色前同步落地；失败时保留角色和界面以便重试。</summary>
-    private bool TryFlushBeforeLeavingRole()
+    /// <summary>离开角色或 V2 账号前同步落地；失败保留当前页面并提供重试反馈。</summary>
+    private bool TryFlushBeforeLeavingRole(bool includeAccount = false)
     {
-        if (_servicesLifetime is null || !GameServices.Session.HasRole) return true;
+        if (_servicesLifetime is null || !GameServices.Session.HasRole &&
+            !(includeAccount && GameServices.Session.IsWorldReadOnly && GameServices.Session.IsLoggedIn)) return true;
         try
         {
             GameServices.Net.FlushServerWrites();
@@ -400,7 +435,8 @@ public partial class MainController : Control
         }
         catch (Exception error)
         {
-            _hud?.ShowNetworkError(error.Message);
+            if (_hud is not null) _hud.ShowNetworkError(error.Message);
+            else if (_feedback is not null) _feedback.Text = error.Message;
             GD.PushError(error.ToString());
             return false;
         }

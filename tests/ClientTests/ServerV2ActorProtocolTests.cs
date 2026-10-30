@@ -155,12 +155,12 @@ public sealed class ServerV2ActorProtocolTests : ServerV2ModuleTests
         using var env = ConfigTestFixture.CreateEnv();
         await using var server = new MockServerService(env, Modules());
         var connection = server.OpenConnection();
-        IMessage[] messages = [new GetWorldObjectCount(), new GetWorldObjectCountRt(), new GetRoleWorldObjectCount(), new GetRoleWorldObjectCountRt()];
+        IMessage[] messages = [new GetWorldObjectCount(), new GetWorldObjectCountRt(), new GetRoleWorldObjectCount(), new GetRoleWorldObjectCountRt(), new PrepareRole(), new PrepareRoleRt(), new GetWorldEntrySnapshot(), new GetWorldEntrySnapshotRt()];
         foreach (var message in messages)
         {
             Assert.Equal("Rpg.ServerV2.ActorProtocol", message.GetType().Namespace);
             Assert.Equal("rpg.v2.actor." + message.GetType().Name, message.Descriptor.FullName);
-            Assert.Empty(message.Descriptor.File.Dependencies);
+            Assert.All(message.Descriptor.File.Dependencies, dependency => Assert.Equal("rpg.v2", dependency.Package));
             Assert.Equal(ErrorCodePb.UnknownMessage, Assert.Throws<ServerRequestException>(() => MessageCodec.Encode(message, 1, 42, true)).Code);
             Assert.Equal(ErrorCodePb.UnknownMessage, Assert.Throws<ServerRequestException>(() => MessageCodec.Encode(message, 1, 42, false)).Code);
             var forged = new EnvelopePb { Generation = 1, RequestId = 42, MessageType = message.Descriptor.FullName, Payload = message.ToByteString() };

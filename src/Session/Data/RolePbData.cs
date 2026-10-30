@@ -18,6 +18,16 @@ public sealed record RolePbData(long RoleId, int Experience, int NextExperience,
         return data;
     }
 
+    /// <summary>直接验证并复制 V2 结构，身份来自完整状态根节点。</summary>
+    public static RolePbData FromPb(ProtocolV2.RolePb message, long roleId)
+    {
+        if (message is null) throw new InvalidDataException("私有角色协议不能为空");
+        var data = new RolePbData(roleId, message.Experience, message.NextExperience,
+            message.BagExtraRows, 0);
+        data.Validate();
+        return data;
+    }
+
     /// <summary>创建新的私有角色协议对象。</summary>
     public RolePb ToPb()
     {

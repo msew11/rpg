@@ -41,8 +41,10 @@ internal sealed class ServerModules : IAsyncDisposable, IActorLocator
         ArgumentNullException.ThrowIfNull(worlds);
         ArgumentNullException.ThrowIfNull(login);
         ObjectDisposedException.ThrowIf(config.IsDisposed, config);
-        role ??= static _ => new ActorHandlers<RoleContext>().Register<GetRoleWorldObjectCount, GetRoleWorldObjectCountRt>(new GetRoleWorldObjectCountHandler());
-        world ??= static _ => new ActorHandlers<WorldContext>().Register<GetWorldObjectCount, GetWorldObjectCountRt>(new GetWorldObjectCountHandler());
+        role ??= static _ => new ActorHandlers<RoleContext>().Register<GetRoleWorldObjectCount, GetRoleWorldObjectCountRt>(new GetRoleWorldObjectCountHandler())
+            .Register<PrepareRole, PrepareRoleRt>(new PrepareRoleHandler());
+        world ??= static _ => new ActorHandlers<WorldContext>().Register<GetWorldObjectCount, GetWorldObjectCountRt>(new GetWorldObjectCountHandler())
+            .Register<GetWorldEntrySnapshot, GetWorldEntrySnapshotRt>(new GetWorldEntrySnapshotHandler());
         report ??= static _ => { };
         Config = config;
         _login = new(key => new LoginActor(config, this, key, summaries, login(key)), report);

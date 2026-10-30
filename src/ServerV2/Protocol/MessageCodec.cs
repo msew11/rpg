@@ -11,9 +11,9 @@ namespace Rpg.ServerV2.Protocol;
 public static class MessageCodec
 {
     /// <summary>显式请求协议表；摘要数据类型不作为可投递消息。</summary>
-    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Requests = Registry(Login.Descriptor, CreateRole.Descriptor, DeleteRole.Descriptor);
+    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Requests = Registry(Login.Descriptor, CreateRole.Descriptor, DeleteRole.Descriptor, EnterWorld.Descriptor);
     /// <summary>显式响应协议表。</summary>
-    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Responses = Registry(LoginRt.Descriptor, CreateRoleRt.Descriptor, DeleteRoleRt.Descriptor, ErrorRt.Descriptor);
+    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Responses = Registry(LoginRt.Descriptor, CreateRoleRt.Descriptor, DeleteRoleRt.Descriptor, EnterWorldRt.Descriptor, ErrorRt.Descriptor);
     /// <summary>主动通知协议表，本版尚无游戏通知。</summary>
     private static readonly IReadOnlyDictionary<string, MessageDescriptor> Notices = Registry();
 

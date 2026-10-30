@@ -80,7 +80,12 @@ public partial class ChatControl : PanelContainer
         _input.GuiInput += OnInputKey;
         _input.ItemRectChanged += LayoutHints;
         _input.TextSubmitted += _ => Submit();
-        var send = new Button { Name = "SendCommand", Text = "发送" };
+        var send = new Button { Name = "SendCommand", Text = "发送", Disabled = GameServices.Session.IsWorldReadOnly };
+        if (GameServices.Session.IsWorldReadOnly)
+        {
+            _input.Editable = false;
+            _input.PlaceholderText = "V2 世界当前仅供只读展示";
+        }
         send.Pressed += Submit;
         row.AddChild(send);
         _subscription = GameServices.EventBus.Subscribe<GmRt>(OnGmResult);
@@ -210,6 +215,7 @@ public partial class ChatControl : PanelContainer
     /// <summary>清理输入后提交 GM，普通文字仅提示本地未开放聊天。</summary>
     private void Submit()
     {
+        if (GameServices.Session.IsWorldReadOnly) return;
         var text = _input.Text.Trim();
         if (text.Length == 0) return;
         _input.Clear();

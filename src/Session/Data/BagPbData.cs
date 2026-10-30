@@ -33,6 +33,24 @@ public sealed class BagPbData
     {
         if (message is null || message.GetRevision() < 0 || capacity <= 0) throw new InvalidDataException("背包协议或容量无效");
         var items = message.Items.Select(ItemPbData.FromPb).ToList();
+        return FromItems(message.GetRevision(), items, capacity, definitions);
+    }
+
+    /// <summary>直接转换 V2 全量物品，不转译旧协议。</summary>
+    public static BagPbData FromPb(ProtocolV2.BagPb message, int capacity, IReadOnlyDictionary<int, ItemCfg> definitions)
+    {
+        if (message is null || capacity <= 0) throw new InvalidDataException("背包协议或容量无效");
+        var items = message.Items.Select(ItemPbData.FromPb).ToList();
+        foreach (var item in items)
+            if (!definitions.TryGetValue(item.ItemId, out var cfg) ||
+                Rpg.Utils.EquipmentSlotUtil.TryGetSlot(cfg.Category, cfg.SubCategory, out _) != item.HasEquipment)
+                throw new InvalidDataException("V2 物品与扩展类型不一致");
+        return FromItems(0, items, capacity, definitions);
+    }
+
+    /// <summary>统一验证实例、容量及装备，不保留协议对象。</summary>
+    private static BagPbData FromItems(long revision, List<ItemPbData> items, int capacity, IReadOnlyDictionary<int, ItemCfg> definitions)
+    {
         var bag = items.Where(item => !item.Equipped).ToList();
         if (items.Select(item => item.InstanceId).Distinct().Count() != items.Count ||
             bag.Select(item => item.SlotIndex).Distinct().Count() != bag.Count)
@@ -43,10 +61,8 @@ public sealed class BagPbData
                 throw new InvalidDataException("背包物品越界、配置不存在或数量超出上限");
         var equipment = items.Where(item => item.Equipped).Select(item => new EquippedItemData(
             item.InstanceId, item.ItemId, EquipmentDisplayData.FromItemId(item.ItemId, definitions).Slot)).ToList();
-        var display = new RoleWorldEquipmentPb { RoleId = 1 };
-        display.EquippedItems.AddRange(equipment.Select(item => item.ItemId));
-        _ = RoleWorldEquipmentPbData.FromPb(display, definitions);
-        return new(message.GetRevision(), items, equipment);
+        _ = RoleWorldEquipmentPbData.FromItems(1, 0, equipment.Select(item => item.ItemId), definitions);
+        return new(revision, items, equipment);
     }
 
     /// <summary>输出全部私有实例及新的扩展载荷。</summary>

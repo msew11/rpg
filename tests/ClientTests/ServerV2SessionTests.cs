@@ -40,9 +40,13 @@ public sealed class ServerV2SessionTests : IDisposable
         var summary = Assert.Single(session.Roles);
         Assert.Equal("缓存角色", summary.Name);
         Assert.Equal(summary.ToV2Pb(), Rpg.Session.Data.RoleSummaryPbData.FromPb(summary.ToV2Pb()).ToV2Pb());
-        Assert.Throws<NotSupportedException>(() => session.SelectRole(summary.RoleId));
+        session.SelectRole(summary.RoleId);
+        Assert.Throws<InvalidOperationException>(() => session.SelectRole(summary.RoleId));
+        PumpUntil(() => !session.AccountRequestPending);
+        Assert.True(session.HasRole);
+        Assert.True(session.HasMap);
         Assert.False(GameServices.World.HasWorld);
-        Assert.False(session.HasRole);
+        session.LeaveRole();
         session.DeleteRole(summary.RoleId);
         PumpUntil(() => !session.AccountRequestPending);
         Assert.Empty(session.Roles);
@@ -115,6 +119,123 @@ public sealed class ServerV2SessionTests : IDisposable
         Assert.True(session.IsLoggedIn);
         Assert.NotSame(previous, session.LoginCache);
     }
+
+    /// <summary>验证 server-v2-world-entry：任一领域非法不留下部分缓存，成功在普通监听之前原子接纳。</summary>
+    [Fact]
+    public void WorldEntryRejectsEveryMalformedPartAndCommitsBeforeUi()
+    {
+        using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_directory, Path.Combine(_directory, "server")));
+        var session = GameServices.Session;
+        session.Login("demo", "demo"); PumpUntil(() => !session.AccountRequestPending);
+        session.CreateRole("原子角色", RoleGender.Male, 9); PumpUntil(() => !session.AccountRequestPending);
+        var roleId = session.Roles.Single().RoleId;
+        var observed = 0;
+        var errors = new List<Exception>();
+        GameServices.EventBus.Error += errors.Add;
+        using var normal = GameServices.EventBus.Subscribe<EnterWorldRt>(_ =>
+        {
+            Assert.True(session.HasRole && session.HasMap);
+            Assert.Equal("实际名称", session.Roles.Single().Name);
+            observed++;
+        });
+        var baseline = session.Roles;
+        foreach (var change in new Action<EnterWorldRt>[] {
+            reply => reply.State = null,
+            reply => reply.State.RoleId++,
+            reply => reply.State.Profile.HeadId = 0,
+            reply => reply.State.Status.Health = 101,
+            reply => reply.Role.NextExperience = 0,
+            reply => reply.Bag = null,
+            reply => reply.Bag.Items.Add(new ItemPb { InstanceId = 1, ItemId = int.MaxValue, Count = 1 }),
+            reply => reply.Map = null,
+            reply => reply.Map.Chunks.RemoveAt(0),
+            reply => reply.Map.Layout.Width++,
+            reply => reply.State.Position.X = -1,
+            reply => reply.Map.Center.X = 2,
+            reply => reply.Map.Chunks[0].Objects.Add(new MapObjectPb { ObjectId = Guid.NewGuid().ToString("N"), Revision = 1,
+                GroundItem = new() { ItemId = int.MaxValue, Count = 1 } }) })
+        {
+            session.SelectRole(roleId);
+            Assert.Throws<InvalidOperationException>(() => session.CreateRole("重复", RoleGender.Male, 9));
+            var reply = Entry(roleId); change(reply);
+            GameServices.EventBus.Publish(reply);
+            Assert.False(session.HasRole); Assert.False(session.HasMap); Assert.False(session.AccountRequestPending);
+            Assert.Same(baseline, session.Roles);
+        }
+        Assert.Equal(13, errors.Count); Assert.Equal(0, observed);
+        session.SelectRole(roleId);
+        var valid = Entry(roleId);
+        var gear = GameServices.Config.Item.Items.Values.First(item => item.MaxStack == 1 &&
+            Rpg.Utils.EquipmentSlotUtil.TryGetSlot(item.Category, item.SubCategory, out var slot) && slot == EquipmentSlot.MainHand);
+        valid.Bag.Items.Add(new ItemPb { InstanceId = 1, ItemId = gear.Id, Equipped = true, Count = 1, Equipment = new() });
+        valid.Bag.Items.Add(new ItemPb { InstanceId = 2, ItemId = gear.Id, SlotIndex = 0, Count = 1, Equipment = new() });
+        valid.State.Equipment.EquippedItems.Add(gear.Id);
+        valid.Map.Chunks[0].Objects.Add(new MapObjectPb { ObjectId = Guid.NewGuid().ToString("N"), Revision = 2,
+            GroundItem = new() { ItemId = gear.Id, Count = 1 } });
+        valid.Map.Chunks[1].Objects.Add(new MapObjectPb { ObjectId = Guid.NewGuid().ToString("N"), Revision = 4, X = 1024,
+            Monster = new() { MonsterTypeId = "初始怪物" } });
+        GameServices.EventBus.Publish(valid);
+        Assert.Single(session.Bag.Items); Assert.Single(session.Bag.Equipment); Assert.Single(session.Equipment.Items);
+        Assert.Equal(2, session.Map!.Objects.Count);
+        Assert.Equal(1, observed);
+        valid.State.Profile.Name = "外部修改";
+        Assert.Equal("实际名称", session.Role.Name);
+        Assert.Equal("实际名称", session.Roles.Single().Name);
+        var state = session.Role; var map = session.Map; var bag = session.Bag; var summaries = session.Roles;
+        session.SelectRole(roleId);
+        var invalid = Entry(roleId); invalid.Map.Chunks.Clear();
+        GameServices.EventBus.Publish(invalid);
+        Assert.Same(state, session.Role); Assert.Same(map, session.Map); Assert.Same(bag, session.Bag); Assert.Same(summaries, session.Roles);
+        session.LeaveRole();
+        Assert.False(session.HasRole); Assert.False(session.HasMap);
+        Assert.Same(summaries, session.Roles);
+        Assert.Equal(0, session.RoleId);
+    }
+
+    /// <summary>验证 server-v2-world-entry：真实进入在途返回登录隔离旧结果，所有写入口不发送旧协议。</summary>
+    [Fact]
+    public async Task EntryGenerationAndReadonlyWritesAreIsolated()
+    {
+        using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_directory, Path.Combine(_directory, "server")));
+        var session = GameServices.Session;
+        session.Login("demo", "demo"); PumpUntil(() => !session.AccountRequestPending);
+        session.CreateRole("只读角色", RoleGender.Female, 17); PumpUntil(() => !session.AccountRequestPending);
+        var roleId = session.Roles.Single().RoleId;
+        session.SelectRole(roleId); GameServices.Net.Tick(0);
+        await GameServices.Net.MockServer!.FlushAsync();
+        session.Logout();
+        for (var i = 0; i < 3; i++) GameServices.Net.Tick(0);
+        Assert.False(session.HasRole); Assert.Empty(session.Roles);
+        session.Login("demo", "demo"); PumpUntil(() => !session.AccountRequestPending);
+        session.SelectRole(roleId); PumpUntil(() => !session.AccountRequestPending);
+        Assert.True(session.HasRole && session.HasMap);
+        GameServices.World.InitializeRole();
+        var original = GameServices.World.RolePosition;
+        using var click = new Godot.InputEventMouseButton { ButtonIndex = Godot.MouseButton.Left, Pressed = true };
+        Assert.False(GameServices.World.HandleInput(click, original + Godot.Vector2.One * 100));
+        Assert.Equal(original, GameServices.World.RolePosition);
+        Assert.Throws<NotSupportedException>(() => session.SubmitMove(1, original));
+        Assert.Throws<NotSupportedException>(() => session.SendGm("item 1"));
+        Assert.Throws<NotSupportedException>(() => session.MoveItem(1, 2, 0));
+        Assert.Throws<NotSupportedException>(() => session.EquipItem(1, EquipmentSlot.MainHand, 0, 0));
+        Assert.Throws<NotSupportedException>(() => session.DropItem(1, 1, 0));
+        Assert.Throws<NotSupportedException>(() => session.PickupItem(Guid.NewGuid(), 1, 1));
+        Assert.False(session.ResyncMapIfNeeded());
+        GameServices.Net.FlushServerWrites();
+        GameServices.World.LeaveRole(); session.LeaveRole();
+        Assert.False(GameServices.World.HasWorld); Assert.False(session.HasRole);
+    }
+
+    /// <summary>构造无旧协议中转的完整初始响应，四个边缘空块须全部提供。</summary>
+    private static EnterWorldRt Entry(long roleId) => new()
+    {
+        State = new() { RoleId = roleId, Profile = new() { Name = "实际名称", Level = 1, Gender = RoleGenderPb.Male, HeadId = 9 },
+            Status = new() { Health = 100, MaxHealth = 100, Mana = 60, MaxMana = 60 }, Position = new() { MapId = 1 }, Equipment = new() },
+        Role = new() { NextExperience = 500 }, Bag = new(),
+        Map = new() { MapId = 1, Layout = new() { Width = 1000, Height = 1000, TileSize = 32, ChunkSizeTiles = 32 }, Center = new(),
+            Chunks = { new MapChunkPb { Coordinate = new() }, new MapChunkPb { Coordinate = new() { X = 1 } },
+                new MapChunkPb { Coordinate = new() { Y = 1 } }, new MapChunkPb { Coordinate = new() { X = 1, Y = 1 } } } }
+    };
 
     /// <summary>推进正式固定帧传输，等待后台 Actor 回复但不阻塞网络收取。</summary>
     private static void PumpUntil(Func<bool> complete)

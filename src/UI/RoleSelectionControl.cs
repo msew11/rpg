@@ -22,7 +22,7 @@ public partial class RoleSelectionControl : RoleScreenControl
     private long _selectedId;
     /// <summary>选角列表仅允许一个条目被选中。</summary>
     private readonly ButtonGroup _selection = new();
-    /// <summary>独立 V2 验收阶段禁用进入世界，默认游戏继续允许选角。</summary>
+    /// <summary>装配入口可限制进入按钮，空列表始终不可进入。</summary>
     public bool CanEnterWorld { get; init; } = true;
 
     /// <summary>从当前只读摘要建立右侧列表，第一名角色默认预览。</summary>

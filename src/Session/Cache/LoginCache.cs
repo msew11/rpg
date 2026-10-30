@@ -62,6 +62,11 @@ public sealed class LoginCache : CacheBase
         _v2Reply = typeof(T);
     }
 
+    /// <summary>进入准备期间核对当前唯一在途响应。</summary>
+    internal bool ExpectsV2<T>() => _v2Reply == typeof(T);
+    /// <summary>提交已经准备好的摘要候选，不再执行转换。</summary>
+    internal void AcceptEntry(IReadOnlyList<RoleSummaryPbData> roles) => Roles = roles;
+
     /// <summary>统一失败或传输、缓存错误解除等待，不破坏已接纳的列表。</summary>
     internal void CancelV2Request() => _v2Reply = null;
 

@@ -29,6 +29,20 @@ public sealed class RepoRole : IRoleRepo
         var equipment = await StorageJson.ReadAsync<ImmutableArray<DataEquipment>>(GetPath(roleId, "equipment")).ConfigureAwait(false);
         return new(role, items, equipment);
     }
+    /// <summary>恢复后逐个探测三表，只捕获明确不存在，权限及其他 IO 错误继续传播。</summary>
+    public async ValueTask<DataRoleSnapshot?> TryLoadExistingAsync(long roleId)
+    {
+        await RecoverAsync(roleId).ConfigureAwait(false);
+        var present = 0;
+        foreach (var table in new[] { "role", "item", "equipment" })
+        {
+            try { await using var stream = File.OpenRead(GetPath(roleId, table)); present++; }
+            catch (FileNotFoundException) { }
+            catch (DirectoryNotFoundException) { }
+        }
+        if (present == 0) return null;
+        return await LoadAsync(roleId).ConfigureAwait(false);
+    }
     /// <summary>提交变化表；失败留下回滚记录，下一次读写先恢复再继续。</summary>
     public async ValueTask SaveAsync(long roleId, DataRoleSnapshot snapshot, DataRoleTables tables)
     {

@@ -11,6 +11,6 @@ public sealed class RoleContext : ModuleContext
     /// <summary>所属邮箱独占的可变数据工作区。</summary>
     public RoleCache Cache { get; }
     /// <summary>完整加载后建立工作区，借用基类配置及 Actor 定位服务。</summary>
-    internal RoleContext(ConfigService config, IActorLocator actors, long roleId, DataRoleSnapshot snapshot) : base(config, actors)
+    internal RoleContext(ConfigService config, IActorLocator actors, long roleId, DataRoleSnapshot? snapshot) : base(config, actors)
         => Cache = new(roleId, snapshot);
 }

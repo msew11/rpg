@@ -67,7 +67,7 @@ public sealed class WorldService : Service
     public bool HandleInput(InputEvent input, Vector2 logicalPosition)
     {
         ThrowIfDisposed();
-        if (_world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
+        if (_session.IsWorldReadOnly || _world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
         var action = new MoveAction(++_nextActionId, MapUtils.Clamp(RequireMap(), logicalPosition));
         _session.SubmitMove(action.ActionId, action.Destination);
         _world.Enqueue(action);
@@ -78,6 +78,7 @@ public sealed class WorldService : Service
     public void PickupItem(Guid objectId)
     {
         ThrowIfDisposed();
+        if (_session.IsWorldReadOnly) return;
         if (_world is null || MapObjects is not { } map || !map.Objects.TryGetValue(objectId, out var item) || item.MonsterTypeId is not null)
             throw new InvalidOperationException("地面物品已不存在");
         var action = new MoveAction(++_nextActionId, new Vector2(item.X, item.Y));

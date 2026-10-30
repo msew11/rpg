@@ -15,7 +15,7 @@ public sealed class SessionService : Service
 {
     /// <summary>本次启动绑定的网络。</summary>
     private readonly NetService _net;
-    /// <summary>显式 V2 传输只开放本批已迁移的账号操作。</summary>
+    /// <summary>显式 V2 传输使用账号管理与只读世界进入协议。</summary>
     private readonly bool _useV2;
     /// <summary>独立 V2 客户端同一时刻只允许一个账号请求。</summary>
     public bool AccountRequestPending => _login?.V2RequestPending == true;
@@ -25,6 +25,10 @@ public sealed class SessionService : Service
     private RoleCache? _role;
     /// <summary>当前角色独立地图缓存，与 RoleCache 平级。</summary>
     private MapCache? _map;
+    /// <summary>V2 完整响应的缓存阶段协调者，随账号释放。</summary>
+    private WorldEntryCache? _entry;
+    /// <summary>本批 V2 世界仅供读取，所有业务写入口共用此约束。</summary>
+    public bool IsWorldReadOnly => _useV2;
     /// <summary>当前账号拥有的网络代次。</summary>
     private long _generation;
 
@@ -33,7 +37,7 @@ public sealed class SessionService : Service
     /// <summary>角色缓存是否就绪。</summary>
     public bool HasRole => IsLoggedIn && _role?.IsInitialized == true;
     /// <summary>当前选择或等待进入的角色标识。</summary>
-    public long RoleId => _role?.RoleId ?? 0;
+    public long RoleId => _role?.RoleId is > 0 ? _role.RoleId : _entry?.PendingRoleId ?? 0;
     /// <summary>已转换的只读角色摘要。</summary>
     public IReadOnlyList<RoleSummaryPbData> Roles => _login?.Roles ?? Array.Empty<RoleSummaryPbData>();
     /// <summary>当前权威角色快照。</summary>
@@ -89,6 +93,7 @@ public sealed class SessionService : Service
             _role = new RoleCache();
             _map = new MapCache();
             _login = login;
+            if (_useV2) _entry = new WorldEntryCache(login, _role, _map);
             if (_useV2)
             {
                 login.BeginV2Request<ProtocolV2.LoginRt>();
@@ -98,6 +103,8 @@ public sealed class SessionService : Service
         }
         catch
         {
+            _entry?.Dispose();
+            _entry = null;
             _map?.Dispose();
             _map = null;
             _role?.Dispose();
@@ -112,7 +119,18 @@ public sealed class SessionService : Service
     public void SelectRole(long roleId)
     {
         EnsureActive();
-        if (_useV2) throw new NotSupportedException("进入世界待迁移");
+        if (_useV2)
+        {
+            if (!IsLoggedIn) throw new InvalidOperationException("尚未登录");
+            if (AccountRequestPending) throw new InvalidOperationException("请等待当前账号操作完成");
+            if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
+            ResetNetwork();
+            _login!.BeginV2Request<ProtocolV2.EnterWorldRt>();
+            _entry!.Begin(roleId);
+            try { _net.Send(new ProtocolV2.EnterWorld { RoleId = roleId }); }
+            catch { CancelAccountRequest(); throw; }
+            return;
+        }
         if (!IsLoggedIn) throw new InvalidOperationException("尚未登录");
         if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
         var role = RoleCache;
@@ -128,7 +146,9 @@ public sealed class SessionService : Service
     {
         EnsureActive();
         if (_role is not null && RoleId == 0) return;
-        if (HasRole) _login!.RefreshRole(RoleCache.State);
+        if (HasRole && !_useV2) _login!.RefreshRole(RoleCache.State);
+        _entry?.Cancel();
+        _login?.CancelV2Request();
         ResetNetwork();
         _role?.Reset();
         _map?.Reset();
@@ -180,6 +200,7 @@ public sealed class SessionService : Service
     internal void SubmitMove(long actionId, Vector2 target)
     {
         EnsureActive();
+        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("选角成功后才能提交移动");
         _net.Send(new Move { RoleId = RoleId, ActionId = actionId, X = target.X, Y = target.Y });
     }
@@ -188,6 +209,7 @@ public sealed class SessionService : Service
     public void SendGm(string command)
     {
         EnsureActive();
+        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
         _net.Send(new Gm { RoleId = RoleId, Command = command });
     }
@@ -196,6 +218,7 @@ public sealed class SessionService : Service
     public void MoveItem(long instanceId, int targetSlotIndex, long expectedRevision)
     {
         EnsureActive();
+        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
         _net.Send(new MoveItem { RoleId = RoleId, InstanceId = instanceId,
             TargetSlotIndex = targetSlotIndex, ExpectedRevision = expectedRevision });
@@ -205,6 +228,7 @@ public sealed class SessionService : Service
     public void EquipItem(long instanceId, EquipmentSlot slot, long expectedBagRevision, long expectedEquipmentRevision, int? targetBagSlot = null)
     {
         EnsureActive();
+        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
         var request = new EquipItem { RoleId = RoleId, InstanceId = instanceId,
             Slot = (EquipmentSlotPb)slot, ExpectedBagRevision = expectedBagRevision, ExpectedEquipmentRevision = expectedEquipmentRevision };
@@ -216,6 +240,7 @@ public sealed class SessionService : Service
     public void DropItem(long instanceId, int count, long expectedRevision, bool destroy = false, Vector2? position = null)
     {
         EnsureActive();
+        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
         var request = new DropItem { RoleId = RoleId, InstanceId = instanceId, Count = count, ExpectedRevision = expectedRevision, Destroy = destroy };
         if (position is { } point) { request.DropX = point.X; request.DropY = point.Y; }
@@ -226,6 +251,7 @@ public sealed class SessionService : Service
     internal void PickupItem(Guid objectId, long objectRevision, long moveActionId)
     {
         EnsureActive();
+        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
         _net.Send(new PickupItem { RoleId = RoleId, ObjectId = objectId.ToString("N"),
             ExpectedObjectRevision = objectRevision, ExpectedBagRevision = Bag.Revision, MoveActionId = moveActionId });
@@ -235,7 +261,7 @@ public sealed class SessionService : Service
     public bool ResyncMapIfNeeded()
     {
         EnsureActive();
-        if (!HasRole || _map is not { NeedsResync: true, ResyncPending: false }) return false;
+        if (_useV2 || !HasRole || _map is not { NeedsResync: true, ResyncPending: false }) return false;
         _net.Send(new ResyncMapAoi { RoleId = RoleId, MapId = Role.MapId });
         _map.MarkResyncPending();
         return true;
@@ -246,16 +272,18 @@ public sealed class SessionService : Service
     {
         EnsureActive();
         if (_useV2) ResetNetwork();
+        _entry?.Dispose();
         _map?.Dispose();
         _role?.Dispose();
         _login?.Dispose();
+        _entry = null;
         _map = null;
         _role = null;
         _login = null;
     }
 
     /// <summary>客户端网络或缓存异常释放 V2 请求等待，由 UI 展示错误。</summary>
-    internal void CancelAccountRequest() => _login?.CancelV2Request();
+    internal void CancelAccountRequest() { _entry?.Cancel(); _login?.CancelV2Request(); }
 
     /// <summary>更新服务拥有的代次，隔离先前消息。</summary>
     private void ResetNetwork()
@@ -269,6 +297,7 @@ public sealed class SessionService : Service
     {
         if (IsDisposed) return;
         IsDisposed = true;
+        _entry?.Dispose();
         _map?.Dispose();
         _role?.Dispose();
         _login?.Dispose();

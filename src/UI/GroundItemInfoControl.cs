@@ -63,7 +63,7 @@ public partial class GroundItemInfoControl : PanelContainer
     {
         if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
         {
-            PickupRequested?.Invoke(ObjectId);
+            if (!Rpg.Services.GameServices.Session.IsWorldReadOnly) PickupRequested?.Invoke(ObjectId);
             AcceptEvent();
         }
     }

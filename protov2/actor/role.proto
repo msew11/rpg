@@ -3,6 +3,10 @@ syntax = "proto3";
 package rpg.v2.actor;
 option csharp_namespace = "Rpg.ServerV2.ActorProtocol";
 
+import "role.proto";
+import "bag.proto";
+import "map.proto";
+
 // 查询接收角色当前所在地图的动态对象数量。
 message GetRoleWorldObjectCount {}
 
@@ -10,4 +14,21 @@ message GetRoleWorldObjectCount {}
 message GetRoleWorldObjectCountRt {
   // 所属地图返回的对象数量。
   int32 count = 1;
+}
+
+// 为已通过账号归属检查的角色准备数据。
+message PrepareRole {
+  // 可信摘要，首次建档使用身份与外观。
+  rpg.v2.RoleSummaryPb summary = 1;
+}
+// 完整角色、私有数据与初始范围。
+message PrepareRoleRt {
+  // 公开状态。
+  rpg.v2.RoleWorldStatePb state = 1;
+  // 私有玩法数据。
+  rpg.v2.RolePb role = 2;
+  // 完整私有物品。
+  rpg.v2.BagPb bag = 3;
+  // 初始可见范围。
+  rpg.v2.MapAoiSnapshotPb map = 4;
 }

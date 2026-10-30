@@ -21,6 +21,15 @@ public sealed record DataMapLayoutPbData(int Width, int Height, int TileSize, in
         return new(value.Width, value.Height, value.TileSize, value.ChunkSizeTiles);
     }
 
+    /// <summary>直接校验并复制 V2 地图结构。</summary>
+    public static DataMapLayoutPbData FromPb(ProtocolV2.MapLayoutPb? value)
+    {
+        if (value is null || value.Width <= 0 || value.Height <= 0 || value.TileSize <= 0 || value.ChunkSizeTiles <= 0 ||
+            (long)value.Width * value.TileSize > int.MaxValue || (long)value.Height * value.TileSize > int.MaxValue ||
+            (long)value.ChunkSizeTiles * value.TileSize > int.MaxValue) throw new InvalidDataException("地图同步规格无效");
+        return new(value.Width, value.Height, value.TileSize, value.ChunkSizeTiles);
+    }
+
     /// <summary>计算对象所属块，越界或非有限坐标明确报错。</summary>
     public (int X, int Y) ChunkAt(float x, float y)
     {

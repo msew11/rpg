@@ -16,6 +16,22 @@ public sealed class DataCacheRoleSummary : DataCacheArray<DataRoleSummary>
     internal DataCacheRoleSummary(ImmutableArray<DataRoleSummary> value) : base(value, SummaryComparer.Instance) { }
     /// <summary>提供按编号排序的未删除摘要，不返回可变集合。</summary>
     public ImmutableArray<DataRoleSummary> Visible() => Value.Where(role => !role.IsDeleted).OrderBy(role => role.RoleId).ToImmutableArray();
+    /// <summary>可信进入前查找账号未删除摘要，非法编号与不存在分别报告。</summary>
+    public DataRoleSummary Owned(long roleId)
+    {
+        if (roleId <= 0) throw new ServerRequestException(ErrorCodePb.InvalidRequest, "角色编号必须为正整数");
+        return Value.FirstOrDefault(role => role.RoleId == roleId && !role.IsDeleted)
+            ?? throw new ServerRequestException(ErrorCodePb.RoleNotFound, "角色不存在或已删除");
+    }
+    /// <summary>相关业务成功时从实际公开状态同步展示字段，不依赖离开世界。</summary>
+    internal void Synchronize(RoleWorldStatePb state)
+    {
+        var owned = Owned(state.RoleId);
+        var updated = owned with { Name = state.Profile.Name, Level = state.Profile.Level,
+            Gender = (RoleGender)state.Profile.Gender, HeadId = state.Profile.HeadId,
+            EquippedItems = state.Equipment.EquippedItems.ToImmutableArray() };
+        Commit(Value.Replace(owned, updated));
+    }
     /// <summary>所有校验成功后一次创建摘要，失败不修改数据或消耗编号。</summary>
     public void Create(string requestedName, RoleGender gender, int headId)
     {

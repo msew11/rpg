@@ -18,6 +18,16 @@ public sealed record RoleWorldStatusPbData(long RoleId, int Health, int MaxHealt
         return data;
     }
 
+    /// <summary>直接验证并复制 V2 结构，身份来自完整状态根节点。</summary>
+    public static RoleWorldStatusPbData FromPb(ProtocolV2.RoleWorldStatusPb message, long roleId)
+    {
+        if (message is null) throw new InvalidDataException("角色状态协议不能为空");
+        var data = new RoleWorldStatusPbData(roleId, message.Health, message.MaxHealth,
+            message.Mana, message.MaxMana, 0);
+        data.Validate();
+        return data;
+    }
+
     /// <summary>创建新的可见状态协议对象。</summary>
     public RoleWorldStatusPb ToPb()
     {

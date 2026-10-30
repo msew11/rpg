@@ -25,6 +25,23 @@ public sealed record RoleWorldProfilePbData(long RoleId, string Name, int Level,
         return data;
     }
 
+    /// <summary>直接验证并复制 V2 结构，身份来自完整状态根节点。</summary>
+    public static RoleWorldProfilePbData FromPb(ProtocolV2.RoleWorldProfilePb message, long roleId)
+    {
+        if (message is null) throw new InvalidDataException("角色资料协议不能为空");
+        var gender = message.Gender switch
+        {
+            ProtocolV2.RoleGenderPb.Male => RoleGender.Male,
+            ProtocolV2.RoleGenderPb.Female => RoleGender.Female,
+            _ => throw new InvalidDataException("角色资料包含无效性别")
+        };
+        var data = new RoleWorldProfilePbData(roleId, message.Name, message.Level,
+            gender, message.HeadId, 0);
+        if (data.HeadId < 1) throw new InvalidDataException("V2 头型无效");
+        data.Validate();
+        return data;
+    }
+
     /// <summary>创建新的可见资料协议对象。</summary>
     public RoleWorldProfilePb ToPb()
     {

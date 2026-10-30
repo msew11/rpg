@@ -100,6 +100,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
         if (session.Begin(envelope.Generation, false) is not { } snapshot) return;
         IMessage response;
         string? bindUsername = null;
+        long? bindRoleId = null;
         try
         {
             var request = Codec.ReadPayload(envelope, true);
@@ -107,6 +108,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
             var result = await Router.RouteAsync(current, request).ConfigureAwait(false);
             response = result.Message;
             bindUsername = result.BindUsername;
+            bindRoleId = result.BindRoleId;
         }
         catch (ServerRequestException error) { response = new ErrorRt { Code = error.Code, Message = error.Message }; }
         catch (Exception error)
@@ -115,7 +117,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
             response = new ErrorRt { Code = ErrorCodePb.InternalError, Message = "服务端处理失败" };
         }
         if (envelope.RequestId == 0) throw new ServerRequestException(ErrorCodePb.InvalidRequest, "请求编号必须非零，无法关联响应");
-        session.Complete(snapshot.Generation, Codec.Encode(response, snapshot.Generation, envelope.RequestId, false), bindUsername);
+        session.Complete(snapshot.Generation, Codec.Encode(response, snapshot.Generation, envelope.RequestId, false), bindUsername, bindRoleId);
     }
 
     /// <summary>已接纳回合仍可以访问下游，完成后才关闭模块目录。</summary>

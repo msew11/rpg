@@ -23,14 +23,18 @@ internal sealed class RequestRouter
     /// <summary>登录从载荷定位账号，创建和删除只从服务端会话定位账号。</summary>
     internal async Task<DataResponse> RouteAsync(DataSessionSnapshot session, IMessage request)
     {
-        if (request is CreateRole or DeleteRole)
+        if (request is CreateRole or DeleteRole or EnterWorld)
         {
             if (session.Username is null) throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "连接尚未登录");
             var account = _modules.Login(session.Username);
-            IMessage reply = request is CreateRole create
-                ? await account.Ask<CreateRoleRt>(create).ConfigureAwait(false)
-                : await account.Ask<DeleteRoleRt>((DeleteRole)request).ConfigureAwait(false);
-            return new(reply, session.Username);
+            IMessage reply = request switch
+            {
+                CreateRole create => await account.Ask<CreateRoleRt>(create).ConfigureAwait(false),
+                DeleteRole delete => await account.Ask<DeleteRoleRt>(delete).ConfigureAwait(false),
+                EnterWorld enter => await account.Ask<EnterWorldRt>(enter).ConfigureAwait(false),
+                _ => throw new InvalidOperationException()
+            };
+            return new(reply, session.Username, request is EnterWorld selected ? selected.RoleId : null);
         }
         if (request is not ProtocolV2.Login login)
             throw new ServerRequestException(ErrorCodePb.UnknownMessage, "请求尚未注册路由");
@@ -49,5 +53,5 @@ internal sealed class RequestRouter
     }
 
     /// <summary>当前请求独占的响应对象和成功后需要绑定的账号。</summary>
-    internal sealed record DataResponse(IMessage Message, string BindUsername);
+    internal sealed record DataResponse(IMessage Message, string BindUsername, long? BindRoleId = null);
 }

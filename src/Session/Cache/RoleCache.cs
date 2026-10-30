@@ -58,6 +58,16 @@ public sealed class RoleCache : CacheBase
         _bag = null;
     }
 
+    /// <summary>完整 V2 入口准备成功后一次接纳，后续赋值不再执行可能失败的转换。</summary>
+    internal void AcceptEntry(RoleWorldStatePbData state, BagPbData bag)
+    {
+        RoleId = state.RoleId; _state = state; _bag = bag;
+        _profile = new(state.RoleId, state.Name, state.Level, state.Gender, state.HeadId, 0);
+        _status = new(state.RoleId, state.Health, state.MaxHealth, state.Mana, state.MaxMana, 0);
+        _position = new(state.RoleId, state.MapId, state.Position, 0, 0);
+        _role = new(state.RoleId, state.Experience, state.NextExperience, state.BagExtraRows, 0);
+    }
+
     /// <summary>成功选角后接纳首份快照，并检查响应身份一致。</summary>
     private void OnSelected(SelectRoleRt response)
     {

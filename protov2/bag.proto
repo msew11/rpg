@@ -1,0 +1,28 @@
+syntax = "proto3";
+package rpg.v2;
+option csharp_namespace = "Rpg.ProtocolV2";
+
+// 完整私有物品集合。
+message BagPb {
+  // 包括背包与已穿戴实例，空格不存记录。
+  repeated ItemPb items = 1;
+}
+// 一份角色私有物品实例。
+message ItemPb {
+  // 角色内稳定且不复用的实例编号。
+  int64 instance_id = 1;
+  // 道具配置编号。
+  int32 item_id = 2;
+  // 背包格编号，已穿戴固定零。
+  int32 slot_index = 3;
+  // 当前数量。
+  int32 count = 4;
+  // 是否已穿戴。
+  bool equipped = 5;
+  // 物品类型扩展。
+  oneof payload {
+    EquipmentPb equipment = 6;
+  }
+}
+// 装备实例扩展，本批无额外网络字段。
+message EquipmentPb {}

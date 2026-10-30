@@ -23,6 +23,16 @@ public sealed record ItemPbData(long InstanceId, int ItemId, int SlotIndex, int 
         return value;
     }
 
+    /// <summary>直接验证并复制 V2 结构，身份来自完整状态根节点。</summary>
+    public static ItemPbData FromPb(ProtocolV2.ItemPb message)
+    {
+        if (message is null) throw new InvalidDataException("物品协议不能为空");
+        var value = new ItemPbData(message.InstanceId, message.ItemId, message.SlotIndex,
+            message.Count, message.Equipped, message.PayloadCase == ProtocolV2.ItemPb.PayloadOneofCase.Equipment);
+        value.Validate();
+        return value;
+    }
+
     /// <summary>创建新的实例协议及独立的空装备扩展。</summary>
     public ItemPb ToPb()
     {
