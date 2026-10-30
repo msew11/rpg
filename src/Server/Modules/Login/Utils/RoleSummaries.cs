@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Rpg.Protocol;
 
-namespace Rpg.Server.Modules.Login.Handler;
+namespace Rpg.Server.Modules.Login.Utils;
 
 /// <summary>将账号拥有的不可变摘要投影为独占的可见协议列表。</summary>
 internal static class RoleSummaries

@@ -97,12 +97,12 @@ public sealed class MockServer : IAsyncDisposable
             .Register<global::Rpg.Protocol.CreateRole, global::Rpg.Protocol.CreateRoleRt>(new CreateRoleHandler())
             .Register<global::Rpg.Protocol.DeleteRole, global::Rpg.Protocol.DeleteRoleRt>(new DeleteRoleHandler())
             .Register<global::Rpg.Protocol.EnterWorld, global::Rpg.Protocol.EnterWorldRt>(new Modules.Login.Async.EnterWorldHandler())
-            .Register<global::Rpg.Protocol.Gm, global::Rpg.Protocol.GmRt>(new Modules.Login.Async.RoleItemsHandler())
-            .Register<global::Rpg.Protocol.MoveItem, global::Rpg.Protocol.MoveItemRt>(new Modules.Login.Async.RoleItemsHandler())
-            .Register<global::Rpg.Protocol.EquipItem, global::Rpg.Protocol.EquipItemRt>(new Modules.Login.Async.RoleItemsHandler())
-            .Register<global::Rpg.Protocol.DropItem, global::Rpg.Protocol.DropItemRt>(new Modules.Login.Async.RoleItemsHandler())
-            .Register<global::Rpg.Protocol.PickupItem, global::Rpg.Protocol.PickupItemRt>(new Modules.Login.Async.RoleItemsHandler())
-            .Register<ActorProtocol.CompleteRolePickup, ActorProtocol.CompleteRolePickupRt>(new Modules.Login.Async.RoleItemsHandler()), report: Report, itemBatch: batch);
+            .Register<global::Rpg.Protocol.Gm, global::Rpg.Protocol.GmRt>(new Modules.Login.Async.GmHandler())
+            .Register<global::Rpg.Protocol.MoveItem, global::Rpg.Protocol.MoveItemRt>(new Modules.Login.Async.MoveItemHandler())
+            .Register<global::Rpg.Protocol.EquipItem, global::Rpg.Protocol.EquipItemRt>(new Modules.Login.Async.EquipItemHandler())
+            .Register<global::Rpg.Protocol.DropItem, global::Rpg.Protocol.DropItemRt>(new Modules.Login.Async.DropItemHandler())
+            .Register<global::Rpg.Protocol.PickupItem, global::Rpg.Protocol.PickupItemRt>(new Modules.Login.Async.PickupItemHandler())
+            .Register<ActorProtocol.CompleteRolePickup, ActorProtocol.CompleteRolePickupRt>(new Modules.Login.Async.CompleteRolePickupHandler()), report: Report, itemBatch: batch);
         _runtime = CreateRuntime(modules);
     }
     /// <summary>使用正式存档根；首次启动把已有版本子目录内容原位提升，不覆盖目标文件。</summary>

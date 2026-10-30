@@ -2,6 +2,8 @@
 
 ## 正式 Server 框架
 
+业务处理器每类只实现一个 `IActorHandler`，类型与文件按请求消息名加 `Handler` 命名。跨 Actor 编排放在所属模块 `Async/`，本地处理放在 `Handler/`，这两个目录只放 Handler。跨 Actor 共用逻辑放在 `Modules/Common/Utils/`，Actor 内共用逻辑放在 `Modules/Xxx/Utils/`；处理器通过工具类复用规则与投影，不相互调用辅助方法。
+
 默认 `scenes/main.tscn` 使用 `src/Server` 与 `proto`。GameServices 创建并持有空 `MockServerService`，通过只读 `MockServer` 入口提供访问，再注入 Net，登录后才按模式创建独立 `MockServer` 或连接远端。服务器拥有后台 TCP、20Hz单调时钟推进、10Hz批量AOI和保存关闭流程，本机玩家与远端玩家走相同字节链路。账号admin/demo1/demo2密码123；本机服务器模式仅允许admin。角色编号通过与账号无关的持久化递增序列分配，从 1003 开始。
 
 运行时按账号、角色、地图分片并保持INIT/RUN/STOP和串行邮箱；Context只引用所属Cache，Cache组织不可变DataCache值，单分片 Repo 在 Actor 边界做 IO；正式保存由邮箱捕获不可变快照，专用物品批次在邮箱外写入后回传捕获基线。跨Actor调用固定Login→Role→World，由Async Handler编排，World不向Role Ask。业务proto直接进入Handler，连接/认证/控制版本只在 `DataActorCall` 邮箱元数据和运行时目录中校验，不增加业务隔离字段；批量发布保留观察者到原身份的不可变映射，输出不重新套用最新绑定。

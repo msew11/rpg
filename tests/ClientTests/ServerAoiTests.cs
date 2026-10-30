@@ -21,30 +21,31 @@ public sealed class ServerAoiTests
     public async Task AoiPublishesEmptyChunkDifferencesAndFinalRoleChanges()
     {
         using var env = ConfigTestFixture.CreateEnv(); using var config = new ConfigService(env);
-        var context = new WorldContext(config, new DoubleLocator(), new(1, 1000, 1000, 32, 32), new([])); var handler = new WorldSyncHandler();
+        var context = new WorldContext(config, new DoubleLocator(), new(1, 1000, 1000, 32, 32), new([])); var update = new UpdateWorldRoleHandler();
+        var snapshotHandler = new GetWorldSnapshotHandler(); var updates = new BuildWorldUpdatesHandler();
         var cache = context.Cache.Roles;
         var observer = Public(1, 0, 0); var other = Public(2, 100, 100);
-        await handler.HandleAsync(context, new UpdateWorldRole { Role = observer, Revision = 1 }); Assert.Empty(cache.Value);
+        await update.HandleAsync(context, new UpdateWorldRole { Role = observer, Revision = 1 }); Assert.Empty(cache.Value);
         cache.Membership(1, true); cache.Membership(2, true);
-        await handler.HandleAsync(context, new UpdateWorldRole { Role = observer, Revision = 1 });
-        await handler.HandleAsync(context, new UpdateWorldRole { Role = other, Revision = 1 });
-        var initial = (await handler.HandleAsync(context, new GetWorldSnapshot { RoleId = 1, ServerTimeMs = 1000 })).Frame;
+        await update.HandleAsync(context, new UpdateWorldRole { Role = observer, Revision = 1 });
+        await update.HandleAsync(context, new UpdateWorldRole { Role = other, Revision = 1 });
+        var initial = (await snapshotHandler.HandleAsync(context, new GetWorldSnapshot { RoleId = 1, ServerTimeMs = 1000 })).Frame;
         Assert.Equal(1UL, initial.Sequence); Assert.Equal(4, initial.Snapshot.Map.Chunks.Count); Assert.Single(initial.Snapshot.Roles);
         other.Position.X = 200; other.Position.Target = new() { X = 300, Y = 100 };
-        await handler.HandleAsync(context, new UpdateWorldRole { Role = other, Revision = 2 });
-        var moved = (await handler.HandleAsync(context, Updates(1100))).Deliveries.Single().Notice.Frame;
+        await update.HandleAsync(context, new UpdateWorldRole { Role = other, Revision = 2 });
+        var moved = (await updates.HandleAsync(context, Updates(1100))).Deliveries.Single().Notice.Frame;
         Assert.Single(moved.Delta.MovedRoles); Assert.Empty(moved.Delta.EnteredRoles); Assert.Null(moved.Delta.Map);
         observer.Position.X = 1030; observer.Position.Y = 1030;
-        await handler.HandleAsync(context, new UpdateWorldRole { Role = observer, Revision = 2 });
-        var diagonal = (await handler.HandleAsync(context, Updates(1200))).Deliveries.Single().Notice.Frame;
+        await update.HandleAsync(context, new UpdateWorldRole { Role = observer, Revision = 2 });
+        var diagonal = (await updates.HandleAsync(context, Updates(1200))).Deliveries.Single().Notice.Frame;
         Assert.Equal(5, diagonal.Delta.Map.EnteredChunks.Count); Assert.Empty(diagonal.Delta.Map.LeftChunks);
         Assert.All(diagonal.Delta.Map.EnteredChunks, chunk => Assert.Empty(chunk.Objects));
         observer.Position.X = 10000; observer.Position.Y = 10000;
-        await handler.HandleAsync(context, new UpdateWorldRole { Role = observer, Revision = 3 });
-        var distant = (await handler.HandleAsync(context, Updates(1300))).Deliveries.Single().Notice.Frame;
+        await update.HandleAsync(context, new UpdateWorldRole { Role = observer, Revision = 3 });
+        var distant = (await updates.HandleAsync(context, Updates(1300))).Deliveries.Single().Notice.Frame;
         Assert.Equal(9, distant.Delta.Map.EnteredChunks.Count); Assert.Equal(9, distant.Delta.Map.LeftChunks.Count); Assert.Contains(2L, distant.Delta.LeftRoleIds);
         cache.Membership(2, false); Assert.False(cache.Value.ContainsKey(2));
-        var snapshot = (await handler.HandleAsync(context, new GetWorldSnapshot { RoleId = 1, ServerTimeMs = 1400 })).Frame;
+        var snapshot = (await snapshotHandler.HandleAsync(context, new GetWorldSnapshot { RoleId = 1, ServerTimeMs = 1400 })).Frame;
         Assert.Equal(distant.Sequence + 1, snapshot.Sequence); Assert.Empty(snapshot.Snapshot.Roles);
     }
     /// <summary>Role提交不因World失败回滚；下一次只重试最新坐标和确认，不保存目标。</summary>

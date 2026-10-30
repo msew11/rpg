@@ -57,8 +57,10 @@ World 保存观察者可见对象基线，交集发送增删，新进入完整�
 | `Modules/Login` | 按规范 username 独占账号摘要；Storage 子目录负责账号文件仓库 |
 | `Modules/Role` | 按 RoleId 独占 RoleCache 及三表数据缓存；Storage 子目录负责角色三表仓库 |
 | `Modules/World` | 按 MapId 独占 WorldCache、配置规格和对象缓存；Data 保存独立模型，Storage 负责分块清单仓库 |
-| `Modules/<模块>/Handler` | 所属模块的业务处理器，直接使用协议请求与回复 |
-| `Modules/<模块>/Async` | 与 Handler 平级的跨 Actor 业务步骤，共用 IActorHandler/ActorHandlers 注册分发 |
+| `Modules/<模块>/Handler` | 只放本地消息 Handler，每类只实现一个 IActorHandler，类型与文件名对应请求名 |
+| `Modules/<模块>/Async` | 只放跨 Actor 编排 Handler，与本地处理器共用 ActorHandlers 显式注册分发 |
+| `Modules/<模块>/Utils` | Actor 内共用规则、校验与数据投影，不放 Handler |
+| `Modules/Common/Utils` | 跨 Actor 共用逻辑，例如公开角色投影的发布与重试 |
 | `Modules/Common` | ModuleContext 的 Config/Actors 借用入口及 IActorLocator，以及 Cache、Data、Storage 子目录 |
 | `Modules/Common/Storage` | 共用 JSON 编解码、单文件原子替换及物品专用共同落盘仓库；不持有业务缓存 |
 

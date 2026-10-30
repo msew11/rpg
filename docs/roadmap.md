@@ -2,6 +2,8 @@
 
 ## 当前阶段：客户端基础纵切
 
+- [x] Actor Handler 按请求逐一拆分：每类单一 IActorHandler，跨 Actor 编排归 Async、本地消息归 Handler；处理器目录只放 Handler，跨 Actor 共用逻辑归 Common/Utils，Actor 内共用逻辑归各模块 Utils，保留原消息注册和业务行为。
+
 - [x] 正式协议收敛：删除旧协议及旧服务器，统一 proto、src/Protocol、src/Server 和业务命名；存档直接落地 user://server，启动提升已有版本子目录；全部 proto 展开消息体并统一定义间空行。现有界面与 TCP 验收统一正式链路。
 
 以下条目记录各批次交付状态，其中早期只读、旧入口和待迁移限制已由后续批次替代。

@@ -52,21 +52,21 @@ internal sealed class ServerModules : IAsyncDisposable, IActorLocator
             .Register<PrepareRole, PrepareRoleRt>(new PrepareRoleHandler())
             .Register<global::Rpg.Protocol.Move, global::Rpg.Protocol.MoveRt>(new MoveHandler())
             .Register<AdvanceRole, AdvanceRoleRt>(new AdvanceRoleHandler())
-            .Register<global::Rpg.Protocol.Gm, global::Rpg.Protocol.GmRt>(new RoleItemsHandler())
-            .Register<global::Rpg.Protocol.MoveItem, global::Rpg.Protocol.MoveItemRt>(new RoleItemsHandler())
-            .Register<global::Rpg.Protocol.EquipItem, global::Rpg.Protocol.EquipItemRt>(new RoleItemsHandler())
-            .Register<GetRoleItems, GetRoleItemsRt>(new RoleItemsHandler())
-            .Register<global::Rpg.Protocol.DropItem, global::Rpg.Protocol.DropItemRt>(new Modules.Role.Async.GroundItemsHandler())
-            .Register<global::Rpg.Protocol.PickupItem, global::Rpg.Protocol.PickupItemRt>(new Modules.Role.Async.GroundItemsHandler())
-            .Register<CompleteRolePickup, CompleteRolePickupRt>(new Modules.Role.Async.GroundItemsHandler());
+            .Register<global::Rpg.Protocol.Gm, global::Rpg.Protocol.GmRt>(new Modules.Role.Handler.GmHandler())
+            .Register<global::Rpg.Protocol.MoveItem, global::Rpg.Protocol.MoveItemRt>(new Modules.Role.Handler.MoveItemHandler())
+            .Register<global::Rpg.Protocol.EquipItem, global::Rpg.Protocol.EquipItemRt>(new Modules.Role.Async.EquipItemHandler())
+            .Register<GetRoleItems, GetRoleItemsRt>(new Modules.Role.Handler.GetRoleItemsHandler())
+            .Register<global::Rpg.Protocol.DropItem, global::Rpg.Protocol.DropItemRt>(new Modules.Role.Async.DropItemHandler())
+            .Register<global::Rpg.Protocol.PickupItem, global::Rpg.Protocol.PickupItemRt>(new Modules.Role.Handler.PickupItemHandler())
+            .Register<CompleteRolePickup, CompleteRolePickupRt>(new Modules.Role.Async.CompleteRolePickupHandler());
         world ??= static _ => new ActorHandlers<WorldContext>().Register<GetWorldObjectCount, GetWorldObjectCountRt>(new GetWorldObjectCountHandler())
             .Register<GetWorldEntrySnapshot, GetWorldEntrySnapshotRt>(new GetWorldEntrySnapshotHandler())
-            .Register<UpdateWorldRole, UpdateWorldRoleRt>(new WorldSyncHandler())
-            .Register<BuildWorldUpdates, BuildWorldUpdatesRt>(new WorldSyncHandler())
-            .Register<GetWorldSnapshot, GetWorldSnapshotRt>(new WorldSyncHandler())
-            .Register<CreateGroundItem, CreateGroundItemRt>(new Modules.World.Handler.GroundItemsHandler())
-            .Register<GetGroundItem, GetGroundItemRt>(new Modules.World.Handler.GroundItemsHandler())
-            .Register<RemoveGroundItem, RemoveGroundItemRt>(new Modules.World.Handler.GroundItemsHandler());
+            .Register<UpdateWorldRole, UpdateWorldRoleRt>(new Modules.World.Handler.UpdateWorldRoleHandler())
+            .Register<BuildWorldUpdates, BuildWorldUpdatesRt>(new Modules.World.Handler.BuildWorldUpdatesHandler())
+            .Register<GetWorldSnapshot, GetWorldSnapshotRt>(new Modules.World.Handler.GetWorldSnapshotHandler())
+            .Register<CreateGroundItem, CreateGroundItemRt>(new Modules.World.Handler.CreateGroundItemHandler())
+            .Register<GetGroundItem, GetGroundItemRt>(new Modules.World.Handler.GetGroundItemHandler())
+            .Register<RemoveGroundItem, RemoveGroundItemRt>(new Modules.World.Handler.RemoveGroundItemHandler());
         report ??= static _ => { };
         Config = config; _itemBatch = itemBatch;
         _login = new(key => new LoginActor(config, this, key, summaries, login(key)) { Calls = Calls }, report);

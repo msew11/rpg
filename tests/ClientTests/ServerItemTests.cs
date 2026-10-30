@@ -1,3 +1,4 @@
+using Rpg.Server.Modules.Role.Utils;
 using System.Collections.Immutable;
 using Google.Protobuf;
 using Rpg.Config;
@@ -5,7 +6,6 @@ using Rpg.Protocol;
 using Rpg.Server.Connections.Data;
 using Rpg.Server.Hosting;
 using Rpg.Server.Modules.Role.Data;
-using Rpg.Server.Modules.Role.Handler;
 using Rpg.Server.Modules.Role.Storage;
 using Codec = Rpg.Server.Protocol.MessageCodec;
 

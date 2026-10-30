@@ -1,7 +1,7 @@
 using System.Linq;
 using Rpg.Protocol;
 
-namespace Rpg.Server.Modules.Role.Handler;
+namespace Rpg.Server.Modules.Role.Utils;
 
 /// <summary>只投影公开资料和完整位置组，不携带私有玩法数据。</summary>
 internal static class RoleProjection

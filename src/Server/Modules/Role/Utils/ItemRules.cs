@@ -12,7 +12,7 @@ using Rpg.Server.ActorProtocol;
 
 using Rpg.Utils;
 
-namespace Rpg.Server.Modules.Role.Handler;
+namespace Rpg.Server.Modules.Role.Utils;
 
 /// <summary>处理器共用的背包规则，只访问静态配置和不可变实体。</summary>
 internal sealed class ItemRules

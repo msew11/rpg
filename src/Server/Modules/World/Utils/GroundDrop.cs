@@ -4,7 +4,7 @@ using System.Numerics;
 using Rpg.Server.ActorProtocol;
 using Rpg.Server.Modules.World.Data;
 
-namespace Rpg.Server.Modules.World.Handler;
+namespace Rpg.Server.Modules.World.Utils;
 
 /// <summary>丢弃落点的纯几何验证与候选选择。</summary>
 internal static class GroundDrop
