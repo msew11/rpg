@@ -91,7 +91,7 @@ internal sealed class WorldCoordinator
         }
         finally { _control.Release(); }
     }
-    /// <summary>断线或重新认证时仅解绑该连接仍拥有的角色。</summary>
+    /// <summary>离开世界、断线或重新认证时仅解绑该连接仍拥有的角色。</summary>
     internal async Task DetachAsync(ConnectionSession connection)
     {
         await _control.WaitAsync().ConfigureAwait(false);

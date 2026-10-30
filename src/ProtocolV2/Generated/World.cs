@@ -29,28 +29,31 @@ namespace Rpg.ProtocolV2 {
             "DEVudGVyV29ybGRSdBInCgVzdGF0ZRgBIAEoCzIYLnJwZy52Mi5Sb2xlV29y",
             "bGRTdGF0ZVBiEhwKBHJvbGUYAiABKAsyDi5ycGcudjIuUm9sZVBiEhoKA2Jh",
             "ZxgDIAEoCzINLnJwZy52Mi5CYWdQYhIlCgNtYXAYBCABKAsyGC5ycGcudjIu",
-            "TWFwQW9pU25hcHNob3RQYiI/CgRNb3ZlEhEKCWFjdGlvbl9pZBgBIAEoBBIk",
-            "CgZ0YXJnZXQYAiABKAsyFC5ycGcudjIuTW92ZVRhcmdldFBiIhsKBk1vdmVS",
-            "dBIRCglhY3Rpb25faWQYASABKAQiDQoLUmVzeW5jV29ybGQiNAoNUmVzeW5j",
-            "V29ybGRSdBIjCgVmcmFtZRgBIAEoCzIULnJwZy52Mi5Xb3JsZEZyYW1lUGIi",
-            "OAoRV29ybGRVcGRhdGVOb3RpY2USIwoFZnJhbWUYASABKAsyFC5ycGcudjIu",
-            "V29ybGRGcmFtZVBiIt8BCgxXb3JsZEZyYW1lUGISEAoIc2VxdWVuY2UYASAB",
-            "KAQSFgoOc2VydmVyX3RpbWVfbXMYAiABKAMSGwoTYWNrbm93bGVkZ2VkX2Fj",
-            "dGlvbhgDIAEoBBIqCgRzZWxmGAQgASgLMhwucnBnLnYyLlJvbGVQb3NpdGlv",
-            "blVwZGF0ZVBiEisKCHNuYXBzaG90GAUgASgLMhcucnBnLnYyLldvcmxkU25h",
-            "cHNob3RQYkgAEiUKBWRlbHRhGAYgASgLMhQucnBnLnYyLldvcmxkRGVsdGFQ",
-            "YkgAQggKBnVwZGF0ZSJhCg9Xb3JsZFNuYXBzaG90UGISJQoDbWFwGAEgASgL",
-            "MhgucnBnLnYyLk1hcEFvaVNuYXBzaG90UGISJwoFcm9sZXMYAiADKAsyGC5y",
-            "cGcudjIuUm9sZVdvcmxkU3RhdGVQYiKtAQoMV29ybGREZWx0YVBiEiIKA21h",
-            "cBgBIAEoCzIVLnJwZy52Mi5NYXBBb2lEZWx0YVBiEi8KDWVudGVyZWRfcm9s",
-            "ZXMYAiADKAsyGC5ycGcudjIuUm9sZVdvcmxkU3RhdGVQYhIVCg1sZWZ0X3Jv",
-            "bGVfaWRzGAMgAygDEjEKC21vdmVkX3JvbGVzGAQgAygLMhwucnBnLnYyLlJv",
-            "bGVQb3NpdGlvblVwZGF0ZVBiQhGqAg5ScGcuUHJvdG9jb2xWMmIGcHJvdG8z"));
+            "TWFwQW9pU25hcHNob3RQYiIMCgpMZWF2ZVdvcmxkIg4KDExlYXZlV29ybGRS",
+            "dCI/CgRNb3ZlEhEKCWFjdGlvbl9pZBgBIAEoBBIkCgZ0YXJnZXQYAiABKAsy",
+            "FC5ycGcudjIuTW92ZVRhcmdldFBiIhsKBk1vdmVSdBIRCglhY3Rpb25faWQY",
+            "ASABKAQiDQoLUmVzeW5jV29ybGQiNAoNUmVzeW5jV29ybGRSdBIjCgVmcmFt",
+            "ZRgBIAEoCzIULnJwZy52Mi5Xb3JsZEZyYW1lUGIiOAoRV29ybGRVcGRhdGVO",
+            "b3RpY2USIwoFZnJhbWUYASABKAsyFC5ycGcudjIuV29ybGRGcmFtZVBiIt8B",
+            "CgxXb3JsZEZyYW1lUGISEAoIc2VxdWVuY2UYASABKAQSFgoOc2VydmVyX3Rp",
+            "bWVfbXMYAiABKAMSGwoTYWNrbm93bGVkZ2VkX2FjdGlvbhgDIAEoBBIqCgRz",
+            "ZWxmGAQgASgLMhwucnBnLnYyLlJvbGVQb3NpdGlvblVwZGF0ZVBiEisKCHNu",
+            "YXBzaG90GAUgASgLMhcucnBnLnYyLldvcmxkU25hcHNob3RQYkgAEiUKBWRl",
+            "bHRhGAYgASgLMhQucnBnLnYyLldvcmxkRGVsdGFQYkgAQggKBnVwZGF0ZSJh",
+            "Cg9Xb3JsZFNuYXBzaG90UGISJQoDbWFwGAEgASgLMhgucnBnLnYyLk1hcEFv",
+            "aVNuYXBzaG90UGISJwoFcm9sZXMYAiADKAsyGC5ycGcudjIuUm9sZVdvcmxk",
+            "U3RhdGVQYiKtAQoMV29ybGREZWx0YVBiEiIKA21hcBgBIAEoCzIVLnJwZy52",
+            "Mi5NYXBBb2lEZWx0YVBiEi8KDWVudGVyZWRfcm9sZXMYAiADKAsyGC5ycGcu",
+            "djIuUm9sZVdvcmxkU3RhdGVQYhIVCg1sZWZ0X3JvbGVfaWRzGAMgAygDEjEK",
+            "C21vdmVkX3JvbGVzGAQgAygLMhwucnBnLnYyLlJvbGVQb3NpdGlvblVwZGF0",
+            "ZVBiQhGqAg5ScGcuUHJvdG9jb2xWMmIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Rpg.ProtocolV2.RoleReflection.Descriptor, global::Rpg.ProtocolV2.BagReflection.Descriptor, global::Rpg.ProtocolV2.MapReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.EnterWorld), global::Rpg.ProtocolV2.EnterWorld.Parser, new[]{ "RoleId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.EnterWorldRt), global::Rpg.ProtocolV2.EnterWorldRt.Parser, new[]{ "State", "Role", "Bag", "Map" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.LeaveWorld), global::Rpg.ProtocolV2.LeaveWorld.Parser, null, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.LeaveWorldRt), global::Rpg.ProtocolV2.LeaveWorldRt.Parser, null, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.Move), global::Rpg.ProtocolV2.Move.Parser, new[]{ "ActionId", "Target" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.MoveRt), global::Rpg.ProtocolV2.MoveRt.Parser, new[]{ "ActionId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.ResyncWorld), global::Rpg.ProtocolV2.ResyncWorld.Parser, null, null, null, null, null),
@@ -630,6 +633,334 @@ namespace Rpg.ProtocolV2 {
   }
 
   /// <summary>
+  /// 离开当前连接控制的角色世界，保留账号认证和连接。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class LeaveWorld : pb::IMessage<LeaveWorld>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<LeaveWorld> _parser = new pb::MessageParser<LeaveWorld>(() => new LeaveWorld());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<LeaveWorld> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[2]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public LeaveWorld() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public LeaveWorld(LeaveWorld other) : this() {
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public LeaveWorld Clone() {
+      return new LeaveWorld(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as LeaveWorld);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(LeaveWorld other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(LeaveWorld other) {
+      if (other == null) {
+        return;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 角色控制及在线成员已解除；重复离开同样成功。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class LeaveWorldRt : pb::IMessage<LeaveWorldRt>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<LeaveWorldRt> _parser = new pb::MessageParser<LeaveWorldRt>(() => new LeaveWorldRt());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<LeaveWorldRt> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[3]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public LeaveWorldRt() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public LeaveWorldRt(LeaveWorldRt other) : this() {
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public LeaveWorldRt Clone() {
+      return new LeaveWorldRt(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as LeaveWorldRt);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(LeaveWorldRt other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(LeaveWorldRt other) {
+      if (other == null) {
+        return;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
   /// 向当前绑定角色提交目标。
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
@@ -647,7 +978,7 @@ namespace Rpg.ProtocolV2 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[2]; }
+      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[4]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -900,7 +1231,7 @@ namespace Rpg.ProtocolV2 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[3]; }
+      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[5]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1104,7 +1435,7 @@ namespace Rpg.ProtocolV2 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[4]; }
+      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[6]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1268,7 +1599,7 @@ namespace Rpg.ProtocolV2 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[5]; }
+      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[7]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1481,7 +1812,7 @@ namespace Rpg.ProtocolV2 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[6]; }
+      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[8]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1694,7 +2025,7 @@ namespace Rpg.ProtocolV2 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[7]; }
+      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[9]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2160,7 +2491,7 @@ namespace Rpg.ProtocolV2 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[8]; }
+      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[10]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2402,7 +2733,7 @@ namespace Rpg.ProtocolV2 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[9]; }
+      get { return global::Rpg.ProtocolV2.WorldReflection.Descriptor.MessageTypes[11]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

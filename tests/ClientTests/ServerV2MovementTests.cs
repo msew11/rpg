@@ -85,6 +85,59 @@ public sealed class ServerV2MovementTests : IDisposable
         Assert.True(saved.Role.X > entry.State.Position.X);
     }
 
+    /// <summary>对应 server-v2-world-entry 返回边界：退回选角保留认证、停止移动、通知其他玩家并允许重新进入。</summary>
+    [Fact]
+    public async Task LeaveWorldRemovesVisibleRoleAndRetainsAuthenticatedConnection()
+    {
+        using var env = ConfigTestFixture.CreateEnv(serverDirectory: _root); using var config = new ConfigService(env);
+        await using var server = MockServerService.CreateInProcess(env, config);
+        var observer = server.OpenConnection(); var player = server.OpenConnection();
+        var first = await Create(server, observer, "demo1"); var second = await Create(server, player, "demo2");
+        await Exchange(server, observer, new EnterWorld { RoleId = first }); ReadFrame(server, observer);
+        var entry = Assert.IsType<EnterWorldRt>(await Exchange(server, player, new EnterWorld { RoleId = second })); ReadFrame(server, player);
+        await server.Server!.AdvanceAsync();
+        Assert.Equal(second, Assert.Single(ReadFrame(server, observer).Delta.EnteredRoles).RoleId);
+        await Exchange(server, player, new Move { ActionId = 1, Target = new() { X = entry.State.Position.X + 500, Y = entry.State.Position.Y } });
+        await Task.Delay(60);
+        Assert.IsType<LeaveWorldRt>(await Exchange(server, player, new LeaveWorld()));
+        Assert.Equal("demo2", server.Session(player).Username); Assert.Equal(0, server.Session(player).RoleId);
+        Assert.IsType<LeaveWorldRt>(await Exchange(server, player, new LeaveWorld()));
+        Assert.Equal(ErrorCodePb.NotAuthenticated, Assert.IsType<ErrorRt>(await Exchange(server, player, new Move { ActionId = 2, Target = new() { X = 50, Y = 50 } })).Code);
+        Assert.IsType<ErrorRt>(await Exchange(server, player, new ResyncWorld()));
+        await server.FlushAsync();
+        var stopped = await new RepoRole(Path.Combine(_root, "v2")).LoadAsync(second);
+        Assert.True(stopped.Role.X > entry.State.Position.X);
+        await Task.Delay(120); await server.Server.AdvanceAsync();
+        Assert.Contains(second, ReadFrame(server, observer).Delta.LeftRoleIds);
+        var returned = Assert.IsType<EnterWorldRt>(await Exchange(server, player, new EnterWorld { RoleId = second }));
+        Assert.Equal(stopped.Role.X, returned.State.Position.X); Assert.Equal(stopped.Role.Y, returned.State.Position.Y);
+        Assert.Null(returned.State.Position.Target);
+        var initial = ReadFrame(server, player); Assert.Equal(1UL, initial.Sequence);
+        Assert.Equal(first, Assert.Single(initial.Snapshot.Roles).RoleId);
+        await Task.Delay(120); await server.Server.AdvanceAsync();
+        Assert.Equal(second, Assert.Single(ReadFrame(server, observer).Delta.EnteredRoles).RoleId);
+    }
+
+    /// <summary>对应 server-v2-world-entry 无权离开：匿名及已被接管的连接不能移除新控制者。</summary>
+    [Fact]
+    public async Task LeaveWorldRejectsAnonymousAndDoesNotDetachAnotherConnection()
+    {
+        using var env = ConfigTestFixture.CreateEnv(serverDirectory: _root); using var config = new ConfigService(env);
+        await using var server = MockServerService.CreateInProcess(env, config);
+        var old = server.OpenConnection(); var replacement = server.OpenConnection();
+        Assert.Equal(ErrorCodePb.NotAuthenticated, Assert.IsType<ErrorRt>(await Exchange(server, old, new LeaveWorld())).Code);
+        Assert.Empty(LeaveWorld.Descriptor.Fields.InDeclarationOrder());
+        var role = await Create(server, old, "demo1");
+        await Exchange(server, old, new EnterWorld { RoleId = role }); ReadFrame(server, old);
+        await Exchange(server, replacement, new Login { Username = "demo1", Password = "123" });
+        await Exchange(server, replacement, new EnterWorld { RoleId = role }); ReadFrame(server, replacement);
+        Assert.IsType<ErrorRt>(await Exchange(server, old, new LeaveWorld()));
+        await Exchange(server, old, new Login { Username = "demo1", Password = "123" });
+        Assert.IsType<LeaveWorldRt>(await Exchange(server, old, new LeaveWorld()));
+        Assert.Equal(role, server.Session(replacement).RoleId);
+        Assert.Equal(role, Assert.IsType<ResyncWorldRt>(await Exchange(server, replacement, new ResyncWorld())).Frame.Self.RoleId);
+    }
+
     /// <summary>运行时元数据拒绝邮箱内迟到的控制调用，原消息不含隔离字段。</summary>
     [Fact]
     public async Task RuntimeSidecarRejectsStaleQueuedWork()

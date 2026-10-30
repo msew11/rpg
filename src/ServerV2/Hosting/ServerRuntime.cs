@@ -129,6 +129,13 @@ internal sealed class ServerRuntime : IAsyncDisposable
             if (session.Begin(envelope.Generation, request is ProtocolV2.Login) is not { } current) return;
             snapshot = current; Register(snapshot);
             if (request is ProtocolV2.Login && World is not null) await World.DetachAsync(session).ConfigureAwait(false);
+            if (request is LeaveWorld)
+            {
+                if (snapshot.Username is null) throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "连接尚未登录");
+                if (World is not null) await World.DetachAsync(session).ConfigureAwait(false);
+                session.Complete(snapshot, Codec.Encode(new LeaveWorldRt(), snapshot.Generation, envelope.RequestId, false), roleId: 0);
+                return;
+            }
             if (request is ResyncWorld && World is not null)
             { await World.ResyncAsync(session, snapshot, envelope.RequestId).ConfigureAwait(false); return; }
             var call = World?.Call(snapshot, request is Move) ?? new DataActorCall(snapshot.ConnectionId.Value, snapshot.Generation, snapshot.AuthEpoch);

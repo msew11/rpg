@@ -32,7 +32,7 @@ public partial class ServerV2MultiplayerPair : Node
             GD.Print(await hostOut); GD.Print(await clientOut);
             if (host.ExitCode != 0 || client.ExitCode != 0 || !File.Exists(Path.Combine(root, "host-done")) || !File.Exists(Path.Combine(root, "client-done")))
                 throw new InvalidOperationException(await hostError + await clientError);
-            GD.Print("Two Godot TCP processes passed: host admin, client demo1, mutual visibility, prediction and ActorView movement."); GetTree().Quit();
+            GD.Print("Two Godot TCP processes passed: mutual visibility, movement, role-selection removal and reentry with live TCP."); GetTree().Quit();
         }
         catch (Exception error) { GD.PushError(error.ToString()); GetTree().Quit(1); }
         finally

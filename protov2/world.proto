@@ -23,6 +23,11 @@ message EnterWorldRt {
   MapAoiSnapshotPb map = 4;
 }
 
+// 离开当前连接控制的角色世界，保留账号认证和连接。
+message LeaveWorld {}
+// 角色控制及在线成员已解除；重复离开同样成功。
+message LeaveWorldRt {}
+
 // 向当前绑定角色提交目标。
 message Move {
   // 客户端递增动作编号。

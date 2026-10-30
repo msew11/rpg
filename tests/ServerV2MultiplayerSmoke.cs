@@ -12,7 +12,7 @@ using Rpg.UI;
 
 namespace Rpg.Tests;
 
-/// <summary>server-v2-movement 双进程子场景：真实登录表单、进入、互见、预测和远端人物呈现。</summary>
+/// <summary>server-v2-movement 和 server-v2-world-entry 双进程验收：互见移动、返回选角移除及重新进入。</summary>
 public partial class ServerV2MultiplayerSmoke : MainController
 {
     /// <summary>协调目录，和真实用户目录隔离。</summary>
@@ -60,12 +60,42 @@ public partial class ServerV2MultiplayerSmoke : MainController
             var remoteId = GameServices.World.RemoteActors.Single().RoleId;
             if (FindChild("RemoteRole" + remoteId, true, false) is null) throw new InvalidOperationException("远端ActorView未呈现");
             var name = Host ? "host" : "client"; var other = Host ? "client" : "host";
-            File.WriteAllText(Path.Combine(Root, name + "-done"), "互见和移动通过");
+            File.WriteAllText(Path.Combine(Root, name + "-moved"), "互见和移动通过");
+            await Until(() => File.Exists(Path.Combine(Root, other + "-moved")));
+            if (Host)
+            {
+                await Until(() => File.Exists(Path.Combine(Root, "client-in-roles")));
+                await Until(() => GameServices.Session.RemoteRoles.Count == 0 && GameServices.World.RemoteActors.Count == 0 &&
+                    FindChild("RemoteRole" + remoteId, true, false) is null);
+                File.WriteAllText(Path.Combine(Root, "host-saw-leave"), "角色已从缓存、实体和节点移除");
+                await Until(() => File.Exists(Path.Combine(Root, "client-reentered")));
+                await Until(() => GameServices.Session.RemoteRoles.ContainsKey(remoteId) && GameServices.World.RemoteActors.Count == 1 &&
+                    FindChild("RemoteRole" + remoteId, true, false) is not null);
+                File.WriteAllText(Path.Combine(Root, "host-saw-reentry"), "角色重新出现");
+            }
+            else
+            {
+                PressTextButton("系统"); await Frames(); PressTextButton("返回角色选择");
+                await Until(() => FindChild("RoleSelectionPage", true, false) is not null);
+                if (!GameServices.Session.IsLoggedIn || GameServices.Session.HasRole || GameServices.World.HasWorld)
+                    throw new InvalidOperationException("返回选角未保留账号或清理世界");
+                File.WriteAllText(Path.Combine(Root, "client-in-roles"), "已返回角色选择且保持TCP连接");
+                await Until(() => File.Exists(Path.Combine(Root, "host-saw-leave")));
+                ((Button)FindChild("EnterRole", true, false)).EmitSignal(Button.SignalName.Pressed);
+                await Until(() => GameServices.Session.CanMove && GameServices.World.RemoteActors.Count == 1 &&
+                    FindChild("RemoteRole" + remoteId, true, false) is not null);
+                File.WriteAllText(Path.Combine(Root, "client-reentered"), "同连接重新进入成功");
+                await Until(() => File.Exists(Path.Combine(Root, "host-saw-reentry")));
+            }
+            File.WriteAllText(Path.Combine(Root, name + "-done"), "互见、移动、返回选角消失及重新进入通过");
             await Until(() => File.Exists(Path.Combine(Root, other + "-done")));
             GD.Print(name + " multiplayer process passed"); GetTree().Quit();
         }
         catch (Exception error) { GD.PushError(error.ToString()); GetTree().Quit(1); }
     }
+    /// <summary>调用当前可见且唯一的菜单按钮，走正式页面返回流程。</summary>
+    private void PressTextButton(string text) => FindChildren("*", "Button", true, false).OfType<Button>()
+        .Single(button => button.Text == text && button.IsVisibleInTree()).EmitSignal(Button.SignalName.Pressed);
     /// <summary>固定帧等待，保留网络和人物绘制推进。</summary>
     private async Task Frames() { await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
     /// <summary>每项交互均有明确超时。</summary>

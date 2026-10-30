@@ -157,7 +157,7 @@ public sealed class SessionService : Service
         _net.Send(new SelectRole { RoleId = roleId });
     }
 
-    /// <summary>清理角色数据与在途消息，保留账号摘要。</summary>
+    /// <summary>清理角色数据与在途消息，V2 提交离开世界并保留账号摘要。</summary>
     public void LeaveRole()
     {
         EnsureActive();
@@ -167,6 +167,7 @@ public sealed class SessionService : Service
         _entry?.Cancel();
         _login?.CancelV2Request();
         ResetNetwork();
+        if (_useV2 && IsLoggedIn) _net.Send(new ProtocolV2.LeaveWorld());
         _role?.Reset();
         _map?.Reset();
     }
