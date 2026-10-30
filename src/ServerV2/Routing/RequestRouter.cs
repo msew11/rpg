@@ -36,6 +36,20 @@ internal sealed class RequestRouter
             };
             return new(reply, null, request is EnterWorld selected ? selected.RoleId : null);
         }
+        if (request is Gm or MoveItem or EquipItem)
+        {
+            if (session.Username is null || session.RoleId <= 0) throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "尚未进入角色");
+            var account = _modules.Login(session.Username);
+            IMessage reply = request switch
+            {
+                Gm gm => await account.Ask<GmRt>(gm, call).ConfigureAwait(false),
+                MoveItem moveItem => await account.Ask<MoveItemRt>(moveItem, call).ConfigureAwait(false),
+                EquipItem equip => await account.Ask<EquipItemRt>(equip, call).ConfigureAwait(false),
+                _ => throw new InvalidOperationException()
+            };
+            var items = await _modules.Role(session.RoleId).Ask<ActorProtocol.GetRoleItemsRt>(new ActorProtocol.GetRoleItems()).ConfigureAwait(false);
+            return new(reply, null, ItemNotice: new() { RoleId = items.RoleId, Bag = items.Bag, Equipment = items.Equipment });
+        }
         if (request is Move move)
         {
             if (session.Username is null || session.RoleId <= 0) throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "尚未进入角色");
@@ -58,5 +72,5 @@ internal sealed class RequestRouter
     }
 
     /// <summary>当前请求独占的响应对象和成功后需要绑定的账号。</summary>
-    internal sealed record DataResponse(IMessage Message, string? BindUsername, long? BindRoleId = null);
+    internal sealed record DataResponse(IMessage Message, string? BindUsername, long? BindRoleId = null, RoleItemsChangedNotice? ItemNotice = null);
 }

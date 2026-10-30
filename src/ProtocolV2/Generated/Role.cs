@@ -45,12 +45,23 @@ namespace Rpg.ProtocolV2 {
             "X3Jvd3MYAyABKAUiJAoMTW92ZVRhcmdldFBiEgkKAXgYASABKAISCQoBeRgC",
             "IAEoAiJWChRSb2xlUG9zaXRpb25VcGRhdGVQYhIPCgdyb2xlX2lkGAEgASgD",
             "Ei0KCHBvc2l0aW9uGAIgASgLMhsucnBnLnYyLlJvbGVXb3JsZFBvc2l0aW9u",
-            "UGIqYgoMUm9sZUdlbmRlclBiEh4KGlJPTEVfR0VOREVSX1BCX1VOU1BFQ0lG",
-            "SUVEEAASFwoTUk9MRV9HRU5ERVJfUEJfTUFMRRABEhkKFVJPTEVfR0VOREVS",
-            "X1BCX0ZFTUFMRRACQhGqAg5ScGcuUHJvdG9jb2xWMmIGcHJvdG8z"));
+            "UGIiWQoVUm9sZUVxdWlwbWVudFVwZGF0ZVBiEg8KB3JvbGVfaWQYASABKAMS",
+            "LwoJZXF1aXBtZW50GAIgASgLMhwucnBnLnYyLlJvbGVXb3JsZEVxdWlwbWVu",
+            "dFBiKmIKDFJvbGVHZW5kZXJQYhIeChpST0xFX0dFTkRFUl9QQl9VTlNQRUNJ",
+            "RklFRBAAEhcKE1JPTEVfR0VOREVSX1BCX01BTEUQARIZChVST0xFX0dFTkRF",
+            "Ul9QQl9GRU1BTEUQAir4AgoPRXF1aXBtZW50U2xvdFBiEiEKHUVRVUlQTUVO",
+            "VF9TTE9UX1BCX1VOU1BFQ0lGSUVEEAASHwobRVFVSVBNRU5UX1NMT1RfUEJf",
+            "TUFJTl9IQU5EEAESHgoaRVFVSVBNRU5UX1NMT1RfUEJfT0ZGX0hBTkQQAhIa",
+            "ChZFUVVJUE1FTlRfU0xPVF9QQl9IRUFEEAMSGgoWRVFVSVBNRU5UX1NMT1Rf",
+            "UEJfRkFDRRAEEhoKFkVRVUlQTUVOVF9TTE9UX1BCX0JPRFkQBRIeChpFUVVJ",
+            "UE1FTlRfU0xPVF9QQl9ORUNLTEFDRRAGEhsKF0VRVUlQTUVOVF9TTE9UX1BC",
+            "X0hBTkRTEAcSGwoXRVFVSVBNRU5UX1NMT1RfUEJfUklORzEQCBIaChZFUVVJ",
+            "UE1FTlRfU0xPVF9QQl9MRUdTEAkSGwoXRVFVSVBNRU5UX1NMT1RfUEJfUklO",
+            "RzIQChIaChZFUVVJUE1FTlRfU0xPVF9QQl9GRUVUEAtCEaoCDlJwZy5Qcm90",
+            "b2NvbFYyYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
-          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rpg.ProtocolV2.RoleGenderPb), }, null, new pbr::GeneratedClrTypeInfo[] {
+          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rpg.ProtocolV2.RoleGenderPb), typeof(global::Rpg.ProtocolV2.EquipmentSlotPb), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.RoleSummaryPb), global::Rpg.ProtocolV2.RoleSummaryPb.Parser, new[]{ "RoleId", "Name", "Level", "Gender", "HeadId", "EquippedItems" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.RoleWorldStatePb), global::Rpg.ProtocolV2.RoleWorldStatePb.Parser, new[]{ "RoleId", "Profile", "Status", "Position", "Equipment" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.RoleWorldProfilePb), global::Rpg.ProtocolV2.RoleWorldProfilePb.Parser, new[]{ "Name", "Level", "Gender", "HeadId" }, null, null, null, null),
@@ -59,7 +70,8 @@ namespace Rpg.ProtocolV2 {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.RoleWorldEquipmentPb), global::Rpg.ProtocolV2.RoleWorldEquipmentPb.Parser, new[]{ "EquippedItems" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.RolePb), global::Rpg.ProtocolV2.RolePb.Parser, new[]{ "Experience", "NextExperience", "BagExtraRows" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.MoveTargetPb), global::Rpg.ProtocolV2.MoveTargetPb.Parser, new[]{ "X", "Y" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.RolePositionUpdatePb), global::Rpg.ProtocolV2.RolePositionUpdatePb.Parser, new[]{ "RoleId", "Position" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.RolePositionUpdatePb), global::Rpg.ProtocolV2.RolePositionUpdatePb.Parser, new[]{ "RoleId", "Position" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.RoleEquipmentUpdatePb), global::Rpg.ProtocolV2.RoleEquipmentUpdatePb.Parser, new[]{ "RoleId", "Equipment" }, null, null, null, null)
           }));
     }
     #endregion
@@ -82,6 +94,24 @@ namespace Rpg.ProtocolV2 {
     /// 女性身体。
     /// </summary>
     [pbr::OriginalName("ROLE_GENDER_PB_FEMALE")] Female = 2,
+  }
+
+  /// <summary>
+  /// 与客户端槽位保持一致，仅主副手开放操作。
+  /// </summary>
+  public enum EquipmentSlotPb {
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_UNSPECIFIED")] Unspecified = 0,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_MAIN_HAND")] MainHand = 1,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_OFF_HAND")] OffHand = 2,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_HEAD")] Head = 3,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_FACE")] Face = 4,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_BODY")] Body = 5,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_NECKLACE")] Necklace = 6,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_HANDS")] Hands = 7,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_RING1")] Ring1 = 8,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_LEGS")] Legs = 9,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_RING2")] Ring2 = 10,
+    [pbr::OriginalName("EQUIPMENT_SLOT_PB_FEET")] Feet = 11,
   }
 
   #endregion
@@ -2870,6 +2900,253 @@ namespace Rpg.ProtocolV2 {
               Position = new global::Rpg.ProtocolV2.RoleWorldPositionPb();
             }
             input.ReadMessage(Position);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 持续可见角色的完整装备组。
+  /// </summary>
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class RoleEquipmentUpdatePb : pb::IMessage<RoleEquipmentUpdatePb>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<RoleEquipmentUpdatePb> _parser = new pb::MessageParser<RoleEquipmentUpdatePb>(() => new RoleEquipmentUpdatePb());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<RoleEquipmentUpdatePb> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Rpg.ProtocolV2.RoleReflection.Descriptor.MessageTypes[9]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleEquipmentUpdatePb() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleEquipmentUpdatePb(RoleEquipmentUpdatePb other) : this() {
+      roleId_ = other.roleId_;
+      equipment_ = other.equipment_ != null ? other.equipment_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public RoleEquipmentUpdatePb Clone() {
+      return new RoleEquipmentUpdatePb(this);
+    }
+
+    /// <summary>Field number for the "role_id" field.</summary>
+    public const int RoleIdFieldNumber = 1;
+    private long roleId_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long RoleId {
+      get { return roleId_; }
+      set {
+        roleId_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "equipment" field.</summary>
+    public const int EquipmentFieldNumber = 2;
+    private global::Rpg.ProtocolV2.RoleWorldEquipmentPb equipment_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.ProtocolV2.RoleWorldEquipmentPb Equipment {
+      get { return equipment_; }
+      set {
+        equipment_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as RoleEquipmentUpdatePb);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(RoleEquipmentUpdatePb other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RoleId != other.RoleId) return false;
+      if (!object.Equals(Equipment, other.Equipment)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RoleId != 0L) hash ^= RoleId.GetHashCode();
+      if (equipment_ != null) hash ^= Equipment.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (equipment_ != null) {
+        output.WriteRawTag(18);
+        output.WriteMessage(Equipment);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RoleId != 0L) {
+        output.WriteRawTag(8);
+        output.WriteInt64(RoleId);
+      }
+      if (equipment_ != null) {
+        output.WriteRawTag(18);
+        output.WriteMessage(Equipment);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RoleId != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(RoleId);
+      }
+      if (equipment_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Equipment);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(RoleEquipmentUpdatePb other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RoleId != 0L) {
+        RoleId = other.RoleId;
+      }
+      if (other.equipment_ != null) {
+        if (equipment_ == null) {
+          Equipment = new global::Rpg.ProtocolV2.RoleWorldEquipmentPb();
+        }
+        Equipment.MergeFrom(other.Equipment);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 18: {
+            if (equipment_ == null) {
+              Equipment = new global::Rpg.ProtocolV2.RoleWorldEquipmentPb();
+            }
+            input.ReadMessage(Equipment);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            RoleId = input.ReadInt64();
+            break;
+          }
+          case 18: {
+            if (equipment_ == null) {
+              Equipment = new global::Rpg.ProtocolV2.RoleWorldEquipmentPb();
+            }
+            input.ReadMessage(Equipment);
             break;
           }
         }

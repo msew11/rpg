@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Rpg.ProtocolV2;
 using Rpg.ServerV2.ActorProtocol;
@@ -33,21 +33,21 @@ internal sealed class AdvanceRoleHandler : IActorHandler<RoleContext, AdvanceRol
         context.Cache.Movement.Advance(context.Cache.Role, request.ServerTimeMs, request.MovementSpeed);
         await ProjectAsync(context).ConfigureAwait(false);
         var value = context.Cache.Movement.Value;
-        return new AdvanceRoleRt { Moving = value.TargetX.HasValue || value.ProjectionPending };
+        return new AdvanceRoleRt { Moving = value.TargetX.HasValue || context.Cache.Projection.Value.Pending };
     }
     /// <summary>向 World 独占转交最新完整公开状态，失败留待下一轮重试。</summary>
     internal static async Task ProjectAsync(RoleContext context)
     {
         var cache = context.Cache; var movement = cache.Movement.Value;
-        if (!movement.ProjectionPending) return;
+        if (!cache.Projection.Value.Pending) return;
         try
         {
             await context.Actors.World(cache.Role.Value.MapId).Ask<UpdateWorldRoleRt>(new UpdateWorldRole
-            { Role = Handler.RoleProjection.Build(context), Revision = movement.Revision, AcknowledgedAction = movement.AcknowledgedAction },
+            { Role = Handler.RoleProjection.Build(context), Revision = cache.Projection.Value.Revision, AcknowledgedAction = movement.AcknowledgedAction },
                 context.Call).ConfigureAwait(false);
-            cache.Movement.Projected();
+            cache.Projection.Projected();
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (context.Call?.PreserveResult != true) { throw; }
         catch (Exception) { /* 投影仍待重试；不能撤销已经接受的移动。 */ }
     }
 }

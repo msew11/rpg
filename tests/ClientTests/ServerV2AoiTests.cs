@@ -58,12 +58,12 @@ public sealed class ServerV2AoiTests
         var context = new RoleContext(config, locator, 1, new(data, [], [])) { Call = new(ServerTimeMs: 1000, MovementSpeed: 180) };
         var move = new MoveHandler(); var advance = new AdvanceRoleHandler();
         await move.HandleAsync(context, new Move { ActionId = 1, Target = new() { X = data.X + 500, Y = data.Y } });
-        Assert.True(context.Cache.Movement.Value.ProjectionPending); Assert.Equal(1UL, context.Cache.Movement.Value.AcknowledgedAction);
+        Assert.True(context.Cache.Projection.Value.Pending); Assert.Equal(1UL, context.Cache.Movement.Value.AcknowledgedAction);
         await advance.HandleAsync(context, new AdvanceRole { ServerTimeMs = 2000, MovementSpeed = 180 });
-        Assert.Equal(data.X + 180, context.Cache.Role.Value.X); Assert.True(context.Cache.Movement.Value.ProjectionPending);
+        Assert.Equal(data.X + 180, context.Cache.Role.Value.X); Assert.True(context.Cache.Projection.Value.Pending);
         projection.Fail = false;
         await advance.HandleAsync(context, new AdvanceRole { ServerTimeMs = 3000, MovementSpeed = 180 });
-        Assert.False(context.Cache.Movement.Value.ProjectionPending); Assert.Equal(data.X + 360, projection.Latest!.Role.Position.X);
+        Assert.False(context.Cache.Projection.Value.Pending); Assert.Equal(data.X + 360, projection.Latest!.Role.Position.X);
         Assert.Equal(1UL, projection.Latest.AcknowledgedAction);
         Assert.DoesNotContain("Target", System.Text.Json.JsonSerializer.Serialize(context.Cache.Snapshot()));
     }

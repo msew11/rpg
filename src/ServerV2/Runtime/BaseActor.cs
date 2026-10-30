@@ -95,7 +95,7 @@ public abstract class BaseActor : IAsyncDisposable
                     CurrentCall = delivery.Call;
                     var result = await ReceiveAsync(delivery.Message).ConfigureAwait(false);
                     // 批量结果保留原观察者映射逐个输出校验，不能丢失已分配的序号占位。
-                    if (delivery.Call is { Observers: null } completed && Calls is { } current && !current.IsCurrent(completed)) throw new OperationCanceledException("Actor 结果身份已过期");
+                    if (delivery.Call is { Observers: null, PreserveResult: false } completed && Calls is { } current && !current.IsCurrent(completed)) throw new OperationCanceledException("Actor 结果身份已过期");
                     delivery.Completion?.TrySetResult(result);
                 }
                 catch (Exception error) { Reject(delivery, error); }

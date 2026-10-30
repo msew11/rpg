@@ -42,11 +42,12 @@ namespace Rpg.ProtocolV2 {
             "bHRhGAYgASgLMhQucnBnLnYyLldvcmxkRGVsdGFQYkgAQggKBnVwZGF0ZSJh",
             "Cg9Xb3JsZFNuYXBzaG90UGISJQoDbWFwGAEgASgLMhgucnBnLnYyLk1hcEFv",
             "aVNuYXBzaG90UGISJwoFcm9sZXMYAiADKAsyGC5ycGcudjIuUm9sZVdvcmxk",
-            "U3RhdGVQYiKtAQoMV29ybGREZWx0YVBiEiIKA21hcBgBIAEoCzIVLnJwZy52",
+            "U3RhdGVQYiLkAQoMV29ybGREZWx0YVBiEiIKA21hcBgBIAEoCzIVLnJwZy52",
             "Mi5NYXBBb2lEZWx0YVBiEi8KDWVudGVyZWRfcm9sZXMYAiADKAsyGC5ycGcu",
             "djIuUm9sZVdvcmxkU3RhdGVQYhIVCg1sZWZ0X3JvbGVfaWRzGAMgAygDEjEK",
             "C21vdmVkX3JvbGVzGAQgAygLMhwucnBnLnYyLlJvbGVQb3NpdGlvblVwZGF0",
-            "ZVBiQhGqAg5ScGcuUHJvdG9jb2xWMmIGcHJvdG8z"));
+            "ZVBiEjUKDmVxdWlwcGVkX3JvbGVzGAUgAygLMh0ucnBnLnYyLlJvbGVFcXVp",
+            "cG1lbnRVcGRhdGVQYkIRqgIOUnBnLlByb3RvY29sVjJiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Rpg.ProtocolV2.RoleReflection.Descriptor, global::Rpg.ProtocolV2.BagReflection.Descriptor, global::Rpg.ProtocolV2.MapReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -61,7 +62,7 @@ namespace Rpg.ProtocolV2 {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.WorldUpdateNotice), global::Rpg.ProtocolV2.WorldUpdateNotice.Parser, new[]{ "Frame" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.WorldFramePb), global::Rpg.ProtocolV2.WorldFramePb.Parser, new[]{ "Sequence", "ServerTimeMs", "AcknowledgedAction", "Self", "Snapshot", "Delta" }, new[]{ "Update" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.WorldSnapshotPb), global::Rpg.ProtocolV2.WorldSnapshotPb.Parser, new[]{ "Map", "Roles" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.WorldDeltaPb), global::Rpg.ProtocolV2.WorldDeltaPb.Parser, new[]{ "Map", "EnteredRoles", "LeftRoleIds", "MovedRoles" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.ProtocolV2.WorldDeltaPb), global::Rpg.ProtocolV2.WorldDeltaPb.Parser, new[]{ "Map", "EnteredRoles", "LeftRoleIds", "MovedRoles", "EquippedRoles" }, null, null, null, null)
           }));
     }
     #endregion
@@ -2757,6 +2758,7 @@ namespace Rpg.ProtocolV2 {
       enteredRoles_ = other.enteredRoles_.Clone();
       leftRoleIds_ = other.leftRoleIds_.Clone();
       movedRoles_ = other.movedRoles_.Clone();
+      equippedRoles_ = other.equippedRoles_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -2823,6 +2825,20 @@ namespace Rpg.ProtocolV2 {
       get { return movedRoles_; }
     }
 
+    /// <summary>Field number for the "equipped_roles" field.</summary>
+    public const int EquippedRolesFieldNumber = 5;
+    private static readonly pb::FieldCodec<global::Rpg.ProtocolV2.RoleEquipmentUpdatePb> _repeated_equippedRoles_codec
+        = pb::FieldCodec.ForMessage(42, global::Rpg.ProtocolV2.RoleEquipmentUpdatePb.Parser);
+    private readonly pbc::RepeatedField<global::Rpg.ProtocolV2.RoleEquipmentUpdatePb> equippedRoles_ = new pbc::RepeatedField<global::Rpg.ProtocolV2.RoleEquipmentUpdatePb>();
+    /// <summary>
+    /// 持续可见角色的装备变化。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::Rpg.ProtocolV2.RoleEquipmentUpdatePb> EquippedRoles {
+      get { return equippedRoles_; }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -2842,6 +2858,7 @@ namespace Rpg.ProtocolV2 {
       if(!enteredRoles_.Equals(other.enteredRoles_)) return false;
       if(!leftRoleIds_.Equals(other.leftRoleIds_)) return false;
       if(!movedRoles_.Equals(other.movedRoles_)) return false;
+      if(!equippedRoles_.Equals(other.equippedRoles_)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -2853,6 +2870,7 @@ namespace Rpg.ProtocolV2 {
       hash ^= enteredRoles_.GetHashCode();
       hash ^= leftRoleIds_.GetHashCode();
       hash ^= movedRoles_.GetHashCode();
+      hash ^= equippedRoles_.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -2878,6 +2896,7 @@ namespace Rpg.ProtocolV2 {
       enteredRoles_.WriteTo(output, _repeated_enteredRoles_codec);
       leftRoleIds_.WriteTo(output, _repeated_leftRoleIds_codec);
       movedRoles_.WriteTo(output, _repeated_movedRoles_codec);
+      equippedRoles_.WriteTo(output, _repeated_equippedRoles_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -2895,6 +2914,7 @@ namespace Rpg.ProtocolV2 {
       enteredRoles_.WriteTo(ref output, _repeated_enteredRoles_codec);
       leftRoleIds_.WriteTo(ref output, _repeated_leftRoleIds_codec);
       movedRoles_.WriteTo(ref output, _repeated_movedRoles_codec);
+      equippedRoles_.WriteTo(ref output, _repeated_equippedRoles_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -2911,6 +2931,7 @@ namespace Rpg.ProtocolV2 {
       size += enteredRoles_.CalculateSize(_repeated_enteredRoles_codec);
       size += leftRoleIds_.CalculateSize(_repeated_leftRoleIds_codec);
       size += movedRoles_.CalculateSize(_repeated_movedRoles_codec);
+      size += equippedRoles_.CalculateSize(_repeated_equippedRoles_codec);
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -2932,6 +2953,7 @@ namespace Rpg.ProtocolV2 {
       enteredRoles_.Add(other.enteredRoles_);
       leftRoleIds_.Add(other.leftRoleIds_);
       movedRoles_.Add(other.movedRoles_);
+      equippedRoles_.Add(other.equippedRoles_);
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -2971,6 +2993,10 @@ namespace Rpg.ProtocolV2 {
             movedRoles_.AddEntriesFrom(input, _repeated_movedRoles_codec);
             break;
           }
+          case 42: {
+            equippedRoles_.AddEntriesFrom(input, _repeated_equippedRoles_codec);
+            break;
+          }
         }
       }
     #endif
@@ -3008,6 +3034,10 @@ namespace Rpg.ProtocolV2 {
           }
           case 34: {
             movedRoles_.AddEntriesFrom(ref input, _repeated_movedRoles_codec);
+            break;
+          }
+          case 42: {
+            equippedRoles_.AddEntriesFrom(ref input, _repeated_equippedRoles_codec);
             break;
           }
         }

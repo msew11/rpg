@@ -66,10 +66,17 @@ internal sealed class WorldSyncCache : CacheBase
         {
             foreach (var id in changes.LeftRoleIds)
                 if (!touched.Add(id) || !roles.Remove(id)) throw new InvalidDataException("离开角色无效或重复");
+            var exclusive = new HashSet<long>(touched);
             foreach (var value in changes.MovedRoles)
             {
                 if (!touched.Add(value.RoleId) || !roles.TryGetValue(value.RoleId, out var role)) throw new InvalidDataException("移动角色无效或重复");
                 roles[value.RoleId] = role with { Position = RoleWorldPositionPbData.FromPb(value.Position, value.RoleId) };
+            }
+            var equipped = new HashSet<long>();
+            foreach (var value in changes.EquippedRoles)
+            {
+                if (exclusive.Contains(value.RoleId) || !equipped.Add(value.RoleId) || !roles.TryGetValue(value.RoleId, out var role)) throw new InvalidDataException("装备角色无效或重复");
+                roles[value.RoleId] = role with { Equipment = RoleWorldEquipmentPbData.FromPb(value.Equipment, value.RoleId, GameServices.Config.Item.Items) };
             }
         }
         foreach (var role in roles.Values)

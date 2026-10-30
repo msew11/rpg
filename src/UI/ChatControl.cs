@@ -10,6 +10,8 @@ namespace Rpg.UI;
 /// <summary>开发期聊天输入区，仅将斜杠命令提交给 GM，不实现普通聊天。</summary>
 public partial class ChatControl : PanelContainer
 {
+    /// <summary>V2 命令反馈监听。</summary>
+    private readonly System.Collections.Generic.List<IDisposable> _v2Subscriptions = new();
     /// <summary>只显示普通文本的执行记录。</summary>
     private RichTextLabel _results = null!;
     /// <summary>提交命令的单行输入框。</summary>
@@ -89,6 +91,9 @@ public partial class ChatControl : PanelContainer
         send.Pressed += Submit;
         row.AddChild(send);
         _subscription = GameServices.EventBus.Subscribe<GmRt>(OnGmResult);
+        _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.GmRt>(response =>
+        { if (response.RoleId == GameServices.Session.RoleId) Append("成功：" + response.Message); }));
+        _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.ErrorRt>(error => Append("失败：" + error.Message)));
         _Process(0);
     }
 
@@ -239,6 +244,8 @@ public partial class ChatControl : PanelContainer
     /// <summary>HUD 立即退出时解除监听，避免旧界面接收新角色结果。</summary>
     public void ReleaseSubscription()
     {
+        foreach (var subscription in _v2Subscriptions) subscription.Dispose();
+        _v2Subscriptions.Clear();
         _subscription?.Dispose();
         _subscription = null;
     }

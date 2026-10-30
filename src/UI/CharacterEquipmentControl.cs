@@ -12,6 +12,9 @@ namespace Rpg.UI;
 /// <summary>角色窗口的五行装备布局，双手位于预览下方，状态只取会话快照。</summary>
 public partial class CharacterEquipmentControl : VBoxContainer
 {
+    /// <summary>V2 页面自身拥有的消息监听。</summary>
+    private readonly System.Collections.Generic.List<IDisposable> _v2Subscriptions = new();
+
     /// <summary>跨窗口物品操作的背包控件。</summary>
     public BagControl Bag { get; init; } = null!;
     /// <summary>供旋转与外观展示复用的独立预览。</summary>
@@ -68,6 +71,8 @@ public partial class CharacterEquipmentControl : VBoxContainer
             _status.Text = response.Success ? "" : response.Error;
             _status.Visible = !response.Success;
         });
+        _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.EquipItemRt>(_ => { _status.Text = ""; _status.Hide(); }));
+        _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.ErrorRt>(error => { _status.Text = error.Message; _status.Show(); }));
         Refresh();
     }
 
@@ -116,5 +121,10 @@ public partial class CharacterEquipmentControl : VBoxContainer
     }
 
     /// <summary>离开角色回收窗口自己的协议监听。</summary>
-    public override void _ExitTree() { _subscription?.Dispose(); _subscription = null; }
+    public override void _ExitTree()
+    {
+        foreach (var subscription in _v2Subscriptions) subscription.Dispose();
+        _v2Subscriptions.Clear();
+        _subscription?.Dispose(); _subscription = null;
+    }
 }

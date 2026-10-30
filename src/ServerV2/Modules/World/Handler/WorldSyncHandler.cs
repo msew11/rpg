@@ -55,7 +55,11 @@ internal sealed class WorldSyncHandler : IActorHandler<WorldContext, UpdateWorld
             foreach (var role in visible.Values)
             {
                 if (!before.Visible.TryGetValue(role.RoleId, out var revision)) delta.EnteredRoles.Add(role.ToPb());
-                else if (revision != role.Revision) delta.MovedRoles.Add(new RolePositionUpdatePb { RoleId = role.RoleId, Position = role.Position() });
+                else
+                {
+                    if (!revision.Position().Equals(role.Position())) delta.MovedRoles.Add(new RolePositionUpdatePb { RoleId = role.RoleId, Position = role.Position() });
+                    if (!revision.Equipment.SequenceEqual(role.Equipment)) delta.EquippedRoles.Add(new RoleEquipmentUpdatePb { RoleId = role.RoleId, Equipment = role.ToPb().Equipment });
+                }
             }
             delta.LeftRoleIds.AddRange(before.Visible.Keys.Except(visible.Keys));
         }

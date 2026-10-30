@@ -39,7 +39,7 @@ public sealed class WorldSyncTests : IDisposable
         GameServices.EventBus.Publish(new ResyncWorldRt { Frame = restored });
         Assert.Equal(4UL, session.WorldSequence); Assert.Single(session.RemoteRoles); Assert.False(session.ResyncMapIfNeeded());
         GameServices.EventBus.Publish(new WorldUpdateNotice { Frame = initial }); Assert.Equal(4UL, session.WorldSequence);
-        Assert.Throws<NotSupportedException>(() => session.SendGm("item 1012"));
+        Assert.False(session.IsWorldReadOnly);
     }
     /// <summary>100ms插值与有限外推不越过目标，离开删除样本。</summary>
     [Fact]

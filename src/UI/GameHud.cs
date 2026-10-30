@@ -147,6 +147,8 @@ public partial class GameHud : Control
         _subscriptions.Add(GameServices.EventBus.Subscribe<RoleStatusNotice>(OnStatusNotice));
         _subscriptions.Add(GameServices.EventBus.Subscribe<RoleChangedNotice>(OnRoleChanged));
         _subscriptions.Add(GameServices.EventBus.Subscribe<RoleItemsChangedNotice>(OnBagNotice));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.RoleItemsChangedNotice>(notice =>
+        { if (notice.RoleId == GameServices.Session.RoleId) { _bag.Refresh(); _equipment.Refresh(); } }));
     }
 
     /// <summary>退出界面时丢弃未确认的调整并释放会话订阅。</summary>

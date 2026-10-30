@@ -192,9 +192,9 @@ public sealed class ServerV2SessionTests : IDisposable
         Assert.Equal(0, session.RoleId);
     }
 
-    /// <summary>验证 server-v2-world-entry：真实进入在途返回登录隔离旧结果，所有写入口不发送旧协议。</summary>
+    /// <summary>验证 server-v2-world-entry：真实进入在途返回登录隔离旧结果，物品写入仅发送 V2 协议。</summary>
     [Fact]
-    public async Task EntryGenerationAndReadonlyWritesAreIsolated()
+    public async Task EntryGenerationAndItemWritesAreIsolated()
     {
         using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_directory, Path.Combine(_directory, "server")));
         var session = GameServices.Session;
@@ -216,15 +216,38 @@ public sealed class ServerV2SessionTests : IDisposable
         Assert.True(GameServices.World.HandleInput(click, original + Godot.Vector2.One * 100));
         GameServices.World.Tick(.01);
         Assert.NotEqual(original, GameServices.World.RolePosition);
-        Assert.Throws<NotSupportedException>(() => session.SendGm("item 1"));
-        Assert.Throws<NotSupportedException>(() => session.MoveItem(1, 2, 0));
-        Assert.Throws<NotSupportedException>(() => session.EquipItem(1, EquipmentSlot.MainHand, 0, 0));
+        session.SendGm("item 1012"); PumpUntil(() => session.Bag.Items.Count == 1);
+        var item = session.Bag.Items.Single();
+        session.MoveItem(item.InstanceId, 2, 999); PumpUntil(() => session.Bag.Items.Single().SlotIndex == 2);
+        Assert.Equal(1, session.Bag.Items.Single().Count);
+        Assert.False(session.IsWorldReadOnly);
         Assert.Throws<NotSupportedException>(() => session.DropItem(1, 1, 0));
         Assert.Throws<NotSupportedException>(() => session.PickupItem(Guid.NewGuid(), 1, 1));
         Assert.False(session.ResyncMapIfNeeded());
         GameServices.Net.FlushServerWrites();
         GameServices.World.LeaveRole(); session.LeaveRole();
         Assert.False(GameServices.World.HasWorld); Assert.False(session.HasRole);
+    }
+
+    /// <summary>对应 server-v2-items：完整物品按序接纳，非法装备不得部分覆盖背包或摘要。</summary>
+    [Fact]
+    public void ItemNoticeValidatesBothHalvesBeforeCommit()
+    {
+        using var services = GameServicesTestFactory.RegisterV2(ConfigTestFixture.CreateEnv(_directory, Path.Combine(_directory, "server")));
+        var session = GameServices.Session;
+        session.Login("demo1", "123"); PumpUntil(() => !session.AccountRequestPending);
+        session.CreateRole("物品原子缓存", RoleGender.Male, 1); PumpUntil(() => !session.AccountRequestPending);
+        session.SelectRole(session.Roles.Single().RoleId); PumpUntil(() => session.CanMove);
+        var valid = new RoleItemsChangedNotice { RoleId = session.RoleId, Bag = new(), Equipment = new() };
+        valid.Bag.Items.Add(new ItemPb { InstanceId = 1, ItemId = 1012, SlotIndex = 0, Count = 1, Equipment = new() });
+        GameServices.EventBus.Publish(valid);
+        var bag = session.Bag; var equipment = session.Equipment; var summaries = session.Roles;
+        var invalid = valid.Clone(); invalid.Bag.Items[0].SlotIndex = 3; invalid.Equipment.EquippedItems.Add(999999);
+        var failures = new List<Exception>(); GameServices.EventBus.Error += failures.Add;
+        GameServices.EventBus.Publish(invalid);
+        Assert.Single(failures); Assert.Same(bag, session.Bag); Assert.Same(equipment, session.Equipment); Assert.Same(summaries, session.Roles);
+        valid.Bag.Items[0].SlotIndex = 4; GameServices.EventBus.Publish(valid);
+        Assert.Equal(4, session.Bag.Items.Single().SlotIndex);
     }
 
     /// <summary>构造无旧协议中转的完整初始响应，四个边缘空块须全部提供。</summary>

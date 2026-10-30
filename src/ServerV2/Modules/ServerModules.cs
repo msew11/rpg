@@ -49,7 +49,11 @@ internal sealed class ServerModules : IAsyncDisposable, IActorLocator
         role ??= static _ => new ActorHandlers<RoleContext>().Register<GetRoleWorldObjectCount, GetRoleWorldObjectCountRt>(new GetRoleWorldObjectCountHandler())
             .Register<PrepareRole, PrepareRoleRt>(new PrepareRoleHandler())
             .Register<ProtocolV2.Move, ProtocolV2.MoveRt>(new MoveHandler())
-            .Register<AdvanceRole, AdvanceRoleRt>(new AdvanceRoleHandler());
+            .Register<AdvanceRole, AdvanceRoleRt>(new AdvanceRoleHandler())
+            .Register<ProtocolV2.Gm, ProtocolV2.GmRt>(new RoleItemsHandler())
+            .Register<ProtocolV2.MoveItem, ProtocolV2.MoveItemRt>(new RoleItemsHandler())
+            .Register<ProtocolV2.EquipItem, ProtocolV2.EquipItemRt>(new RoleItemsHandler())
+            .Register<GetRoleItems, GetRoleItemsRt>(new RoleItemsHandler());
         world ??= static _ => new ActorHandlers<WorldContext>().Register<GetWorldObjectCount, GetWorldObjectCountRt>(new GetWorldObjectCountHandler())
             .Register<GetWorldEntrySnapshot, GetWorldEntrySnapshotRt>(new GetWorldEntrySnapshotHandler())
             .Register<UpdateWorldRole, UpdateWorldRoleRt>(new WorldSyncHandler())

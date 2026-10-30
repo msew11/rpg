@@ -85,4 +85,6 @@ message WorldDeltaPb {
   repeated int64 left_role_ids = 3;
   // 持续可见玩家的位置组。
   repeated RolePositionUpdatePb moved_roles = 4;
+  // 持续可见角色的装备变化。
+  repeated RoleEquipmentUpdatePb equipped_roles = 5;
 }

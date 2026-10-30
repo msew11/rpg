@@ -45,3 +45,7 @@ message AdvanceRoleRt {
   // 后续轮次继续调度。
   bool moving = 1;
 }
+
+// 查询接收角色的最新完整物品。
+message GetRoleItems {}
+message GetRoleItemsRt { int64 role_id = 1; rpg.v2.BagPb bag = 2; rpg.v2.RoleWorldEquipmentPb equipment = 3; }

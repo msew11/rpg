@@ -57,6 +57,11 @@ public partial class ServerV2MultiplayerSmoke : MainController
             using var click = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true };
             if (!GameServices.World.HandleInput(click, own + new Vector2(400, 300))) throw new InvalidOperationException("点击预测未接纳");
             await Until(() => GameServices.World.RolePosition.DistanceTo(own) > 3 && GameServices.World.RemoteActors.Single().Position.DistanceTo(initial) > 3);
+            // server-v2-items：真实 TCP 同步本人背包装备及观察者公开换装。
+            GameServices.Session.SendGm("item 1012");
+            await Until(() => GameServices.Session.Bag.Items.Count == 1);
+            GameServices.Session.EquipItem(GameServices.Session.Bag.Items.Single().InstanceId, Rpg.Const.EquipmentSlot.MainHand, 999, 999);
+            await Until(() => GameServices.Session.Equipment.Items.Count == 1 && GameServices.Session.RemoteRoles.Values.Single().Equipment.Items.Count == 1);
             var remoteId = GameServices.World.RemoteActors.Single().RoleId;
             if (FindChild("RemoteRole" + remoteId, true, false) is null) throw new InvalidOperationException("远端ActorView未呈现");
             var name = Host ? "host" : "client"; var other = Host ? "client" : "host";

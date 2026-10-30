@@ -26,6 +26,8 @@ internal sealed class ServerRuntime : IAsyncDisposable
     { lock (_gate) return Find(id).WaitOutgoingAsync(cancellation); }
     /// <summary>只保护外部接纳与连接目录。</summary>
     private readonly object _gate = new();
+    /// <summary>物品及保存共用的单实例入口，获取时不占用邮箱。</summary>
+    private readonly System.Threading.SemaphoreSlim _items = new(1, 1);
     /// <summary>当前连接及仍在排空的已断开连接。</summary>
     private readonly Dictionary<DataConnectionId, ConnectionSession> _connections = new();
     /// <summary>宿主拥有的三类模块目录。</summary>
@@ -107,7 +109,9 @@ internal sealed class ServerRuntime : IAsyncDisposable
         try { await previous.ConfigureAwait(false); } catch { /* 上轮错误由该轮调用方观察。 */ }
         await Task.WhenAll(barriers).ConfigureAwait(false);
         if (World is not null) await World.BarrierAsync().ConfigureAwait(false);
-        await _modules.FlushAsync().ConfigureAwait(false);
+        await _items.WaitAsync().ConfigureAwait(false);
+        try { await _modules.FlushAsync().ConfigureAwait(false); }
+        finally { _items.Release(); }
     }
     /// <summary>等待有序停止。</summary>
     public ValueTask DisposeAsync() => new(StopAsync());
@@ -122,6 +126,8 @@ internal sealed class ServerRuntime : IAsyncDisposable
         string? bindUsername = null;
         long? bindRoleId = null;
         (WorldCoordinator.DataControlBinding Binding, WorldFramePb Initial)? entered = null;
+        var itemGate = false;
+        var itemRequest = false;
         try
         {
             if (envelope.RequestId == 0) throw new ServerRequestException(ErrorCodePb.InvalidRequest, "请求编号必须非零");
@@ -138,8 +144,15 @@ internal sealed class ServerRuntime : IAsyncDisposable
             }
             if (request is ResyncWorld && World is not null)
             { await World.ResyncAsync(session, snapshot, envelope.RequestId).ConfigureAwait(false); return; }
-            var call = World?.Call(snapshot, request is Move) ?? new DataActorCall(snapshot.ConnectionId.Value, snapshot.Generation, snapshot.AuthEpoch);
+            if (request is Gm or MoveItem or EquipItem or EnterWorld)
+            { await _items.WaitAsync().ConfigureAwait(false); itemGate = true; }
+            itemRequest = request is Gm or MoveItem or EquipItem;
+            var call = World?.Call(snapshot, request is Move || itemRequest) ?? new DataActorCall(snapshot.ConnectionId.Value, snapshot.Generation, snapshot.AuthEpoch);
+            if (itemRequest) call = call with { PreserveResult = true };
             var result = await Router.RouteAsync(snapshot, request, call).ConfigureAwait(false);
+            if (result.ItemNotice is { } notice && session.IsCurrent(snapshot, true))
+                session.Complete(snapshot, Codec.Encode(notice, snapshot.Generation, 0, false));
+            if (itemRequest && session.IsCurrent(snapshot, true) && World is not null) World.Moved(snapshot);
             response = result.Message; bindUsername = result.BindUsername; bindRoleId = result.BindRoleId;
             if (World is not null && response is EnterWorldRt entry)
             {
@@ -148,16 +161,21 @@ internal sealed class ServerRuntime : IAsyncDisposable
             }
             if (World is not null && request is Move) World.Moved(snapshot);
             if (World is not null && request is DeleteRole deleted) await World.DeletedAsync(deleted.RoleId, session).ConfigureAwait(false);
+            if (session.Complete(snapshot, Codec.Encode(response, snapshot.Generation, envelope.RequestId, false), bindUsername, bindRoleId) && entered is { } ready)
+                World!.Initial(ready.Binding, snapshot with { RoleId = ready.Binding.RoleId }, ready.Initial);
+            return;
         }
         catch (OperationCanceledException) when (!session.IsCurrent(snapshot) || World is not null) { return; }
+        catch (Exception error) when (itemRequest && error is (ArgumentException or InvalidOperationException or System.IO.InvalidDataException))
+        { response = new ErrorRt { Code = ErrorCodePb.InvalidRequest, Message = error.Message }; }
         catch (ServerRequestException error) { response = new ErrorRt { Code = error.Code, Message = error.Message }; }
         catch (Exception error)
         {
             Report(error);
             response = new ErrorRt { Code = ErrorCodePb.InternalError, Message = "服务端处理失败" };
         }
-        if (session.Complete(snapshot, Codec.Encode(response, snapshot.Generation, envelope.RequestId, false), bindUsername, bindRoleId) && entered is { } ready)
-            World!.Initial(ready.Binding, snapshot with { RoleId = ready.Binding.RoleId }, ready.Initial);
+        finally { if (itemGate) _items.Release(); }
+        session.Complete(snapshot, Codec.Encode(response, snapshot.Generation, envelope.RequestId, false), bindUsername, bindRoleId);
     }
 
     /// <summary>已接纳回合仍可以访问下游，完成后才关闭模块目录。</summary>
@@ -168,7 +186,9 @@ internal sealed class ServerRuntime : IAsyncDisposable
             await Task.WhenAll(pending).ConfigureAwait(false);
             try { await flushing.ConfigureAwait(false); } catch { /* 最终保存会重试，先前错误由原调用方观察。 */ }
             if (World is not null) await World.StopAsync().ConfigureAwait(false);
-            await _modules.FlushAsync().ConfigureAwait(false);
+            await _items.WaitAsync().ConfigureAwait(false);
+        try { await _modules.FlushAsync().ConfigureAwait(false); }
+        finally { _items.Release(); }
         }
         finally { await _modules.DisposeAsync().ConfigureAwait(false); }
     }

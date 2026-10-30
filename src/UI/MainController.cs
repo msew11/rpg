@@ -140,7 +140,7 @@ public partial class MainController : Control
     /// <summary>图标或 UI 信息框拾取均使用同一世界服务入口。</summary>
     private void RequestPickup(Guid objectId)
     {
-        if (GameServices.Session.IsWorldReadOnly) return;
+        if (!GameServices.Session.CanWriteGroundItems) return;
         try { GameServices.World.PickupItem(objectId); }
         catch (Exception error) { _hud?.ShowNetworkError(error.Message); }
     }
@@ -440,7 +440,7 @@ public partial class MainController : Control
         _worldVisual.AddChild(_groundItems);
         _groundOverlay = new GroundItemOverlayControl(_groundItems) { Name = "GroundItemOverlay" };
         AddChild(_groundOverlay);
-        if (!GameServices.Session.IsWorldReadOnly) _groundOverlay.PickupRequested += RequestPickup;
+        if (GameServices.Session.CanWriteGroundItems) _groundOverlay.PickupRequested += RequestPickup;
         _actor = new ActorView { Name = "ActorView", ZIndex = 1, Position = IsometricProjection.ToScreen(GameServices.World.RolePosition) };
         _worldVisual.AddChild(_actor);
         _actor.Present(GameServices.World.ActorState!);
@@ -483,7 +483,7 @@ public partial class MainController : Control
     private bool TryFlushBeforeLeavingRole(bool includeAccount = false)
     {
         if (_servicesLifetime is null || !GameServices.Session.HasRole &&
-            !(includeAccount && GameServices.Session.IsWorldReadOnly && GameServices.Session.IsLoggedIn)) return true;
+            !(includeAccount && GameServices.Session.UsesWorldFrames && GameServices.Session.IsLoggedIn)) return true;
         try
         {
             GameServices.Net.FlushServerWrites();

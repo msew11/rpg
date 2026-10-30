@@ -75,6 +75,10 @@ public sealed class RoleCache : CacheBase
         _state = State with { Position = position.Position, PositionRevision = position.Revision, AcknowledgedAction = position.AcknowledgedAction, Target = position.Target, Speed = position.Speed };
     }
 
+    /// <summary>V2 完整组合已验证后一次替换物品和外观。</summary>
+    internal void AcceptItems(BagPbData bag, RoleWorldEquipmentPbData equipment)
+    { _bag = bag; _state = State with { Equipment = equipment }; }
+
     /// <summary>成功选角后接纳首份快照，并检查响应身份一致。</summary>
     private void OnSelected(SelectRoleRt response)
     {

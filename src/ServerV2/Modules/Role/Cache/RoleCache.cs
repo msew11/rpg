@@ -7,7 +7,9 @@ namespace Rpg.ServerV2.Modules.Role.Cache;
 public sealed class RoleCache
 {
     /// <summary>临时移动领域，不参与三表落盘。</summary>
-    public DataCacheMovement Movement { get; } = new();
+    public DataCacheMovement Movement { get; }
+    /// <summary>位置与装备共同维护的公开投影状态。</summary>
+    public DataCacheProjection Projection { get; } = new();
     /// <summary>固定角色身份，不使用连接编号。</summary>
     public long RoleId { get; }
     /// <summary>角色基础表。</summary>
@@ -30,7 +32,7 @@ public sealed class RoleCache
         | (Equipments.IsDirty ? DataRoleTables.Equipment : DataRoleTables.None);
     /// <summary>用完整加载的三表建立工作区和保存基线。</summary>
     internal RoleCache(long roleId, DataRoleSnapshot? snapshot)
-    { RoleId = roleId; if (snapshot is not null) SetTables(snapshot); }
+    { RoleId = roleId; Movement = new(Projection); if (snapshot is not null) SetTables(snapshot); }
     /// <summary>一次建立三表引用，避免发布部分候选。</summary>
     private void SetTables(DataRoleSnapshot snapshot)
     { _role = new(snapshot.Role); _items = new(snapshot.Items); _equipments = new(snapshot.Equipments); }

@@ -93,7 +93,10 @@ public sealed class MockServer : IAsyncDisposable
             .Register<ProtocolV2.Login, ProtocolV2.LoginRt>(new LoginHandler())
             .Register<ProtocolV2.CreateRole, ProtocolV2.CreateRoleRt>(new CreateRoleHandler())
             .Register<ProtocolV2.DeleteRole, ProtocolV2.DeleteRoleRt>(new DeleteRoleHandler())
-            .Register<ProtocolV2.EnterWorld, ProtocolV2.EnterWorldRt>(new Modules.Login.Async.EnterWorldHandler()), report: Report);
+            .Register<ProtocolV2.EnterWorld, ProtocolV2.EnterWorldRt>(new Modules.Login.Async.EnterWorldHandler())
+            .Register<ProtocolV2.Gm, ProtocolV2.GmRt>(new Modules.Login.Async.RoleItemsHandler())
+            .Register<ProtocolV2.MoveItem, ProtocolV2.MoveItemRt>(new Modules.Login.Async.RoleItemsHandler())
+            .Register<ProtocolV2.EquipItem, ProtocolV2.EquipItemRt>(new Modules.Login.Async.RoleItemsHandler()), report: Report);
         _runtime = CreateRuntime(modules);
     }
     /// <summary>验收注入已完整装配的模块，配置直接来自模块，避免重复传入与不一致。</summary>

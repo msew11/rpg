@@ -27,7 +27,7 @@ public sealed class NetService : Service
     /// <summary>当前是否支持移动；多人移动接入后启用。</summary>
     public bool CanMove => true;
     /// <summary>未迁移的物品、装备和 GM 写操作能力。</summary>
-    public bool CanWriteItems => !IsV2;
+    public bool CanWriteItems => true;
     /// <summary>主动返回登录时结束玩家连接，监听服务器继续运行；被踢流程不调用。</summary>
     public void DisconnectClient()
     {

@@ -12,6 +12,9 @@ namespace Rpg.UI;
 /// <summary>绘制权威背包快照并提交物品拖放，滚动网格适配小窗口。</summary>
 public partial class BagControl : PanelContainer
 {
+    /// <summary>V2 页面自身拥有的消息监听。</summary>
+    private readonly System.Collections.Generic.List<IDisposable> _v2Subscriptions = new();
+
     /// <summary>为缩放后的格子边界留出取整余量，避免完整背包出现滚动条。</summary>
     private const float FitAllowance = 4f;
     /// <summary>按基础配置列数排列的格子网格。</summary>
@@ -91,6 +94,9 @@ public partial class BagControl : PanelContainer
         {
             if (response.RoleId == GameServices.Session.RoleId) ShowMoveStatus(response.Success ? "" : response.Error);
         });
+        _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.MoveItemRt>(_ => ShowMoveStatus("")));
+        _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.EquipItemRt>(_ => ShowMoveStatus("")));
+        _v2Subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.ProtocolV2.ErrorRt>(error => ShowMoveStatus(error.Message)));
         _dropDialog = new ConfirmationDialog { Name = "DropItemDialog", Title = "丢弃道具", Exclusive = true };
         _dropDialog.GetOkButton().Text = "丢弃";
         _dropDialog.GetCancelButton().Text = "取消";
@@ -224,7 +230,7 @@ public partial class BagControl : PanelContainer
         if (_itemPreview is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } click) return;
         var data = _pickedItem;
         CancelItemDrag();
-        if (IsEquipmentPayload(data)) { GetViewport().SetInputAsHandled(); return; }
+        if (!GameServices.Session.CanWriteGroundItems || IsEquipmentPayload(data)) { GetViewport().SetInputAsHandled(); return; }
         if (GameServices.World.HasRole && CanDropItem(data, 0))
         {
             var payload = data.AsGodotDictionary();
@@ -443,6 +449,8 @@ public partial class BagControl : PanelContainer
     /// <summary>HUD 离开时立即解除移动响应订阅并作废拖放。</summary>
     public void ReleaseSubscription()
     {
+        foreach (var subscription in _v2Subscriptions) subscription.Dispose();
+        _v2Subscriptions.Clear();
         CancelItemDrag();
         _dragEpoch++;
         _moveSubscription?.Dispose();

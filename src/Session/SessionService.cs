@@ -29,6 +29,8 @@ public sealed class SessionService : Service
     private WorldEntryCache? _entry;
     /// <summary>统一世界同步缓存。</summary>
     private WorldSyncCache? _sync;
+    /// <summary>账号内 V2 物品组合接纳入口。</summary>
+    private RoleItemsCache? _items;
     /// <summary>首帧后才可提交移动。</summary>
     public bool CanMove => HasRole && (!_useV2 || _sync?.Sequence > 0);
     /// <summary>当前公开远端角色。</summary>
@@ -39,8 +41,10 @@ public sealed class SessionService : Service
     public long ServerTimeMs => _sync?.ServerTimeMs ?? 0;
     /// <summary>是否使用 V2 权威同步。</summary>
     public bool UsesWorldFrames => _useV2;
-    /// <summary>本批 V2 世界仅供读取，所有业务写入口共用此约束。</summary>
-    public bool IsWorldReadOnly => _useV2;
+    /// <summary>当前传输是否禁用角色物品写入。</summary>
+    public bool IsWorldReadOnly => !_net.CanWriteItems;
+    /// <summary>地面写操作尚待独立迁移。</summary>
+    public bool CanWriteGroundItems => !_useV2;
     /// <summary>当前账号拥有的网络代次。</summary>
     private long _generation;
 
@@ -106,7 +110,7 @@ public sealed class SessionService : Service
             _role = new RoleCache();
             _map = new MapCache();
             _login = login;
-            if (_useV2) { _entry = new WorldEntryCache(login, _role, _map); _sync = new WorldSyncCache(_role, _map); }
+            if (_useV2) { _entry = new WorldEntryCache(login, _role, _map); _sync = new WorldSyncCache(_role, _map); _items = new RoleItemsCache(login, _role); }
             if (_useV2)
             {
                 login.BeginV2Request<ProtocolV2.LoginRt>();
@@ -116,9 +120,11 @@ public sealed class SessionService : Service
         }
         catch
         {
-            _sync?.Dispose();
+            _items?.Dispose();
+        _sync?.Dispose();
             _entry?.Dispose();
-            _sync = null;
+            _items = null;
+        _sync = null;
             _entry = null;
             _map?.Dispose();
             _map = null;
@@ -229,15 +235,17 @@ public sealed class SessionService : Service
         EnsureActive();
         if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
+        if (_useV2) { _net.Send(new ProtocolV2.Gm { Command = command }); return; }
         _net.Send(new Gm { RoleId = RoleId, Command = command });
     }
 
-    /// <summary>提交整份物品拖放，不预先修改缓存，服务端验证版本并决定合并或交换。</summary>
+    /// <summary>提交整份物品拖放；V2 按最新状态执行，旧链路保留版本条件。</summary>
     public void MoveItem(long instanceId, int targetSlotIndex, long expectedRevision)
     {
         EnsureActive();
         if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
+        if (_useV2) { _net.Send(new ProtocolV2.MoveItem { InstanceId = instanceId, TargetSlotIndex = targetSlotIndex }); return; }
         _net.Send(new MoveItem { RoleId = RoleId, InstanceId = instanceId,
             TargetSlotIndex = targetSlotIndex, ExpectedRevision = expectedRevision });
     }
@@ -248,6 +256,12 @@ public sealed class SessionService : Service
         EnsureActive();
         if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
+        if (_useV2)
+        {
+            var v2 = new ProtocolV2.EquipItem { InstanceId = instanceId, Slot = (ProtocolV2.EquipmentSlotPb)slot };
+            if (targetBagSlot is { } target) v2.TargetBagSlot = target;
+            _net.Send(v2); return;
+        }
         var request = new EquipItem { RoleId = RoleId, InstanceId = instanceId,
             Slot = (EquipmentSlotPb)slot, ExpectedBagRevision = expectedBagRevision, ExpectedEquipmentRevision = expectedEquipmentRevision };
         if (targetBagSlot is { } index) request.TargetBagSlot = index;
@@ -258,7 +272,7 @@ public sealed class SessionService : Service
     public void DropItem(long instanceId, int count, long expectedRevision, bool destroy = false, Vector2? position = null)
     {
         EnsureActive();
-        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
+        if (!CanWriteGroundItems) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
         var request = new DropItem { RoleId = RoleId, InstanceId = instanceId, Count = count, ExpectedRevision = expectedRevision, Destroy = destroy };
         if (position is { } point) { request.DropX = point.X; request.DropY = point.Y; }
@@ -269,7 +283,7 @@ public sealed class SessionService : Service
     internal void PickupItem(Guid objectId, long objectRevision, long moveActionId)
     {
         EnsureActive();
-        if (IsWorldReadOnly) throw new NotSupportedException("V2 世界当前仅供只读展示");
+        if (!CanWriteGroundItems) throw new NotSupportedException("V2 世界当前仅供只读展示");
         if (!HasRole) throw new InvalidOperationException("请先进入角色");
         _net.Send(new PickupItem { RoleId = RoleId, ObjectId = objectId.ToString("N"),
             ExpectedObjectRevision = objectRevision, ExpectedBagRevision = Bag.Revision, MoveActionId = moveActionId });
@@ -295,11 +309,13 @@ public sealed class SessionService : Service
     {
         EnsureActive();
         if (_useV2) ResetNetwork();
+        _items?.Dispose();
         _sync?.Dispose();
         _entry?.Dispose();
         _map?.Dispose();
         _role?.Dispose();
         _login?.Dispose();
+        _items = null;
         _sync = null;
         _entry = null;
         _map = null;
@@ -322,6 +338,7 @@ public sealed class SessionService : Service
     {
         if (IsDisposed) return;
         IsDisposed = true;
+        _items?.Dispose();
         _sync?.Dispose();
         _entry?.Dispose();
         _map?.Dispose();

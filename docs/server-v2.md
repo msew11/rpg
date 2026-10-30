@@ -1,5 +1,14 @@
 # Server V2 框架
 
+## 第四批角色物品迁移
+
+默认链路已开放 `Gm`、`MoveItem`、`EquipItem`，原始业务协议经 Login 校验当前控制角色归属，再进入 Role。三个开发账号都能对当前角色执行 `/item`。规则先构造并校验完整三表候选，再提交；无预期版本、物品业务版本、请求重放缓存或自动重试。失败保留实例编号和持有关系。
+
+`gm.proto` 新增 `Gm/GmRt`；`bag.proto` 新增移动、穿脱请求回复和 `RoleItemsChangedNotice`（完整私有背包及公开装备）；`role.proto` 新增装备槽枚举及 `RoleEquipmentUpdatePb`；`world.proto` 的增量增加 `equipped_roles=5`；`actor/role.proto` 增加 `GetRoleItems/GetRoleItemsRt`。本人通知先于成功回复，按 TCP 顺序验证后接纳；选角摘要同步实际装备。公开投影版本独立于移动状态，World 可在同帧发送位置与装备，也支持静止换装。
+
+运行时的单实例物品信号量在邮箱外获取，覆盖物品操作、本人输出和保存。内部调用仅为完成已执行操作保留结果，对外按原连接与控制绑定过滤。尚未迁移的地面操作单独禁用。后文旧阶段的只读约束以本节为准。
+
+
 V2 在 `src/ServerV2` 独立开发，默认客户端使用 V2 TCP；旧 Server 由测试显式装配。这里的协议、账号摘要存储契约不兼容旧实现；不读取、改写或迁移旧存档。
 
 ## Actor 运行时

@@ -8,7 +8,7 @@ using Rpg.UI;
 
 namespace Rpg.Tests;
 
-/// <summary>以真实按钮验收 server-v2-world-entry 的进入、初始展示、只读窗口、切角和重启。</summary>
+/// <summary>以真实按钮验收 server-v2-world-entry 的进入、初始展示、物品窗口、切角和重启。</summary>
 public partial class ServerV2WorldEntrySmoke : Node
 {
     /// <summary>操作完整 V2 服务组和真实页面，所有数据使用临时目录。</summary>
@@ -34,16 +34,19 @@ public partial class ServerV2WorldEntrySmoke : Node
             Check(GameServices.World.HasWorld && GameServices.World.HasRole && GameServices.Session.HasMap, "世界缓存和实体未完整建立");
             Check(main.FindChild("MapView", true, false) is not null && main.FindChild("ActorView", true, false) is not null, "地图或人物缺失");
             Check(GameServices.Session.Role.Health == 100 && GameServices.Session.Role.Mana == 60, "初始 HUD 数值无效");
-            Check(!((LineEdit)main.FindChild("CommandInput", true, false)).Editable && Button(main, "SendCommand").Disabled, "GM 仍可提交");
+            Check(((LineEdit)main.FindChild("CommandInput", true, false)).Editable && !Button(main, "SendCommand").Disabled, "GM 未开放");
+            ((LineEdit)main.FindChild("CommandInput", true, false)).Text = "/item 1012";
+            await Click(Button(main, "SendCommand"));
+            await Until(() => GameServices.Session.Bag.Items.Count == 1);
             var position = GameServices.World.RolePosition;
             await ClickAt(new Vector2(750, 230)); await Frames();
             Check(GameServices.World.RolePosition != position || GameServices.World.RoleTarget is not null, "首帧后未开放预测移动");
             await Click(TextButton(main, "背包")); await Frames();
             var bag = (BagControl)main.FindChild("背包", true, false);
-            Check(bag.Visible && bag.CreateItemDrag(0).VariantType == Variant.Type.Nil, "只读背包不可用或允许拖动物品");
+            Check(bag.Visible && bag.CreateItemDrag(0).VariantType != Variant.Type.Nil, "背包物品不能操作");
             await Click(TextButton(main, "背包"));
             await Click(TextButton(main, "角色")); await Frames();
-            Check(((Label)main.FindChild("EquipmentStatus", true, false)).Text.Contains("只读"), "装备窗口缺少只读提示");
+            Check(!((Label)main.FindChild("EquipmentStatus", true, false)).Visible, "装备窗口仍为只读");
             await Click(TextButton(main, "角色"));
             await ReturnToRoles(main);
             Check(!GameServices.World.HasWorld && !GameServices.Session.HasRole && !GameServices.Session.HasMap, "返回未清世界缓存");
@@ -76,10 +79,13 @@ public partial class ServerV2WorldEntrySmoke : Node
             await Click(TextButton(main, "背包")); await Frames();
             bag = (BagControl)main.FindChild("背包", true, false);
             await ClickAt(((Control)bag.FindChild("Slot0", true, false)).GetGlobalRect().GetCenter());
-            Check(bag.FindChild("PickedItemPreview", true, false) is null && GameServices.Session.Bag.Items.Count == 1, "只读物品仍可拿起");
+            Check(bag.FindChild("PickedItemPreview", true, false) is not null, "背包物品未拿起");
+            await ClickAt(((Control)bag.FindChild("Slot1", true, false)).GetGlobalRect().GetCenter());
+            await Until(() => GameServices.Session.Bag.Items.Single().SlotIndex == 1);
             await Click(TextButton(main, "背包")); await Click(TextButton(main, "角色")); await Frames();
-            await ClickAt(((Control)main.FindChild("EquipmentMainHand", true, false)).GetGlobalRect().GetCenter());
-            Check(bag.FindChild("PickedItemPreview", true, false) is null && GameServices.Session.Equipment.Items.Count == 1, "只读装备仍可卸下");
+            await ClickAt(((Control)main.FindChild("EquipmentMainHand", true, false)).GetGlobalRect().GetCenter(), ctrl: true);
+            await Until(() => GameServices.Session.Equipment.Items.Count == 0);
+            Check(GameServices.Session.Bag.Items.Count == 2, "卸下未原子同步背包");
             await Click(TextButton(main, "角色"));
             var summaryFile = Path.Combine(root, "demo1.role_summary.json");
             var backup = Path.Combine(directory, "summary-backup.json");
@@ -108,7 +114,7 @@ public partial class ServerV2WorldEntrySmoke : Node
             await Until(() => main.FindChild("GameHud", true, false) is not null);
             await Click(TextButton(main, "系统")); await Click(TextButton(main, "返回登陆")); await Frames();
             Check(!GameServices.Session.IsLoggedIn && !GameServices.World.HasWorld, "返回登录未清理世界及账号");
-            GD.Print("Server V2 world entry smoke passed: real buttons, map, character, HUD, read-only bag/equipment, switch and restart.");
+            GD.Print("Server V2 world entry smoke passed: real buttons, map, character, HUD, writable GM/bag/equipment, switch and restart.");
             GetTree().Quit(0);
         }
         catch (Exception error) { GD.PushError(error.ToString()); GetTree().Quit(1); }
@@ -134,13 +140,13 @@ public partial class ServerV2WorldEntrySmoke : Node
     /// <summary>选择当前可见且文案唯一的菜单或窗口按钮。</summary>
     private static Button TextButton(Node root, string text) => root.FindChildren("*", "Button", true, false)
         .OfType<Button>().Single(button => button.Text == text && button.IsVisibleInTree());
-    /// <summary>真实地图坐标点击用于验证只读输入不能移动。</summary>
-    private async Task ClickAt(Vector2 point)
+    /// <summary>真实鼠标输入验证地图与物品交互。</summary>
+    private async Task ClickAt(Vector2 point, bool ctrl = false)
     {
         foreach (var pressed in new[] { true, false })
         {
             using var input = new InputEventMouseButton { Position = point, GlobalPosition = point, ButtonIndex = MouseButton.Left,
-                Pressed = pressed, ButtonMask = pressed ? MouseButtonMask.Left : 0 };
+                Pressed = pressed, CtrlPressed = ctrl, ButtonMask = pressed ? MouseButtonMask.Left : 0 };
             GetViewport().PushInput(input, true);
         }
         await Frames();

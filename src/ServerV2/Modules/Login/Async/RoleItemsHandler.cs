@@ -1,0 +1,34 @@
+using System.Linq;
+using System.Threading.Tasks;
+using Rpg.ProtocolV2;
+using Rpg.ServerV2.ActorProtocol;
+using Rpg.ServerV2.Modules.Login.Handler;
+using Rpg.ServerV2.Runtime;
+
+namespace Rpg.ServerV2.Modules.Login.Async;
+
+/// <summary>从可信控制角色检查账号归属，向角色编排物品操作。</summary>
+internal sealed class RoleItemsHandler : IActorHandler<LoginContext, Gm, GmRt>,
+    IActorHandler<LoginContext, MoveItem, MoveItemRt>, IActorHandler<LoginContext, EquipItem, EquipItemRt>
+{
+    /// <summary>角色身份只来自邮箱运行时元数据。</summary>
+    private static long Owned(LoginContext context)
+    { var id = context.Call?.RoleId ?? 0; context.Cache.Summaries.Owned(id); return id; }
+    /// <summary>在账号已验证归属的前提下发放。</summary>
+    public async ValueTask<GmRt> HandleAsync(LoginContext context, Gm request) =>
+        await context.Actors.Role(Owned(context)).Ask<GmRt>(request, context.Call).ConfigureAwait(false);
+    /// <summary>将原始移动协议直接交给角色邮箱。</summary>
+    public async ValueTask<MoveItemRt> HandleAsync(LoginContext context, MoveItem request) =>
+        await context.Actors.Role(Owned(context)).Ask<MoveItemRt>(request, context.Call).ConfigureAwait(false);
+    /// <summary>穿脱已执行后按实际装备同步摘要，不依赖离开世界。</summary>
+    public async ValueTask<EquipItemRt> HandleAsync(LoginContext context, EquipItem request)
+    {
+        var id = Owned(context);
+        var reply = await context.Actors.Role(id).Ask<EquipItemRt>(request, context.Call).ConfigureAwait(false);
+        var items = await context.Actors.Role(id).Ask<GetRoleItemsRt>(new GetRoleItems()).ConfigureAwait(false);
+        var summary = RoleSummaries.Visible(context).Single(role => role.RoleId == id);
+        context.Cache.Summaries.Synchronize(new RoleWorldStatePb { RoleId = id,
+            Profile = new() { Name = summary.Name, Gender = summary.Gender, Level = summary.Level, HeadId = summary.HeadId }, Equipment = items.Equipment });
+        return reply;
+    }
+}

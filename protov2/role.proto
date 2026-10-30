@@ -105,3 +105,21 @@ message RolePositionUpdatePb {
   // 完整位置组。
   RoleWorldPositionPb position = 2;
 }
+
+// 与客户端槽位保持一致，仅主副手开放操作。
+enum EquipmentSlotPb {
+ EQUIPMENT_SLOT_PB_UNSPECIFIED = 0;
+ EQUIPMENT_SLOT_PB_MAIN_HAND = 1;
+ EQUIPMENT_SLOT_PB_OFF_HAND = 2;
+ EQUIPMENT_SLOT_PB_HEAD = 3;
+ EQUIPMENT_SLOT_PB_FACE = 4;
+ EQUIPMENT_SLOT_PB_BODY = 5;
+ EQUIPMENT_SLOT_PB_NECKLACE = 6;
+ EQUIPMENT_SLOT_PB_HANDS = 7;
+ EQUIPMENT_SLOT_PB_RING1 = 8;
+ EQUIPMENT_SLOT_PB_LEGS = 9;
+ EQUIPMENT_SLOT_PB_RING2 = 10;
+ EQUIPMENT_SLOT_PB_FEET = 11;
+}
+// 持续可见角色的完整装备组。
+message RoleEquipmentUpdatePb { int64 role_id = 1; RoleWorldEquipmentPb equipment = 2; }

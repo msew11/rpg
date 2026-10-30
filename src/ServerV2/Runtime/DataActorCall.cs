@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 
 namespace Rpg.ServerV2.Runtime;
 
 /// <summary>邮箱侧不可变投递身份；不序列化，不包装业务协议。</summary>
 public sealed record DataActorCall(Guid ConnectionId = default, ulong Generation = 0, long AuthEpoch = 0,
-    long RoleId = 0, long ControlVersion = 0, long ServerTimeMs = 0, int MovementSpeed = 0, System.Collections.Immutable.ImmutableDictionary<long, DataActorCall>? Observers = null);
+    long RoleId = 0, long ControlVersion = 0, long ServerTimeMs = 0, int MovementSpeed = 0, System.Collections.Immutable.ImmutableDictionary<long, DataActorCall>? Observers = null, bool PreserveResult = false);
 
 /// <summary>每个服务器独有的投递资格目录，不保存角色业务状态。</summary>
 internal sealed class ActorCallRegistry
