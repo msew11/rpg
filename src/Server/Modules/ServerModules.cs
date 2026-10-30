@@ -19,14 +19,14 @@ using Rpg.Server.Runtime;
 namespace Rpg.Server.Modules;
 
 /// <summary>持有三类分片目录，只负责模块装配和身份校验。</summary>
-internal sealed class ServerModules : IAsyncDisposable, IActorLocator
+internal sealed class ServerModules : IServerModules
 {
-    /// <summary>自定义处理器表不隐式添加多人业务。</summary>
-    internal bool SupportsMovement { get; }
+    /// <summary>正式固定装配始终包含完整多人调度处理器。</summary>
+    public bool SupportsMovement => true;
     /// <summary>各分片共用本实例的运行时身份校验目录。</summary>
-    internal ActorCallRegistry Calls { get; } = new();
+    public ActorCallRegistry Calls { get; } = new();
     /// <summary>装配入口确定的统一配置，所有分片必须借用此实例。</summary>
-    internal ConfigService Config { get; }
+    public ConfigService Config { get; }
     /// <summary>正式实例的专用共同落盘，注入仓库验收保留原独立保存契约。</summary>
     private readonly Modules.Common.Storage.RepoItemBatch? _itemBatch;
     /// <summary>按规范账号键的分片目录。</summary>
@@ -36,37 +36,52 @@ internal sealed class ServerModules : IAsyncDisposable, IActorLocator
     /// <summary>按地图身份的分片目录。</summary>
     private readonly ActorDirectory<int> _world;
 
-    /// <summary>每次创建 Actor 时构造专用注册表，工厂不在消息中流转。</summary>
-    internal ServerModules(ConfigService config, IAccountRoleSummaryRepo summaries, IRoleRepo roles, IWorldRepo worlds, Func<string, ActorHandlers<LoginContext>> login,
-        Func<long, ActorHandlers<RoleContext>>? role = null, Func<int, ActorHandlers<WorldContext>>? world = null,
-        Action<Exception>? report = null, Modules.Common.Storage.RepoItemBatch? itemBatch = null)
+    /// <summary>在构造方法内统一声明三类处理器，每次创建分片时构造独立注册表。</summary>
+    internal ServerModules(
+        ConfigService config,
+        IAccountRoleSummaryRepo summaries,
+        IRoleRepo roles,
+        IWorldRepo worlds,
+        Action<Exception>? report = null,
+        Common.Storage.RepoItemBatch? itemBatch = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(summaries);
         ArgumentNullException.ThrowIfNull(roles);
         ArgumentNullException.ThrowIfNull(worlds);
-        ArgumentNullException.ThrowIfNull(login);
         ObjectDisposedException.ThrowIf(config.IsDisposed, config);
-        SupportsMovement = role is null && world is null;
-        role ??= static _ => new ActorHandlers<RoleContext>().Register<GetRoleWorldObjectCount, GetRoleWorldObjectCountRt>(new GetRoleWorldObjectCountHandler())
-            .Register<PrepareRole, PrepareRoleRt>(new PrepareRoleHandler())
-            .Register<global::Rpg.Protocol.Move, global::Rpg.Protocol.MoveRt>(new MoveHandler())
-            .Register<AdvanceRole, AdvanceRoleRt>(new AdvanceRoleHandler())
-            .Register<global::Rpg.Protocol.Gm, global::Rpg.Protocol.GmRt>(new Modules.Role.Handler.GmHandler())
-            .Register<global::Rpg.Protocol.MoveItem, global::Rpg.Protocol.MoveItemRt>(new Modules.Role.Handler.MoveItemHandler())
-            .Register<global::Rpg.Protocol.EquipItem, global::Rpg.Protocol.EquipItemRt>(new Modules.Role.Async.EquipItemHandler())
-            .Register<GetRoleItems, GetRoleItemsRt>(new Modules.Role.Handler.GetRoleItemsHandler())
-            .Register<global::Rpg.Protocol.DropItem, global::Rpg.Protocol.DropItemRt>(new Modules.Role.Async.DropItemHandler())
-            .Register<global::Rpg.Protocol.PickupItem, global::Rpg.Protocol.PickupItemRt>(new Modules.Role.Handler.PickupItemHandler())
-            .Register<CompleteRolePickup, CompleteRolePickupRt>(new Modules.Role.Async.CompleteRolePickupHandler());
-        world ??= static _ => new ActorHandlers<WorldContext>().Register<GetWorldObjectCount, GetWorldObjectCountRt>(new GetWorldObjectCountHandler())
-            .Register<GetWorldEntrySnapshot, GetWorldEntrySnapshotRt>(new GetWorldEntrySnapshotHandler())
-            .Register<UpdateWorldRole, UpdateWorldRoleRt>(new Modules.World.Handler.UpdateWorldRoleHandler())
-            .Register<BuildWorldUpdates, BuildWorldUpdatesRt>(new Modules.World.Handler.BuildWorldUpdatesHandler())
-            .Register<GetWorldSnapshot, GetWorldSnapshotRt>(new Modules.World.Handler.GetWorldSnapshotHandler())
-            .Register<CreateGroundItem, CreateGroundItemRt>(new Modules.World.Handler.CreateGroundItemHandler())
-            .Register<GetGroundItem, GetGroundItemRt>(new Modules.World.Handler.GetGroundItemHandler())
-            .Register<RemoveGroundItem, RemoveGroundItemRt>(new Modules.World.Handler.RemoveGroundItemHandler());
+        Func<string, ActorHandlers<LoginContext>> login = static _ => new ActorHandlers<LoginContext>()
+            .Register(new Login.Handler.LoginHandler())
+            .Register(new Login.Handler.CreateRoleHandler())
+            .Register(new Login.Handler.DeleteRoleHandler())
+            .Register(new Login.Async.EnterWorldHandler())
+            .Register(new Login.Async.GmHandler())
+            .Register(new Login.Async.MoveItemHandler())
+            .Register(new Login.Async.EquipItemHandler())
+            .Register(new Login.Async.DropItemHandler())
+            .Register(new Login.Async.PickupItemHandler())
+            .Register(new Login.Async.CompleteRolePickupHandler());
+        Func<long, ActorHandlers<RoleContext>> role = static _ => new ActorHandlers<RoleContext>().Register(new GetRoleWorldObjectCountHandler())
+            .Register(new PrepareRoleHandler())
+            .Register(new MoveHandler())
+            .Register(new AdvanceRoleHandler())
+            .Register(new DropItemHandler())
+            .Register(new EquipItemHandler())
+            .Register(new CompleteRolePickupHandler())
+            .Register(new Role.Handler.GmHandler())
+            .Register(new Role.Handler.MoveItemHandler())
+            .Register(new Role.Handler.GetRoleItemsHandler())
+            .Register(new Role.Handler.PickupItemHandler())
+            ;
+        Func<int, ActorHandlers<WorldContext>> world = static _ => new ActorHandlers<WorldContext>().Register(new GetWorldObjectCountHandler())
+            .Register(new GetWorldEntrySnapshotHandler())
+            .Register(new UpdateWorldRoleHandler())
+            .Register(new BuildWorldUpdatesHandler())
+            .Register(new GetWorldSnapshotHandler())
+            .Register(new CreateGroundItemHandler())
+            .Register(new GetGroundItemHandler())
+            .Register(new RemoveGroundItemHandler())
+            ;
         report ??= static _ => { };
         Config = config; _itemBatch = itemBatch;
         _login = new(key => new LoginActor(config, this, key, summaries, login(key)) { Calls = Calls }, report);
@@ -80,9 +95,9 @@ internal sealed class ServerModules : IAsyncDisposable, IActorLocator
     /// <summary>仅允许合法地图身份。</summary>
     public ActorRef World(int mapId) => mapId > 0 ? _world.Get(mapId) : throw new ArgumentOutOfRangeException(nameof(mapId));
     /// <summary>进入前只在已发生地面转移时提交共同批次。</summary>
-    internal bool GroundItemsPending { get; set; }
+    public bool GroundItemsPending { get; set; }
     /// <summary>按角色、地图、账号保存，同组并行；错误汇总且不阻止其他分片保存。</summary>
-    internal async Task FlushAsync()
+    public async Task FlushAsync()
     {
         if (_itemBatch is not null)
         {

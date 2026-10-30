@@ -223,7 +223,7 @@ public sealed class ServerStorageTests : IDisposable
         using var env = ConfigTestFixture.CreateEnv();
         using var config = new Rpg.Config.ConfigService(env);
         var repo = new DoubleServerRepo();
-        await using var locator = new Rpg.Server.Modules.ServerModules(config, repo, repo, repo, _ => new());
+        await using var locator = new Rpg.Server.Modules.ServerModules(config, repo, repo, repo);
         var original = Sample();
         var role = new RoleContext(config, locator, 10, original);
         Assert.Throws<ArgumentNullException>(() => role.Cache.Commit(null!));
@@ -266,7 +266,7 @@ public sealed class ServerStorageTests : IDisposable
         using var env = ConfigTestFixture.CreateEnv();
         using var config = new Rpg.Config.ConfigService(env);
         var repo = new DoubleServerRepo();
-        await using var locator = new Rpg.Server.Modules.ServerModules(config, repo, repo, repo, _ => new());
+        await using var locator = new Rpg.Server.Modules.ServerModules(config, repo, repo, repo);
         var account = new LoginContext(config, locator, "alice", new(default));
         Assert.Empty(account.Cache.Snapshot().Summaries);
         account.Cache.Commit(new([]));

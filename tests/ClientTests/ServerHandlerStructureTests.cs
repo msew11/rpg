@@ -1,4 +1,6 @@
 using Rpg.Server.Runtime;
+using Rpg.Server.Modules;
+using System.Reflection;
 
 namespace ClientTests;
 
@@ -9,6 +11,9 @@ public sealed class ServerHandlerStructureTests
     [Fact]
     public void EachHandlerOwnsOneMessageAndDedicatedFile()
     {
+        var constructor = Assert.Single(typeof(ServerModules).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.DoesNotContain(constructor.GetParameters(), parameter => parameter.ParameterType.IsGenericType &&
+            parameter.ParameterType.GetGenericTypeDefinition().Name.StartsWith("Func`", StringComparison.Ordinal));
         var types = typeof(IActorHandler<,,>).Assembly.GetTypes()
             .Where(type => type.IsClass && !type.IsAbstract && type.Namespace?.StartsWith("Rpg.Server.Modules.") == true)
             .Select(type => (Type: type, Contracts: type.GetInterfaces().Where(contract =>

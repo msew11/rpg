@@ -53,12 +53,11 @@ public sealed class ServerConfigTests
         await using var modules = Modules(config);
         Assert.Equal("env", Assert.Throws<ArgumentNullException>(() => new MockServerService(null!, config)).ParamName);
         Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new MockServerService(env, (ConfigService)null!)).ParamName);
-        Assert.Equal("modules", Assert.Throws<ArgumentNullException>(() => new MockServerService(env, (ServerModules)null!)).ParamName);
-        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new ServerModules(null!, repo, repo, new DoubleServerRepo(), _ => new())).ParamName);
-        Assert.Equal("summaries", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, null!, repo, new DoubleServerRepo(), _ => new())).ParamName);
-        Assert.Equal("roles", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, null!, new DoubleServerRepo(), _ => new())).ParamName);
-        Assert.Equal("worlds", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, repo, null!, _ => new())).ParamName);
-        Assert.Equal("login", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, repo, new DoubleServerRepo(), null!)).ParamName);
+        Assert.Equal("modules", Assert.Throws<ArgumentNullException>(() => new MockServerService(env, (IServerModules)null!)).ParamName);
+        Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new ServerModules(null!, repo, repo, new DoubleServerRepo())).ParamName);
+        Assert.Equal("summaries", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, null!, repo, new DoubleServerRepo())).ParamName);
+        Assert.Equal("roles", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, null!, new DoubleServerRepo())).ParamName);
+        Assert.Equal("worlds", Assert.Throws<ArgumentNullException>(() => new ServerModules(config, repo, repo, null!)).ParamName);
         Assert.Equal("config", Assert.Throws<ArgumentNullException>(() => new WorldContext(null!, modules, new(1, 1000, 1000, 32, 32), new([]))).ParamName);
         using var disposedConfig = new ConfigService(env);
         disposedConfig.Dispose();
@@ -73,7 +72,7 @@ public sealed class ServerConfigTests
     }
 
     /// <summary>为三个真实 Actor 注册同一无字段处理器契约，配置仅由 Context 提供。</summary>
-    private static ServerModules Modules(ConfigService config) => new(config, new DoubleServerRepo(), new DoubleServerRepo(), new DoubleServerRepo(),
+    private static DoubleServerModules Modules(ConfigService config) => new(config, new DoubleServerRepo(), new DoubleServerRepo(), new DoubleServerRepo(),
         _ => new ActorHandlers<LoginContext>().Register<DataReadConfig, BasicCfg>(new DoubleConfigHandler<LoginContext>()),
         _ => new ActorHandlers<RoleContext>().Register<DataReadConfig, BasicCfg>(new DoubleConfigHandler<RoleContext>()),
         _ => new ActorHandlers<WorldContext>().Register<DataReadConfig, BasicCfg>(new DoubleConfigHandler<WorldContext>()));

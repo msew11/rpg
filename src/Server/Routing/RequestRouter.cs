@@ -16,9 +16,9 @@ namespace Rpg.Server.Routing;
 internal sealed class RequestRouter
 {
     /// <summary>借用宿主持有的唯一分片目录。</summary>
-    private readonly ServerModules _modules;
+    private readonly IServerModules _modules;
     /// <summary>绑定当前运行实例的模块。</summary>
-    internal RequestRouter(ServerModules modules) => _modules = modules;
+    internal RequestRouter(IServerModules modules) => _modules = modules;
 
     /// <summary>登录从载荷定位账号，创建和删除只从服务端会话定位账号。</summary>
     internal async Task<DataResponse> RouteAsync(DataSessionSnapshot session, IMessage request, DataActorCall? call = null)

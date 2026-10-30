@@ -28,7 +28,7 @@ public sealed class ServerWriteBackTests : ServerModuleTests
         var entered = ServerPersistenceActorTests.Signal();
         var release = ServerPersistenceActorTests.Signal();
         var repo = new RepoAccountRoleSummary(_directory);
-        var modules = new ServerModules(Config, repo, new DoubleServerRepo(), new DoubleServerRepo(), _ => new ActorHandlers<LoginContext>()
+        var modules = new DoubleServerModules(Config, repo, new DoubleServerRepo(), new DoubleServerRepo(), _ => new ActorHandlers<LoginContext>()
             .Register<Login, LoginRt>(new DoubleMutatingLoginHandler(entered, release.Task)));
         await using var server = new ServerRuntime(modules);
         var connection = server.OpenConnection();
@@ -52,7 +52,7 @@ public sealed class ServerWriteBackTests : ServerModuleTests
     {
         var repo = new ServerPersistenceActorTests.DoubleRoleRepo { FailSave = true };
         var accounts = new RepoAccountRoleSummary(_directory);
-        var modules = new ServerModules(Config, accounts, repo, new DoubleServerRepo(), _ => ServerPersistenceActorTests.LoginHandlers(),
+        var modules = new DoubleServerModules(Config, accounts, repo, new DoubleServerRepo(), _ => ServerPersistenceActorTests.LoginHandlers(),
             _ => ServerPersistenceActorTests.RoleHandlers());
         var server = new ServerRuntime(modules);
         var role = modules.Role(10);
@@ -72,7 +72,7 @@ public sealed class ServerWriteBackTests : ServerModuleTests
         var repo = new RepoRole(_directory);
         await repo.SaveAsync(10, ServerStorageTests.Sample(), DataRoleTables.All);
         File.Delete(Path.Combine(_directory, "10.item.json"));
-        await using var modules = new ServerModules(Config, new DoubleServerRepo(), repo, new DoubleServerRepo(), _ => new(), _ => ServerPersistenceActorTests.RoleHandlers());
+        await using var modules = new DoubleServerModules(Config, new DoubleServerRepo(), repo, new DoubleServerRepo(), _ => new(), _ => ServerPersistenceActorTests.RoleHandlers());
         var failed = modules.Role(10);
         await Assert.ThrowsAsync<FileNotFoundException>(() => failed.Ask(new ServerPersistenceActorTests.DataReadRole()));
         await File.WriteAllTextAsync(Path.Combine(_directory, "10.item.json"), "[]");

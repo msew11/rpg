@@ -40,7 +40,7 @@ public sealed class ServerActorProtocolTests : ServerModuleTests
                 [new DataWorldChunk(0, 0)]);
             var files = Directory.GetFiles(directory, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
             foreach (var path in files.Keys) File.SetLastWriteTimeUtc(path, new DateTime(2000, 1, 1));
-            await using (var modules = new ServerModules(Config, new DoubleServerRepo(), roles, worlds, LoginHandlers))
+            await using (var modules = new ServerModules(Config, new DoubleServerRepo(), roles, worlds))
             {
                 Assert.Equal(2, (await modules.Role(10).Ask<GetRoleWorldObjectCountRt>(new GetRoleWorldObjectCount())).Count);
                 Assert.Equal(2, (await modules.World(1).Ask<GetWorldObjectCountRt>(new GetWorldObjectCount())).Count);
@@ -179,12 +179,12 @@ public sealed class ServerActorProtocolTests : ServerModuleTests
     }
 
     /// <summary>建立带确定角色 MapId 的模块，空可选工厂使用生产示例。</summary>
-    private ServerModules Modules(Func<long, ActorHandlers<RoleContext>>? role = null, Func<int, ActorHandlers<WorldContext>>? world = null) =>
+    private DoubleServerModules Modules(Func<long, ActorHandlers<RoleContext>>? role = null, Func<int, ActorHandlers<WorldContext>>? world = null) =>
         new(Config, new DoubleServerRepo(), new DoubleRoleRepo(), new DoubleServerRepo(), LoginHandlers, role, world);
     /// <summary>使用正式未实现登录处理器，避免测试成功替身掩盖默认行为。</summary>
     private static ActorHandlers<LoginContext> LoginHandlers(string _) => new ActorHandlers<LoginContext>().Register<Login, LoginRt>(new LoginHandler());
     /// <summary>三个 Context 共用只返回引用的测试契约，目标身份从未被投递消息。</summary>
-    private ServerModules LocatorModules() => new(Config, new DoubleServerRepo(), new DoubleRoleRepo(), new DoubleServerRepo(),
+    private DoubleServerModules LocatorModules() => new(Config, new DoubleServerRepo(), new DoubleRoleRepo(), new DoubleServerRepo(),
         _ => new ActorHandlers<LoginContext>().Register<DataLocateTargets, DataTargets>(new DoubleLocateHandler<LoginContext>()),
         _ => new ActorHandlers<RoleContext>().Register<DataLocateTargets, DataTargets>(new DoubleLocateHandler<RoleContext>()),
         _ => new ActorHandlers<WorldContext>().Register<DataLocateTargets, DataTargets>(new DoubleLocateHandler<WorldContext>()));

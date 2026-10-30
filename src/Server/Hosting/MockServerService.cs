@@ -28,7 +28,7 @@ public sealed class MockServerService : Service, IAsyncDisposable
         _env = env; _config = config;
     }
     /// <summary>测试显式提供已组装模块，避免生产隐式创建服务器。</summary>
-    internal MockServerService(EnvService env, ServerModules modules) : this(env, modules?.Config ?? throw new ArgumentNullException(nameof(modules))) => Attach(new MockServer(env, modules));
+    internal MockServerService(EnvService env, IServerModules modules) : this(env, modules?.Config ?? throw new ArgumentNullException(nameof(modules))) => Attach(new MockServer(env, modules));
     /// <summary>测试显式创建进程内宿主，不占用端口。</summary>
     internal static MockServerService CreateInProcess(EnvService env, ConfigService config)
     { var service = new MockServerService(env, config); service.Attach(new MockServer(env, config)); return service; }

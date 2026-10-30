@@ -21,7 +21,7 @@ namespace Rpg.Server.Hosting;
 internal sealed class WorldCoordinator
 {
     /// <summary>所属服务器模块。</summary>
-    private readonly ServerModules _modules;
+    private readonly IServerModules _modules;
     /// <summary>借用宿主唯一物品及保存入口，获取时不持有 Actor 回合。</summary>
     private readonly SemaphoreSlim _items;
     /// <summary>只串行控制变更，不围住普通移动。</summary>
@@ -53,7 +53,7 @@ internal sealed class WorldCoordinator
     /// <summary>不影响其他轮次的诊断入口。</summary>
     private readonly Action<Exception> _report;
     /// <summary>建立本实例独立协调器。</summary>
-    internal WorldCoordinator(ServerModules modules, SemaphoreSlim items, Action<Exception> report) { _modules = modules; _items = items; _report = report; }
+    internal WorldCoordinator(IServerModules modules, SemaphoreSlim items, Action<Exception> report) { _modules = modules; _items = items; _report = report; }
     /// <summary>构造服务器内部可信调用身份。</summary>
     internal DataActorCall Call(DataSessionSnapshot session, bool role = false)
     {

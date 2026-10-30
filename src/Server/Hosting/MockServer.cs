@@ -5,12 +5,9 @@ using Rpg.Config;
 using Rpg.Server.Connections.Data;
 using Rpg.Server.Connections;
 using Rpg.Server.Modules.Login.Storage;
-using Rpg.Server.Modules.Login;
-using Rpg.Server.Modules.Login.Handler;
 using Rpg.Server.Modules.Role.Storage;
 using Rpg.Server.Modules.World.Storage;
 using Rpg.Server.Modules;
-using Rpg.Server.Runtime;
 using Rpg.Services;
 
 namespace Rpg.Server.Hosting;
@@ -92,17 +89,7 @@ public sealed class MockServer : IAsyncDisposable
         var summaries = new RepoAccountRoleSummary(directory); var roles = new RepoRole(directory); var worlds = new RepoWorld(directory, Report);
         var batch = new Modules.Common.Storage.RepoItemBatch(directory, roles, worlds, summaries);
         batch.RecoverAsync().GetAwaiter().GetResult();
-        var modules = new ServerModules(config, summaries, roles, worlds, _ => new ActorHandlers<LoginContext>()
-            .Register<global::Rpg.Protocol.Login, global::Rpg.Protocol.LoginRt>(new LoginHandler())
-            .Register<global::Rpg.Protocol.CreateRole, global::Rpg.Protocol.CreateRoleRt>(new CreateRoleHandler())
-            .Register<global::Rpg.Protocol.DeleteRole, global::Rpg.Protocol.DeleteRoleRt>(new DeleteRoleHandler())
-            .Register<global::Rpg.Protocol.EnterWorld, global::Rpg.Protocol.EnterWorldRt>(new Modules.Login.Async.EnterWorldHandler())
-            .Register<global::Rpg.Protocol.Gm, global::Rpg.Protocol.GmRt>(new Modules.Login.Async.GmHandler())
-            .Register<global::Rpg.Protocol.MoveItem, global::Rpg.Protocol.MoveItemRt>(new Modules.Login.Async.MoveItemHandler())
-            .Register<global::Rpg.Protocol.EquipItem, global::Rpg.Protocol.EquipItemRt>(new Modules.Login.Async.EquipItemHandler())
-            .Register<global::Rpg.Protocol.DropItem, global::Rpg.Protocol.DropItemRt>(new Modules.Login.Async.DropItemHandler())
-            .Register<global::Rpg.Protocol.PickupItem, global::Rpg.Protocol.PickupItemRt>(new Modules.Login.Async.PickupItemHandler())
-            .Register<ActorProtocol.CompleteRolePickup, ActorProtocol.CompleteRolePickupRt>(new Modules.Login.Async.CompleteRolePickupHandler()), report: Report, itemBatch: batch);
+        var modules = new ServerModules(config, summaries, roles, worlds, report: Report, itemBatch: batch);
         _runtime = CreateRuntime(modules);
     }
     /// <summary>使用正式存档根；首次启动把已有版本子目录内容原位提升，不覆盖目标文件。</summary>
@@ -122,7 +109,7 @@ public sealed class MockServer : IAsyncDisposable
     }
 
     /// <summary>验收注入已完整装配的模块，配置直接来自模块，避免重复传入与不一致。</summary>
-    internal MockServer(EnvService env, ServerModules modules)
+    internal MockServer(EnvService env, IServerModules modules)
     {
         ArgumentNullException.ThrowIfNull(modules);
         ValidateDependencies(env, modules.Config);
@@ -139,7 +126,7 @@ public sealed class MockServer : IAsyncDisposable
         ObjectDisposedException.ThrowIf(config.IsDisposed, config);
     }
     /// <summary>接管完整模块并绑定本服务诊断，不再兜底创建依赖。</summary>
-    private ServerRuntime CreateRuntime(ServerModules modules)
+    private ServerRuntime CreateRuntime(IServerModules modules)
     {
         var runtime = new ServerRuntime(modules);
         runtime.Error += Report;

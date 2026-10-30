@@ -275,7 +275,7 @@ public sealed class ServerWorldActorTests : IDisposable
     {
         var repo = new DoubleWorldRepo(new RepoWorld(Storage)) { FailSave = true };
         var accounts = new RepoAccountRoleSummary(Storage);
-        var modules = new ServerModules(_config, accounts, new DoubleServerRepo(), repo,
+        var modules = new DoubleServerModules(_config, accounts, new DoubleServerRepo(), repo,
             _ => ServerPersistenceActorTests.LoginHandlers(), world: _ => Handlers());
         await using var server = new MockServerService(_env, modules);
         var errors = new ConcurrentQueue<Exception>();
@@ -305,7 +305,7 @@ public sealed class ServerWorldActorTests : IDisposable
         var entered = Signal();
         var release = Signal();
         var repo = new RepoWorld(Storage);
-        var modules = new ServerModules(_config, new DoubleServerRepo(), new DoubleServerRepo(), repo,
+        var modules = new DoubleServerModules(_config, new DoubleServerRepo(), new DoubleServerRepo(), repo,
             _ => new ActorHandlers<LoginContext>().Register<Login, LoginRt>(new ServerWriteBackTests.DoubleMutatingLoginHandler(entered, release.Task)),
             world: _ => Handlers());
         var server = new MockServerService(_env, modules);
@@ -327,7 +327,7 @@ public sealed class ServerWorldActorTests : IDisposable
     public async Task FlushGroupsAreRoleThenParallelWorldThenLoginEvenOnFailure()
     {
         var repo = new DoubleOrderedRepo();
-        await using var modules = new ServerModules(_config, repo, repo, repo,
+        await using var modules = new DoubleServerModules(_config, repo, repo, repo,
             _ => ServerPersistenceActorTests.LoginHandlers(), _ => ServerPersistenceActorTests.RoleHandlers(), _ => Handlers());
         await modules.Role(10).Ask(new ServerPersistenceActorTests.DataWriteRole(new(new() { Name = "待写角色" }, [], [])));
         await modules.World(1).Ask(new DataWriteWorld(new([Object(1)])));
@@ -352,7 +352,7 @@ public sealed class ServerWorldActorTests : IDisposable
     {
         var repo = new DoubleWorldRepo(new RepoWorld(Storage)) { FailSave = true };
         var accounts = new RepoAccountRoleSummary(Storage);
-        var modules = new ServerModules(_config, accounts, new DoubleServerRepo(), repo,
+        var modules = new DoubleServerModules(_config, accounts, new DoubleServerRepo(), repo,
             _ => ServerPersistenceActorTests.LoginHandlers(), world: _ => Handlers());
         var server = new MockServerService(_env, modules);
         var world = modules.World(1);
@@ -368,7 +368,7 @@ public sealed class ServerWorldActorTests : IDisposable
         Assert.False(_env.IsDisposed);
     }
     /// <summary>完整装配测试模块，不新增生产业务 Handler。</summary>
-    private ServerModules Modules(IWorldRepo repo) => new(_config, new DoubleServerRepo(), new DoubleServerRepo(), repo,
+    private DoubleServerModules Modules(IWorldRepo repo) => new(_config, new DoubleServerRepo(), new DoubleServerRepo(), repo,
         _ => new(), world: _ => Handlers());
     /// <summary>每个地图使用独立读写注册表。</summary>
     internal static ActorHandlers<WorldContext> Handlers() => new ActorHandlers<WorldContext>()

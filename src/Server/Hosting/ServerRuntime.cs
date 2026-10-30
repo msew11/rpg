@@ -31,7 +31,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
     /// <summary>当前连接及仍在排空的已断开连接。</summary>
     private readonly Dictionary<DataConnectionId, ConnectionSession> _connections = new();
     /// <summary>宿主拥有的三类模块目录。</summary>
-    private readonly ServerModules _modules;
+    private readonly IServerModules _modules;
     /// <summary>明确的协议到模块路由。</summary>
     internal RequestRouter Router { get; }
     /// <summary>停止任务一旦建立即不再接纳外部工作。</summary>
@@ -42,7 +42,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
     internal event Action<Exception>? Error;
 
     /// <summary>接管已显式组装的模块目录。</summary>
-    internal ServerRuntime(ServerModules modules)
+    internal ServerRuntime(IServerModules modules)
     { _modules = modules; Router = new(modules); if (modules.SupportsMovement) World = new(modules, _items, Report); }
     /// <summary>可选多人调度器，旧处理表验收不装配移动能力。</summary>
     internal WorldCoordinator? World { get; }

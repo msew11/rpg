@@ -93,7 +93,7 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
     {
         var repo = new DoubleRoleRepo { FailSave = true };
         var accounts = new DoubleAccountRepo();
-        await using var modules = new ServerModules(Config, accounts, repo, new DoubleServerRepo(), _ => LoginHandlers(), _ => RoleHandlers());
+        await using var modules = new DoubleServerModules(Config, accounts, repo, new DoubleServerRepo(), _ => LoginHandlers(), _ => RoleHandlers());
         await modules.Role(10).Ask(new DataWriteRole(Sample("失败角色")));
         await modules.Role(11).Ask(new DataWriteRole(Sample("成功角色")));
         var account = modules.Login("alice");
@@ -136,7 +136,7 @@ public sealed class ServerPersistenceActorTests : ServerModuleTests
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
     /// <summary>构造独立测试模块，不引入真实业务。</summary>
-    private ServerModules Modules(IRoleRepo repo) => new(Config, new DoubleServerRepo(), repo, new DoubleServerRepo(), _ => LoginHandlers(), _ => RoleHandlers());
+    private DoubleServerModules Modules(IRoleRepo repo) => new(Config, new DoubleServerRepo(), repo, new DoubleServerRepo(), _ => LoginHandlers(), _ => RoleHandlers());
     /// <summary>每个角色单独冻结其读写处理器表。</summary>
     internal static ActorHandlers<RoleContext> RoleHandlers() => new ActorHandlers<RoleContext>()
         .Register<DataReadRole, DataRoleSnapshot>(new DoubleReadRoleHandler()).Register<DataWriteRole, DataRoleTables>(new DoubleWriteRoleHandler());

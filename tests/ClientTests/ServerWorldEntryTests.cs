@@ -362,7 +362,7 @@ public sealed class ServerWorldEntryTests : IDisposable
     }
 
     /// <summary>复用正式处理器，只允许注入文件故障或可控地图等待。</summary>
-    private ServerModules Modules(ConfigService config, IRoleRepo repo, DoubleEntryGate? gate = null) => new(config,
+    private DoubleServerModules Modules(ConfigService config, IRoleRepo repo, DoubleEntryGate? gate = null) => new(config,
         new RepoAccountRoleSummary(Root), repo, new RepoWorld(Root), _ => new ActorHandlers<LoginContext>()
             .Register<Rpg.Protocol.Login, LoginRt>(new LoginHandler()).Register<CreateRole, CreateRoleRt>(new CreateRoleHandler())
             .Register<DeleteRole, DeleteRoleRt>(new DeleteRoleHandler()).Register<EnterWorld, EnterWorldRt>(new EnterWorldHandler()),
