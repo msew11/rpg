@@ -9,7 +9,7 @@ using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验证 openspec/specs/client-config-map 的分块复用、地图边缘和 GM chunk 边界场景。</summary>
+/// <summary>验证 openspec/specs/client-config-map 的分块复用、地图边缘、双层缩放及 GM 边界场景。</summary>
 public partial class MapChunkSmoke : Node
 {
     /// <summary>在真实 Godot 视口内执行地图分块验收。</summary>
@@ -37,6 +37,13 @@ public partial class MapChunkSmoke : Node
             Check(boundaries.Visible && boundaries.LineColor == Colors.Cyan, "GM chunk 边界未即时开启或改色");
             view.SetChunkBoundaries(false, Colors.Cyan);
             Check(!boundaries.Visible, "GM chunk 边界关闭后仍显示");
+            var renderArea = view.GetNode<RenderAreaBoundaryView>("RenderAreaBoundary");
+            Check(!renderArea.Visible && renderArea.LineColor == Colors.HotPink, "绘制区域边缘默认状态错误");
+            Check(renderArea.ZIndex > boundaries.ZIndex, "绘制区域边缘没有覆盖在逻辑 chunk 线之上");
+            view.SetRenderAreaBoundary(true, Colors.Cyan);
+            Check(renderArea.Visible && renderArea.LineColor == Colors.Cyan, "绘制区域边缘未即时开启或改色");
+            view.SetRenderAreaBoundary(false, Colors.Cyan);
+            Check(!renderArea.Visible, "绘制区域边缘关闭后仍显示");
             var camera = new Camera2D { Position = IsometricProjection.ToScreen(new Vector2(16016, 16016)) };
             viewport.AddChild(camera);
             camera.MakeCurrent();
@@ -44,6 +51,20 @@ public partial class MapChunkSmoke : Node
 
             var initial = Snapshot(view);
             Check(initial.Count is > 0 and < 200, "没有只保留视口附近的分块");
+            view.SetGmZoom(0.5f);
+            camera.Zoom = Vector2.One * 0.5f;
+            camera.ForceUpdateScroll();
+            await Frames(3);
+            Check(SameNodes(initial, Snapshot(view)), "GM 倍率改变了基础绘制块集合");
+            camera.Zoom = Vector2.One * 0.4f;
+            camera.ForceUpdateScroll();
+            await Frames(3);
+            Check(Snapshot(view).Count > initial.Count, "基础缩放未扩大绘制块集合");
+            view.SetGmZoom(1f);
+            camera.Zoom = Vector2.One;
+            camera.ForceUpdateScroll();
+            await Frames(3);
+            initial = Snapshot(view);
             var draws = 0;
             foreach (var chunk in initial.Values)
                 chunk.Connect(CanvasItem.SignalName.Draw, Callable.From(() => draws++));

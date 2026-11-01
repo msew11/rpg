@@ -14,6 +14,10 @@ public partial class MapView : Node2D
     private readonly Dictionary<Vector2I, MapChunkView> _chunks = new();
     /// <summary>按地图配置绘制逻辑 chunk 边界的 GM 覆盖层。</summary>
     private readonly ChunkBoundaryView _boundaries = new() { Visible = false };
+    /// <summary>标出当前实际创建的地表绘制块外沿。</summary>
+    private readonly RenderAreaBoundaryView _renderArea = new() { Visible = false };
+    /// <summary>仅影响显示、不参与地表分块选择的 GM 倍率。</summary>
+    private float _gmZoom = 1f;
     /// <summary>上次更新时视口覆盖的分块范围。</summary>
     private (int Left, int Top, int Right, int Bottom)? _visibleChunks;
 
@@ -23,10 +27,19 @@ public partial class MapView : Node2D
         _boundaries.Name = "ChunkBoundaries";
         _boundaries.ZIndex = 1;
         AddChild(_boundaries);
+        _renderArea.Name = "RenderAreaBoundary";
+        _renderArea.ZIndex = 2;
+        AddChild(_renderArea);
     }
 
     /// <summary>即时更新逻辑 chunk 边界的显隐和颜色。</summary>
     public void SetChunkBoundaries(bool visible, Color color) => _boundaries.SetStyle(visible, color);
+
+    /// <summary>更新当前世界的 GM 倍率，地表可见范围仍按基础缩放计算。</summary>
+    public void SetGmZoom(float value) => _gmZoom = Mathf.Clamp(value, 0.1f, 4f);
+
+    /// <summary>切换绘制区域外沿及其颜色。</summary>
+    public void SetRenderAreaBoundary(bool visible, Color color) => _renderArea.SetStyle(visible, color);
 
     /// <summary>视口进入新的分块范围时增删分块，其余帧复用已有绘制。</summary>
     public override void _Process(double delta)
@@ -34,13 +47,16 @@ public partial class MapView : Node2D
         if (!GameServices.IsInitialized || !GameServices.World.HasWorld) return;
         var viewport = GetViewport();
         var inverse = viewport.GetCanvasTransform().AffineInverse();
+        _renderArea.SetScreenScale(viewport.GetCanvasTransform().X.Length());
         var screenSize = viewport.GetVisibleRect().Size;
+        var screenCenter = screenSize / 2;
+        var worldCenter = inverse * screenCenter;
         var corners = new[]
         {
-            IsometricProjection.ToLogical(inverse * Vector2.Zero),
-            IsometricProjection.ToLogical(inverse * new Vector2(screenSize.X, 0)),
-            IsometricProjection.ToLogical(inverse * screenSize),
-            IsometricProjection.ToLogical(inverse * new Vector2(0, screenSize.Y))
+            IsometricProjection.ToLogical(worldCenter + (inverse * Vector2.Zero - worldCenter) * _gmZoom),
+            IsometricProjection.ToLogical(worldCenter + (inverse * new Vector2(screenSize.X, 0) - worldCenter) * _gmZoom),
+            IsometricProjection.ToLogical(worldCenter + (inverse * screenSize - worldCenter) * _gmZoom),
+            IsometricProjection.ToLogical(worldCenter + (inverse * new Vector2(0, screenSize.Y) - worldCenter) * _gmZoom)
         };
         var minimum = corners[0];
         var maximum = corners[0];
@@ -53,6 +69,7 @@ public partial class MapView : Node2D
         _boundaries.SetVisibleTiles(left, top, right, bottom);
         (int Left, int Top, int Right, int Bottom) visible =
             (left / ChunkSize, top / ChunkSize, right / ChunkSize, bottom / ChunkSize);
+        _renderArea.SetChunks(visible.Left, visible.Top, visible.Right, visible.Bottom, ChunkSize);
         if (_visibleChunks == visible) return;
 
         var removed = new List<Vector2I>();

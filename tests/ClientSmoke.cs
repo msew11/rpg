@@ -106,6 +106,38 @@ public partial class ClientSmoke : Node
                 throw new InvalidOperationException("HUD 或基础面板未创建");
             if (!world.GetChildren().OfType<MapView>().Any())
                 throw new InvalidOperationException("地图表现未创建");
+            // client-ui、client-config-map：滚轮基础缩放与 GM 倍率相乘，边缘控件即时生效。
+            var camera = world.GetNode<Camera2D>("WorldCamera");
+            using (var wheel = new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true, Position = new Vector2(500, 300) })
+                GetViewport().PushInput(wheel, true);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!Mathf.IsEqualApprox(camera.Zoom.X, 1.1f)) throw new InvalidOperationException("滚轮未更新基础相机缩放");
+            var gmZoom = (HSlider)hud.FindChild("GmDisplayZoom", true, false);
+            if (gmZoom.MinValue != 0.1 || gmZoom.MaxValue != 4 || gmZoom.Value != 1)
+                throw new InvalidOperationException("GM 缩放范围或默认值错误");
+            gmZoom.Value = 4;
+            if (!Mathf.IsEqualApprox(camera.Zoom.X, 4.4f)) throw new InvalidOperationException("GM 放大上限未生效");
+            gmZoom.Value = 0.1;
+            if (!Mathf.IsEqualApprox(camera.Zoom.X, 0.11f)) throw new InvalidOperationException("GM 扩大观察范围下限未生效");
+            gmZoom.Value = 0.5;
+            if (!Mathf.IsEqualApprox(camera.Zoom.X, 0.55f)) throw new InvalidOperationException("GM 倍率未叠加基础缩放");
+            var renderToggle = (CheckButton)hud.FindChild("ShowRenderAreaBoundary", true, false);
+            var renderColor = (ColorPickerButton)hud.FindChild("RenderAreaBoundaryColor", true, false);
+            var renderArea = world.GetNode<MapView>("MapView").GetNode<RenderAreaBoundaryView>("RenderAreaBoundary");
+            if (renderToggle.ButtonPressed || renderColor.Color != Colors.HotPink || renderArea.Visible)
+                throw new InvalidOperationException("GM 绘制区域边缘默认状态错误");
+            renderToggle.ButtonPressed = true;
+            renderColor.Color = Colors.Cyan;
+            renderColor.EmitSignal(ColorPickerButton.SignalName.ColorChanged, Colors.Cyan);
+            if (!renderArea.Visible || renderArea.LineColor != Colors.Cyan)
+                throw new InvalidOperationException("GM 绘制区域边缘开关或改色无效");
+            renderToggle.ButtonPressed = false;
+            if (renderArea.Visible) throw new InvalidOperationException("GM 绘制区域边缘未关闭");
+            gmZoom.Value = 1;
+            using (var wheel = new InputEventMouseButton { ButtonIndex = MouseButton.WheelDown, Pressed = true, Position = new Vector2(500, 300) })
+                GetViewport().PushInput(wheel, true);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!Mathf.IsEqualApprox(camera.Zoom.X, 1f)) throw new InvalidOperationException("滚轮与 GM 倍率没有独立恢复");
             var manager = GameServices.World;
             if (!manager.HasWorld || !manager.HasRole)
                 throw new InvalidOperationException("世界或角色实体未初始化");
@@ -150,6 +182,9 @@ public partial class ClientSmoke : Node
             ((Button)main.FindChild("SelectRole1002", true, false)).EmitSignal(Button.SignalName.Pressed);
             ((Button)main.FindChild("EnterRole", true, false)).EmitSignal(Button.SignalName.Pressed);
             await WaitForHud(main);
+            if (!Mathf.IsEqualApprox(main.GetNode<Camera2D>("WorldVisual/WorldCamera").Zoom.X, 1f) ||
+                ((HSlider)main.FindChild("GmDisplayZoom", true, false)).Value != 1)
+                throw new InvalidOperationException("重新进入世界未重置相机与 GM 缩放");
             AssertBodyResource(main.GetChildren().OfType<Node2D>().Single()
                 .GetChildren().OfType<ActorView>().Single(), "female");
             PressMenu(main.GetNode<GameHud>("HudLayer/GameHud"), "返回登陆");

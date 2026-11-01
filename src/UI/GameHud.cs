@@ -117,6 +117,10 @@ public partial class GameHud : Control
     public event Action<bool, Color>? AnchorMarkersChanged;
     /// <summary>通知地图表现更新 GM 逻辑 chunk 边界。</summary>
     public event Action<bool, Color>? ChunkBoundariesChanged;
+    /// <summary>通知地图表现切换实际地表绘制区域边缘。</summary>
+    public event Action<bool, Color>? RenderAreaBoundaryChanged;
+    /// <summary>通知世界相机使用当前 GM 额外显示倍率。</summary>
+    public event Action<float>? GmZoomChanged;
     /// <summary>当前世界会话的地面物品信息显示状态。</summary>
     private bool _groundItemInfoVisible;
 
@@ -485,6 +489,33 @@ public partial class GameHud : Control
         chunkRow.AddChild(chunkColor);
         chunkRow.AddChild(showChunks);
         gm.AddChild(chunkRow);
+        var renderRow = new HBoxContainer { Name = "RenderAreaBoundaryControls" };
+        renderRow.AddChild(new Label { Text = "显示绘制区域", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        var renderColor = new ColorPickerButton
+        {
+            Name = "RenderAreaBoundaryColor", Color = Colors.HotPink,
+            CustomMinimumSize = new Vector2(32, 28), TooltipText = "绘制区域边缘颜色"
+        };
+        CompactColorPicker(renderColor);
+        var showRenderArea = new CheckButton { Name = "ShowRenderAreaBoundary", TooltipText = "显示实际地表绘制范围" };
+        showRenderArea.Toggled += visible => RenderAreaBoundaryChanged?.Invoke(visible, renderColor.Color);
+        renderColor.ColorChanged += color => RenderAreaBoundaryChanged?.Invoke(showRenderArea.ButtonPressed, color);
+        renderRow.AddChild(renderColor);
+        renderRow.AddChild(showRenderArea);
+        gm.AddChild(renderRow);
+        var zoomRow = new HBoxContainer { Name = "GmZoomControls" };
+        zoomRow.AddChild(new Label { Text = "GM 显示倍率" });
+        var gmZoom = new HSlider
+        {
+            Name = "GmDisplayZoom", MinValue = 0.1, MaxValue = 4, Step = 0.05, Value = 1,
+            CustomMinimumSize = new Vector2(150, 26), SizeFlagsHorizontal = SizeFlags.ExpandFill
+        };
+        var gmZoomValue = new Label { Name = "GmDisplayZoomValue", Text = "100%",
+            CustomMinimumSize = new Vector2(48, 0), HorizontalAlignment = HorizontalAlignment.Right };
+        gmZoom.ValueChanged += value => { gmZoomValue.Text = $"{value:P0}"; GmZoomChanged?.Invoke((float)value); };
+        zoomRow.AddChild(gmZoom);
+        zoomRow.AddChild(gmZoomValue);
+        gm.AddChild(zoomRow);
         var flushRow = new HBoxContainer();
         flushRow.AddChild(new Label { Text = "Server 落地检测（秒，0 关闭）" });
         var flushInterval = new SpinBox

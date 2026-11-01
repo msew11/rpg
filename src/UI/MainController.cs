@@ -44,6 +44,12 @@ public partial class MainController : Control
     private readonly Dictionary<long, ActorView> _remoteActors = new();
     /// <summary>跟随角色的世界摄像机。</summary>
     private Camera2D? _camera;
+    /// <summary>当前世界的地表表现，供 GM 缩放保持独立绘制范围。</summary>
+    private MapView? _mapView;
+    /// <summary>滚轮控制的基础相机倍率，决定静态地表绘制范围。</summary>
+    private float _baseZoom = 1f;
+    /// <summary>GM 额外显示倍率，不参与静态地表绘制范围。</summary>
+    private float _gmZoom = 1f;
     /// <summary>独立于 ECS 的游戏界面。</summary>
     private GameHud? _hud;
     /// <summary>主场景持有的页面与地图背景音乐播放器。</summary>
@@ -117,6 +123,13 @@ public partial class MainController : Control
     public override void _UnhandledInput(InputEvent input)
     {
         if (_servicesLifetime is null || _worldVisual is null || !GameServices.Session.CanMove || input is not InputEventMouseButton click) return;
+        if (click.Pressed && click.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+        {
+            _baseZoom = Mathf.Clamp(_baseZoom * (click.ButtonIndex == MouseButton.WheelUp ? 1.1f : 1f / 1.1f), 0.5f, 2f);
+            ApplyCameraZoom();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && _groundOverlay?.ItemAt(click.Position) is { } objectId)
         {
             RequestPickup(objectId);
@@ -136,6 +149,13 @@ public partial class MainController : Control
     {
         try { GameServices.World.PickupItem(objectId); }
         catch (Exception error) { _hud?.ShowNetworkError(error.Message); }
+    }
+
+    /// <summary>相机使用两层倍率的乘积，地表分块只读取基础倍率。</summary>
+    private void ApplyCameraZoom()
+    {
+        if (_camera is not null) _camera.Zoom = Vector2.One * (_baseZoom * _gmZoom);
+        _mapView?.SetGmZoom(_gmZoom);
     }
 
     /// <summary>关闭场景时恢复鼠标并释放角色、所有常驻监听及网络传输。</summary>
@@ -348,6 +368,7 @@ public partial class MainController : Control
         _worldVisual = new Node2D { Name = "WorldVisual", YSortEnabled = true };
         AddChild(_worldVisual);
         var mapView = new MapView { Name = "MapView" };
+        _mapView = mapView;
         _worldVisual.AddChild(mapView);
         _groundItems = new GroundItemsView { Name = "GroundItemsView", ZIndex = 1, YSortEnabled = true };
         _worldVisual.AddChild(_groundItems);
@@ -359,6 +380,9 @@ public partial class MainController : Control
         _actor.Present(GameServices.World.ActorState!);
         _camera = new Camera2D { Name = "WorldCamera", Position = IsometricProjection.ToScreen(GameServices.World.RolePosition), Enabled = true };
         _worldVisual.AddChild(_camera);
+        _baseZoom = 1f;
+        _gmZoom = 1f;
+        ApplyCameraZoom();
 
         _hudLayer = new CanvasLayer { Name = "HudLayer", Layer = 10 };
         AddChild(_hudLayer);
@@ -371,6 +395,8 @@ public partial class MainController : Control
             _groundItems?.SetAnchorMarkers(visible, color);
         };
         _hud.ChunkBoundariesChanged += mapView.SetChunkBoundaries;
+        _hud.RenderAreaBoundaryChanged += mapView.SetRenderAreaBoundary;
+        _hud.GmZoomChanged += value => { _gmZoom = value; ApplyCameraZoom(); };
         _actor.SetAnchorMarker(GameServices.Env.ShowEntityAnchors, Colors.Yellow);
         _groundItems.SetAnchorMarkers(GameServices.Env.ShowEntityAnchors, Colors.Yellow);
         _hud.ChangeRoleRequested += ReturnToRoles;
@@ -455,6 +481,9 @@ public partial class MainController : Control
         _groundItems = null;
         _actor = null;
         _camera = null;
+        _mapView = null;
+        _baseZoom = 1f;
+        _gmZoom = 1f;
     }
 
     /// <summary>创建居中的启动或选择角色页面。</summary>
