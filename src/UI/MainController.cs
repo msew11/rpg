@@ -395,6 +395,7 @@ public partial class MainController : Control
             _groundItems?.SetAnchorMarkers(visible, color);
         };
         _hud.ChunkBoundariesChanged += mapView.SetChunkBoundaries;
+        _hud.AoiHighlightChanged += mapView.SetAoiHighlight;
         _hud.RenderAreaBoundaryChanged += mapView.SetRenderAreaBoundary;
         _hud.GmZoomChanged += value => { _gmZoom = value; ApplyCameraZoom(); };
         _actor.SetAnchorMarker(GameServices.Env.ShowEntityAnchors, Colors.Yellow);

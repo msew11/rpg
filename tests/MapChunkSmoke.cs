@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Rpg.Config;
+using Rpg.Protocol;
 using Rpg.Services;
+using Rpg.Session.Data;
 using Rpg.World.Utils;
 using Rpg.World.Views;
 
 namespace Rpg.Tests;
 
-/// <summary>验证 openspec/specs/client-config-map 的分块复用、地图边缘、双层缩放及 GM 边界场景。</summary>
+/// <summary>验证 openspec/specs/client-config-map 和 client-ui 的分块、权威 AOI 高亮及 GM 边界场景。</summary>
 public partial class MapChunkSmoke : Node
 {
     /// <summary>在真实 Godot 视口内执行地图分块验收。</summary>
@@ -38,8 +40,10 @@ public partial class MapChunkSmoke : Node
             view.SetChunkBoundaries(false, Colors.Cyan);
             Check(!boundaries.Visible, "GM chunk 边界关闭后仍显示");
             var renderArea = view.GetNode<RenderAreaBoundaryView>("RenderAreaBoundary");
+            var aoi = view.GetNode<AoiHighlightView>("AoiHighlight");
             Check(!renderArea.Visible && renderArea.LineColor == Colors.HotPink, "绘制区域边缘默认状态错误");
-            Check(renderArea.ZIndex > boundaries.ZIndex, "绘制区域边缘没有覆盖在逻辑 chunk 线之上");
+            Check(!aoi.Visible && boundaries.ZIndex < aoi.ZIndex && aoi.ZIndex < renderArea.ZIndex,
+                "权威 AOI 高亮没有位于绿线与粉线之间");
             view.SetRenderAreaBoundary(true, Colors.Cyan);
             Check(renderArea.Visible && renderArea.LineColor == Colors.Cyan, "绘制区域边缘未即时开启或改色");
             view.SetRenderAreaBoundary(false, Colors.Cyan);
@@ -48,6 +52,19 @@ public partial class MapChunkSmoke : Node
             viewport.AddChild(camera);
             camera.MakeCurrent();
             await Frames(3);
+
+            Check(ReferenceEquals(aoi.Snapshot, GameServices.Session.Map) && aoi.Snapshot is { } live &&
+                live.Chunks.Contains(live.Center), "AOI 高亮未读取已接纳快照");
+            view.SetAoiHighlight(true);
+            Check(aoi.Visible, "GM 未开启 AOI 高亮");
+            var corner = CornerSnapshot(GameServices.Session.RoleId);
+            aoi.SetSnapshot(corner);
+            Check(ReferenceEquals(aoi.Snapshot, corner) && corner.Chunks.Count == 4 &&
+                AoiHighlightView.ChunkRect(corner, (31, 31)).Size == new Vector2(256, 256),
+                "地图边角 AOI 块未按地图边缘裁剪或快照未更新");
+            aoi.SetSnapshot(GameServices.Session.Map);
+            view.SetAoiHighlight(false);
+            Check(!aoi.Visible, "关闭 GM AOI 后仍然高亮");
 
             var initial = Snapshot(view);
             Check(initial.Count is > 0 and < 200, "没有只保留视口附近的分块");
@@ -147,6 +164,17 @@ public partial class MapChunkSmoke : Node
         var parts = name.Split('_');
         return parts.Length == 3 && int.TryParse(parts[1], out var x) && int.TryParse(parts[2], out var y) &&
             x is >= 0 and <= 124 && y is >= 0 and <= 124;
+    }
+
+    /// <summary>构造 map-aoi 的右下角四块快照，核对地图边缘裁剪。</summary>
+    private static DataMapAoiSnapshotPbData CornerSnapshot(long roleId)
+    {
+        var message = new MapAoiSnapshotPb { MapId = 1,
+            Layout = new() { Width = 1000, Height = 1000, TileSize = 32, ChunkSizeTiles = 32 },
+            Center = new() { X = 31, Y = 31 } };
+        foreach (var (x, y) in new[] { (30, 30), (31, 30), (30, 31), (31, 31) })
+            message.Chunks.Add(new MapChunkPb { Coordinate = new() { X = x, Y = y } });
+        return DataMapAoiSnapshotPbData.FromPb(message, roleId);
     }
 
     /// <summary>让验收失败以非零进程码报告。</summary>

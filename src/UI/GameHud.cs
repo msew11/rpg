@@ -117,6 +117,8 @@ public partial class GameHud : Control
     public event Action<bool, Color>? AnchorMarkersChanged;
     /// <summary>通知地图表现更新 GM 逻辑 chunk 边界。</summary>
     public event Action<bool, Color>? ChunkBoundariesChanged;
+    /// <summary>通知地图表现切换已接纳 AOI 块的 GM 高亮。</summary>
+    public event Action<bool>? AoiHighlightChanged;
     /// <summary>通知地图表现切换实际地表绘制区域边缘。</summary>
     public event Action<bool, Color>? RenderAreaBoundaryChanged;
     /// <summary>通知世界相机使用当前 GM 额外显示倍率。</summary>
@@ -489,6 +491,12 @@ public partial class GameHud : Control
         chunkRow.AddChild(chunkColor);
         chunkRow.AddChild(showChunks);
         gm.AddChild(chunkRow);
+        var aoiRow = new HBoxContainer { Name = "AoiHighlightControls" };
+        aoiRow.AddChild(new Label { Text = "显示当前 AOI", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        var showAoi = new CheckButton { Name = "ShowCurrentAoi", TooltipText = "高亮服务器下发的当前 AOI 块" };
+        showAoi.Toggled += visible => AoiHighlightChanged?.Invoke(visible);
+        aoiRow.AddChild(showAoi);
+        gm.AddChild(aoiRow);
         var renderRow = new HBoxContainer { Name = "RenderAreaBoundaryControls" };
         renderRow.AddChild(new Label { Text = "显示绘制区域", SizeFlagsHorizontal = SizeFlags.ExpandFill });
         var renderColor = new ColorPickerButton

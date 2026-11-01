@@ -123,7 +123,17 @@ public partial class ClientSmoke : Node
             if (!Mathf.IsEqualApprox(camera.Zoom.X, 0.55f)) throw new InvalidOperationException("GM 倍率未叠加基础缩放");
             var renderToggle = (CheckButton)hud.FindChild("ShowRenderAreaBoundary", true, false);
             var renderColor = (ColorPickerButton)hud.FindChild("RenderAreaBoundaryColor", true, false);
-            var renderArea = world.GetNode<MapView>("MapView").GetNode<RenderAreaBoundaryView>("RenderAreaBoundary");
+            var mapView = world.GetNode<MapView>("MapView");
+            var renderArea = mapView.GetNode<RenderAreaBoundaryView>("RenderAreaBoundary");
+            var aoiToggle = (CheckButton)hud.FindChild("ShowCurrentAoi", true, false);
+            var aoiHighlight = mapView.GetNode<AoiHighlightView>("AoiHighlight");
+            if (aoiToggle.ButtonPressed || aoiHighlight.Visible) throw new InvalidOperationException("GM AOI 高亮未默认关闭");
+            aoiToggle.ButtonPressed = true;
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!aoiHighlight.Visible || !ReferenceEquals(aoiHighlight.Snapshot, GameServices.Session.Map))
+                throw new InvalidOperationException("GM AOI 高亮没有使用已接纳地图快照");
+            aoiToggle.ButtonPressed = false;
+            if (aoiHighlight.Visible) throw new InvalidOperationException("GM AOI 高亮关闭后仍显示");
             if (renderToggle.ButtonPressed || renderColor.Color != Colors.HotPink || renderArea.Visible)
                 throw new InvalidOperationException("GM 绘制区域边缘默认状态错误");
             renderToggle.ButtonPressed = true;
@@ -185,6 +195,9 @@ public partial class ClientSmoke : Node
             if (!Mathf.IsEqualApprox(main.GetNode<Camera2D>("WorldVisual/WorldCamera").Zoom.X, 1f) ||
                 ((HSlider)main.FindChild("GmDisplayZoom", true, false)).Value != 1)
                 throw new InvalidOperationException("重新进入世界未重置相机与 GM 缩放");
+            if (((CheckButton)main.FindChild("ShowCurrentAoi", true, false)).ButtonPressed ||
+                main.GetNode<AoiHighlightView>("WorldVisual/MapView/AoiHighlight").Visible)
+                throw new InvalidOperationException("重新进入世界未关闭 GM AOI 高亮");
             AssertBodyResource(main.GetChildren().OfType<Node2D>().Single()
                 .GetChildren().OfType<ActorView>().Single(), "female");
             PressMenu(main.GetNode<GameHud>("HudLayer/GameHud"), "返回登陆");

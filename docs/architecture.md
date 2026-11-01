@@ -230,6 +230,8 @@ MockServer 自有后台时钟推进权威移动与周期保存。默认五秒检
 
 地图以数值 ID 寻址，当前地图为 1，chunkSizeTiles=32；静态绘制仍使用 8 格分块。WorldService 构造只绑定 Config/Setting/Session，进入角色时按 Role.MapId 建立当前 DataMapComponent，离开清空。MapConfig 是当前选图入口；Session.Map 保留已校验的权威 AOI 快照，固定帧通过 SyncMapObjectsAction 同步为动态 ECS entity，MapObjects 返回由组件生成的只读状态。表现节点在世界未就绪或离开后等待释放期间跳过地图查询。
 
+GM 的“显示当前 AOI”默认关闭，直接读取 Session.Map 已接纳的中心块和订阅块集合，不按客户端预测位置重算。有效块用半透明青蓝色填充和描边，中心块更深且边线更粗，地图边角按布局截断；权威快照更新后刷新，离开世界随地图表现清除。覆盖层在绿色逻辑 chunk 线之上、粉色绘制区域线之下；AOI 高亮可以延伸到 GM 额外显示的未绘制地表区域。
+
 角色 MapId 必须显式保存，缺失或无效时拒绝加载；新角色使用 basic.initialMapId。当前地图身份位于 RoleWorldPositionPb，PbData 保持独立转换。MockServer 持有不可变地图规格与只读道具配置，验证移动目标的地图边界，不依赖客户端配置服务。
 
 WorldActor 按地图 ID 独占 WorldCache、公开角色与对象缓存，DataWorldLayout 保存固定规格，DataWorldObject 保存独立对象数据。WorldStorage 只负责文件。公开角色和对象均用块索引定位观察范围；对象变化标记受影响观察者，世界帧向其发送对象增删。

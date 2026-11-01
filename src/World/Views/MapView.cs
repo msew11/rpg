@@ -14,6 +14,8 @@ public partial class MapView : Node2D
     private readonly Dictionary<Vector2I, MapChunkView> _chunks = new();
     /// <summary>按地图配置绘制逻辑 chunk 边界的 GM 覆盖层。</summary>
     private readonly ChunkBoundaryView _boundaries = new() { Visible = false };
+    /// <summary>按当前权威订阅快照高亮 AOI 的 GM 覆盖层。</summary>
+    private readonly AoiHighlightView _aoi = new() { Visible = false };
     /// <summary>标出当前实际创建的地表绘制块外沿。</summary>
     private readonly RenderAreaBoundaryView _renderArea = new() { Visible = false };
     /// <summary>仅影响显示、不参与地表分块选择的 GM 倍率。</summary>
@@ -27,13 +29,19 @@ public partial class MapView : Node2D
         _boundaries.Name = "ChunkBoundaries";
         _boundaries.ZIndex = 1;
         AddChild(_boundaries);
+        _aoi.Name = "AoiHighlight";
+        _aoi.ZIndex = 2;
+        AddChild(_aoi);
         _renderArea.Name = "RenderAreaBoundary";
-        _renderArea.ZIndex = 2;
+        _renderArea.ZIndex = 3;
         AddChild(_renderArea);
     }
 
     /// <summary>即时更新逻辑 chunk 边界的显隐和颜色。</summary>
     public void SetChunkBoundaries(bool visible, Color color) => _boundaries.SetStyle(visible, color);
+
+    /// <summary>切换当前已接纳 AOI 块的 GM 高亮。</summary>
+    public void SetAoiHighlight(bool visible) => _aoi.SetHighlightVisible(visible);
 
     /// <summary>更新当前世界的 GM 倍率，地表可见范围仍按基础缩放计算。</summary>
     public void SetGmZoom(float value) => _gmZoom = Mathf.Clamp(value, 0.1f, 4f);
@@ -47,6 +55,8 @@ public partial class MapView : Node2D
         if (!GameServices.IsInitialized || !GameServices.World.HasWorld) return;
         var viewport = GetViewport();
         var inverse = viewport.GetCanvasTransform().AffineInverse();
+        _aoi.SetSnapshot(GameServices.Session.Map);
+        _aoi.SetScreenScale(viewport.GetCanvasTransform().X.Length());
         _renderArea.SetScreenScale(viewport.GetCanvasTransform().X.Length());
         var screenSize = viewport.GetVisibleRect().Size;
         var screenCenter = screenSize / 2;
