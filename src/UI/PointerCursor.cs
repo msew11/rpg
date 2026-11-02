@@ -4,7 +4,7 @@ using Rpg.World.Views;
 
 namespace Rpg.UI;
 
-/// <summary>全页面硬件指针：文本编辑素材、普通点击动画与 HUD、窗口和物品的 Fetch 反馈。</summary>
+/// <summary>全页面硬件指针：文本编辑、普通点击、Fetch 抓取及怪物红色剑悬停。</summary>
 public partial class PointerCursor : Node
 {
     /// <summary>普通、点击与 Fetch 素材的放大比例，热点同步缩放。</summary>
@@ -21,6 +21,8 @@ public partial class PointerCursor : Node
     private Texture2D[] _pressed = [];
     /// <summary>可抓取目标悬停与握住使用的 Fetch 两帧。</summary>
     private Texture2D[] _fetch = [];
+    /// <summary>怪物悬停使用的 AttackH 红色剑。</summary>
+    private Texture2D _sword = null!;
     /// <summary>当前是否以开手提示可拖动 HUD。</summary>
     public bool IsHudHovering { get; private set; }
     /// <summary>当前是否保持 HUD 握手拖动。</summary>
@@ -31,6 +33,8 @@ public partial class PointerCursor : Node
     public bool IsWindowDragging { get; private set; }
     /// <summary>当前是否提示可拾取地面物品。</summary>
     public bool IsItemHovering { get; private set; }
+    /// <summary>当前是否在可交互怪物上显示红色剑。</summary>
+    public bool IsMonsterHovering { get; private set; }
     /// <summary>当前硬件指针的缩放后热点。</summary>
     public Vector2 CurrentHotspot { get; private set; }
     /// <summary>应用失焦期间禁止恢复悬停状态。</summary>
@@ -50,6 +54,7 @@ public partial class PointerCursor : Node
         _normal = LoadFrame("normal");
         _pressed = [LoadFrame("click_0"), LoadFrame("click_1")];
         _fetch = [LoadFrame("fetch_0"), LoadFrame("fetch_1")];
+        _sword = LoadFrame("sword", directory: "res://assets/monsters/selection");
         Input.SetCustomMouseCursor(LoadFrame("edit", EditDisplayScale), Input.CursorShape.Ibeam, new Vector2(5, 8) * EditDisplayScale);
         Present(_normal);
     }
@@ -109,12 +114,13 @@ public partial class PointerCursor : Node
         IsWindowHovering = false;
         IsWindowDragging = false;
         IsItemHovering = false;
+        IsMonsterHovering = false;
         IsPressed = false;
         _feedbackActive = false;
         Present(_normal);
     }
 
-    /// <summary>依次呈现 HUD、窗口及物品 Fetch，拖出抓取区域仍保持握手。</summary>
+    /// <summary>优先保持 HUD 和窗口抓取，再显示怪物红剑或物品 Fetch。</summary>
     private bool RefreshHudCursor()
     {
         var dragging = _focused && GetTree().GetNodesInGroup("HudEditOverlays")
@@ -122,14 +128,17 @@ public partial class PointerCursor : Node
         var hovering = _focused && GetViewport().GuiGetHoveredControl() is HudEditOverlay overlay && overlay.IsVisibleInTree();
         var itemHover = _focused && GetTree().GetNodesInGroup("GroundItemViews")
             .OfType<GroundItemsView>().Any(view => view.HoveredObjectId is not null);
+        var monsterHover = _focused && GetTree().GetNodesInGroup("MonsterViews")
+            .OfType<MonstersView>().Any(view => view.HoveredObjectId is not null);
         var windows = GetTree().GetNodesInGroup("WindowDragControls").OfType<WindowDragControl>();
         var resizeHandles = GetTree().GetNodesInGroup("ChatResizeHandles").OfType<ChatResizeHandle>();
         var windowDragging = _focused && (windows.Any(window => window.Dragging) || resizeHandles.Any(handle => handle.Resizing));
         var windowHovering = _focused && (windows.Any(window => window.Hovering) || resizeHandles.Any(handle => handle.Hovering));
-        var previous = IsHudDragging || IsHudHovering || IsWindowDragging || IsWindowHovering || IsItemHovering;
+        var previous = IsHudDragging || IsHudHovering || IsWindowDragging || IsWindowHovering || IsItemHovering || IsMonsterHovering;
         IsWindowDragging = windowDragging;
         IsWindowHovering = windowHovering;
         IsItemHovering = itemHover;
+        IsMonsterHovering = monsterHover;
         IsHudDragging = dragging;
         IsHudHovering = hovering;
         if (dragging || hovering)
@@ -140,6 +149,11 @@ public partial class PointerCursor : Node
         if (windowDragging || windowHovering)
         {
             Present(_fetch[windowDragging ? 1 : 0], new Vector2(6, 6) * DisplayScale);
+            return true;
+        }
+        if (monsterHover)
+        {
+            Present(_sword);
             return true;
         }
         if (itemHover)
@@ -173,9 +187,9 @@ public partial class PointerCursor : Node
     }
 
     /// <summary>按最近邻缩放完整画布，保留现有像素素材边缘。</summary>
-    private static Texture2D LoadFrame(string name, float scale = DisplayScale)
+    private static Texture2D LoadFrame(string name, float scale = DisplayScale, string directory = "res://assets/pointer")
     {
-        var image = GD.Load<Texture2D>($"res://assets/pointer/{name}.png").GetImage();
+        using var image = (Image)GD.Load<Texture2D>($"{directory}/{name}.png").GetImage().Duplicate();
         image.Resize(Mathf.RoundToInt(image.GetWidth() * scale), Mathf.RoundToInt(image.GetHeight() * scale), Image.Interpolation.Nearest);
         return ImageTexture.CreateFromImage(image);
     }

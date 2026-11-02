@@ -1,5 +1,11 @@
 # 客户端架构
 
+## 怪物本地选择表现
+
+`MonstersView` 按稳定 GUID 持有当前世界的单一选中身份，依据贴图可见像素和实际相机变换命中；按 Y 排序和同位节点次序选择靠前怪物，CPU 图像按纹理复用。`MainController` 在放置之后、拾取与移动之前处理怪物左键；右键空地取消，普通左键空地移动并保留目标。GUI、模态和 GM 放置优先，失焦取消悬停；AOI 移除与离开世界同步清理选中和圆环。该状态只属于表现，不进入 ECS、服务器或存档。
+
+选中使用 `assets/monsters/selection/ring_0.png` 至 `ring_5.png` 的完整 69×43 画布，以原始 (34,20) 公共锚点附在目标脚底、位于贴图之后；按目标贴图宽度等比放大（最小原尺寸），避免树根遮住整个圆环，每帧 0.1 秒循环为本项目参数。`PointerCursor` 在 HUD/窗口拖动之后优先呈现 `AttackH` 红剑，采用 1.25 倍最近邻与热点 (2,2) 同比缩放。`tools/import_monster_selection.py --source <art_export目录>` 从原始 DIMG/IANI 导入并生成来源哈希；正式运行只读取项目内资源。`tests/monster_selection_smoke.tscn` 验证真实键鼠、六帧循环、切换与取消、像素及变换命中、UI/放置隔离、地面移动、AOI 清理和重入。
+
 ## 正式 Server 框架
 
 业务处理器每类只实现一个 `IActorHandler`，类型与文件按请求消息名加 `Handler` 命名。跨 Actor 编排放在所属模块 `Async/`，本地处理放在 `Handler/`，这两个目录只放 Handler。跨 Actor 共用逻辑放在 `Modules/Common/Utils/`，Actor 内共用逻辑放在 `Modules/Xxx/Utils/`；处理器通过工具类复用规则与投影，不相互调用辅助方法。

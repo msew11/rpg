@@ -74,6 +74,8 @@ if ($Tests) {
     Invoke-GodotCheck 'bag and GM' @('--headless', '--path', $projectPath, 'res://tests/bag_gm_smoke.tscn')
     # 怪物通过真实候选和键鼠确认落点，验证取消零发送与缩放逆投影。
     Invoke-GodotCheck 'monster placement' @('--headless', '--path', $projectPath, 'res://tests/monster_placement_smoke.tscn')
+    # 真实点击验收怪物单选、红剑、六帧脚底环、UI 隔离及 AOI/世界清理。
+    Invoke-GodotCheck 'monster selection' @('--headless', '--path', $projectPath, '--fixed-fps', '60', 'res://tests/monster_selection_smoke.tscn')
     # 物品目录共享与选角预热覆盖首次开包、切角和释放，并输出主线程耗时。
     Invoke-GodotCheck 'item assets' @('--headless', '--path', $projectPath, 'res://tests/item_asset_smoke.tscn')
     # 物品移动必须经过真实鼠标点击，而非直接调用控件回调。

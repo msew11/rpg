@@ -36,6 +36,8 @@ public partial class MainController : Control
     private Node2D? _worldVisual;
     /// <summary>只读地面表现与命中查询，不复制地图对象。</summary>
     private GroundItemsView? _groundItems;
+    /// <summary>当前世界的怪物命中和本地单目标选择。</summary>
+    private MonstersView? _monsters;
     /// <summary>当前世界独占的本地怪物放置预览。</summary>
     private MonsterPlacementControl? _monsterPlacement;
     /// <summary>拥有地面名称和信息框的 UI 层。</summary>
@@ -105,6 +107,7 @@ public partial class MainController : Control
         if (_servicesLifetime is null) return;
         GameServices.Net.Tick(delta);
         GameServices.World.Tick(delta);
+        if (_monsters is not null) _monsters.InteractionEnabled = _monsterPlacement?.Selected is null;
         if (_actor is not null && GameServices.World.ActorState is { } state) _actor.Present(state);
         if (_worldVisual is not null)
         {
@@ -121,7 +124,7 @@ public partial class MainController : Control
             _camera.Position = IsometricProjection.ToScreen(GameServices.World.RolePosition);
     }
 
-    /// <summary>处理滚轮缩放；地面点击优先确认怪物放置，再处理拾取与移动。</summary>
+    /// <summary>处理滚轮缩放；点击依次处理放置、怪物选中、拾取与移动，右键空地取消选择。</summary>
     public override void _UnhandledInput(InputEvent input)
     {
         if (_servicesLifetime is null || _worldVisual is null || !GameServices.Session.CanMove || input is not InputEventMouseButton click) return;
@@ -149,6 +152,20 @@ public partial class MainController : Control
                     catch (Exception error) { _hud?.ShowNetworkError(error.Message); }
                 }
             }
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        var monsterId = _monsters?.MonsterAt(click.Position);
+        if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && monsterId is { } selectedId)
+        {
+            _monsters!.Select(selectedId);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (click is { ButtonIndex: MouseButton.Right, Pressed: true } && _monsters?.CanInteract == true && monsterId is null &&
+            _groundOverlay?.ItemAt(click.Position) is null)
+        {
+            _monsters?.Select(null);
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -393,7 +410,8 @@ public partial class MainController : Control
         _worldVisual.AddChild(mapView);
         _groundItems = new GroundItemsView { Name = "GroundItemsView", ZIndex = 1, YSortEnabled = true };
         _worldVisual.AddChild(_groundItems);
-        _worldVisual.AddChild(new MonstersView { Name = "MonstersView", ZIndex = 1, YSortEnabled = true });
+        _monsters = new MonstersView { Name = "MonstersView", ZIndex = 1, YSortEnabled = true };
+        _worldVisual.AddChild(_monsters);
         _groundOverlay = new GroundItemOverlayControl(_groundItems) { Name = "GroundItemOverlay" };
         AddChild(_groundOverlay);
         _groundOverlay.PickupRequested += RequestPickup;
@@ -412,7 +430,11 @@ public partial class MainController : Control
         _hudLayer.AddChild(_hud);
         _monsterPlacement = new MonsterPlacementControl { Name = "MonsterPlacement" };
         AddChild(_monsterPlacement);
-        _hud.MonsterPlacementRequested += id => _monsterPlacement?.Begin(GameServices.Config.Monster.Items[id]);
+        _hud.MonsterPlacementRequested += id =>
+        {
+            _monsters.InteractionEnabled = false;
+            _monsterPlacement?.Begin(GameServices.Config.Monster.Items[id]);
+        };
         _hud.GroundItemInfoChanged += visible => _groundOverlay?.SetInfoVisible(visible);
         _hud.AnchorMarkersChanged += (visible, color) =>
         {
@@ -487,6 +509,7 @@ public partial class MainController : Control
     /// <summary>清理旧界面、世界和角色数据，保留账号会话与登录摘要。</summary>
     private void ClearGame()
     {
+        _monsters?.ClearInteraction();
         _monsterPlacement?.Cancel();
         _monsterPlacement?.QueueFree();
         _monsterPlacement = null;
@@ -511,6 +534,7 @@ public partial class MainController : Control
         _worldVisual?.QueueFree();
         _worldVisual = null;
         _groundItems = null;
+        _monsters = null;
         _actor = null;
         _camera = null;
         _mapView = null;
