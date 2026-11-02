@@ -1,0 +1,27 @@
+syntax = "proto3";
+package rpg;
+option csharp_namespace = "Rpg.Protocol";
+
+// 所有实体共用的属性编号，已分配编号不得复用。
+enum AttributeTypePb {
+  // 未指定属性。
+  ATTRIBUTE_TYPE_PB_UNSPECIFIED = 0;
+  // 正常移动速度，逻辑像素每秒。
+  ATTRIBUTE_TYPE_PB_MOVE_SPEED = 1;
+  // 生命上限。
+  ATTRIBUTE_TYPE_PB_MAX_HEALTH = 2;
+  // 魔力上限。
+  ATTRIBUTE_TYPE_PB_MAX_MANA = 3;
+  // 物理点伤。
+  ATTRIBUTE_TYPE_PB_PHYSICAL_DAMAGE = 4;
+  // 护甲值。
+  ATTRIBUTE_TYPE_PB_ARMOR = 5;
+  // 闪避值，不等于闪避概率。
+  ATTRIBUTE_TYPE_PB_EVASION = 6;
+}
+
+// 单个实体的完整正常属性，身份归外层消息。
+message AttributesPb {
+  // 属性编号对应的实际值。
+  map<int32, double> values = 1;
+}

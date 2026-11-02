@@ -1,6 +1,7 @@
 syntax = "proto3";
 package rpg;
 option csharp_namespace = "Rpg.Protocol";
+import "role.proto";
 
 // 当前控制角色的开发命令。
 message Gm {
@@ -12,4 +13,6 @@ message GmRt {
   int64 role_id = 1;
   string command = 2;
   string message = 3;
+  // movespeed 成功后的角色设置，其他命令不携带。
+  GmMovementSpeedPb movement_speed = 4;
 }

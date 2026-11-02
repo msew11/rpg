@@ -60,7 +60,7 @@ internal sealed class DoubleServerModules : IServerModules
             .Register(new DropItemHandler())
             .Register(new EquipItemHandler())
             .Register(new CompleteRolePickupHandler())
-            .Register(new Rpg.Server.Modules.Role.Handler.GmHandler())
+            .Register(new Rpg.Server.Modules.Role.Async.GmHandler())
             .Register(new Rpg.Server.Modules.Role.Handler.MoveItemHandler())
             .Register(new Rpg.Server.Modules.Role.Handler.GetRoleItemsHandler())
             .Register(new Rpg.Server.Modules.Role.Handler.PickupItemHandler())

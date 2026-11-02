@@ -81,7 +81,7 @@ public sealed class DataCacheWorldRoles : DataCache<ImmutableDictionary<long, Da
     /// <summary>有序发布后更新观察基线。</summary>
     internal void Published(long roleId, ulong sequence, (int X, int Y) center, ImmutableHashSet<(int X, int Y)> chunks, Dictionary<long, DataWorldRole> visible, ImmutableDictionary<Guid, DataWorldObject> objects)
     {
-        _observers[roleId] = new(sequence, center, chunks, visible.ToImmutableDictionary(pair => pair.Key, pair => pair.Value), objects); _dirty.Remove(roleId);
+        _observers[roleId] = new(sequence, center, chunks, visible.ToImmutableDictionary(pair => pair.Key, pair => pair.Value), objects, Value[roleId]); _dirty.Remove(roleId);
     }
     /// <summary>通过订阅索引标记受影响观察者。</summary>
     private void MarkObservers((int, int) chunk) { if (_observerChunks.TryGetValue(chunk, out var observers)) _dirty.UnionWith(observers); }

@@ -38,14 +38,6 @@ internal sealed class WorldCoordinator
     private long _version;
     /// <summary>下次发布截止时间。</summary>
     private long _publishAt;
-    /// <summary>当前服务器生效速度。</summary>
-    private int _speed = 180;
-    /// <summary>速度改变时为静止角色也安排一次完整位置投影。</summary>
-    internal int Speed
-    {
-        get => Volatile.Read(ref _speed);
-        set { if (Interlocked.Exchange(ref _speed, value) == value) return; foreach (var id in _bindings.Keys) _moving[id] = Interlocked.Increment(ref _version); }
-    }
     /// <summary>当前服务器时间，零保留给未初始化状态。</summary>
     internal long Now => Math.Max(1, _clock.ElapsedMilliseconds);
     /// <summary>逻辑轮次耗时样本，供独立负载验收读取。</summary>
@@ -58,7 +50,7 @@ internal sealed class WorldCoordinator
     internal DataActorCall Call(DataSessionSnapshot session, bool role = false)
     {
         var binding = role ? Owned(session) : null;
-        return new(session.ConnectionId.Value, session.Generation, session.AuthEpoch, binding?.RoleId ?? 0, binding?.Version ?? 0, Now, Speed);
+        return new(session.ConnectionId.Value, session.Generation, session.AuthEpoch, binding?.RoleId ?? 0, binding?.Version ?? 0, Now);
     }
     /// <summary>当前连接必须仍控制会话中的角色。</summary>
     private DataControlBinding Owned(DataSessionSnapshot session) => session.Username is not null && session.RoleId > 0 &&
@@ -80,10 +72,10 @@ internal sealed class WorldCoordinator
             _modules.Calls.SetControl(binding.RoleId, binding.Version); _bindings[binding.RoleId] = binding;
             try
             {
-                await _modules.Role(binding.RoleId).Ask<bool>(new DataRoleControl(Now, Speed)).ConfigureAwait(false);
+                await _modules.Role(binding.RoleId).Ask<bool>(new DataRoleControl(Now)).ConfigureAwait(false);
                 await _modules.World(binding.MapId).Ask<bool>(new DataWorldMembership(binding.RoleId, true)).ConfigureAwait(false);
-                await _modules.Role(binding.RoleId).Ask<AdvanceRoleRt>(new AdvanceRole { ServerTimeMs = Now, MovementSpeed = Speed }, binding.Scope(Now, Speed)).ConfigureAwait(false);
-                var initial = await _modules.World(binding.MapId).Ask<GetWorldSnapshotRt>(new GetWorldSnapshot { RoleId = binding.RoleId, ServerTimeMs = Now }, binding.Scope(Now, Speed)).ConfigureAwait(false);
+                await _modules.Role(binding.RoleId).Ask<AdvanceRoleRt>(new AdvanceRole { ServerTimeMs = Now }, binding.Scope(Now)).ConfigureAwait(false);
+                var initial = await _modules.World(binding.MapId).Ask<GetWorldSnapshotRt>(new GetWorldSnapshot { RoleId = binding.RoleId, ServerTimeMs = Now }, binding.Scope(Now)).ConfigureAwait(false);
                 if (!connection.IsCurrent(expected)) { await RemoveAsync(binding, false).ConfigureAwait(false); return null; }
                 foreach (var old in oldBindings) await RemoveAsync(old, false).ConfigureAwait(false);
                 entry.State.Position = initial.Frame.Self.Position.Clone(); entry.Map = initial.Frame.Snapshot.Map.Clone();
@@ -112,7 +104,7 @@ internal sealed class WorldCoordinator
     {
         if (!_bindings.TryGetValue(binding.RoleId, out var current) || current != binding) return;
         _bindings.TryRemove(binding.RoleId, out _); _moving.TryRemove(binding.RoleId, out _); _modules.Calls.RemoveControl(binding.RoleId);
-        await _modules.Role(binding.RoleId).Ask<bool>(new DataRoleControl(Now, Speed)).ConfigureAwait(false);
+        await _modules.Role(binding.RoleId).Ask<bool>(new DataRoleControl(Now)).ConfigureAwait(false);
         await _modules.World(binding.MapId).Ask<bool>(new DataWorldMembership(binding.RoleId, false)).ConfigureAwait(false);
         binding.Connection.UnbindRole(binding.RoleId);
         if (kick)
@@ -127,7 +119,7 @@ internal sealed class WorldCoordinator
     internal async Task ResyncAsync(ConnectionSession connection, DataSessionSnapshot expected, ulong requestId)
     {
         var binding = Owned(expected);
-        var reply = await _modules.World(binding.MapId).Ask<GetWorldSnapshotRt>(new GetWorldSnapshot { RoleId = binding.RoleId, ServerTimeMs = Now }, binding.Scope(Now, Speed)).ConfigureAwait(false);
+        var reply = await _modules.World(binding.MapId).Ask<GetWorldSnapshotRt>(new GetWorldSnapshot { RoleId = binding.RoleId, ServerTimeMs = Now }, binding.Scope(Now)).ConfigureAwait(false);
         Publish(binding, expected, reply.Frame, new ResyncWorldRt { Frame = reply.Frame }, requestId);
     }
     /// <summary>按世界帧序号发布，旧代次占位也按序消耗，避免阻塞新代次。</summary>
@@ -157,7 +149,13 @@ internal sealed class WorldCoordinator
                 try
                 {
                     if (!_bindings.TryGetValue(item.Key, out var binding)) return;
-                    var reply = await _modules.Role(item.Key).Ask<AdvanceRoleRt>(new AdvanceRole { ServerTimeMs = now, MovementSpeed = Speed }, binding.Scope(now, Speed)).ConfigureAwait(false);
+                    var expected = binding.Connection.Snapshot();
+                    var reply = await _modules.Role(item.Key).Ask<AdvanceRoleRt>(new AdvanceRole { ServerTimeMs = now }, binding.Scope(now)).ConfigureAwait(false);
+                    if (reply.Attributes is { } attributes && expected.RoleId == binding.RoleId &&
+                        _bindings.TryGetValue(binding.RoleId, out var active) && active == binding && binding.Connection.IsCurrent(expected, true))
+                    {
+                        binding.Connection.Complete(expected, MessageCodec.Encode(new RoleAttributesChangedNotice { RoleId = binding.RoleId, Attributes = attributes }, expected.Generation, 0, false));
+                    }
                     if (reply.PickupReady) await CompletePickupAsync(binding).ConfigureAwait(false);
                     if (!reply.Moving) ((ICollection<KeyValuePair<long, long>>)_moving).Remove(item);
                 }
@@ -191,7 +189,7 @@ internal sealed class WorldCoordinator
         var expected = binding.Connection.Snapshot();
         if (expected.Username is null || expected.RoleId != binding.RoleId) return;
         var call = new DataActorCall(expected.ConnectionId.Value, expected.Generation, expected.AuthEpoch,
-            binding.RoleId, binding.Version, Now, Speed, PreserveResult: true);
+            binding.RoleId, binding.Version, Now, PreserveResult: true);
         await _items.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -232,7 +230,7 @@ internal sealed class WorldCoordinator
         /// <summary>下一待发布序号。</summary>
         internal ulong NextSequence { get; set; } = 1;
         /// <summary>不绑定客户端代次的系统控制调用。</summary>
-        internal DataActorCall Scope(long now, int speed) => new(RoleId: RoleId, ControlVersion: Version, ServerTimeMs: now, MovementSpeed: speed);
+        internal DataActorCall Scope(long now) => new(RoleId: RoleId, ControlVersion: Version, ServerTimeMs: now);
     }
     /// <summary>原任务捕获的投递身份与独立字节。</summary>
     internal sealed record DataFrameDelivery(DataSessionSnapshot Expected, byte[] Packet);

@@ -25,30 +25,31 @@ namespace Rpg.Server.ActorProtocol {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "ChBhY3Rvci9yb2xlLnByb3RvEglycGcuYWN0b3IaCnJvbGUucHJvdG8aCWJh",
-            "Zy5wcm90bxoJbWFwLnByb3RvIhkKF0dldFJvbGVXb3JsZE9iamVjdENvdW50",
-            "IioKGUdldFJvbGVXb3JsZE9iamVjdENvdW50UnQSDQoFY291bnQYASABKAUi",
-            "MgoLUHJlcGFyZVJvbGUSIwoHc3VtbWFyeRgBIAEoCzISLnJwZy5Sb2xlU3Vt",
-            "bWFyeVBiIo0BCg1QcmVwYXJlUm9sZVJ0EiQKBXN0YXRlGAEgASgLMhUucnBn",
-            "LlJvbGVXb3JsZFN0YXRlUGISGQoEcm9sZRgCIAEoCzILLnJwZy5Sb2xlUGIS",
-            "FwoDYmFnGAMgASgLMgoucnBnLkJhZ1BiEiIKA21hcBgEIAEoCzIVLnJwZy5N",
-            "YXBBb2lTbmFwc2hvdFBiIj0KC0FkdmFuY2VSb2xlEhYKDnNlcnZlcl90aW1l",
-            "X21zGAEgASgDEhYKDm1vdmVtZW50X3NwZWVkGAIgASgFIjUKDUFkdmFuY2VS",
-            "b2xlUnQSDgoGbW92aW5nGAEgASgIEhQKDHBpY2t1cF9yZWFkeRgCIAEoCCIO",
-            "CgxHZXRSb2xlSXRlbXMiaAoOR2V0Um9sZUl0ZW1zUnQSDwoHcm9sZV9pZBgB",
-            "IAEoAxIXCgNiYWcYAiABKAsyCi5ycGcuQmFnUGISLAoJZXF1aXBtZW50GAMg",
-            "ASgLMhkucnBnLlJvbGVXb3JsZEVxdWlwbWVudFBiIhQKEkNvbXBsZXRlUm9s",
-            "ZVBpY2t1cCJDChRDb21wbGV0ZVJvbGVQaWNrdXBSdBIrCgZyZXN1bHQYASAB",
-            "KAsyGy5ycGcuUGlja3VwSXRlbVJlc3VsdE5vdGljZUIbqgIYUnBnLlNlcnZl",
-            "ci5BY3RvclByb3RvY29sYgZwcm90bzM="));
+            "Zy5wcm90bxoJbWFwLnByb3RvGg9hdHRyaWJ1dGUucHJvdG8iGQoXR2V0Um9s",
+            "ZVdvcmxkT2JqZWN0Q291bnQiKgoZR2V0Um9sZVdvcmxkT2JqZWN0Q291bnRS",
+            "dBINCgVjb3VudBgBIAEoBSIyCgtQcmVwYXJlUm9sZRIjCgdzdW1tYXJ5GAEg",
+            "ASgLMhIucnBnLlJvbGVTdW1tYXJ5UGIijQEKDVByZXBhcmVSb2xlUnQSJAoF",
+            "c3RhdGUYASABKAsyFS5ycGcuUm9sZVdvcmxkU3RhdGVQYhIZCgRyb2xlGAIg",
+            "ASgLMgsucnBnLlJvbGVQYhIXCgNiYWcYAyABKAsyCi5ycGcuQmFnUGISIgoD",
+            "bWFwGAQgASgLMhUucnBnLk1hcEFvaVNuYXBzaG90UGIiJQoLQWR2YW5jZVJv",
+            "bGUSFgoOc2VydmVyX3RpbWVfbXMYASABKAMiXAoNQWR2YW5jZVJvbGVSdBIO",
+            "CgZtb3ZpbmcYASABKAgSFAoMcGlja3VwX3JlYWR5GAIgASgIEiUKCmF0dHJp",
+            "YnV0ZXMYAyABKAsyES5ycGcuQXR0cmlidXRlc1BiIg4KDEdldFJvbGVJdGVt",
+            "cyJoCg5HZXRSb2xlSXRlbXNSdBIPCgdyb2xlX2lkGAEgASgDEhcKA2JhZxgC",
+            "IAEoCzIKLnJwZy5CYWdQYhIsCgllcXVpcG1lbnQYAyABKAsyGS5ycGcuUm9s",
+            "ZVdvcmxkRXF1aXBtZW50UGIiFAoSQ29tcGxldGVSb2xlUGlja3VwIkMKFENv",
+            "bXBsZXRlUm9sZVBpY2t1cFJ0EisKBnJlc3VsdBgBIAEoCzIbLnJwZy5QaWNr",
+            "dXBJdGVtUmVzdWx0Tm90aWNlQhuqAhhScGcuU2VydmVyLkFjdG9yUHJvdG9j",
+            "b2xiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { global::Rpg.Protocol.RoleReflection.Descriptor, global::Rpg.Protocol.BagReflection.Descriptor, global::Rpg.Protocol.MapReflection.Descriptor, },
+          new pbr::FileDescriptor[] { global::Rpg.Protocol.RoleReflection.Descriptor, global::Rpg.Protocol.BagReflection.Descriptor, global::Rpg.Protocol.MapReflection.Descriptor, global::Rpg.Protocol.AttributeReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.GetRoleWorldObjectCount), global::Rpg.Server.ActorProtocol.GetRoleWorldObjectCount.Parser, null, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.GetRoleWorldObjectCountRt), global::Rpg.Server.ActorProtocol.GetRoleWorldObjectCountRt.Parser, new[]{ "Count" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.PrepareRole), global::Rpg.Server.ActorProtocol.PrepareRole.Parser, new[]{ "Summary" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.PrepareRoleRt), global::Rpg.Server.ActorProtocol.PrepareRoleRt.Parser, new[]{ "State", "Role", "Bag", "Map" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.AdvanceRole), global::Rpg.Server.ActorProtocol.AdvanceRole.Parser, new[]{ "ServerTimeMs", "MovementSpeed" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.AdvanceRoleRt), global::Rpg.Server.ActorProtocol.AdvanceRoleRt.Parser, new[]{ "Moving", "PickupReady" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.AdvanceRole), global::Rpg.Server.ActorProtocol.AdvanceRole.Parser, new[]{ "ServerTimeMs" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.AdvanceRoleRt), global::Rpg.Server.ActorProtocol.AdvanceRoleRt.Parser, new[]{ "Moving", "PickupReady", "Attributes" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.GetRoleItems), global::Rpg.Server.ActorProtocol.GetRoleItems.Parser, null, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.GetRoleItemsRt), global::Rpg.Server.ActorProtocol.GetRoleItemsRt.Parser, new[]{ "RoleId", "Bag", "Equipment" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Server.ActorProtocol.CompleteRolePickup), global::Rpg.Server.ActorProtocol.CompleteRolePickup.Parser, null, null, null, null, null),
@@ -1039,7 +1040,6 @@ namespace Rpg.Server.ActorProtocol {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public AdvanceRole(AdvanceRole other) : this() {
       serverTimeMs_ = other.serverTimeMs_;
-      movementSpeed_ = other.movementSpeed_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -1064,21 +1064,6 @@ namespace Rpg.Server.ActorProtocol {
       }
     }
 
-    /// <summary>Field number for the "movement_speed" field.</summary>
-    public const int MovementSpeedFieldNumber = 2;
-    private int movementSpeed_;
-    /// <summary>
-    /// 本轮有效速度。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int MovementSpeed {
-      get { return movementSpeed_; }
-      set {
-        movementSpeed_ = value;
-      }
-    }
-
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -1095,7 +1080,6 @@ namespace Rpg.Server.ActorProtocol {
         return true;
       }
       if (ServerTimeMs != other.ServerTimeMs) return false;
-      if (MovementSpeed != other.MovementSpeed) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1104,7 +1088,6 @@ namespace Rpg.Server.ActorProtocol {
     public override int GetHashCode() {
       int hash = 1;
       if (ServerTimeMs != 0L) hash ^= ServerTimeMs.GetHashCode();
-      if (MovementSpeed != 0) hash ^= MovementSpeed.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1127,10 +1110,6 @@ namespace Rpg.Server.ActorProtocol {
         output.WriteRawTag(8);
         output.WriteInt64(ServerTimeMs);
       }
-      if (MovementSpeed != 0) {
-        output.WriteRawTag(16);
-        output.WriteInt32(MovementSpeed);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1145,10 +1124,6 @@ namespace Rpg.Server.ActorProtocol {
         output.WriteRawTag(8);
         output.WriteInt64(ServerTimeMs);
       }
-      if (MovementSpeed != 0) {
-        output.WriteRawTag(16);
-        output.WriteInt32(MovementSpeed);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1161,9 +1136,6 @@ namespace Rpg.Server.ActorProtocol {
       int size = 0;
       if (ServerTimeMs != 0L) {
         size += 1 + pb::CodedOutputStream.ComputeInt64Size(ServerTimeMs);
-      }
-      if (MovementSpeed != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeInt32Size(MovementSpeed);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1179,9 +1151,6 @@ namespace Rpg.Server.ActorProtocol {
       }
       if (other.ServerTimeMs != 0L) {
         ServerTimeMs = other.ServerTimeMs;
-      }
-      if (other.MovementSpeed != 0) {
-        MovementSpeed = other.MovementSpeed;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1206,10 +1175,6 @@ namespace Rpg.Server.ActorProtocol {
             ServerTimeMs = input.ReadInt64();
             break;
           }
-          case 16: {
-            MovementSpeed = input.ReadInt32();
-            break;
-          }
         }
       }
     #endif
@@ -1231,10 +1196,6 @@ namespace Rpg.Server.ActorProtocol {
             break;
           case 8: {
             ServerTimeMs = input.ReadInt64();
-            break;
-          }
-          case 16: {
-            MovementSpeed = input.ReadInt32();
             break;
           }
         }
@@ -1284,6 +1245,7 @@ namespace Rpg.Server.ActorProtocol {
     public AdvanceRoleRt(AdvanceRoleRt other) : this() {
       moving_ = other.moving_;
       pickupReady_ = other.pickupReady_;
+      attributes_ = other.attributes_ != null ? other.attributes_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -1323,6 +1285,21 @@ namespace Rpg.Server.ActorProtocol {
       }
     }
 
+    /// <summary>Field number for the "attributes" field.</summary>
+    public const int AttributesFieldNumber = 3;
+    private global::Rpg.Protocol.AttributesPb attributes_;
+    /// <summary>
+    /// 正常属性变化时交给本人独立通知。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.Protocol.AttributesPb Attributes {
+      get { return attributes_; }
+      set {
+        attributes_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -1340,6 +1317,7 @@ namespace Rpg.Server.ActorProtocol {
       }
       if (Moving != other.Moving) return false;
       if (PickupReady != other.PickupReady) return false;
+      if (!object.Equals(Attributes, other.Attributes)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1349,6 +1327,7 @@ namespace Rpg.Server.ActorProtocol {
       int hash = 1;
       if (Moving != false) hash ^= Moving.GetHashCode();
       if (PickupReady != false) hash ^= PickupReady.GetHashCode();
+      if (attributes_ != null) hash ^= Attributes.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1375,6 +1354,10 @@ namespace Rpg.Server.ActorProtocol {
         output.WriteRawTag(16);
         output.WriteBool(PickupReady);
       }
+      if (attributes_ != null) {
+        output.WriteRawTag(26);
+        output.WriteMessage(Attributes);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1393,6 +1376,10 @@ namespace Rpg.Server.ActorProtocol {
         output.WriteRawTag(16);
         output.WriteBool(PickupReady);
       }
+      if (attributes_ != null) {
+        output.WriteRawTag(26);
+        output.WriteMessage(Attributes);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1408,6 +1395,9 @@ namespace Rpg.Server.ActorProtocol {
       }
       if (PickupReady != false) {
         size += 1 + 1;
+      }
+      if (attributes_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Attributes);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1426,6 +1416,12 @@ namespace Rpg.Server.ActorProtocol {
       }
       if (other.PickupReady != false) {
         PickupReady = other.PickupReady;
+      }
+      if (other.attributes_ != null) {
+        if (attributes_ == null) {
+          Attributes = new global::Rpg.Protocol.AttributesPb();
+        }
+        Attributes.MergeFrom(other.Attributes);
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1454,6 +1450,13 @@ namespace Rpg.Server.ActorProtocol {
             PickupReady = input.ReadBool();
             break;
           }
+          case 26: {
+            if (attributes_ == null) {
+              Attributes = new global::Rpg.Protocol.AttributesPb();
+            }
+            input.ReadMessage(Attributes);
+            break;
+          }
         }
       }
     #endif
@@ -1479,6 +1482,13 @@ namespace Rpg.Server.ActorProtocol {
           }
           case 16: {
             PickupReady = input.ReadBool();
+            break;
+          }
+          case 26: {
+            if (attributes_ == null) {
+              Attributes = new global::Rpg.Protocol.AttributesPb();
+            }
+            input.ReadMessage(Attributes);
             break;
           }
         }

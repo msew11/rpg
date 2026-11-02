@@ -6,15 +6,15 @@ TBD - created by archiving change data-driven-rpg-client. Update Purpose after a
 ## Requirements
 
 ### Requirement: GM 移动速度调节
-GM 面板 SHALL 提供 60–360 逻辑单位/秒、步长 10 的移动速度滑条，默认 180。调整 SHALL 在客户端世界和模拟服务端的下一帧即时生效，保存于 `user://.env` 的 `RPG_MOVEMENT_SPEED`，重启恢复。缺失或非法文件值 SHALL 回退默认值，非法赋值或保存失败 SHALL 保留原速度；保存 SHALL 保留其他 .env 键与注释，失败时滑条恢复并显示原因。
+GM 面板 SHALL 增加启用勾选，关闭时使用服务器正常属性移速并禁用调速。开关和数值 SHALL 通过 movespeed 命令保存至服务器当前角色主表，不再从本地 .env 恢复或写入移速。命令成功前 SHALL 完成落盘，失败显示原因。实际速度 SHALL 支持小数，服务器和客户端预测使用同一执行速度。
 
 #### Scenario: 调速与重启
-- **WHEN** 在 GM 面板把速度从 180 调为 300，继续移动并重启游戏
-- **THEN** 当前世界和模拟服务端立即按 300 推进，重新进入后滑条与速度恢复 300
+- **WHEN** 当前角色通过勾选和调速启用 300，随后重启并重新进入
+- **THEN** 角色恢复启用与 300，其他角色不变；关闭恢复其正常属性速度
 
 #### Scenario: 无效值与保存失败
-- **WHEN** .env 包含超出范围或非步长值，或 GM 调整时文件无法保存
-- **THEN** 无效值按 180 加载；保存失败保持原速度，界面恢复原值并显示原因
+- **WHEN** 命令速度为非有限数、负数或服务器写盘失败
+- **THEN** 返回明确失败且不显示保存成功，面板恢复已确认值并允许重试
 
 ### Requirement: 世界仅通过 Action 改变
 `WorldManager` SHALL 是 ECS 的唯一写入入口；输入事件和外部状态更新 SHALL 转为 Action，由 Godot 固定帧处理。世界实体 SHALL 先于角色实体创建。

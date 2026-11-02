@@ -152,6 +152,12 @@ internal sealed class ServerRuntime : IAsyncDisposable
             if (itemRequest) call = call with { PreserveResult = true };
             var result = await Router.RouteAsync(snapshot, request, call).ConfigureAwait(false);
             if (request is DropItem) _modules.GroundItemsPending = true;
+            if (result.Message is GmRt { MovementSpeed: not null })
+            {
+                // 使用共用事务落盘；写入失败不得回复设置成功。
+                if (session.IsCurrent(snapshot, true) && _modules.Calls.IsCurrent(call) && World is not null) World.Moved(snapshot);
+                await _modules.FlushAsync().ConfigureAwait(false);
+            }
             if (result.ItemNotice is { } notice && session.IsCurrent(snapshot, true) && _modules.Calls.IsCurrent(call))
                 session.Complete(snapshot, Codec.Encode(notice, snapshot.Generation, 0, false));
             if (itemRequest && session.IsCurrent(snapshot, true) && _modules.Calls.IsCurrent(call) && World is not null) World.Moved(snapshot);

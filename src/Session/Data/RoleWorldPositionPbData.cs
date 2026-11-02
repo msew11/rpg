@@ -12,7 +12,7 @@ public sealed record RoleWorldPositionPbData(long RoleId, int MapId, Vector2 Pos
     /// <summary>当前目标，空表示静止。</summary>
     public Vector2? Target { get; init; }
     /// <summary>服务器当前有效逻辑速度。</summary>
-    public float Speed { get; init; }
+    public double Speed { get; init; }
     /// <summary>直接验证并复制 结构，身份来自完整状态根节点。</summary>
     public static RoleWorldPositionPbData FromPb(global::Rpg.Protocol.RoleWorldPositionPb message, long roleId)
     {
@@ -35,7 +35,7 @@ public sealed record RoleWorldPositionPbData(long RoleId, int MapId, Vector2 Pos
     private void Validate()
     {
         if (RoleId <= 0 || MapId <= 0 || !float.IsFinite(Position.X) || !float.IsFinite(Position.Y) ||
-            Revision < 0 || AcknowledgedAction < 0 || !float.IsFinite(Speed) || Speed < 0 ||
+            Revision < 0 || AcknowledgedAction < 0 || !double.IsFinite(Speed) || Speed < 0 ||
             (Target is { } target && (!float.IsFinite(target.X) || !float.IsFinite(target.Y))))
             throw new InvalidDataException("角色位置包含无效字段");
     }

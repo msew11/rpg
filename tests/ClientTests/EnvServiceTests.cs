@@ -24,7 +24,6 @@ public sealed class EnvServiceTests : IDisposable
         env.ConsoleLogEnabled = true;
         env.ShowEntityAnchors = true;
         env.ServerFlushIntervalSeconds = 30;
-        env.MovementSpeed = 300;
         env.MouseWheelZoomEnabled = true;
         env.GmDisplayZoom = 1.25;
         env.ShowChunkBoundaries = true;
@@ -38,7 +37,6 @@ public sealed class EnvServiceTests : IDisposable
         Assert.Equal(GmSnapshot(env), GmSnapshot(restarted));
         Assert.True(restarted.ConsoleLogEnabled && restarted.ShowEntityAnchors);
         Assert.Equal(30, restarted.ServerFlushIntervalSeconds);
-        Assert.Equal(300, restarted.MovementSpeed);
         Assert.Equal("abcdef80", restarted.EntityAnchorColor);
         var lines = File.ReadAllLines(EnvPath);
         Assert.Contains("# 保留注释", lines);
@@ -124,36 +122,14 @@ public sealed class EnvServiceTests : IDisposable
         env.ShowChunkBoundaries, env.ShowCurrentAoi, env.ShowRenderAreaBoundary,
         env.EntityAnchorColor, env.ChunkBoundaryColor, env.RenderAreaBoundaryColor, env.HealthPreviewPercent];
 
-    /// <summary>client-ecs-world：速度在合理范围内跨启动保留，其他 .env 键不被覆盖。</summary>
+    /// <summary>gm-movement：旧 .env 移速键不参与服务端角色设置，保存其他键仍保留原文。</summary>
     [Fact]
-    public void MovementSpeedPersistsAndPreservesOtherKeys()
-    {
-        using var env = Open();
-        Assert.Equal(180, env.MovementSpeed);
-        env.ConsoleLogEnabled = true;
-        env.MovementSpeed = 300;
-        using var restarted = Open();
-        Assert.Equal(300, restarted.MovementSpeed);
-        Assert.True(restarted.ConsoleLogEnabled);
-        Assert.Contains("RPG_MOVEMENT_SPEED=300", File.ReadAllText(EnvPath));
-    }
-
-    /// <summary>client-ecs-world：非法速度回退默认值，保存失败不改变当前速度。</summary>
-    [Theory]
-    [InlineData("0")]
-    [InlineData("370")]
-    [InlineData("185")]
-    [InlineData("invalid")]
-    public void InvalidMovementSpeedAndFailedSavePreserveState(string invalid)
+    public void LegacyMovementSpeedKeyIsIgnoredAndPreserved()
     {
         Directory.CreateDirectory(_root);
-        File.WriteAllText(EnvPath, EnvService.MovementSpeedVariable + "=" + invalid);
-        using var env = Open();
-        Assert.Equal(180, env.MovementSpeed);
-        Assert.Throws<ArgumentOutOfRangeException>(() => env.MovementSpeed = 185);
-        using (var locked = new FileStream(EnvPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-            Assert.True(Record.Exception(() => env.MovementSpeed = 300) is IOException or UnauthorizedAccessException);
-        Assert.Equal(180, env.MovementSpeed);
+        File.WriteAllText(EnvPath, "RPG_MOVEMENT_SPEED=300");
+        using var env = Open(); env.ConsoleLogEnabled = true;
+        Assert.Contains("RPG_MOVEMENT_SPEED=300", File.ReadAllLines(EnvPath));
     }
 
     /// <summary>缺失文件时默认关闭，首次切换才创建文件；开启和关闭均跨实例保留。</summary>

@@ -41,7 +41,7 @@ public sealed class ServerGroundItemTests : IDisposable
             var accepted = await Exchange(server, id, new PickupItem { ObjectId = drop.ObjectId, MoveActionId = 1 });
             Assert.IsType<PickupItemRt>(Assert.Single(accepted));
         }
-        server.Server.World!.Speed = 100000; await server.Server.AdvanceAsync(); await Task.Delay(5); await server.Server.AdvanceAsync();
+        foreach (var player in new[] { one, two }) await Exchange(server, player, new Gm { Command = "movespeed 100000" }); await server.Server!.AdvanceAsync(); await Task.Delay(5); await server.Server.AdvanceAsync();
         var outputs = new[] { ReadAll(server, one), ReadAll(server, two) };
         var results = outputs.SelectMany(list => list).OfType<PickupItemResultNotice>().ToArray();
         Assert.True(results.Length == 2, string.Join("\n", errors.Select(error => error.ToString())) + " outputs=" + string.Join(" | ", outputs.SelectMany(list => list))); Assert.Single(results.Where(result => result.Success));
@@ -71,7 +71,7 @@ public sealed class ServerGroundItemTests : IDisposable
         await Exchange(server, id, new Move { ActionId = 1, Target = target.Clone() });
         await Exchange(server, id, new PickupItem { ObjectId = dropped.ObjectId, MoveActionId = 1 });
         await Exchange(server, id, new Gm { Command = "item 1012 40" });
-        server.Server!.World!.Speed = 100000; await server.Server.AdvanceAsync(); await Task.Delay(5); await server.Server.AdvanceAsync();
+        await Exchange(server, id, new Gm { Command = "movespeed 100000" }); await server.Server!.AdvanceAsync(); await Task.Delay(5); await server.Server.AdvanceAsync();
         Assert.False(Assert.Single(ReadAll(server, id).OfType<PickupItemResultNotice>()).Success);
         await Exchange(server, id, new Move { ActionId = 2, Target = target.Clone() });
         await Exchange(server, id, new PickupItem { ObjectId = dropped.ObjectId, MoveActionId = 2 });
@@ -103,7 +103,7 @@ public sealed class ServerGroundItemTests : IDisposable
         }
         else await Exchange(server, id, new LeaveWorld());
         var returned = Assert.IsType<EnterWorldRt>((await Exchange(server, current, new EnterWorld { RoleId = entry.State.RoleId })).Last());
-        server.Server!.World!.Speed = 100000; await server.Server.AdvanceAsync(); await Task.Delay(5); await server.Server.AdvanceAsync();
+        await Exchange(server, id, new Gm { Command = "movespeed 100000" }); await server.Server!.AdvanceAsync(); await Task.Delay(5); await server.Server.AdvanceAsync();
         Assert.Empty(ReadAll(server, current).OfType<PickupItemResultNotice>());
         if (takeover) Assert.Empty(ReadAll(server, id).OfType<PickupItemResultNotice>());
         Assert.Empty(returned.Bag.Items); Assert.Single(returned.Map.Chunks.SelectMany(chunk => chunk.Objects));

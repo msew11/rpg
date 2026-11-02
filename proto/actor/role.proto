@@ -4,6 +4,7 @@ option csharp_namespace = "Rpg.Server.ActorProtocol";
 import "role.proto";
 import "bag.proto";
 import "map.proto";
+import "attribute.proto";
 
 // 查询接收角色当前所在地图的动态对象数量。
 message GetRoleWorldObjectCount {
@@ -37,8 +38,6 @@ message PrepareRoleRt {
 message AdvanceRole {
   // 本轮单调时间。
   int64 server_time_ms = 1;
-  // 本轮有效速度。
-  int32 movement_speed = 2;
 }
 
 // 角色是否仍需移动或投影重试。
@@ -47,6 +46,8 @@ message AdvanceRoleRt {
   bool moving = 1;
   // 在邮箱外进入物品串行入口完成拾取。
   bool pickup_ready = 2;
+  // 正常属性变化时交给本人独立通知。
+  rpg.AttributesPb attributes = 3;
 }
 
 // 查询接收角色的最新完整物品。

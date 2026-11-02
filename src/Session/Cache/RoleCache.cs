@@ -25,10 +25,24 @@ public sealed class RoleCache : CacheBase
     /// <summary>最新权威快照；选角响应前不可读取。</summary>
     public RoleWorldStatePbData State => _state ?? throw new InvalidOperationException("角色缓存尚未初始化");
 
-    /// <summary>世界协调器完成整批校验后接纳本人位置，不覆盖私有数据。</summary>
-    internal void AcceptPosition(RoleWorldPositionPbData position)
+    /// <summary>在缓存阶段先接纳独立属性通知与 GM 成功回复。</summary>
+    public RoleCache()
     {
-        _state = State with { Position = position.Position, PositionRevision = position.Revision, AcknowledgedAction = position.AcknowledgedAction, Target = position.Target, Speed = position.Speed };
+        Subscribe<RoleAttributesChangedNotice>(notice =>
+        { if (IsInitialized && notice.RoleId == RoleId) _state = State with { Attributes = AttributesPbData.FromPb(notice.Attributes) }; });
+        Subscribe<GmRt>(reply =>
+        { if (IsInitialized && reply.RoleId == RoleId && reply.MovementSpeed is not null) _state = State with { GmMovementSpeed = GmMovementSpeedPbData.FromPb(reply.MovementSpeed) }; });
+    }
+
+    /// <summary>世界协调器完成整批校验后接纳本人位置，不覆盖私有数据。</summary>
+    internal void AcceptWorld(RoleWorldPositionPbData position, RoleWorldProfilePbData? profile = null, RoleWorldStatusPbData? status = null)
+    {
+        _state = State with { Position = position.Position, PositionRevision = position.Revision, AcknowledgedAction = position.AcknowledgedAction, Target = position.Target, Speed = position.Speed,
+            Revision = position.Revision, ProfileRevision = profile?.Revision ?? State.ProfileRevision, StatusRevision = status?.Revision ?? State.StatusRevision,
+            Name = profile?.Name ?? State.Name, Level = profile?.Level ?? State.Level,
+            Gender = profile?.Gender ?? State.Gender, HeadId = profile?.HeadId ?? State.HeadId,
+            Health = status?.Health ?? State.Health, MaxHealth = status?.MaxHealth ?? State.MaxHealth,
+            Mana = status?.Mana ?? State.Mana, MaxMana = status?.MaxMana ?? State.MaxMana };
     }
 
     /// <summary>完整组合已验证后一次替换物品和外观。</summary>

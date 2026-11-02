@@ -239,7 +239,7 @@ public partial class ClientSmoke : Node
             if (!hud.GetChildren().OfType<PanelContainer>().Any(panel => panel.Name == "角色" && panel.Visible))
                 throw new InvalidOperationException("角色面板无法打开");
             // client-ui：全部 GM 设定经控件保存，并在文件不可替换时保持控件与世界表现。
-            ConfigurePersistentGm(hud);
+            await ConfigurePersistentGm(hud);
             using (var locked = new FileStream(main.EnvFilePath, FileMode.Open, System.IO.FileAccess.Read, FileShare.Read))
             {
                 wheelZoom.ButtonPressed = false;
@@ -262,7 +262,7 @@ public partial class ClientSmoke : Node
             ((Button)main.FindChild("SelectRole1002", true, false)).EmitSignal(Button.SignalName.Pressed);
             ((Button)main.FindChild("EnterRole", true, false)).EmitSignal(Button.SignalName.Pressed);
             await WaitForHud(main);
-            AssertPersistentGm(main);
+            AssertPersistentGm(main, speedOverride: false);
             WheelAt(new Vector2(500, 300));
             if (!Mathf.IsEqualApprox(main.GetNode<Camera2D>("WorldVisual/WorldCamera").Zoom.X, 0.55f))
                 throw new InvalidOperationException("重新进入世界后滚轮未恢复启用");
@@ -368,7 +368,7 @@ public partial class ClientSmoke : Node
     }
 
     /// <summary>通过 GM 控件保存各类开关、颜色、倍率和角色预览，验收 client-ui 持久化。</summary>
-    private static void ConfigurePersistentGm(GameHud hud)
+    private async System.Threading.Tasks.Task ConfigurePersistentGm(GameHud hud)
     {
         foreach (var name in new[] { "MouseWheelZoomEnabled", "ShowEntityAnchors", "ShowChunkBoundaries", "ShowCurrentAoi", "ShowRenderAreaBoundary" })
             ((CheckButton)hud.FindChild(name, true, false)).ButtonPressed = true;
@@ -380,12 +380,18 @@ public partial class ClientSmoke : Node
         }
         ((HSlider)hud.FindChild("GmDisplayZoom", true, false)).Value = 0.5;
         ((HSlider)hud.FindChild("HealthPercent", true, false)).Value = 25;
+        var toggle = (CheckButton)hud.FindChild("MovementSpeedOverride", true, false);
+        toggle.ButtonPressed = true;
+        var limit = DateTime.UtcNow.AddSeconds(5);
+        while (toggle.Disabled && DateTime.UtcNow < limit) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         ((HSlider)hud.FindChild("MovementSpeed", true, false)).Value = 300;
+        while (toggle.Disabled && DateTime.UtcNow < limit) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        if (toggle.Disabled) throw new InvalidOperationException("GM 移速保存超时");
         ((SpinBox)hud.FindChild("ServerFlushIntervalSeconds", true, false)).Value = 30;
     }
 
-    /// <summary>重入与重启后，控件和实际地图、角色表现都恢复 .env 值。</summary>
-    private static void AssertPersistentGm(MainController main)
+    /// <summary>重入与重启恢复本地显示设定，移速只恢复当前角色的服务端覆盖。</summary>
+    private static void AssertPersistentGm(MainController main, bool speedOverride = true)
     {
         foreach (var name in new[] { "MouseWheelZoomEnabled", "ShowEntityAnchors", "ShowChunkBoundaries", "ShowCurrentAoi", "ShowRenderAreaBoundary" })
             if (!((CheckButton)main.FindChild(name, true, false)).ButtonPressed)
@@ -397,7 +403,8 @@ public partial class ClientSmoke : Node
             ((HSlider)main.FindChild("GmDisplayZoom", true, false)).Value != 0.5 ||
             ((HSlider)main.FindChild("HealthPercent", true, false)).Value != 25 ||
             ((ProgressBar)main.FindChild("HealthBar", true, false)).Value != 25 ||
-            ((HSlider)main.FindChild("MovementSpeed", true, false)).Value != 300 ||
+            ((HSlider)main.FindChild("MovementSpeed", true, false)).Value != (speedOverride ? 300 : 180) ||
+            ((CheckButton)main.FindChild("MovementSpeedOverride", true, false)).ButtonPressed != speedOverride ||
             ((SpinBox)main.FindChild("ServerFlushIntervalSeconds", true, false)).Value != 30 ||
             !actorAnchor.Visible || actorAnchor.MarkerColor != Colors.Cyan ||
             !chunks.Visible || chunks.LineColor != Colors.Red || !render.Visible || render.LineColor != Colors.Blue ||

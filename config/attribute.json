@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "name": "移动速度",
+    "min": 0,
+    "max": 10000,
+    "precision": 3,
+    "displayDecimals": 2
+  },
+  {
+    "id": 2,
+    "name": "生命上限",
+    "min": 1,
+    "max": 1000000000,
+    "precision": 0,
+    "displayDecimals": 0
+  },
+  {
+    "id": 3,
+    "name": "魔力上限",
+    "min": 0,
+    "max": 1000000000,
+    "precision": 0,
+    "displayDecimals": 0
+  },
+  {
+    "id": 4,
+    "name": "物理点伤",
+    "min": 0,
+    "max": 1000000000,
+    "precision": 3,
+    "displayDecimals": 2
+  },
+  {
+    "id": 5,
+    "name": "护甲值",
+    "min": 0,
+    "max": 1000000000,
+    "precision": 3,
+    "displayDecimals": 2
+  },
+  {
+    "id": 6,
+    "name": "闪避值",
+    "min": 0,
+    "max": 1000000000,
+    "precision": 3,
+    "displayDecimals": 2
+  }
+]

@@ -77,8 +77,8 @@ public sealed class ServerItemTests : IDisposable
                 {
                     await Task.Delay(110); await server.Server!.AdvanceAsync();
                     var frames = ReadAll(server, observer).OfType<WorldUpdateNotice>().ToArray();
-                    Assert.Contains(frames, n => n.Frame.Delta?.EnteredRoles.Any(r => r.RoleId == role && r.Equipment.EquippedItems.Contains(1012)) == true ||
-                        n.Frame.Delta?.EquippedRoles.Any(r => r.RoleId == role && r.Equipment.EquippedItems.Contains(1012)) == true);
+                    Assert.Contains(frames, n => n.Frame.Delta?.EnteredRoles.Any(r => r.RoleId == role && r.Equipment != null && r.Equipment.EquippedItems.Contains(1012)) == true ||
+                        n.Frame.Delta?.UpdatedRoles.Any(r => r.RoleId == role && r.Equipment != null && r.Equipment.EquippedItems.Contains(1012)) == true);
                 }
                 var login = Assert.IsType<LoginRt>((await Exchange(server, id, new Login { Username = account, Password = "123" })).Last());
                 Assert.Equal(1012, Assert.Single(login.Roles.Single(r => r.RoleId == role).EquippedItems));

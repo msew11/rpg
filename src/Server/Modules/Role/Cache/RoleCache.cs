@@ -26,6 +26,12 @@ public sealed class RoleCache
     public DataCacheEquipment Equipments => _equipments ?? throw new InvalidOperationException("角色尚未建档");
     /// <summary>尚未建档时不构造装备表。</summary>
     private DataCacheEquipment? _equipments;
+    /// <summary>已计算的等级，零表示尚未加载正常属性。</summary>
+    internal int AttributeLevel { get; set; }
+    /// <summary>只读正常属性，不包含 GM 执行覆盖。</summary>
+    internal System.Collections.Generic.IReadOnlyDictionary<int, double> Attributes { get; set; } = new System.Collections.Generic.Dictionary<int, double>();
+    /// <summary>正常属性发生变化后需要独立通知。</summary>
+    internal bool AttributesPending { get; set; }
     /// <summary>是否已有完整加载或可信建立的三表候选。</summary>
     public bool IsInitialized => _role is not null;
     /// <summary>直接汇总各表缓存的待写状态。</summary>

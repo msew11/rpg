@@ -46,9 +46,9 @@ public sealed class ServerHandlerStructureTests
     public void LocalHandlersAndSharedLogicRespectActorBoundaries()
     {
         var modules = Path.Combine(ConfigTestFixture.FindRoot(), "src", "Server", "Modules");
-        foreach (var message in new[] { "Gm", "MoveItem", "GetRoleItems", "PickupItem" })
+        foreach (var message in new[] { "MoveItem", "GetRoleItems", "PickupItem" })
             Assert.True(File.Exists(Path.Combine(modules, "Role", "Handler", message + "Handler.cs")));
-        foreach (var message in new[] { "EquipItem", "DropItem", "CompleteRolePickup", "AdvanceRole", "Move" })
+        foreach (var message in new[] { "Gm", "EquipItem", "DropItem", "CompleteRolePickup", "AdvanceRole", "Move" })
             Assert.True(File.Exists(Path.Combine(modules, "Role", "Async", message + "Handler.cs")));
         Assert.True(File.Exists(Path.Combine(modules, "Common", "Utils", "RoleProjectionSync.cs")));
         foreach (var module in new[] { "Login", "Role", "World" })

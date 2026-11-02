@@ -18,14 +18,14 @@ internal static class RoleTestData
     {
         var storage = new RoleStorage(directory);
         var summaries = ImmutableArray.Create(
-            new DataRoleSummary(1001, "晨星", 5, Rpg.Server.Modules.Common.Data.RoleGender.Male, 1, []),
-            new DataRoleSummary(1002, "流光", 3, Rpg.Server.Modules.Common.Data.RoleGender.Female, 1, []));
+            new DataRoleSummary(1001, "晨星", 1, Rpg.Server.Modules.Common.Data.RoleGender.Male, 1, []),
+            new DataRoleSummary(1002, "流光", 1, Rpg.Server.Modules.Common.Data.RoleGender.Female, 1, []));
         new LoginStorage(directory).SaveAsync("demo1", summaries).AsTask().GetAwaiter().GetResult();
         foreach (var summary in summaries)
         {
             var role = new DataRole { RoleId = summary.RoleId, MapId = 1, HeadId = 1, Name = summary.Name,
-                Level = summary.Level, Health = summary.RoleId == 1001 ? 86 : 64, MaxHealth = summary.RoleId == 1001 ? 100 : 80,
-                Mana = summary.RoleId == 1001 ? 42 : 75, MaxMana = summary.RoleId == 1001 ? 60 : 90,
+                Level = summary.Level, Health = summary.RoleId == 1001 ? 86 : 64, MaxHealth = 100,
+                Mana = summary.RoleId == 1001 ? 42 : 55, MaxMana = 60,
                 Experience = summary.RoleId == 1001 ? 240 : 120, NextExperience = summary.RoleId == 1001 ? 500 : 300,
                 X = summary.RoleId == 1001 ? 16016 : 16144, Y = summary.RoleId == 1001 ? 16016 : 16080, Gender = summary.Gender };
             storage.SaveAsync(role.RoleId, new(role, [], []), DataRoleTables.All).AsTask().GetAwaiter().GetResult();

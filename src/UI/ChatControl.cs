@@ -102,7 +102,8 @@ public partial class ChatControl : PanelContainer
         var validItem = args.Length >= 2 && args[0] == "/item" &&
             IsPositiveInt(args[1]) && GameServices.Config.Item.Items.ContainsKey(int.Parse(args[1], CultureInfo.InvariantCulture));
         _expectsQuantity = validItem && args.Length == 2 && trailingSpace;
-        if (validItem && args.Length == 3 && IsPositiveInt(args[2]))
+        if (validItem && args.Length == 3 && IsPositiveInt(args[2]) ||
+            args.Length == 2 && args[0] == "/movespeed" && (args[1] == "off" || double.TryParse(args[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var speed) && double.IsFinite(speed) && speed >= 0))
             _input.AddThemeColorOverride("font_color", ValidCommandColor);
         else
             _input.RemoveThemeColorOverride("font_color");
@@ -124,6 +125,8 @@ public partial class ChatControl : PanelContainer
                 }
             }
         }
+        if (_input.HasFocus() && !_dismissed && args.Length == 1 && !trailingSpace && "/movespeed".StartsWith(text, StringComparison.Ordinal))
+            AddCandidate("/movespeed <非负数|off>  —  保存当前角色移速", "/movespeed ");
         _suggestions.Visible = _candidates.ItemCount > 0;
         if (_suggestions.Visible) _candidates.Select(0);
         LayoutHints();

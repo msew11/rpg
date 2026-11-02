@@ -46,7 +46,6 @@ public sealed class MockServer : IAsyncDisposable
                 {
                     var now = clock.Elapsed.TotalSeconds;
                     Tick(now - previous); previous = now;
-                    if (_runtime.World is { } world) world.Speed = _env.MovementSpeed;
                     await _runtime.AdvanceAsync().ConfigureAwait(false);
                 }
             }

@@ -15,7 +15,7 @@ public static class MessageCodec
     /// <summary>显式响应协议表。</summary>
     private static readonly IReadOnlyDictionary<string, MessageDescriptor> Responses = Registry(LoginRt.Descriptor, CreateRoleRt.Descriptor, DeleteRoleRt.Descriptor, EnterWorldRt.Descriptor, LeaveWorldRt.Descriptor, ErrorRt.Descriptor, MoveRt.Descriptor, ResyncWorldRt.Descriptor, GmRt.Descriptor, MoveItemRt.Descriptor, EquipItemRt.Descriptor, DropItemRt.Descriptor, PickupItemRt.Descriptor);
     /// <summary>主动通知协议表，本版尚无游戏通知。</summary>
-    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Notices = Registry(WorldUpdateNotice.Descriptor, SessionKickedNotice.Descriptor, RoleItemsChangedNotice.Descriptor, PickupItemResultNotice.Descriptor);
+    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Notices = Registry(RoleAttributesChangedNotice.Descriptor, WorldUpdateNotice.Descriptor, SessionKickedNotice.Descriptor, RoleItemsChangedNotice.Descriptor, PickupItemResultNotice.Descriptor);
 
     /// <summary>解析信封基础结构；业务载荷在代次检查后才解析。</summary>
     public static EnvelopePb ReadEnvelope(byte[] bytes)

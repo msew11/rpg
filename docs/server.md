@@ -4,7 +4,7 @@
 
 默认链路已开放 `Gm`、`MoveItem`、`EquipItem`，原始业务协议经 Login 校验当前控制角色归属，再进入 Role。三个开发账号都能对当前角色执行 `/item`。规则先构造并校验完整三表候选，再提交；无预期版本、物品业务版本、请求重放缓存或自动重试。失败保留实例编号和持有关系。
 
-`gm.proto` 新增 `Gm/GmRt`；`bag.proto` 新增移动、穿脱请求回复和 `RoleItemsChangedNotice`（完整私有背包及公开装备）；`role.proto` 新增装备槽枚举及 `RoleEquipmentUpdatePb`；`world.proto` 的增量增加 `equipped_roles=5`；`actor/role.proto` 增加 `GetRoleItems/GetRoleItemsRt`。本人通知先于成功回复，按 TCP 顺序验证后接纳；选角摘要同步实际装备。公开投影版本独立于移动状态，World 可在同帧发送位置与装备，也支持静止换装。
+`gm.proto` 新增 `Gm/GmRt`；`bag.proto` 新增移动、穿脱请求回复和 `RoleItemsChangedNotice`（完整私有背包及公开装备）；`role.proto` 新增装备槽枚举及 `RoleWorldUpdatePb`；`world.proto` 的增量统一为 `updated_roles=4`；`actor/role.proto` 增加 `GetRoleItems/GetRoleItemsRt`。本人通知先于成功回复，按 TCP 顺序验证后接纳；选角摘要同步实际装备。公开投影版本独立于移动状态，World 可在同帧发送位置与装备，也支持静止换装。
 
 运行时的单实例物品信号量在邮箱外获取，覆盖物品操作、本人输出和保存。内部调用仅为完成已执行操作保留结果，对外按原连接与控制绑定过滤。地面操作与保存使用同一入口，行为见下一节。
 
@@ -207,7 +207,7 @@ TCP 为四字节大端长度加 EnvelopePb，单包 4 MiB；每连接输出最�
 
 公开信息归World的不可变角色缓存，角色块及观察块索引只标记受影响观察者。投影本身不能建立在线身份；注册、解绑、接管由运行时C#消息进入Role/World邮箱。首次可见与全量重同步返回RoleWorldStatePb，持续移动只返回角色编号和RoleWorldPositionPb。完整位置组展平map_id/x/y，并包含可空target和speed。地图进入空块显式发送，交集块复用；玩家不进入MapObjectPb。
 
-六个源协议变更：`proto/role.proto`位置组及MoveTargetPb/RolePositionUpdatePb；`map.proto`地图差集；`world.proto`移动、重同步和世界帧；`login.proto`踢出通知；`actor/role.proto`权威推进；`actor/world.proto`公开投影、批量观察及快照。第一层公开分组沿用RoleWorldXxxPb；不新增VisibleRolePb、world_session_id或Actor控制protobuf。内部协议不注册外部编解码。
+六个源协议变更：`proto/role.proto`位置组及MoveTargetPb/RoleWorldUpdatePb；`map.proto`地图差集；`world.proto`移动、重同步和世界帧；`login.proto`踢出通知；`actor/role.proto`权威推进；`actor/world.proto`公开投影、批量观察及快照。第一层公开分组沿用RoleWorldXxxPb；不新增VisibleRolePb、world_session_id或Actor控制protobuf。内部协议不注册外部编解码。
 
 `DataActorCall` 是不可序列化的邮箱元数据，保存连接/代次/认证及控制版本。执行前、跨Actor投递和输出边界检查目录；Handler接收原proto，Context.Call仅供可信运行时值。批量世界构建附带原观察者映射并逐个输出校验；已分配的旧帧序号按原身份消耗占位，不重新查询最新连接或绑定。客户端更高generation支持跳号且保留有效角色控制，低代次忽略。LeaveWorld、断线、重新认证、成功切角或删除清除匹配控制；主动返回登录关闭玩家TCP而保留本地服务器，被踢返回登录保留TCP；返回选角通过LeaveWorld停止移动、撤销控制并移除世界成员，账号和TCP连接继续有效，重复离开幂等。
 
@@ -216,3 +216,12 @@ EnterWorldRt后紧接sequence=1全量帧，后者接纳后才能移动。WorldSy
 权威坐标沿用周期、失败重试及关闭保存。关闭先取消后台时钟，再排空TCP和已接纳调度，物化停止并通过专用批次共同保存角色、地图与账号。重启不恢复目标、在线、控制或同步序号。纯客户端无本地 Flush 能力，服务器独立保存；物品、装备、拾取及 GM 走相同 TCP 业务链路。
 
 容量工具为 `tests/server_load.tscn`，参数 `--count 1000 --warmup 10 --seconds 60 --out <绝对JSON路径>`；`--dense` 切换同区诊断。该工具创建独立临时账号摘要和三表，使用真实socket、后台持续读取推送，完成后清理。输出CPU、内存、GC、字节、队列、逻辑轮次、帧年龄及动作确认P95。普通回归运行小规模单元/真实TCP及双Godot进程场景，千连接单独运行；密集区不作为分组容量基线。
+
+
+## 通用属性与 GM 移速
+
+属性协议源为 `proto/attribute.proto`；配置为 `config/attribute.json` 与 `config/role_level.json`，配套 Schema 和离线编辑器快照同步发布。等级行使用完整 `attributes` 对象，数字字符串键表示公共属性编号，值是 double 实际值。启动校验范围、有效精度、显示位数和完整性，不使用 scale。
+
+`proto/role.proto` 的 RolePb 初始化本人正常属性与已保存 GM 设置，RoleAttributesChangedNotice 独立推送完整正常属性。`proto/world.proto` 的 self 与 updated_roles 使用 RoleWorldUpdatePb 可选整组；oneof snapshot/delta 保证一次帧只携带一种恢复语义。新增 `proto/gm.proto` 的 GmRt.movement_speed 回复结构化开关和值，EnterWorld 请求保持只有角色编号。内部 AdvanceRoleRt 的 attributes 只供宿主向原控制会话发独立私有通知，不进入 WorldActor。
+
+每次 `movespeed <有限非负数>` 或 `movespeed off` 都经过共享物品/保存信号量，在回复成功前完成共同保存；角色主表为 `user://server/<roleId>.role.json`，字段为 `gmMovementSpeedOverrideEnabled` 与 `gmMovementSpeed`。off 保留最近速度，旧文件缺字段默认为 false/180。关闭周期保存不影响命令落地。IO 错误不回复成功，内存候选保留待写，允许重试。命令只操作当前已认证且拥有控制权的角色，不设滑条、属性或精度上限，不增加额外 GM 权限判断。正常属性不受覆盖影响。

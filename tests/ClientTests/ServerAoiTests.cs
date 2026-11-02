@@ -34,7 +34,7 @@ public sealed class ServerAoiTests
         other.Position.X = 200; other.Position.Target = new() { X = 300, Y = 100 };
         await update.HandleAsync(context, new UpdateWorldRole { Role = other, Revision = 2 });
         var moved = (await updates.HandleAsync(context, Updates(1100))).Deliveries.Single().Notice.Frame;
-        Assert.Single(moved.Delta.MovedRoles); Assert.Empty(moved.Delta.EnteredRoles); Assert.Null(moved.Delta.Map);
+        Assert.Single(moved.Delta.UpdatedRoles); Assert.Empty(moved.Delta.EnteredRoles); Assert.Null(moved.Delta.Map);
         observer.Position.X = 1030; observer.Position.Y = 1030;
         await update.HandleAsync(context, new UpdateWorldRole { Role = observer, Revision = 2 });
         var diagonal = (await updates.HandleAsync(context, Updates(1200))).Deliveries.Single().Notice.Frame;
@@ -48,6 +48,29 @@ public sealed class ServerAoiTests
         var snapshot = (await snapshotHandler.HandleAsync(context, new GetWorldSnapshot { RoleId = 1, ServerTimeMs = 1400 })).Frame;
         Assert.Equal(distant.Sequence + 1, snapshot.Sequence); Assert.Empty(snapshot.Snapshot.Roles);
     }
+    /// <summary>对应 entity-attributes 与 server-movement：同角色多组变化只一条更新，本人复用状态组。</summary>
+    [Fact]
+    public async Task EntityGroupsMergeWithoutPerChangeFrames()
+    {
+        using var env = ConfigTestFixture.CreateEnv(); using var config = new ConfigService(env);
+        var context = new WorldContext(config, new DoubleLocator(), new(1, 1000, 1000, 32, 32), new([]));
+        var cache = context.Cache.Roles; var update = new UpdateWorldRoleHandler(); var builder = new BuildWorldUpdatesHandler();
+        var self = Public(1, 100, 100); var other = Public(2, 120, 120); var third = Public(3, 140, 140);
+        foreach (var role in new[] { self, other, third })
+        { cache.Membership(role.RoleId, true); await update.HandleAsync(context, new UpdateWorldRole { Role = role, Revision = 1 }); }
+        await new GetWorldSnapshotHandler().HandleAsync(context, new GetWorldSnapshot { RoleId = 1, ServerTimeMs = 1000 });
+        other.Position.X++; other.Position.Speed = 180.125; other.Status.Health = 50; other.Equipment.EquippedItems.Add(1012); other.Profile.Name = "变更";
+        third.Status.Health = 40; self.Status.MaxHealth = 200;
+        foreach (var role in new[] { self, other, third }) await update.HandleAsync(context, new UpdateWorldRole { Role = role, Revision = 2 });
+        var frame = Assert.Single((await builder.HandleAsync(context, Updates(1100))).Deliveries).Notice.Frame;
+        Assert.Equal(2, frame.Delta.UpdatedRoles.Count); Assert.Equal(200, frame.Self.Status.MaxHealth);
+        var change = frame.Delta.UpdatedRoles.Single(role => role.RoleId == 2);
+        Assert.NotNull(change.Profile); Assert.NotNull(change.Status); Assert.NotNull(change.Equipment); Assert.Equal(180.125, change.Position.Speed);
+        var onlyStatus = frame.Delta.UpdatedRoles.Single(role => role.RoleId == 3);
+        Assert.NotNull(onlyStatus.Status); Assert.Null(onlyStatus.Position); Assert.Null(onlyStatus.Equipment);
+        Assert.Empty((await builder.HandleAsync(context, Updates(1200))).Deliveries);
+    }
+
     /// <summary>Role提交不因World失败回滚；下一次只重试最新坐标和确认，不保存目标。</summary>
     [Fact]
     public async Task FailedProjectionRetriesLatestAuthoritativeState()
@@ -56,14 +79,14 @@ public sealed class ServerAoiTests
         await using var projection = new DoubleProjection();
         var locator = new DoubleLocator { Projection = projection.Ref };
         var data = DataCacheRole.CreateInitial(new() { RoleId = 1, Name = "重试", Level = 1, Gender = RoleGenderPb.Male, HeadId = 1 }, config.Map.Items[1]);
-        var context = new RoleContext(config, locator, 1, new(data, [], [])) { Call = new(ServerTimeMs: 1000, MovementSpeed: 180) };
+        var context = new RoleContext(config, locator, 1, new(data, [], [])) { Call = new(ServerTimeMs: 1000) };
         var move = new MoveHandler(); var advance = new AdvanceRoleHandler();
         await move.HandleAsync(context, new Move { ActionId = 1, Target = new() { X = data.X + 500, Y = data.Y } });
         Assert.True(context.Cache.Projection.Value.Pending); Assert.Equal(1UL, context.Cache.Movement.Value.AcknowledgedAction);
-        await advance.HandleAsync(context, new AdvanceRole { ServerTimeMs = 2000, MovementSpeed = 180 });
+        await advance.HandleAsync(context, new AdvanceRole { ServerTimeMs = 2000 });
         Assert.Equal(data.X + 180, context.Cache.Role.Value.X); Assert.True(context.Cache.Projection.Value.Pending);
         projection.Fail = false;
-        await advance.HandleAsync(context, new AdvanceRole { ServerTimeMs = 3000, MovementSpeed = 180 });
+        await advance.HandleAsync(context, new AdvanceRole { ServerTimeMs = 3000 });
         Assert.False(context.Cache.Projection.Value.Pending); Assert.Equal(data.X + 360, projection.Latest!.Role.Position.X);
         Assert.Equal(1UL, projection.Latest.AcknowledgedAction);
         Assert.DoesNotContain("Target", System.Text.Json.JsonSerializer.Serialize(context.Cache.Snapshot()));

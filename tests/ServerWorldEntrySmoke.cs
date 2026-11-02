@@ -174,7 +174,14 @@ public partial class ServerWorldEntrySmoke : Node
     /// <summary>启动与手工验收相同的控制器，只替换存档目录。</summary>
     private ServerRoleManagement Start(string directory)
     {
-        var main = new ServerRoleManagement { Name = "Client", TestDirectory = directory };
+        // entity-attributes：此场景恢复三级存档，明确提供完整三级投放，不依赖自动回退。
+        var configDirectory = Path.Combine(directory, "config"); Directory.CreateDirectory(configDirectory);
+        foreach (var file in Directory.GetFiles(ProjectSettings.GlobalizePath("res://config"), "*.json"))
+            File.Copy(file, Path.Combine(configDirectory, Path.GetFileName(file)), true);
+        var levels = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(configDirectory, "role_level.json")))!.AsArray();
+        var row = levels[0]!.DeepClone(); row["level"] = 3; levels.Add(row);
+        File.WriteAllText(Path.Combine(configDirectory, "role_level.json"), levels.ToJsonString());
+        var main = new ServerRoleManagement { Name = "Client", TestDirectory = directory, TestConfigDirectory = configDirectory };
         AddChild(main);
         return main;
     }

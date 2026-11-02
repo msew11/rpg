@@ -12,10 +12,14 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
     int Mana, int MaxMana, int Experience, int NextExperience, Vector2 Position, RoleGender Gender,
     long Revision, long AcknowledgedAction, int HeadId = 0, int BagExtraRows = 0, int MapId = 1)
 {
+    /// <summary>本人正常属性，世界重同步不修改。</summary>
+    public AttributesPbData Attributes { get; init; } = AttributesPbData.Empty;
+    /// <summary>当前角色存档中的 GM 移速设置。</summary>
+    public GmMovementSpeedPbData GmMovementSpeed { get; init; } = new(false, 180);
     /// <summary>权威移动目标。</summary>
     public Vector2? Target { get; init; }
     /// <summary>当前服务器速度。</summary>
-    public float Speed { get; init; }
+    public double Speed { get; init; }
     /// <summary>独立公开且只读的当前装备。</summary>
     public RoleWorldEquipmentPbData Equipment { get; init; } = RoleWorldEquipmentPbData.Empty(RoleId);
     /// <summary>最近接纳的资料版本。</summary>
@@ -50,7 +54,7 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
                 System.Math.Max(position.Revision, role.Revision)),
             position.AcknowledgedAction, profile.HeadId, role.BagExtraRows, position.MapId)
         { Target = position.Target, Speed = position.Speed, ProfileRevision = profile.Revision, StatusRevision = status.Revision,
-            PositionRevision = position.Revision, RoleRevision = role.Revision, Equipment = equipment };
+            PositionRevision = position.Revision, RoleRevision = role.Revision, Equipment = equipment, Attributes = role.Attributes, GmMovementSpeed = role.GmMovementSpeed };
     }
 
     /// <summary>仅序列化可见世界状态，绝不包含经验和背包容量。</summary>
@@ -65,5 +69,5 @@ public sealed record RoleWorldStatePbData(long RoleId, string Name, int Level, i
 
     /// <summary>单独序列化当前玩家私有领域。</summary>
     public RolePb ToRolePb() => new RolePbData(RoleId, Experience, NextExperience,
-        BagExtraRows, RoleRevision).ToPb();
+        BagExtraRows, RoleRevision) { Attributes = Attributes, GmMovementSpeed = GmMovementSpeed }.ToPb();
 }

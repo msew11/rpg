@@ -16,6 +16,7 @@ public sealed class PrepareRoleHandler : IActorHandler<RoleContext, PrepareRole,
     public async ValueTask<PrepareRoleRt> HandleAsync(RoleContext context, PrepareRole request)
     {
         var cache = context.Cache;
+        Role.Utils.RoleAttributes.Refresh(context);
         var data = cache.Role.Value;
         if (data.RoleId != cache.RoleId || data.IsDeleted || string.IsNullOrWhiteSpace(data.Name) || data.Level <= 0 ||
             data.Gender is not (Common.Data.RoleGender.Male or Common.Data.RoleGender.Female) || data.HeadId is < 1 or > 74 ||
@@ -60,8 +61,8 @@ public sealed class PrepareRoleHandler : IActorHandler<RoleContext, PrepareRole,
         var state = new RoleWorldStatePb { RoleId = data.RoleId,
             Profile = new() { Name = data.Name, Level = data.Level, Gender = (RoleGenderPb)data.Gender, HeadId = data.HeadId },
             Status = new() { Health = data.Health, MaxHealth = data.MaxHealth, Mana = data.Mana, MaxMana = data.MaxMana },
-            Position = new() { MapId = data.MapId, X = data.X, Y = data.Y }, Equipment = equipped };
+            Position = new() { MapId = data.MapId, X = data.X, Y = data.Y, Speed = Role.Utils.RoleAttributes.Speed(context) }, Equipment = equipped };
         var world = await context.Actors.World(data.MapId).Ask<GetWorldEntrySnapshotRt>(new GetWorldEntrySnapshot { X = data.X, Y = data.Y }, context.Call).ConfigureAwait(false);
-        return new PrepareRoleRt { State = state, Role = new() { Experience = data.Experience, NextExperience = data.NextExperience, BagExtraRows = data.BagExtraRows }, Bag = bag, Map = world.Map };
+        return new PrepareRoleRt { State = state, Role = Role.Utils.RoleAttributes.Private(context), Bag = bag, Map = world.Map };
     }
 }

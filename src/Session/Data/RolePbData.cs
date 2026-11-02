@@ -8,12 +8,16 @@ namespace Rpg.Session.Data;
 public sealed record RolePbData(long RoleId, int Experience, int NextExperience, int BagExtraRows,
     long Revision)
 {
+    /// <summary>服务器计算的正常属性。</summary>
+    public AttributesPbData Attributes { get; init; } = AttributesPbData.Empty;
+    /// <summary>角色存档中的调试移速。</summary>
+    public GmMovementSpeedPbData GmMovementSpeed { get; init; } = new(false, 180);
     /// <summary>直接验证并复制 结构，身份来自完整状态根节点。</summary>
     public static RolePbData FromPb(global::Rpg.Protocol.RolePb message, long roleId)
     {
         if (message is null) throw new InvalidDataException("私有角色协议不能为空");
         var data = new RolePbData(roleId, message.Experience, message.NextExperience,
-            message.BagExtraRows, 0);
+            message.BagExtraRows, 0) { Attributes = AttributesPbData.FromPb(message.Attributes), GmMovementSpeed = GmMovementSpeedPbData.FromPb(message.GmMovementSpeed) };
         data.Validate();
         return data;
     }
@@ -23,7 +27,7 @@ public sealed record RolePbData(long RoleId, int Experience, int NextExperience,
     {
         Validate();
         return new RolePb { Experience = Experience,
-            NextExperience = NextExperience, BagExtraRows = BagExtraRows };
+            NextExperience = NextExperience, BagExtraRows = BagExtraRows, Attributes = Attributes.ToPb(), GmMovementSpeed = GmMovementSpeed.ToPb() };
     }
 
     /// <summary>拒绝无效经验、容量和版本。</summary>

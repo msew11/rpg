@@ -24,14 +24,16 @@ namespace Rpg.Protocol {
     static GmReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "CghnbS5wcm90bxIDcnBnIhUKAkdtEg8KB2NvbW1hbmQYASABKAkiOQoER21S",
-            "dBIPCgdyb2xlX2lkGAEgASgDEg8KB2NvbW1hbmQYAiABKAkSDwoHbWVzc2Fn",
-            "ZRgDIAEoCUIPqgIMUnBnLlByb3RvY29sYgZwcm90bzM="));
+            "CghnbS5wcm90bxIDcnBnGgpyb2xlLnByb3RvIhUKAkdtEg8KB2NvbW1hbmQY",
+            "ASABKAkiaQoER21SdBIPCgdyb2xlX2lkGAEgASgDEg8KB2NvbW1hbmQYAiAB",
+            "KAkSDwoHbWVzc2FnZRgDIAEoCRIuCg5tb3ZlbWVudF9zcGVlZBgEIAEoCzIW",
+            "LnJwZy5HbU1vdmVtZW50U3BlZWRQYkIPqgIMUnBnLlByb3RvY29sYgZwcm90",
+            "bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { },
+          new pbr::FileDescriptor[] { global::Rpg.Protocol.RoleReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.Gm), global::Rpg.Protocol.Gm.Parser, new[]{ "Command" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.GmRt), global::Rpg.Protocol.GmRt.Parser, new[]{ "RoleId", "Command", "Message" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.GmRt), global::Rpg.Protocol.GmRt.Parser, new[]{ "RoleId", "Command", "Message", "MovementSpeed" }, null, null, null, null)
           }));
     }
     #endregion
@@ -280,6 +282,7 @@ namespace Rpg.Protocol {
       roleId_ = other.roleId_;
       command_ = other.command_;
       message_ = other.message_;
+      movementSpeed_ = other.movementSpeed_ != null ? other.movementSpeed_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -325,6 +328,21 @@ namespace Rpg.Protocol {
       }
     }
 
+    /// <summary>Field number for the "movement_speed" field.</summary>
+    public const int MovementSpeedFieldNumber = 4;
+    private global::Rpg.Protocol.GmMovementSpeedPb movementSpeed_;
+    /// <summary>
+    /// movespeed 成功后的角色设置，其他命令不携带。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rpg.Protocol.GmMovementSpeedPb MovementSpeed {
+      get { return movementSpeed_; }
+      set {
+        movementSpeed_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -343,6 +361,7 @@ namespace Rpg.Protocol {
       if (RoleId != other.RoleId) return false;
       if (Command != other.Command) return false;
       if (Message != other.Message) return false;
+      if (!object.Equals(MovementSpeed, other.MovementSpeed)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -353,6 +372,7 @@ namespace Rpg.Protocol {
       if (RoleId != 0L) hash ^= RoleId.GetHashCode();
       if (Command.Length != 0) hash ^= Command.GetHashCode();
       if (Message.Length != 0) hash ^= Message.GetHashCode();
+      if (movementSpeed_ != null) hash ^= MovementSpeed.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -383,6 +403,10 @@ namespace Rpg.Protocol {
         output.WriteRawTag(26);
         output.WriteString(Message);
       }
+      if (movementSpeed_ != null) {
+        output.WriteRawTag(34);
+        output.WriteMessage(MovementSpeed);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -405,6 +429,10 @@ namespace Rpg.Protocol {
         output.WriteRawTag(26);
         output.WriteString(Message);
       }
+      if (movementSpeed_ != null) {
+        output.WriteRawTag(34);
+        output.WriteMessage(MovementSpeed);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -423,6 +451,9 @@ namespace Rpg.Protocol {
       }
       if (Message.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Message);
+      }
+      if (movementSpeed_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(MovementSpeed);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -444,6 +475,12 @@ namespace Rpg.Protocol {
       }
       if (other.Message.Length != 0) {
         Message = other.Message;
+      }
+      if (other.movementSpeed_ != null) {
+        if (movementSpeed_ == null) {
+          MovementSpeed = new global::Rpg.Protocol.GmMovementSpeedPb();
+        }
+        MovementSpeed.MergeFrom(other.MovementSpeed);
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -476,6 +513,13 @@ namespace Rpg.Protocol {
             Message = input.ReadString();
             break;
           }
+          case 34: {
+            if (movementSpeed_ == null) {
+              MovementSpeed = new global::Rpg.Protocol.GmMovementSpeedPb();
+            }
+            input.ReadMessage(MovementSpeed);
+            break;
+          }
         }
       }
     #endif
@@ -505,6 +549,13 @@ namespace Rpg.Protocol {
           }
           case 26: {
             Message = input.ReadString();
+            break;
+          }
+          case 34: {
+            if (movementSpeed_ == null) {
+              MovementSpeed = new global::Rpg.Protocol.GmMovementSpeedPb();
+            }
+            input.ReadMessage(MovementSpeed);
             break;
           }
         }

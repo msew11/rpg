@@ -4,6 +4,8 @@ using Rpg.Services;
 using Rpg.Session.Data;
 using Rpg.Tests;
 using Rpg.World;
+using Rpg.World.Actions;
+using Rpg.World.Utils;
 using Godot;
 
 namespace ClientTests;
@@ -63,12 +65,57 @@ public sealed class WorldSyncTests : IDisposable
         Assert.Single(session.Map!.Objects); Assert.Single(session.RemoteRoles);
         var update = new WorldFramePb { Sequence = 3, ServerTimeMs = frame.ServerTimeMs + 1, Self = frame.Self.Clone(), Delta = new() { Map = new() { Center = frame.Delta.Map.Center.Clone() } } };
         var position = remote.Position.Clone(); position.X += 5;
-        update.Delta.MovedRoles.Add(new RolePositionUpdatePb() { RoleId = 999, Position = position });
-        update.Delta.EquippedRoles.Add(new RoleEquipmentUpdatePb() { RoleId = 999, Equipment = new() { EquippedItems = { 1012 } } });
+        update.Delta.UpdatedRoles.Add(new RoleWorldUpdatePb() { RoleId = 999, Position = position, Equipment = new() { EquippedItems = { 1012 } } });
         update.Delta.Map.RemovedObjectIds.Add(item.ObjectId);
         GameServices.EventBus.Publish(new WorldUpdateNotice { Frame = update });
         Assert.Empty(session.Map.Objects); Assert.Equal(position.X, session.RemoteRoles[999].Position.Position.X);
         Assert.Single(session.RemoteRoles[999].Equipment.Items);
+    }
+
+    /// <summary>对应 entity-attributes：独立通知先完整校验，重同步只替换公开状态，不回滚私有属性。</summary>
+    [Fact]
+    public void PrivateAttributesSurviveResyncAndSelfGroupsAdvanceTogether()
+    {
+        using var services = GameServicesTestFactory.Register(ConfigTestFixture.CreateEnv(_root, Path.Combine(_root, "server")));
+        WorldFramePb? initial = null;
+        using var listener = GameServices.EventBus.Subscribe<WorldUpdateNotice>(notice => initial ??= notice.Frame.Clone());
+        var session = GameServices.Session; session.Login("demo1", "123"); Pump(() => !session.AccountRequestPending);
+        session.CreateRole("属性隔离", RoleGender.Male, 1); Pump(() => !session.AccountRequestPending);
+        session.SelectRole(session.Roles.Single().RoleId); Pump(() => session.CanMove);
+        var attributes = session.Role.Attributes.ToPb(); attributes.Values[1] = 180.125;
+        GameServices.EventBus.Publish(new RoleAttributesChangedNotice { RoleId = session.RoleId, Attributes = attributes });
+        attributes.Values[1] = 999;
+        Assert.Equal(180.125, session.Role.Attributes.Values[1]);
+        var prior = session.Role; var errors = new List<Exception>(); GameServices.EventBus.Error += errors.Add;
+        GameServices.EventBus.Publish(new RoleAttributesChangedNotice { RoleId = session.RoleId, Attributes = new() });
+        Assert.Single(errors); Assert.Same(prior, session.Role);
+        GameServices.EventBus.Publish(new RoleAttributesChangedNotice { RoleId = session.RoleId + 1, Attributes = attributes });
+        Assert.Same(prior, session.Role);
+        var frame = initial!.Clone(); frame.Sequence = 2; frame.ServerTimeMs++;
+        frame.Self.Profile.Gender = RoleGenderPb.Female;
+        frame.Self.Status = new() { Health = 50, MaxHealth = 200, Mana = 30, MaxMana = 90 };
+        GameServices.EventBus.Publish(new ResyncWorldRt { Frame = frame });
+        Assert.Equal(180.125, session.Role.Attributes.Values[1]);
+        Assert.Equal(200, session.Role.MaxHealth); Assert.Equal(RoleGender.Female, session.Role.Gender);
+        Assert.Equal(2, session.Role.ProfileRevision); Assert.Equal(2, session.Role.StatusRevision);
+    }
+
+    /// <summary>对应 gm-movement：服务端小数速度原样进入预测，极大有限数也不会溢出或越过目标。</summary>
+    [Fact]
+    public void FractionalAndHugeSpeedsPredictWithoutTruncationOrOvershoot()
+    {
+        using var services = GameServicesTestFactory.Register(ConfigTestFixture.CreateEnv(_root, Path.Combine(_root, "server")));
+        var session = GameServices.Session; session.Login("demo1", "123"); Pump(() => !session.AccountRequestPending);
+        session.CreateRole("小数预测", RoleGender.Male, 1); Pump(() => !session.AccountRequestPending);
+        session.SelectRole(session.Roles.Single().RoleId); Pump(() => session.CanMove);
+        var speed = 180.125;
+        var world = new WorldManager(() => speed);
+        world.Enqueue(new InitializeWorldAction(MapUtils.CreateMap(GameServices.Config.Map.Items[session.Role.MapId])));
+        world.Enqueue(new InitializeRoleAction(session.Role)); world.Tick(0);
+        var origin = world.RolePosition; world.Enqueue(new MoveAction(1, origin + new Vector2(1000, 0))); world.Tick(1);
+        Assert.Equal(origin.X + 180.125f, world.RolePosition.X);
+        speed = double.MaxValue; world.Tick(1);
+        Assert.Equal(origin + new Vector2(1000, 0), world.RolePosition);
     }
 
     /// <summary>100ms插值与有限外推不越过目标，离开删除样本。</summary>

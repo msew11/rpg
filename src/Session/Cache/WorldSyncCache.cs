@@ -49,6 +49,10 @@ internal sealed class WorldSyncCache : CacheBase
         var position = RoleWorldPositionPbData.FromPb(frame.Self.Position, _role.RoleId) with
             { Revision = checked((long)frame.Sequence), AcknowledgedAction = (long)frame.AcknowledgedAction };
         if (position.AcknowledgedAction < _role.State.AcknowledgedAction) throw new InvalidDataException("动作确认回退");
+        if (frame.Self.Equipment is not null || frame.Snapshot is not null && (frame.Self.Profile is null || frame.Self.Status is null))
+            throw new InvalidDataException("本人公开快照分组不完整或重复携带私有装备");
+        var profile = frame.Self.Profile is null ? null : RoleWorldProfilePbData.FromPb(frame.Self.Profile, _role.RoleId) with { Revision = checked((long)frame.Sequence) };
+        var status = frame.Self.Status is null ? null : RoleWorldStatusPbData.FromPb(frame.Self.Status, _role.RoleId) with { Revision = checked((long)frame.Sequence) };
         var oldMap = _map.Snapshot ?? throw new InvalidDataException("世界帧早于进入响应");
         var map = frame.Snapshot is not null ? DataMapAoiSnapshotPbData.FromPb(frame.Snapshot.Map, _role.RoleId) :
             frame.Delta?.Map is { } delta ? oldMap.Apply(delta, checked((long)frame.Sequence)) : oldMap;
@@ -66,17 +70,16 @@ internal sealed class WorldSyncCache : CacheBase
         {
             foreach (var id in changes.LeftRoleIds)
                 if (!touched.Add(id) || !roles.Remove(id)) throw new InvalidDataException("离开角色无效或重复");
-            var exclusive = new HashSet<long>(touched);
-            foreach (var value in changes.MovedRoles)
+            foreach (var value in changes.UpdatedRoles)
             {
-                if (!touched.Add(value.RoleId) || !roles.TryGetValue(value.RoleId, out var role)) throw new InvalidDataException("移动角色无效或重复");
-                roles[value.RoleId] = role with { Position = RoleWorldPositionPbData.FromPb(value.Position, value.RoleId) };
-            }
-            var equipped = new HashSet<long>();
-            foreach (var value in changes.EquippedRoles)
-            {
-                if (exclusive.Contains(value.RoleId) || !equipped.Add(value.RoleId) || !roles.TryGetValue(value.RoleId, out var role)) throw new InvalidDataException("装备角色无效或重复");
-                roles[value.RoleId] = role with { Equipment = RoleWorldEquipmentPbData.FromPb(value.Equipment, value.RoleId, GameServices.Config.Item.Items) };
+                if (!touched.Add(value.RoleId) || !roles.TryGetValue(value.RoleId, out var role) ||
+                    value.Profile is null && value.Status is null && value.Position is null && value.Equipment is null)
+                    throw new InvalidDataException("公开更新角色无效、重复或无变化分组");
+                roles[value.RoleId] = role with {
+                    Profile = value.Profile is null ? role.Profile : RoleWorldProfilePbData.FromPb(value.Profile, value.RoleId),
+                    Status = value.Status is null ? role.Status : RoleWorldStatusPbData.FromPb(value.Status, value.RoleId),
+                    Position = value.Position is null ? role.Position : RoleWorldPositionPbData.FromPb(value.Position, value.RoleId),
+                    Equipment = value.Equipment is null ? role.Equipment : RoleWorldEquipmentPbData.FromPb(value.Equipment, value.RoleId, GameServices.Config.Item.Items) };
             }
         }
         foreach (var role in roles.Values)
@@ -87,7 +90,7 @@ internal sealed class WorldSyncCache : CacheBase
         foreach (var item in map.Objects.Values)
             if (item.MonsterTypeId is null && (!GameServices.Config.Item.Items.TryGetValue(item.ItemId, out var definition) || item.Count > definition.MaxStack)) throw new InvalidDataException("地图物品无效");
         var prepared = roles.ToFrozenDictionary();
-        _role.AcceptPosition(position); _map.AcceptEntry(map); Roles = prepared;
+        _role.AcceptWorld(position, profile, status); _map.AcceptEntry(map); Roles = prepared;
         Sequence = frame.Sequence; ServerTimeMs = frame.ServerTimeMs; NeedsResync = false; ResyncPending = false;
     }
     /// <summary>坐标与目标使用同一地图合法范围。</summary>

@@ -21,6 +21,14 @@ public sealed class ConfigService : Service
     private readonly EquipmentCfgCache _equipment;
     /// <summary>供统一加载和释放使用的缓存集合。</summary>
     private readonly CfgCache[] _caches;
+    /// <summary>通用属性约束缓存。</summary>
+    private readonly AttributeCfgCache _attribute;
+    /// <summary>角色等级完整属性缓存。</summary>
+    private readonly RoleLevelCfgCache _roleLevel;
+    /// <summary>已加载的通用属性定义。</summary>
+    public AttributeCfgCache Attribute { get { ThrowIfDisposed(); return _attribute; } }
+    /// <summary>已加载的角色等级基础属性。</summary>
+    public RoleLevelCfgCache RoleLevel { get { ThrowIfDisposed(); return _roleLevel; } }
 
     /// <summary>已完成加载的多例地图缓存。</summary>
     public MapCfgCache Map
@@ -55,7 +63,8 @@ public sealed class ConfigService : Service
         _item = new ItemCfgCache();
         _basic = new BasicCfgCache();
         _equipment = new EquipmentCfgCache();
-        _caches = [_map, _item, _basic, _equipment];
+        _attribute = new AttributeCfgCache(); _roleLevel = new RoleLevelCfgCache();
+        _caches = [_map, _item, _basic, _equipment, _attribute, _roleLevel];
         try { Load(env.ConfigDirectory, env.SchemaDirectory); }
         catch { Dispose(); throw; }
     }

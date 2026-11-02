@@ -40,13 +40,13 @@ public partial class UiBoundsSmoke : Node
             var statusBackground = portraitPanel.FindChildren("PortraitBackground", "Panel", true, false)
                 .OfType<Panel>().Single();
             // role-management：旧角色的 1 号头型没有对应 DT，HUD 使用同一头部正面帧。
-            Check(avatar.Level == 5 && ReferenceEquals(avatar.Portrait,
+            Check(avatar.Level == 1 && ReferenceEquals(avatar.Portrait,
                 GameServices.Animation.GetHead(RoleGender.Male, 1).Frames[4]),
                 "头像或等级与选中角色不一致");
             Check(name.Text == "晨星" && Math.Abs(health.Value - 86) < 0.01 &&
                 Math.Abs(mana.Value - 70) < 0.01 && healthValue.Text == "86/100" &&
                 manaValue.Text == "42/60", "头像右侧未按角色快照显示名字和数值");
-            Check(level.Text == "5" && level.GetGlobalRect().GetCenter().DistanceTo(
+            Check(level.Text == "1" && level.GetGlobalRect().GetCenter().DistanceTo(
                 avatar.GetGlobalTransform() * new Vector2(13, 60)) < 1, "等级没有居中于左下角徽标");
             Check(name.HorizontalAlignment == HorizontalAlignment.Center &&
                 statusBackground.GlobalPosition.X > portraitPanel.GlobalPosition.X + 30 &&

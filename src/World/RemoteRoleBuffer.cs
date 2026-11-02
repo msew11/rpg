@@ -43,7 +43,7 @@ internal sealed class RemoteRoleBuffer
                 position = before.Role.Position.Position.Lerp(position, ratio);
             }
             else if (right < 0 && role.Position.Target is { } target)
-                position = position.MoveToward(target, role.Position.Speed * (float)Math.Clamp((time - latest.Time) / 1000, 0, .1));
+                position = position.MoveToward(target, (float)Math.Min(position.DistanceTo(target), role.Position.Speed * Math.Clamp((time - latest.Time) / 1000, 0, .1)));
             var direction = role.Position.Target is { } goal ? (goal - position).Normalized() : Vector2.Zero;
             states.Add(new(role.RoleId, role.Profile.Gender, position, direction == Vector2.Zero ? RoleMotion.Stand : RoleMotion.Run,
                 direction == Vector2.Zero ? latest.Facing : direction, 0, role.Profile.HeadId,

@@ -31,8 +31,8 @@ public partial class BagGmSmoke : Node
             ResizeViewport(new Vector2I(1920, 1080));
             await Frames();
             CheckHudLayout(main, chat);
-            await CheckConsoleLogToggle(main);
             await CheckChatHints(chat, input, results);
+            await CheckConsoleLogToggle(main);
 
             input.Text = "  /item 1012 2  ";
             Click(send.GetGlobalRect().GetCenter());
@@ -153,7 +153,7 @@ public partial class BagGmSmoke : Node
             // 重启使用隔离配置，覆盖缺失键和未知图标键的占位回退。
             var configDirectory = Path.Combine(directory, "config");
             Directory.CreateDirectory(configDirectory);
-            foreach (var name in new[] { "basic", "map", "item", "equipment" })
+            foreach (var name in new[] { "basic", "map", "item", "equipment", "attribute", "role_level" })
                 File.Copy(ProjectSettings.GlobalizePath($"res://config/{name}.json"), Path.Combine(configDirectory, name + ".json"));
             var itemPath = Path.Combine(configDirectory, "item.json");
             var definitions = JsonNode.Parse(File.ReadAllText(itemPath))!.AsArray();
@@ -223,12 +223,17 @@ public partial class BagGmSmoke : Node
         interval.Value = 0;
         Check(GameServices.Env.ServerFlushIntervalSeconds == 0, "未关闭检测");
         Check(File.ReadAllText(envPath).Contains("RPG_SERVER_FLUSH_INTERVAL_SECONDS=0"), "未保存检测间隔");
-        // client-ecs-world：滑条立即生效，写入 .env，重建 HUD 保留当前值。
+        // gm-movement：服务端确认滑条设置后落地，重建 HUD 恢复当前角色的开关和值。
         var speed = (HSlider)main.FindChild("MovementSpeed", true, false);
         Check(speed.MinValue == 60 && speed.MaxValue == 360 && speed.Step == 10 && speed.Value == 180,
             "GM 移动速度范围或默认值错误");
+        var speedOverride = (CheckButton)main.FindChild("MovementSpeedOverride", true, false);
+        Check(!speedOverride.ButtonPressed && !speed.Editable, "未启用 GM 覆盖时滑条仍可编辑");
+        speedOverride.ButtonPressed = true;
+        await Wait(() => !speedOverride.Disabled);
         speed.Value = 300;
-        Check(GameServices.Env.MovementSpeed == 300 && File.ReadAllText(envPath).Contains("RPG_MOVEMENT_SPEED=300"),
+        await Wait(() => !speedOverride.Disabled);
+        Check(GameServices.Session.Role.GmMovementSpeed is { Enabled: true, Speed: 300 },
             "GM 移动速度未即时保存");
         Check(File.ReadAllText(envPath).Contains("RPG_CONSOLE_LOG_ENABLED=true"), "GM 未保存 .env");
         var rebuilt = new GameHud { Visible = false };
@@ -246,10 +251,6 @@ public partial class BagGmSmoke : Node
         Check(File.ReadAllText(envPath).Contains("RPG_CONSOLE_LOG_ENABLED=false"), "关闭未保存 .env");
         using (var locked = new FileStream(envPath, FileMode.Open, System.IO.FileAccess.Read, FileShare.None))
         {
-            speed.Value = 360;
-            Check(speed.Value == 300 && GameServices.Env.MovementSpeed == 300 &&
-                ((Label)main.FindChild("NetworkError", true, false)).Text.Contains("无法保存移动速度"),
-                "移动速度保存失败未恢复滑条或显示原因");
             Click(toggle.GetGlobalRect().GetCenter());
             await Frames();
             Check(!toggle.ButtonPressed && !GameServices.Env.ConsoleLogEnabled &&
@@ -270,7 +271,7 @@ public partial class BagGmSmoke : Node
         input.GrabFocus();
         PushKey(Key.Slash, '/');
         await Frames();
-        Check(input.Text == "/" && popup.Visible && candidates.ItemCount == 1 && candidates.GetItemText(0).Contains("/item"), "斜杠未显示命令");
+        Check(input.Text == "/" && popup.Visible && candidates.ItemCount == 2 && candidates.GetItemText(0).Contains("/item"), "斜杠未显示命令");
         await CaptureChat("commands");
         PushKey(Key.Tab);
         await Frames();
@@ -693,6 +694,14 @@ public partial class BagGmSmoke : Node
     {
         GetWindow().Size = size;
         GetWindow().ContentScaleSize = size;
+    }
+
+    /// <summary>等待异步 GM 保存确认，超时明确失败。</summary>
+    private async Task Wait(Func<bool> done)
+    {
+        var limit = DateTime.UtcNow.AddSeconds(5);
+        while (!done() && DateTime.UtcNow < limit) await Frames();
+        Check(done(), "GM 移速请求超时");
     }
 
     /// <summary>等待网络队列、GUI 布局和延迟释放。</summary>

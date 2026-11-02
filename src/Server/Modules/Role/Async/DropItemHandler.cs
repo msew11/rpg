@@ -14,7 +14,7 @@ internal sealed class DropItemHandler : IActorHandler<RoleContext, DropItem, Dro
     public async ValueTask<DropItemRt> HandleAsync(RoleContext context, DropItem request)
     {
         var cache = context.Cache;
-        cache.Movement.Advance(cache.Role, context.Call!.ServerTimeMs, context.Call.MovementSpeed);
+        cache.Movement.Advance(cache.Role, context.Call!.ServerTimeMs, Rpg.Server.Modules.Role.Utils.RoleAttributes.Speed(context));
         var tables = cache.Snapshot(); var candidate = RoleItemRules.Create(context).Remove(tables, request.InstanceId, request.Count);
         var source = tables.Items.Single(item => item.InstanceId == request.InstanceId);
         var reply = new DropItemRt { RoleId = cache.RoleId, InstanceId = request.InstanceId };

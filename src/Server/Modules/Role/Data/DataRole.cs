@@ -39,4 +39,8 @@ public sealed record DataRole
     public int BagExtraRows { get; init; }
     /// <summary>下次创建物品的稳定编号，已删除编号不复用。</summary>
     public long NextInstanceId { get; init; } = 1;
+    /// <summary>是否使用本角色保存的 GM 执行移速。</summary>
+    public bool GmMovementSpeedOverrideEnabled { get; init; }
+    /// <summary>最近保存的 GM 速度，关闭覆盖时保留。</summary>
+    public double GmMovementSpeed { get; init; } = 180;
 }

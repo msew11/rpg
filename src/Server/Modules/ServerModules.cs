@@ -66,7 +66,7 @@ internal sealed class ServerModules : IServerModules
             .Register(new DropItemHandler())
             .Register(new EquipItemHandler())
             .Register(new CompleteRolePickupHandler())
-            .Register(new Role.Handler.GmHandler())
+            .Register(new Role.Async.GmHandler())
             .Register(new Role.Handler.MoveItemHandler())
             .Register(new Role.Handler.GetRoleItemsHandler())
             .Register(new Role.Handler.PickupItemHandler())

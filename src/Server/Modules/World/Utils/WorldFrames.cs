@@ -1,12 +1,27 @@
 using System.Collections.Immutable;
 using System.Linq;
 using Rpg.Protocol;
+using Rpg.Server.Modules.World.Data;
 
 namespace Rpg.Server.Modules.World.Utils;
 
 /// <summary>在地图邮箱内共用观察帧构建与发布基线更新。</summary>
 internal static class WorldFrames
 {
+    /// <summary>比较完整分组并将同角色的公开变化合并为一条。</summary>
+    private static RoleWorldUpdatePb Update(DataWorldRole current, DataWorldRole? before, bool full)
+    {
+        full |= before is null;
+        return new() { RoleId = current.RoleId,
+            Profile = full || current.Name != before!.Name || current.Level != before.Level || current.Gender != before.Gender || current.HeadId != before.HeadId
+                ? new() { Name = current.Name, Level = current.Level, Gender = (RoleGenderPb)current.Gender, HeadId = current.HeadId } : null,
+            Status = full || current.Health != before!.Health || current.MaxHealth != before.MaxHealth || current.Mana != before.Mana || current.MaxMana != before.MaxMana
+                ? new() { Health = current.Health, MaxHealth = current.MaxHealth, Mana = current.Mana, MaxMana = current.MaxMana } : null,
+            Position = full || current.MapId != before!.MapId || current.X != before.X || current.Y != before.Y || current.TargetX != before.TargetX || current.TargetY != before.TargetY || current.Speed != before.Speed
+                ? current.Position() : null,
+            Equipment = full || !current.Equipment.SequenceEqual(before!.Equipment)
+                ? new() { EquippedItems = { current.Equipment } } : null };
+    }
     /// <summary>一次读取并更新观察基线，全量与增量在邮箱内保持顺序。</summary>
     internal static WorldFramePb Build(WorldContext context, long id, long now, bool full)
     {
@@ -14,7 +29,7 @@ internal static class WorldFrames
         var objects = context.Cache.Objects.Value.Where(item => chunks.Contains(cache.Chunk(item.X, item.Y))).ToImmutableDictionary(item => item.ObjectId);
         var center = cache.Chunk(self.X, self.Y); var sequence = (before?.Sequence ?? 0) + 1;
         var frame = new WorldFramePb { Sequence = sequence, ServerTimeMs = now, AcknowledgedAction = self.AcknowledgedAction,
-            Self = new() { RoleId = id, Position = self.Position() } };
+            Self = Update(self, before?.Self, full || before is null) };
         if (full || before is null)
         {
             frame.Snapshot = new() { Map = WorldEntrySnapshot.Build(context, self.X, self.Y) };
@@ -48,14 +63,16 @@ internal static class WorldFrames
             foreach (var role in visible.Values)
             {
                 if (!before.Visible.TryGetValue(role.RoleId, out var revision)) delta.EnteredRoles.Add(role.ToPb());
-                else
+                else if (role.Revision != revision.Revision)
                 {
-                    if (!revision.Position().Equals(role.Position())) delta.MovedRoles.Add(new RolePositionUpdatePb { RoleId = role.RoleId, Position = role.Position() });
-                    if (!revision.Equipment.SequenceEqual(role.Equipment)) delta.EquippedRoles.Add(new RoleEquipmentUpdatePb { RoleId = role.RoleId, Equipment = role.ToPb().Equipment });
+                    var update = Update(role, revision, false);
+                    if (update.Profile is not null || update.Status is not null || update.Position is not null || update.Equipment is not null)
+                        delta.UpdatedRoles.Add(update);
                 }
             }
             delta.LeftRoleIds.AddRange(before.Visible.Keys.Except(visible.Keys));
         }
+        frame.Self.Equipment = null; frame.Self.Position = self.Position();
         cache.Published(id, sequence, center, chunks, visible, objects); return frame;
     }
 }

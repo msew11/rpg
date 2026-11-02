@@ -151,6 +151,8 @@ public sealed class CfgCacheTests : IDisposable
         File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "basic.json"), Path.Combine(_directory, "basic.json"));
         using var env = new EnvService("", configDirectory: _directory,
             schemaDirectory: Path.Combine(ConfigTestFixture.FindRoot(), "schemas"));
+        foreach (var name in new[] { "attribute", "role_level" })
+            File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", name + ".json"), Path.Combine(_directory, name + ".json"));
         // Schema 不放在配置扫描目录，测试专用文件也不参与正式扫描。
         File.Delete(SchemaPath);
         var error = Assert.Throws<InvalidDataException>(() => new ConfigService(env));

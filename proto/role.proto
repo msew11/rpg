@@ -1,6 +1,7 @@
 syntax = "proto3";
 package rpg;
 option csharp_namespace = "Rpg.Protocol";
+import "attribute.proto";
 
 // 摘要展示所用的角色性别。
 enum RoleGenderPb {
@@ -77,7 +78,7 @@ message RoleWorldPositionPb {
   // 当前目标，未设置表示停止。
   MoveTargetPb target = 4;
   // 当前有效移动速度，逻辑像素每秒。
-  float speed = 5;
+  double speed = 5;
 }
 
 // 不包含私有实例信息的装备展示。
@@ -94,6 +95,10 @@ message RolePb {
   int32 next_experience = 2;
   // 额外解锁背包行数。
   int32 bag_extra_rows = 3;
+  // 本人完整正常属性。
+  AttributesPb attributes = 4;
+  // 角色保存的 GM 调速设置。
+  GmMovementSpeedPb gm_movement_speed = 5;
 }
 
 // 移动目标的逻辑坐标。
@@ -104,13 +109,6 @@ message MoveTargetPb {
   float y = 2;
 }
 
-// 角色身份与整体位置增量。
-message RolePositionUpdatePb {
-  // 位置所属角色。
-  int64 role_id = 1;
-  // 完整位置组。
-  RoleWorldPositionPb position = 2;
-}
 
 // 与客户端槽位保持一致，仅主副手开放操作。
 enum EquipmentSlotPb {
@@ -128,8 +126,33 @@ enum EquipmentSlotPb {
   EQUIPMENT_SLOT_PB_FEET = 11;
 }
 
-// 持续可见角色的完整装备组。
-message RoleEquipmentUpdatePb {
+
+// 按角色合并的公开更新，缺失分组保持，出现分组完整替换。
+message RoleWorldUpdatePb {
+  // 更新所属角色。
   int64 role_id = 1;
-  RoleWorldEquipmentPb equipment = 2;
+  // 完整公开资料。
+  RoleWorldProfilePb profile = 2;
+  // 完整生命魔力。
+  RoleWorldStatusPb status = 3;
+  // 完整位置及执行速度。
+  RoleWorldPositionPb position = 4;
+  // 完整装备，空消息表示清空。
+  RoleWorldEquipmentPb equipment = 5;
+}
+
+// 本人完整正常属性的独立通知。
+message RoleAttributesChangedNotice {
+  // 属性所属角色。
+  int64 role_id = 1;
+  // 完整正常属性。
+  AttributesPb attributes = 2;
+}
+
+// 按角色保存的 GM 调速设置，不属于正常属性。
+message GmMovementSpeedPb {
+  // 是否覆盖执行移速。
+  bool enabled = 1;
+  // 最近保存的调试速度，关闭时仍保留。
+  double speed = 2;
 }

@@ -37,7 +37,7 @@ public sealed class ServerWorldEntryTests : IDisposable
     [Fact]
     public async Task FirstEntrySwitchAndRestartKeepThreeTablesAndNoMapWrites()
     {
-        using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
+        using var env = CreateEnvWithLevels();
         using var config = new ConfigService(env);
         env.ServerFlushIntervalSeconds = 0;
         long male; long female;
@@ -99,7 +99,7 @@ public sealed class ServerWorldEntryTests : IDisposable
     [Fact]
     public async Task ExistingItemsAndDynamicObjectsAreProjectedWithoutStorageChanges()
     {
-        using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
+        using var env = CreateEnvWithLevels();
         using var config = new ConfigService(env);
         var equipment = config.Item.Items.Values.First(item => item.MaxStack == 1 &&
             Rpg.Utils.EquipmentSlotUtil.TryGetSlot(item.Category, item.SubCategory, out var slot) && slot == Rpg.Const.EquipmentSlot.MainHand);
@@ -146,6 +146,7 @@ public sealed class ServerWorldEntryTests : IDisposable
     [InlineData("identity")]
     [InlineData("position")]
     [InlineData("equipment")]
+    [InlineData("missing-level")]
     public async Task InvalidStoredBusinessDataIsRejectedWithoutOverwrite(string fault)
     {
         using var env = ConfigTestFixture.CreateEnv(serverDirectory: _directory);
@@ -160,6 +161,7 @@ public sealed class ServerWorldEntryTests : IDisposable
         var broken = fault switch {
             "identity" => original with { Role = original.Role with { RoleId = roleId + 1 } },
             "position" => original with { Role = original.Role with { MapId = int.MaxValue } },
+            "missing-level" => original with { Role = original.Role with { Level = 99 } },
             _ => original with { Equipments = [new() { InstanceId = 9 }] }
         };
         await storage.SaveAsync(roleId, broken, DataRoleTables.All);
@@ -402,6 +404,18 @@ public sealed class ServerWorldEntryTests : IDisposable
         var reply = Assert.IsType<CreateRoleRt>(await Exchange(server, id, new CreateRole { Name = name, Gender = gender, HeadId = 17 }));
         return reply.Roles.Max(role => role.RoleId);
     }
+    /// <summary>为存档等级恢复场景配置明确的完整等级属性，禁止依赖不存在等级的回退。</summary>
+    private EnvService CreateEnvWithLevels()
+    {
+        var directory = _directory + "-config"; Directory.CreateDirectory(directory);
+        foreach (var file in Directory.GetFiles(Path.Combine(ConfigTestFixture.FindRoot(), "config"), "*.json"))
+            File.Copy(file, Path.Combine(directory, Path.GetFileName(file)), true);
+        var levels = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "role_level.json")))!.AsArray();
+        foreach (var level in new[] { 4, 7 }) { var row = levels[0]!.DeepClone(); row["level"] = level; levels.Add(row); }
+        File.WriteAllText(Path.Combine(directory, "role_level.json"), levels.ToJsonString());
+        return new EnvService("", _directory, directory, Path.Combine(ConfigTestFixture.FindRoot(), "schemas"));
+    }
+
     /// <summary>清理当前用例独占路径。</summary>
-    public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }
+    public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); if (Directory.Exists(_directory + "-config")) Directory.Delete(_directory + "-config", true); }
 }

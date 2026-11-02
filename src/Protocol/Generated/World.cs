@@ -34,19 +34,18 @@ namespace Rpg.Protocol {
             "dFBiIhsKBk1vdmVSdBIRCglhY3Rpb25faWQYASABKAQiDQoLUmVzeW5jV29y",
             "bGQiMQoNUmVzeW5jV29ybGRSdBIgCgVmcmFtZRgBIAEoCzIRLnJwZy5Xb3Js",
             "ZEZyYW1lUGIiNQoRV29ybGRVcGRhdGVOb3RpY2USIAoFZnJhbWUYASABKAsy",
-            "ES5ycGcuV29ybGRGcmFtZVBiItYBCgxXb3JsZEZyYW1lUGISEAoIc2VxdWVu",
+            "ES5ycGcuV29ybGRGcmFtZVBiItMBCgxXb3JsZEZyYW1lUGISEAoIc2VxdWVu",
             "Y2UYASABKAQSFgoOc2VydmVyX3RpbWVfbXMYAiABKAMSGwoTYWNrbm93bGVk",
-            "Z2VkX2FjdGlvbhgDIAEoBBInCgRzZWxmGAQgASgLMhkucnBnLlJvbGVQb3Np",
-            "dGlvblVwZGF0ZVBiEigKCHNuYXBzaG90GAUgASgLMhQucnBnLldvcmxkU25h",
-            "cHNob3RQYkgAEiIKBWRlbHRhGAYgASgLMhEucnBnLldvcmxkRGVsdGFQYkgA",
-            "QggKBnVwZGF0ZSJbCg9Xb3JsZFNuYXBzaG90UGISIgoDbWFwGAEgASgLMhUu",
-            "cnBnLk1hcEFvaVNuYXBzaG90UGISJAoFcm9sZXMYAiADKAsyFS5ycGcuUm9s",
-            "ZVdvcmxkU3RhdGVQYiLYAQoMV29ybGREZWx0YVBiEh8KA21hcBgBIAEoCzIS",
-            "LnJwZy5NYXBBb2lEZWx0YVBiEiwKDWVudGVyZWRfcm9sZXMYAiADKAsyFS5y",
-            "cGcuUm9sZVdvcmxkU3RhdGVQYhIVCg1sZWZ0X3JvbGVfaWRzGAMgAygDEi4K",
-            "C21vdmVkX3JvbGVzGAQgAygLMhkucnBnLlJvbGVQb3NpdGlvblVwZGF0ZVBi",
-            "EjIKDmVxdWlwcGVkX3JvbGVzGAUgAygLMhoucnBnLlJvbGVFcXVpcG1lbnRV",
-            "cGRhdGVQYkIPqgIMUnBnLlByb3RvY29sYgZwcm90bzM="));
+            "Z2VkX2FjdGlvbhgDIAEoBBIkCgRzZWxmGAQgASgLMhYucnBnLlJvbGVXb3Js",
+            "ZFVwZGF0ZVBiEigKCHNuYXBzaG90GAUgASgLMhQucnBnLldvcmxkU25hcHNo",
+            "b3RQYkgAEiIKBWRlbHRhGAYgASgLMhEucnBnLldvcmxkRGVsdGFQYkgAQggK",
+            "BnVwZGF0ZSJbCg9Xb3JsZFNuYXBzaG90UGISIgoDbWFwGAEgASgLMhUucnBn",
+            "Lk1hcEFvaVNuYXBzaG90UGISJAoFcm9sZXMYAiADKAsyFS5ycGcuUm9sZVdv",
+            "cmxkU3RhdGVQYiKjAQoMV29ybGREZWx0YVBiEh8KA21hcBgBIAEoCzISLnJw",
+            "Zy5NYXBBb2lEZWx0YVBiEiwKDWVudGVyZWRfcm9sZXMYAiADKAsyFS5ycGcu",
+            "Um9sZVdvcmxkU3RhdGVQYhIVCg1sZWZ0X3JvbGVfaWRzGAMgAygDEi0KDXVw",
+            "ZGF0ZWRfcm9sZXMYBCADKAsyFi5ycGcuUm9sZVdvcmxkVXBkYXRlUGJCD6oC",
+            "DFJwZy5Qcm90b2NvbGIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Rpg.Protocol.RoleReflection.Descriptor, global::Rpg.Protocol.BagReflection.Descriptor, global::Rpg.Protocol.MapReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -61,7 +60,7 @@ namespace Rpg.Protocol {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.WorldUpdateNotice), global::Rpg.Protocol.WorldUpdateNotice.Parser, new[]{ "Frame" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.WorldFramePb), global::Rpg.Protocol.WorldFramePb.Parser, new[]{ "Sequence", "ServerTimeMs", "AcknowledgedAction", "Self", "Snapshot", "Delta" }, new[]{ "Update" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.WorldSnapshotPb), global::Rpg.Protocol.WorldSnapshotPb.Parser, new[]{ "Map", "Roles" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.WorldDeltaPb), global::Rpg.Protocol.WorldDeltaPb.Parser, new[]{ "Map", "EnteredRoles", "LeftRoleIds", "MovedRoles", "EquippedRoles" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.WorldDeltaPb), global::Rpg.Protocol.WorldDeltaPb.Parser, new[]{ "Map", "EnteredRoles", "LeftRoleIds", "UpdatedRoles" }, null, null, null, null)
           }));
     }
     #endregion
@@ -2114,13 +2113,13 @@ namespace Rpg.Protocol {
 
     /// <summary>Field number for the "self" field.</summary>
     public const int SelfFieldNumber = 4;
-    private global::Rpg.Protocol.RolePositionUpdatePb self_;
+    private global::Rpg.Protocol.RoleWorldUpdatePb self_;
     /// <summary>
-    /// 观察者本人位置。
+    /// 观察者本人公开更新，复用相同分组；位置每帧完整携带。
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rpg.Protocol.RolePositionUpdatePb Self {
+    public global::Rpg.Protocol.RoleWorldUpdatePb Self {
       get { return self_; }
       set {
         self_ = value;
@@ -2335,7 +2334,7 @@ namespace Rpg.Protocol {
       }
       if (other.self_ != null) {
         if (self_ == null) {
-          Self = new global::Rpg.Protocol.RolePositionUpdatePb();
+          Self = new global::Rpg.Protocol.RoleWorldUpdatePb();
         }
         Self.MergeFrom(other.Self);
       }
@@ -2387,7 +2386,7 @@ namespace Rpg.Protocol {
           }
           case 34: {
             if (self_ == null) {
-              Self = new global::Rpg.Protocol.RolePositionUpdatePb();
+              Self = new global::Rpg.Protocol.RoleWorldUpdatePb();
             }
             input.ReadMessage(Self);
             break;
@@ -2443,7 +2442,7 @@ namespace Rpg.Protocol {
           }
           case 34: {
             if (self_ == null) {
-              Self = new global::Rpg.Protocol.RolePositionUpdatePb();
+              Self = new global::Rpg.Protocol.RoleWorldUpdatePb();
             }
             input.ReadMessage(Self);
             break;
@@ -2756,8 +2755,7 @@ namespace Rpg.Protocol {
       map_ = other.map_ != null ? other.map_.Clone() : null;
       enteredRoles_ = other.enteredRoles_.Clone();
       leftRoleIds_ = other.leftRoleIds_.Clone();
-      movedRoles_ = other.movedRoles_.Clone();
-      equippedRoles_ = other.equippedRoles_.Clone();
+      updatedRoles_ = other.updatedRoles_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -2810,32 +2808,18 @@ namespace Rpg.Protocol {
       get { return leftRoleIds_; }
     }
 
-    /// <summary>Field number for the "moved_roles" field.</summary>
-    public const int MovedRolesFieldNumber = 4;
-    private static readonly pb::FieldCodec<global::Rpg.Protocol.RolePositionUpdatePb> _repeated_movedRoles_codec
-        = pb::FieldCodec.ForMessage(34, global::Rpg.Protocol.RolePositionUpdatePb.Parser);
-    private readonly pbc::RepeatedField<global::Rpg.Protocol.RolePositionUpdatePb> movedRoles_ = new pbc::RepeatedField<global::Rpg.Protocol.RolePositionUpdatePb>();
+    /// <summary>Field number for the "updated_roles" field.</summary>
+    public const int UpdatedRolesFieldNumber = 4;
+    private static readonly pb::FieldCodec<global::Rpg.Protocol.RoleWorldUpdatePb> _repeated_updatedRoles_codec
+        = pb::FieldCodec.ForMessage(34, global::Rpg.Protocol.RoleWorldUpdatePb.Parser);
+    private readonly pbc::RepeatedField<global::Rpg.Protocol.RoleWorldUpdatePb> updatedRoles_ = new pbc::RepeatedField<global::Rpg.Protocol.RoleWorldUpdatePb>();
     /// <summary>
-    /// 持续可见玩家的位置组。
+    /// 持续可见玩家按实体合并的公开变化。
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<global::Rpg.Protocol.RolePositionUpdatePb> MovedRoles {
-      get { return movedRoles_; }
-    }
-
-    /// <summary>Field number for the "equipped_roles" field.</summary>
-    public const int EquippedRolesFieldNumber = 5;
-    private static readonly pb::FieldCodec<global::Rpg.Protocol.RoleEquipmentUpdatePb> _repeated_equippedRoles_codec
-        = pb::FieldCodec.ForMessage(42, global::Rpg.Protocol.RoleEquipmentUpdatePb.Parser);
-    private readonly pbc::RepeatedField<global::Rpg.Protocol.RoleEquipmentUpdatePb> equippedRoles_ = new pbc::RepeatedField<global::Rpg.Protocol.RoleEquipmentUpdatePb>();
-    /// <summary>
-    /// 持续可见角色的装备变化。
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<global::Rpg.Protocol.RoleEquipmentUpdatePb> EquippedRoles {
-      get { return equippedRoles_; }
+    public pbc::RepeatedField<global::Rpg.Protocol.RoleWorldUpdatePb> UpdatedRoles {
+      get { return updatedRoles_; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2856,8 +2840,7 @@ namespace Rpg.Protocol {
       if (!object.Equals(Map, other.Map)) return false;
       if(!enteredRoles_.Equals(other.enteredRoles_)) return false;
       if(!leftRoleIds_.Equals(other.leftRoleIds_)) return false;
-      if(!movedRoles_.Equals(other.movedRoles_)) return false;
-      if(!equippedRoles_.Equals(other.equippedRoles_)) return false;
+      if(!updatedRoles_.Equals(other.updatedRoles_)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -2868,8 +2851,7 @@ namespace Rpg.Protocol {
       if (map_ != null) hash ^= Map.GetHashCode();
       hash ^= enteredRoles_.GetHashCode();
       hash ^= leftRoleIds_.GetHashCode();
-      hash ^= movedRoles_.GetHashCode();
-      hash ^= equippedRoles_.GetHashCode();
+      hash ^= updatedRoles_.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -2894,8 +2876,7 @@ namespace Rpg.Protocol {
       }
       enteredRoles_.WriteTo(output, _repeated_enteredRoles_codec);
       leftRoleIds_.WriteTo(output, _repeated_leftRoleIds_codec);
-      movedRoles_.WriteTo(output, _repeated_movedRoles_codec);
-      equippedRoles_.WriteTo(output, _repeated_equippedRoles_codec);
+      updatedRoles_.WriteTo(output, _repeated_updatedRoles_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -2912,8 +2893,7 @@ namespace Rpg.Protocol {
       }
       enteredRoles_.WriteTo(ref output, _repeated_enteredRoles_codec);
       leftRoleIds_.WriteTo(ref output, _repeated_leftRoleIds_codec);
-      movedRoles_.WriteTo(ref output, _repeated_movedRoles_codec);
-      equippedRoles_.WriteTo(ref output, _repeated_equippedRoles_codec);
+      updatedRoles_.WriteTo(ref output, _repeated_updatedRoles_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -2929,8 +2909,7 @@ namespace Rpg.Protocol {
       }
       size += enteredRoles_.CalculateSize(_repeated_enteredRoles_codec);
       size += leftRoleIds_.CalculateSize(_repeated_leftRoleIds_codec);
-      size += movedRoles_.CalculateSize(_repeated_movedRoles_codec);
-      size += equippedRoles_.CalculateSize(_repeated_equippedRoles_codec);
+      size += updatedRoles_.CalculateSize(_repeated_updatedRoles_codec);
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -2951,8 +2930,7 @@ namespace Rpg.Protocol {
       }
       enteredRoles_.Add(other.enteredRoles_);
       leftRoleIds_.Add(other.leftRoleIds_);
-      movedRoles_.Add(other.movedRoles_);
-      equippedRoles_.Add(other.equippedRoles_);
+      updatedRoles_.Add(other.updatedRoles_);
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -2989,11 +2967,7 @@ namespace Rpg.Protocol {
             break;
           }
           case 34: {
-            movedRoles_.AddEntriesFrom(input, _repeated_movedRoles_codec);
-            break;
-          }
-          case 42: {
-            equippedRoles_.AddEntriesFrom(input, _repeated_equippedRoles_codec);
+            updatedRoles_.AddEntriesFrom(input, _repeated_updatedRoles_codec);
             break;
           }
         }
@@ -3032,11 +3006,7 @@ namespace Rpg.Protocol {
             break;
           }
           case 34: {
-            movedRoles_.AddEntriesFrom(ref input, _repeated_movedRoles_codec);
-            break;
-          }
-          case 42: {
-            equippedRoles_.AddEntriesFrom(ref input, _repeated_equippedRoles_codec);
+            updatedRoles_.AddEntriesFrom(ref input, _repeated_updatedRoles_codec);
             break;
           }
         }

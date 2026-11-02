@@ -247,7 +247,7 @@ public sealed class WorldService : Service
         _setting.SelectRole(_session.RoleId);
         _map = map;
         ResetMovement();
-        var world = new WorldManager(() => (int)_session.Role.Speed);
+        var world = new WorldManager(() => _session.Role.Speed);
         world.Enqueue(new InitializeWorldAction(_map!));
         world.Enqueue(new InitializeRoleAction(_session.Role));
         _lastMapSnapshot = _session.Map;

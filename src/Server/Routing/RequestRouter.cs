@@ -47,7 +47,7 @@ internal sealed class RequestRouter
                 EquipItem equip => await account.Ask<EquipItemRt>(equip, call).ConfigureAwait(false),
                 _ => throw new InvalidOperationException()
             };
-            if (request is PickupItem) return new(reply, null);
+            if (request is PickupItem || reply is GmRt { MovementSpeed: not null }) return new(reply, null);
             var items = await _modules.Role(session.RoleId).Ask<ActorProtocol.GetRoleItemsRt>(new ActorProtocol.GetRoleItems()).ConfigureAwait(false);
             return new(reply, null, ItemNotice: new() { RoleId = items.RoleId, Bag = items.Bag, Equipment = items.Equipment });
         }

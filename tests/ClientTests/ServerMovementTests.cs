@@ -69,7 +69,7 @@ public sealed class ServerMovementTests : IDisposable
         await Exchange(server, two, new Move { ActionId = 1, Target = new() { X = entry.State.Position.X + 500, Y = entry.State.Position.Y } });
         await Task.Delay(130); await server.Server.AdvanceAsync();
         var moved = ReadFrame(server, one); Assert.Empty(moved.Delta.EnteredRoles);
-        var position = Assert.Single(moved.Delta.MovedRoles).Position;
+        var position = Assert.Single(moved.Delta.UpdatedRoles).Position;
         Assert.True(position.X > entry.State.Position.X); Assert.NotNull(position.Target); Assert.Equal(180, position.Speed);
         var resync = Assert.IsType<ResyncWorldRt>(await Exchange(server, one, new ResyncWorld())); Assert.NotNull(resync.Frame.Snapshot); Assert.True(resync.Frame.Sequence > moved.Sequence);
         var takeover = server.OpenConnection(); await Exchange(server, takeover, new Login { Username = "demo2", Password = "123" });

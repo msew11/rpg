@@ -128,6 +128,15 @@ public partial class GameHud : Control
     /// <summary>当前世界会话的地面物品信息显示状态。</summary>
     private bool _groundItemInfoVisible;
 
+    /// <summary>服务器存档控制的 GM 移速开关。</summary>
+    private CheckButton _movementOverride = null!;
+    /// <summary>普通测试范围内的速度滑条。</summary>
+    private HSlider _movementSlider = null!;
+    /// <summary>展示服务器保存的精确速度，不受滑条范围限制。</summary>
+    private Label _movementValue = null!;
+    /// <summary>界面命令等待成功或错误响应，避免滑动重入。</summary>
+    private bool _movementPending;
+
     /// <summary>从已注册服务读取选中角色，创建游戏界面及其监听。</summary>
     public override void _Ready()
     {
@@ -153,6 +162,11 @@ public partial class GameHud : Control
         AddChild(_networkError);
 
         _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.Protocol.WorldUpdateNotice>(_ => RefreshData()));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.Protocol.RoleAttributesChangedNotice>(_ => RefreshData()));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.Protocol.GmRt>(reply =>
+        { if (reply.RoleId == GameServices.Session.RoleId && reply.MovementSpeed is not null) { _movementPending = false; RefreshMovementSpeed(); } }));
+        _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.Protocol.ErrorRt>(reply =>
+        { if (_movementPending) { _movementPending = false; RefreshMovementSpeed(); _networkError.Text = reply.Message; } }));
         _subscriptions.Add(GameServices.EventBus.Subscribe<Rpg.Protocol.RoleItemsChangedNotice>(notice =>
         { if (notice.RoleId == GameServices.Session.RoleId) { _bag.Refresh(); _equipment.Refresh(); } }));
     }
@@ -571,12 +585,16 @@ public partial class GameHud : Control
         {
             Name = "MovementSpeed", MinValue = EnvService.MinimumMovementSpeed,
             MaxValue = EnvService.MaximumMovementSpeed, Step = 10,
-            Value = GameServices.Env.MovementSpeed,
+            Value = GameServices.Session.Role.GmMovementSpeed.Speed,
             CustomMinimumSize = new Vector2(150, 26), SizeFlagsHorizontal = SizeFlags.ExpandFill
         };
         var speedValue = new Label { Name = "MovementSpeedValue", Text = $"{speedSlider.Value:0}",
             CustomMinimumSize = new Vector2(42, 0), HorizontalAlignment = HorizontalAlignment.Right };
-        speedSlider.ValueChanged += value => SetMovementSpeed(speedSlider, speedValue, value);
+        _movementSlider = speedSlider; _movementValue = speedValue;
+        _movementOverride = new CheckButton { Name = "MovementSpeedOverride", Text = "启用", ButtonPressed = GameServices.Session.Role.GmMovementSpeed.Enabled };
+        _movementOverride.Toggled += enabled => SendMovementSpeed(enabled, GameServices.Session.Role.GmMovementSpeed.Speed);
+        speedSlider.ValueChanged += value => SendMovementSpeed(true, value);
+        speedRow.AddChild(_movementOverride);
         speedRow.AddChild(speedSlider);
         speedRow.AddChild(speedValue);
         roleDebug.AddChild(speedRow);
@@ -685,21 +703,32 @@ public partial class GameHud : Control
         }
     }
 
-    /// <summary>保存移动速度，失败时恢复滑条和数值并显示错误。</summary>
-    private void SetMovementSpeed(HSlider slider, Label label, double speed)
+    /// <summary>通过既有 GM 请求保存当前角色设置，成功响应后才展示已保存状态。</summary>
+    private void SendMovementSpeed(bool enabled, double speed)
     {
+        if (_movementPending) return;
         try
         {
-            GameServices.Env.MovementSpeed = checked((int)speed);
-            label.Text = $"{GameServices.Env.MovementSpeed}";
-            _networkError.Text = "";
+            _movementPending = true;
+            GameServices.Session.SendGm(enabled ? "movespeed " + speed.ToString("R", System.Globalization.CultureInfo.InvariantCulture) : "movespeed off");
+            RefreshMovementSpeed();
         }
         catch (Exception error)
         {
-            slider.SetValueNoSignal(GameServices.Env.MovementSpeed);
-            label.Text = $"{GameServices.Env.MovementSpeed}";
+            _movementPending = false; RefreshMovementSpeed();
             _networkError.Text = $"无法保存移动速度：{error.Message}";
         }
+    }
+
+    /// <summary>从服务器状态恢复开关，关闭时使用属性速度；精确保存值可超出滑条范围。</summary>
+    private void RefreshMovementSpeed()
+    {
+        var setting = GameServices.Session.Role.GmMovementSpeed;
+        _movementOverride.SetPressedNoSignal(setting.Enabled);
+        _movementOverride.Disabled = _movementPending;
+        _movementSlider.Editable = setting.Enabled && !_movementPending;
+        _movementSlider.SetValueNoSignal(setting.Speed);
+        _movementValue.Text = setting.Speed.ToString("G", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>保存 .env 日志标记；失败恢复开关并在 HUD 显示原因。</summary>
@@ -1141,6 +1170,7 @@ public partial class GameHud : Control
     private void RefreshData()
     {
         var state = GameServices.Session.Role;
+        RefreshMovementSpeed();
         _portraitName.Text = state.Name;
         _avatar.Level = state.Level;
         _avatar.Portrait = AvatarControl.LoadPortrait(state.Gender, state.HeadId);
@@ -1157,6 +1187,9 @@ public partial class GameHud : Control
         _manaBar.Value = Mathf.Clamp((float)state.Mana / Mathf.Max(1, state.MaxMana), 0, 1) * 100;
         _manaValue.Text = $"{state.Mana}/{state.MaxMana}";
         _characterText.Text = $"角色 ID：{state.RoleId}\n等级：{state.Level}\n生命：{state.Health}/{state.MaxHealth}\n魔力：{state.Mana}/{state.MaxMana}\n经验：{state.Experience}/{state.NextExperience}";
+        foreach (var definition in GameServices.Config.Attribute.Items.Values.OrderBy(value => value.Id))
+            if (state.Attributes.Values.TryGetValue(definition.Id, out var value))
+                _characterText.Text += $"\n{definition.Name}：{value.ToString("F" + definition.DisplayDecimals, System.Globalization.CultureInfo.InvariantCulture)}";
         _equipment.Refresh();
         var mapConfig = GameServices.World.MapConfig;
         _mapText.Text = $"地图：{mapConfig.Id}  {mapConfig.Width}×{mapConfig.Height}\n位置：{state.Position.X:0}, {state.Position.Y:0}";
@@ -1220,7 +1253,11 @@ public partial class GameHud : Control
         ? new Color("c94d4d") : ratio <= 0.5f ? new Color("d89137") : new Color("3ca66d");
 
     /// <summary>在界面上保留服务器或传输失败原因。</summary>
-    public void ShowNetworkError(string error) => _networkError.Text = error;
+    public void ShowNetworkError(string error)
+    {
+        _networkError.Text = error;
+        if (error.Length > 0 && _movementPending) { _movementPending = false; RefreshMovementSpeed(); }
+    }
 
     /// <summary>在返回页面时立即解除监听，不等待 QueueFree 执行。</summary>
     public void ReleaseSubscriptions()

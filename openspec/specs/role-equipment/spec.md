@@ -91,7 +91,7 @@
 - **THEN** 立即显示与背包相同的名称框，移出或拿起立即隐藏
 
 ### Requirement: 独立公开装备同步
-角色公开世界状态 SHALL 包含与资料、生命魔力及位置并列的完整装备展示快照。装备展示组 SHALL 仅携带 repeated int32 equipped_items，穿戴者身份由 RoleWorldStatePb 或 RoleEquipmentUpdatePb 根节点携带，其中元素是 item.json 的配置 ID，不包含背包、背包版本、容量、格子、未穿物品或私有角色字段。世界帧装备增量 SHALL 携带角色身份及该公开快照，允许不持有背包和私有角色信息的消费者还原穿戴状态。
+角色公开世界状态 SHALL 包含与资料、生命魔力及位置并列的完整装备展示快照。装备展示组 SHALL 仅携带 repeated int32 equipped_items，穿戴者身份由 RoleWorldStatePb 或 RoleWorldUpdatePb 根节点携带，其中元素是 item.json 的配置 ID，不包含背包、背包版本、容量、格子、未穿物品或私有角色字段。世界帧装备增量 SHALL 携带角色身份及该公开快照，允许不持有背包和私有角色信息的消费者还原穿戴状态。
 
 #### Scenario: 完整公开快照
 - **WHEN** 为穿戴主副手装备的角色构造公开世界状态并经过 protobuf 字节往返

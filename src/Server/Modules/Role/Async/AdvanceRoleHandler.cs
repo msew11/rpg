@@ -12,10 +12,12 @@ internal sealed class AdvanceRoleHandler : IActorHandler<RoleContext, AdvanceRol
     /// <summary>推进一个权威时刻，不产生历史 Tick 积压。</summary>
     public async ValueTask<AdvanceRoleRt> HandleAsync(RoleContext context, AdvanceRole request)
     {
-        context.Cache.Movement.Advance(context.Cache.Role, request.ServerTimeMs, request.MovementSpeed);
+        context.Cache.Movement.Advance(context.Cache.Role, request.ServerTimeMs, RoleAttributes.Speed(context));
         await RoleProjectionSync.ProjectAsync(context).ConfigureAwait(false);
+        var attributes = context.Cache.AttributesPending ? RoleAttributes.Snapshot(context) : null;
+        context.Cache.AttributesPending = false;
         var value = context.Cache.Movement.Value;
-        return new AdvanceRoleRt { Moving = value.TargetX.HasValue || context.Cache.Projection.Value.Pending || context.Cache.Pickup is not null,
+        return new AdvanceRoleRt { Attributes = attributes, Moving = value.TargetX.HasValue || context.Cache.Projection.Value.Pending || context.Cache.Pickup is not null,
             PickupReady = PickupIntent.Ready(context) };
     }
 }

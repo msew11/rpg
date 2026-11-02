@@ -35,7 +35,7 @@ internal sealed class WorldManager
     /// <summary>固定运行顺序的逻辑系统。</summary>
     private readonly IWorldSystem[] _systems;
     /// <summary>绑定速度来源；独立世界测试使用原有默认速度。</summary>
-    internal WorldManager(Func<int>? movementSpeed = null)
+    internal WorldManager(Func<double>? movementSpeed = null)
         => _systems = [new MovementSystem(movementSpeed ?? (() => EnvService.DefaultMovementSpeed))];
     /// <summary>地图世界实体 ID。</summary>
     private int _worldEntity;

@@ -6,7 +6,7 @@ namespace Rpg.Server.Modules.World.Data;
 /// <summary>地图持有的独立完整公开投影，不包含角色私有数据。</summary>
 public sealed record DataWorldRole(long RoleId, string Name, int Level, int Gender, int HeadId,
     int Health, int MaxHealth, int Mana, int MaxMana, ImmutableArray<int> Equipment,
-    int MapId, float X, float Y, float? TargetX, float? TargetY, float Speed, ulong Revision, ulong AcknowledgedAction)
+    int MapId, float X, float Y, float? TargetX, float? TargetY, double Speed, ulong Revision, ulong AcknowledgedAction)
 {
     /// <summary>独占协议转为不可变值，不能在地图中留存 proto。</summary>
     internal static DataWorldRole FromPb(RoleWorldStatePb role, ulong revision, ulong acknowledged) => new(role.RoleId,
@@ -27,4 +27,4 @@ public sealed record DataWorldRole(long RoleId, string Name, int Level, int Gend
 
 /// <summary>一个观察角色上次已发布的范围和可见版本。</summary>
 internal sealed record DataWorldObserver(ulong Sequence, (int X, int Y) Center,
-    ImmutableHashSet<(int X, int Y)> Chunks, ImmutableDictionary<long, DataWorldRole> Visible, ImmutableDictionary<System.Guid, DataWorldObject> Objects);
+    ImmutableHashSet<(int X, int Y)> Chunks, ImmutableDictionary<long, DataWorldRole> Visible, ImmutableDictionary<System.Guid, DataWorldObject> Objects, DataWorldRole? Self = null);
