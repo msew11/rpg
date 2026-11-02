@@ -90,6 +90,8 @@ public partial class GameHud : Control
     private BagControl _bag = null!;
     /// <summary>独立于弹出面板显隐的聊天输入与 GM 反馈。</summary>
     private ChatControl _chat = null!;
+    /// <summary>将聊天确认的怪物配置交由主控制器放置。</summary>
+    public event Action<int>? MonsterPlacementRequested;
     /// <summary>角色设置窗口，用于关闭时取消快捷键监听。</summary>
     private Control _roleSettings = null!;
     /// <summary>关闭显示设置或离开世界时撤销未保存的窗口预览。</summary>
@@ -147,6 +149,7 @@ public partial class GameHud : Control
         BuildHud();
         BuildPanels();
         _chat = new ChatControl();
+        _chat.MonsterPlacementRequested += id => MonsterPlacementRequested?.Invoke(id);
         AddChild(_chat);
         RegisterMovable("chat", "聊天框", _chat);
         _chatResize = new ChatResizeHandle { Panel = _chat };

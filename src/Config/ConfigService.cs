@@ -25,6 +25,10 @@ public sealed class ConfigService : Service
     private readonly AttributeCfgCache _attribute;
     /// <summary>角色等级完整属性缓存。</summary>
     private readonly RoleLevelCfgCache _roleLevel;
+    /// <summary>怪物配置及静态展示资源定义。</summary>
+    private readonly MonsterCfgCache _monster;
+    /// <summary>已加载的怪物配置。</summary>
+    public MonsterCfgCache Monster { get { ThrowIfDisposed(); return _monster; } }
     /// <summary>已加载的通用属性定义。</summary>
     public AttributeCfgCache Attribute { get { ThrowIfDisposed(); return _attribute; } }
     /// <summary>已加载的角色等级基础属性。</summary>
@@ -64,7 +68,8 @@ public sealed class ConfigService : Service
         _basic = new BasicCfgCache();
         _equipment = new EquipmentCfgCache();
         _attribute = new AttributeCfgCache(); _roleLevel = new RoleLevelCfgCache();
-        _caches = [_map, _item, _basic, _equipment, _attribute, _roleLevel];
+        _monster = new MonsterCfgCache();
+        _caches = [_map, _item, _basic, _equipment, _attribute, _roleLevel, _monster];
         try { Load(env.ConfigDirectory, env.SchemaDirectory); }
         catch { Dispose(); throw; }
     }

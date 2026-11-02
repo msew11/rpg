@@ -7,13 +7,25 @@ using Rpg.Server.Runtime;
 
 namespace Rpg.Server.Modules.Role.Async;
 
-/// <summary>按最新角色快照执行道具发放与调试移速。</summary>
+/// <summary>按当前角色执行道具发放、调试移速与地图怪物创建。</summary>
 internal sealed class GmHandler : IActorHandler<RoleContext, Gm, GmRt>
 {
-    /// <summary>校验命令并提交角色候选，移速变更后同步公开投影。</summary>
+    /// <summary>校验命令，怪物交给当前地图创建，角色修改提交自身缓存与投影。</summary>
     public async ValueTask<GmRt> HandleAsync(RoleContext context, Gm request)
     {
         var args = request.Command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (args.Length > 0 && args[0] == "monster")
+        {
+            if (args.Length != 4 || !int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out var monsterId) ||
+                !float.TryParse(args[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var x) ||
+                !float.TryParse(args[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
+                throw new ArgumentException("用法：/monster <怪物ID> <X> <Y>");
+            var created = await context.Actors.World(context.Cache.Role.Value.MapId).Ask<Rpg.Server.ActorProtocol.CreateMonsterRt>(
+                new Rpg.Server.ActorProtocol.CreateMonster { MonsterTypeId = monsterId, X = x, Y = y }, context.Call).ConfigureAwait(false);
+            var value = created.Object;
+            return new GmRt { RoleId = context.Cache.RoleId, Command = request.Command,
+                Message = $"已放置 {context.Config.Monster.Items[monsterId].Name}（{monsterId}），坐标（{value.X.ToString("R", CultureInfo.InvariantCulture)}, {value.Y.ToString("R", CultureInfo.InvariantCulture)}）" };
+        }
         if (args.Length > 0 && args[0] == "movespeed")
         {
             if (args.Length != 2) throw new ArgumentException("用法：/movespeed <非负数|off>");

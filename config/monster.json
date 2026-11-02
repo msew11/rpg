@@ -1,0 +1,9 @@
+[
+  {
+    "id": 1001,
+    "name": "树妖",
+    "texturePath": "res://assets/monsters/treant/stand.png",
+    "anchorX": 69,
+    "anchorY": 90
+  }
+]

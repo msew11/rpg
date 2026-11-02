@@ -24,7 +24,7 @@ public partial class ItemMovementSmoke : Node
             var config = Path.Combine(directory, "config");
             var server = Path.Combine(directory, "server");
             Directory.CreateDirectory(config);
-            foreach (var name in new[] { "basic", "map", "item", "equipment", "attribute", "role_level" })
+            foreach (var name in new[] { "basic", "map", "item", "equipment", "attribute", "role_level", "monster" })
                 File.Copy(ProjectSettings.GlobalizePath($"res://config/{name}.json"), Path.Combine(config, name + ".json"));
             var definitions = JsonNode.Parse(File.ReadAllText(Path.Combine(config, "item.json")))!.AsArray();
             definitions.Add(new JsonObject { ["id"] = 2000, ["name"] = "隔离堆叠道具", ["category"] = 1,

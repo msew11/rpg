@@ -153,7 +153,7 @@ public partial class BagGmSmoke : Node
             // 重启使用隔离配置，覆盖缺失键和未知图标键的占位回退。
             var configDirectory = Path.Combine(directory, "config");
             Directory.CreateDirectory(configDirectory);
-            foreach (var name in new[] { "basic", "map", "item", "equipment", "attribute", "role_level" })
+            foreach (var name in new[] { "basic", "map", "item", "equipment", "attribute", "role_level", "monster" })
                 File.Copy(ProjectSettings.GlobalizePath($"res://config/{name}.json"), Path.Combine(configDirectory, name + ".json"));
             var itemPath = Path.Combine(configDirectory, "item.json");
             var definitions = JsonNode.Parse(File.ReadAllText(itemPath))!.AsArray();
@@ -271,7 +271,8 @@ public partial class BagGmSmoke : Node
         input.GrabFocus();
         PushKey(Key.Slash, '/');
         await Frames();
-        Check(input.Text == "/" && popup.Visible && candidates.ItemCount == 2 && candidates.GetItemText(0).Contains("/item"), "斜杠未显示命令");
+        Check(input.Text == "/" && popup.Visible && candidates.ItemCount == 3 && candidates.GetItemText(0).Contains("/item") &&
+            Enumerable.Range(0, candidates.ItemCount).Any(index => candidates.GetItemText(index).Contains("/monster")), "斜杠未显示完整命令");
         await CaptureChat("commands");
         PushKey(Key.Tab);
         await Frames();

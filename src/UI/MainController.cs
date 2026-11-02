@@ -36,6 +36,8 @@ public partial class MainController : Control
     private Node2D? _worldVisual;
     /// <summary>只读地面表现与命中查询，不复制地图对象。</summary>
     private GroundItemsView? _groundItems;
+    /// <summary>当前世界独占的本地怪物放置预览。</summary>
+    private MonsterPlacementControl? _monsterPlacement;
     /// <summary>拥有地面名称和信息框的 UI 层。</summary>
     private GroundItemOverlayControl? _groundOverlay;
     /// <summary>角色绘制节点。</summary>
@@ -119,7 +121,7 @@ public partial class MainController : Control
             _camera.Position = IsometricProjection.ToScreen(GameServices.World.RolePosition);
     }
 
-    /// <summary>处理已启用的滚轮缩放，将未被 UI 消费的地图点击转为移动与光圈。</summary>
+    /// <summary>处理滚轮缩放；地面点击优先确认怪物放置，再处理拾取与移动。</summary>
     public override void _UnhandledInput(InputEvent input)
     {
         if (_servicesLifetime is null || _worldVisual is null || !GameServices.Session.CanMove || input is not InputEventMouseButton click) return;
@@ -131,13 +133,31 @@ public partial class MainController : Control
             GetViewport().SetInputAsHandled();
             return;
         }
+        var projectedPosition = GetViewport().GetCanvasTransform().AffineInverse() * click.Position;
+        if (_monsterPlacement?.Selected is { } monster && click.ButtonIndex == MouseButton.Left)
+        {
+            if (click.Pressed)
+            {
+                _monsterPlacement.UpdatePointer(click.Position);
+                var point = _monsterPlacement.LogicalPosition;
+                var map = GameServices.World.MapConfig;
+                if (float.IsFinite(point.X) && float.IsFinite(point.Y) && point.X >= 0 && point.Y >= 0 &&
+                    point.X < (long)map.Width * map.TileSize && point.Y < (long)map.Height * map.TileSize)
+                {
+                    _monsterPlacement.Cancel();
+                    try { GameServices.Session.SendGm(FormattableString.Invariant($"monster {monster.Id} {point.X:R} {point.Y:R}")); }
+                    catch (Exception error) { _hud?.ShowNetworkError(error.Message); }
+                }
+            }
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && _groundOverlay?.ItemAt(click.Position) is { } objectId)
         {
             RequestPickup(objectId);
             GetViewport().SetInputAsHandled();
             return;
         }
-        var projectedPosition = GetViewport().GetCanvasTransform().AffineInverse() * click.Position;
         if (GameServices.World.HandleInput(input, IsometricProjection.ToLogical(projectedPosition)))
         {
             _worldVisual.AddChild(new GroundClickView { Position = projectedPosition });
@@ -373,6 +393,7 @@ public partial class MainController : Control
         _worldVisual.AddChild(mapView);
         _groundItems = new GroundItemsView { Name = "GroundItemsView", ZIndex = 1, YSortEnabled = true };
         _worldVisual.AddChild(_groundItems);
+        _worldVisual.AddChild(new MonstersView { Name = "MonstersView", ZIndex = 1, YSortEnabled = true });
         _groundOverlay = new GroundItemOverlayControl(_groundItems) { Name = "GroundItemOverlay" };
         AddChild(_groundOverlay);
         _groundOverlay.PickupRequested += RequestPickup;
@@ -389,6 +410,9 @@ public partial class MainController : Control
         AddChild(_hudLayer);
         _hud = new GameHud { Name = "GameHud" };
         _hudLayer.AddChild(_hud);
+        _monsterPlacement = new MonsterPlacementControl { Name = "MonsterPlacement" };
+        AddChild(_monsterPlacement);
+        _hud.MonsterPlacementRequested += id => _monsterPlacement?.Begin(GameServices.Config.Monster.Items[id]);
         _hud.GroundItemInfoChanged += visible => _groundOverlay?.SetInfoVisible(visible);
         _hud.AnchorMarkersChanged += (visible, color) =>
         {
@@ -463,6 +487,9 @@ public partial class MainController : Control
     /// <summary>清理旧界面、世界和角色数据，保留账号会话与登录摘要。</summary>
     private void ClearGame()
     {
+        _monsterPlacement?.Cancel();
+        _monsterPlacement?.QueueFree();
+        _monsterPlacement = null;
         _remoteActors.Clear();
         _createPage = null;
         _roleRequestPending = false;

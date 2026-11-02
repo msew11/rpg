@@ -35,7 +35,7 @@ public sealed class ServerWorldActorTests : IDisposable
     {
         var configDirectory = Path.Combine(_directory, "config");
         Directory.CreateDirectory(configDirectory);
-        foreach (var name in new[] { "map", "item", "basic", "equipment", "attribute", "role_level" })
+        foreach (var name in new[] { "map", "item", "basic", "equipment", "attribute", "role_level", "monster" })
             File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", name + ".json"), Path.Combine(configDirectory, name + ".json"));
         var path = Path.Combine(configDirectory, "map.json");
         var maps = JsonNode.Parse(File.ReadAllText(path))!.AsArray();

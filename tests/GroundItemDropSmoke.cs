@@ -27,7 +27,7 @@ public partial class GroundItemDropSmoke : Node
             var config = Path.Combine(directory, "config");
             var server = Path.Combine(directory, "server");
             Directory.CreateDirectory(config);
-            foreach (var name in new[] { "basic", "map", "item", "equipment", "attribute", "role_level" })
+            foreach (var name in new[] { "basic", "map", "item", "equipment", "attribute", "role_level", "monster" })
                 File.Copy(ProjectSettings.GlobalizePath($"res://config/{name}.json"), Path.Combine(config, name + ".json"));
             var items = JsonNode.Parse(File.ReadAllText(Path.Combine(config, "item.json")))!.AsArray();
             items.Add(new JsonObject { ["id"] = 2000, ["name"] = "验收堆叠", ["category"] = 1, ["subCategory"] = 2, ["relatedId"] = 1012, ["maxStack"] = 10 });

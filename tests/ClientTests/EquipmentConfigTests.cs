@@ -15,7 +15,7 @@ public sealed class EquipmentConfigTests : IDisposable
     public EquipmentConfigTests()
     {
         Directory.CreateDirectory(_directory);
-        foreach (var name in new[] { "basic", "map", "item", "equipment", "attribute", "role_level" })
+        foreach (var name in new[] { "basic", "map", "item", "equipment", "attribute", "role_level", "monster" })
             File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", name + ".json"), Path.Combine(_directory, name + ".json"));
     }
 

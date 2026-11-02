@@ -38,7 +38,7 @@ Role将权威坐标提交角色基础表，目标、速度、控制和确认均�
 | `AnimationService Animation` | 分别缓存身体动作与独立头部资源并解析朝向 | Godot 原生资源 |
 | `ItemAssetService Items` | 共享物品素材目录与键索引、按需图集和裁剪纹理，选角预热当前物品 | Godot 原生资源 |
 
-`ConfigService` 显式持有 `MapCfgCache Map`、`ItemCfgCache Item`、`BasicCfgCache Basic` 和 `EquipmentCfgCache Equipment`，构造时按缓存类的文件标注读取平铺于 `res://config` 根目录的全部 JSON，拒绝子目录与未注册文件。单例通过 `Basic.Value` 读取，多例通过各缓存的 `Items` 读取。配置缓存统一使用 `res://schemas` 中同名的 Draft 2020-12 JSON Schema 校验；原始加载只走 Godot `DirAccess` 与 `FileAccess`。每表完整读取后调用 `CfgCache.BuildIndexes()`，全部表及索引就绪后由统一入口调用 `CfgCache.Validate(ConfigService)` 整表重载检查关联；泛型缓存已有的 `Validate(TCfg)` 保留逐行检查。不增加策略目录或检测策略类，不通过全局服务取得其他缓存。缺失、重复、未注册、无效配置、Schema、索引构建或关联错误均导致启动抛异常，保留文件与原因诊断并清理已创建缓存。配置与程序同包发布，释放后服务与已取得缓存都拒绝继续读取。配置及整组服务验收在 Godot headless 执行；普通 .NET 地图用例直接提供 `MapCfg` 纯数据。
+`ConfigService` 显式持有 `MapCfgCache Map`、`ItemCfgCache Item`、`BasicCfgCache Basic`、`EquipmentCfgCache Equipment`、`AttributeCfgCache Attribute`、`RoleLevelCfgCache RoleLevel` 和 `MonsterCfgCache Monster`，构造时按缓存类的文件标注读取平铺于 `res://config` 根目录的全部 JSON，拒绝子目录与未注册文件。单例通过 `Basic.Value` 读取，多例通过各缓存的 `Items` 读取。配置缓存统一使用 `res://schemas` 中同名的 Draft 2020-12 JSON Schema 校验；原始加载只走 Godot `DirAccess` 与 `FileAccess`。每表完整读取后调用 `CfgCache.BuildIndexes()`，全部表及索引就绪后由统一入口调用 `CfgCache.Validate(ConfigService)` 整表重载检查关联；泛型缓存已有的 `Validate(TCfg)` 保留逐行检查。不增加策略目录或检测策略类，不通过全局服务取得其他缓存。缺失、重复、未注册、无效配置、Schema、索引构建或关联错误均导致启动抛异常，保留文件与原因诊断并清理已创建缓存。配置与程序同包发布，释放后服务与已取得缓存都拒绝继续读取。配置及整组服务验收在 Godot headless 执行；普通 .NET 地图用例直接提供 `MapCfg` 纯数据。
 
 主控制器调用无参 `GameServices.Initialize()`。位于 `src/Config/EnvService.cs`、命名空间为 `Rpg.Config` 的无依赖 `EnvService` 先建立统一目录：`res://config`、`res://schemas`、绝对化后的 `user://settings` 和 `user://server`；Config 的公开构造只接收 Env，Setting 接收 Env、Log，MockServerService 接收 Env、Config，Net 接收 MockServerService、EventBus、Log，Session 接收 Net，World 接收 Env、Config、Setting、Session，EventBus、Animation 和 Items 无构造依赖。`Initialize()` 在同一方法体内按 Env、Log、EventBus、Config、Setting、MockServer、Net、Session、World、Animation、Items 顺序显式创建全部十一个服务；不使用容器、反射或自动依赖排序。`NetService` 借用注入的服务器服务建立 TCP 适配，连接释放不释放服务器服务；进程内适配只供显式回归，`SessionService` 自行建立账号缓存。初始化返回所有权句柄；注册前访问、已释放实例注册和重复初始化明确报错。构造失败回收已创建服务；释放时先撤销全部全局入口，再严格按构造的逆序 Items、Animation、World、Session、Net、MockServer、Setting、Config、EventBus、Log、Env 清理。Session 的网络重置仅调用绑定实例，Net 仅使用构造传入的 EventBus，清理不依赖全局入口；不增加 BeforeDispose 阶段。单项失败仍继续清理其他服务，最后报告异常；旧句柄重复释放不影响新注册。内部 `Register` 只验证并接管完整的现成实例组，注册句柄的构造只保存实例，不创建服务。隔离环境和显式传输的服务组装放在 `tests/GameServicesTestFactory.cs`，纯网络和事件测试自持事件实例，缓存相关测试先注册完整服务组并在既有 Godot 测试宿主执行；传输及已有登录响应构造仅为内部验收边界，业务节点不负责组装或释放单个服务。
 
@@ -186,13 +186,21 @@ GM 的“查看道具图鉴”打开独立 `ItemCatalogControl`，与其他 HUD 
 
 服务端实例持久化使用 `.item.json` 与 `.equipment.json` 多例表，容量扩容和 NextInstanceId 由角色单例保存。实例 ID 在角色内递增不复用；未穿实例按零起格子排列，已穿实例 Equipped 为 true、SlotIndex 为 0。`BagPb.Items` 返回全部私有实例，ItemPb 的 equipped 区分穿戴，oneof payload 预留空 EquipmentPb，不向客户端传递装备槽位。`BagPbData.AllItems` 拥有完整列表，Items 仅提供未穿格子视图，Equipment 根据私有实例及配置推导操作视图。选角与 `RoleItemsChangedNotice` 同时携带公开配置 ID 和私有完整实例；缓存先校验容量、数量、实例/未穿格子唯一性及展示一致性，再按消息顺序原子替换。移动回复只确认 action_id，权威位置通过世界帧同步，其他角色和旧代次消息隔离。
 
-`ChatControl` 常驻 HUD 左下角，与互斥弹窗独立。回车或发送按钮提交去首尾空白的输入，斜杠开头转为去掉斜杠的 Gm 请求，普通文字仅提示“聊天暂未开放”。服务端仅支持 `/item <ItemId> [Count]`，默认数量 1，仅发给当前认证角色；按格子补满已有堆叠再占空格，遵守 MaxStack。全部数量放不下或参数错误均不改变内存、存档、实例编号与版本。成功提交内存后标记背包待写并推送背包，再返回聊天普通文本反馈。移动确认基于最新角色数据保存，不覆盖物品。
+`ChatControl` 常驻 HUD 左下角，与互斥弹窗独立。回车或发送按钮提交去首尾空白的输入，斜杠开头转为去掉斜杠的 Gm 请求，普通文字仅提示“聊天暂未开放”。道具发放命令为 `/item <ItemId> [Count]`，默认数量 1，仅发给当前认证角色；按格子补满已有堆叠再占空格，遵守 MaxStack。全部数量放不下或参数错误均不改变内存、存档、实例编号与版本。成功提交内存后标记背包待写并推送背包，再返回聊天普通文本反馈。移动确认基于最新角色数据保存，不覆盖物品。
 
 聊天不显示初始说明或固定占位文字。聚焦输入 `/` 时显示命令候选；`/item ` 直接读取 `Config.Item.Items`，按 ID 排序展示 ID 与名称并按前缀筛选。输入上方的候选浮层限制在视口内且可滚动，点击或上下键加 Tab 只补全文本，Escape 和失焦隐藏。有配置的道具 ID 后加空格，在实际文本末尾覆盖不消费输入的灰色“数量”提示；显式提供正 Int32 数量且参数完整时整行文字变绿，删除或改成非法参数立即恢复。绿色只表示格式与道具 ID 有效，数量省略仍默认为 1。`tests/bag_gm_smoke.tscn` 同时覆盖提示、补全、颜色恢复、输入隔离及小窗口，图形运行附加 `-- --capture-chat` 可保存四个输入阶段截图到 `build/chat-*.png`。
 
 `BagControl` 点击打开时读取最新缓存，显示全部网格、图标和数量（含 1），悬停显示配置 Name；打开期间随 Notice 刷新。七件测试装备显式绑定现有图集素材键，缺失或未知图标显示占位；滚动区支持小窗口。`tests/bag_gm_smoke.tscn` 验证真实视口发送、回车、名称提示、输入隔离、关闭重开、缺图、小窗口和重启持久化；Windows 图形运行附加 `-- --capture-bag` 可保存 `build/bag-gm.png`。暂不实现普通聊天、主动拆分、使用或装备属性。
 
 `BagSlotControl` 在左键按下时立即拿起物品，松开保持，目标格再次按下时提交；`BagControl` 用独立 CanvasLayer 通过共用内容工厂生成图标和数量预览，图标中心对齐鼠标热点，不受滚动裁剪。名称由格子悬停即时显示普通文本浮层，移出或拿起隐藏；不使用默认延迟 Tooltip。空白点击取消并消费世界输入；空格整份移动，同类未满目标优先合并，剩余留原格，其他目标交换。完全合并只移除耗尽源实例，不回收编号。`MoveItem` 携带实例和目标格，当前角色从连接绑定取得，按最新服务端状态执行，服务端校验后提交内存并标记背包待写，再发送完整背包推送和 `MoveItemRt`；同格不修改状态。UI 不乐观修改缓存，失败在背包显示原因，关闭、离树、刷新、切角和旧版本都会使原拖放失效。`tests/item_movement_smoke.tscn` 通过真实鼠标事件验证两次点击、松开保持、中心吸附、即时名称与按下指针、空格移动、交换、部分/完全合并、取消、过期、480×270 下滚动到末格、失败反馈、世界输入隔离、切角及重启。
+
+## 怪物配置与 GM 放置
+
+`config/monster.json` 为多例表，`MonsterCfgCache` 由 `ConfigService.Monster` 统一加载、校验及释放。配置包含正整型 ID、名称、贴图资源路径和地面锚点；首条 `1001` 树妖使用 M201 Stand 的透明首帧与原始锚点（69, 90），缺图、重复 ID、空名称或画布外锚点阻止启动。配置仍通过 JSON Schema 和同一资源读取边界加载，ID 为 1 至 Int32.MaxValue 的 JSON 整数；配置、候选事件和内部创建请求使用 int，仅在现有地图协议与存档边界转换为十进制字符串。
+
+聊天输入 `/monster` 或 `/monster ` 从配置显示 ID 与名称列表，上下键或鼠标选择，回车／小键盘回车才进入本地预览；鼠标点击列表只选择。`MonsterPlacementControl` 在世界画布显示与正式怪物同贴图、同原始尺寸、同地面锚点的透明虚影，共享相机缩放；每帧以最新鼠标事件坐标逆投影，静止鼠标在相机平移或缩放后仍对齐。聊天释放焦点，此时不发送 GM。左键未被 UI 消费且虚影逻辑坐标在当前地图内时，主控制器直接使用虚影 LogicalPosition，清除预览并单次提交 `monster <ID> <X> <Y>`，确保放置前后尺寸与落点一致，不触发移动或拾取；UI 点击和非法坐标保持预览，右键即使在 UI 上也立即取消。返回选角、连接控制失效和离树清除选择且不补发请求。取消后普通移动恢复。
+
+GM 仍经 Login→Role→World，Role 以当前角色地图转发内部 `CreateMonster`；World 邮箱完整校验配置和有限边界，再创建稳定 GUID 对象、标记块和静止观察者变化。成功通过 GmRt 回显名称与逻辑坐标，不产生背包通知；失败不改变对象。公共 GM／地图消息及持久化格式不变，保存、离开保留和重启恢复沿用地图共同保存。`MonstersView` 只读取 ECS 不可变对象快照，按 GUID 复用贴图及脚底锚点并参与 Y 排序，未配置的历史类型跳过表现；不加入怪物行为或属性。`tests/monster_placement_smoke.tscn` 覆盖真实输入、延迟发送、0.5/1/2/1.75 倍缩放及相机平移后贴图四角重合、服务器与虚影逻辑坐标精确一致、UI/越界隔离、取消、离开和重建，图形运行附加 `-- --capture-monster` 可导出 `build/monster-placement.png`。
 
 ## 当前限制
 
@@ -244,7 +252,7 @@ WorldActor 按地图 ID 独占 WorldCache、公开角色与对象缓存，DataWo
 
 Session 持有与 RoleCache 平级的 MapCache，统一创建、重置及释放。WorldSyncCache 完整检查世界帧中的身份、地图规格、对象配置及远端角色后原子提交。序号缺口暂停增量，Session.ResyncWorldIfNeeded 只入队一次重同步，合法全量后恢复。旧会话由 generation 隔离。
 
-当前首次访问会加载该地图全部动态对象，尚无服务器内存卸载、传送、怪物行为或表现。
+当前首次访问会加载该地图全部动态对象，尚无服务器内存卸载、传送或怪物行为；配置怪物的静态贴图表现由 MonstersView 提供。
 
 ## 背包到地面的数量丢弃
 

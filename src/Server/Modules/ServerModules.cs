@@ -77,6 +77,7 @@ internal sealed class ServerModules : IServerModules
             .Register(new BuildWorldUpdatesHandler())
             .Register(new GetWorldSnapshotHandler())
             .Register(new CreateGroundItemHandler())
+            .Register(new CreateMonsterHandler())
             .Register(new GetGroundItemHandler())
             .Register(new RemoveGroundItemHandler())
             ;

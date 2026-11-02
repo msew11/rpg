@@ -109,3 +109,19 @@ message RemoveGroundItem {
 
 message RemoveGroundItemRt {
 }
+
+// 在接收地图创建配置指定的静态怪物。
+message CreateMonster {
+  // 怪物配置正整型主键。
+  int32 monster_type_id = 1;
+  // 未投影的逻辑横坐标。
+  float x = 2;
+  // 未投影的逻辑纵坐标。
+  float y = 3;
+}
+
+// 返回服务器创建的完整地图对象。
+message CreateMonsterRt {
+  // 具有稳定身份的权威怪物对象。
+  rpg.MapObjectPb object = 1;
+}

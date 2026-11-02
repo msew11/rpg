@@ -25,7 +25,7 @@ public sealed class ItemConfigTests : IDisposable
             Path.Combine(_directory, "config", "basic.json"));
         File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", "equipment.json"),
             Path.Combine(_directory, "config", "equipment.json"));
-        foreach (var name in new[] { "attribute", "role_level" })
+        foreach (var name in new[] { "attribute", "role_level", "monster" })
             File.Copy(Path.Combine(ConfigTestFixture.FindRoot(), "config", name + ".json"), Path.Combine(_directory, "config", name + ".json"));
         WriteTable("[]");
     }

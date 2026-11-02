@@ -26,6 +26,10 @@ public partial class ChatControl : PanelContainer
     private bool _dismissed;
     /// <summary>当前输入是否位于有效道具后的数量位置。</summary>
     private bool _expectsQuantity;
+    /// <summary>当前候选是否需要回车进入怪物放置。</summary>
+    private bool _monsterCandidates;
+    /// <summary>确认怪物后交给当前世界建立本地放置预览。</summary>
+    public event Action<int>? MonsterPlacementRequested;
     /// <summary>格式和道具校验通过时使用的整行文字颜色。</summary>
     private static readonly Color ValidCommandColor = new(0.35f, 0.9f, 0.45f);
 
@@ -72,7 +76,7 @@ public partial class ChatControl : PanelContainer
         _suggestions.AddChild(_candidates);
         _candidates.ItemClicked += (index, _, button) =>
         {
-            if (button == (long)MouseButton.Left) CompleteCandidate((int)index);
+            if (button == (long)MouseButton.Left && !_monsterCandidates) CompleteCandidate((int)index);
         };
         _input.TextChanged += _ => { _dismissed = false; RefreshInput(); };
         _input.FocusEntered += RefreshInput;
@@ -109,9 +113,18 @@ public partial class ChatControl : PanelContainer
             _input.RemoveThemeColorOverride("font_color");
 
         _candidates.Clear();
+        _monsterCandidates = false;
         if (_input.HasFocus() && !_dismissed && text.StartsWith('/'))
         {
-            if (args.Length == 1 && !trailingSpace && "/item".StartsWith(text, StringComparison.Ordinal))
+            if (args.Length is 1 or 2 && args[0] == "/monster")
+            {
+                _monsterCandidates = true;
+                var prefix = args.Length == 2 ? args[1] : "";
+                foreach (var monster in GameServices.Config.Monster.Items.Values.OrderBy(value => value.Id))
+                    if (monster.Id.ToString(CultureInfo.InvariantCulture).StartsWith(prefix, StringComparison.Ordinal) || monster.Name.Contains(prefix, StringComparison.Ordinal))
+                        AddCandidate($"{monster.Id}  {monster.Name}", monster.Id);
+            }
+            else if (args.Length == 1 && !trailingSpace && "/item".StartsWith(text, StringComparison.Ordinal))
                 AddCandidate("/item  —  发放道具", "/item ");
             else if (args.Length >= 1 && args[0] == "/item" &&
                 ((args.Length == 1 && trailingSpace) || (args.Length == 2 && !trailingSpace)))
@@ -127,6 +140,8 @@ public partial class ChatControl : PanelContainer
         }
         if (_input.HasFocus() && !_dismissed && args.Length == 1 && !trailingSpace && "/movespeed".StartsWith(text, StringComparison.Ordinal))
             AddCandidate("/movespeed <非负数|off>  —  保存当前角色移速", "/movespeed ");
+        if (_input.HasFocus() && !_dismissed && args.Length == 1 && !trailingSpace && text != "/monster" && "/monster".StartsWith(text, StringComparison.Ordinal))
+            AddCandidate("/monster  —  选择怪物并点击地面放置", "/monster ");
         _suggestions.Visible = _candidates.ItemCount > 0;
         if (_suggestions.Visible) _candidates.Select(0);
         LayoutHints();
@@ -136,16 +151,26 @@ public partial class ChatControl : PanelContainer
     private static bool IsPositiveInt(string text) =>
         int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value > 0;
 
-    /// <summary>将可见说明与实际补全文本分别存入候选。</summary>
-    private void AddCandidate(string label, string completion)
+    /// <summary>将可见说明与补全文本或整型怪物 ID 分别存入候选。</summary>
+    private void AddCandidate(string label, Variant completion)
     {
         var index = _candidates.AddItem(label);
         _candidates.SetItemMetadata(index, completion);
     }
 
-    /// <summary>补全只修改输入，保留焦点和数量输入位置，不发送请求。</summary>
+    /// <summary>怪物确认进入本地预览，其他候选只补全文本；均不发送请求。</summary>
     private void CompleteCandidate(int index)
     {
+        if (_monsterCandidates)
+        {
+            var id = _candidates.GetItemMetadata(index).AsInt32();
+            _input.Clear();
+            _dismissed = true;
+            _suggestions.Hide();
+            _input.ReleaseFocus();
+            MonsterPlacementRequested?.Invoke(id);
+            return;
+        }
         _input.Text = _candidates.GetItemMetadata(index).AsString();
         _input.CaretColumn = _input.Text.Length;
         _input.GrabFocus();
@@ -213,11 +238,20 @@ public partial class ChatControl : PanelContainer
             x + _quantityHint.Size.X <= _input.Size.X - style.GetContentMargin(Side.Right);
     }
 
-    /// <summary>清理输入后提交 GM，普通文字仅提示本地未开放聊天。</summary>
+    /// <summary>怪物命令只展开本地列表，其他斜杠提交 GM，普通文字提示聊天未开放。</summary>
     private void Submit()
     {
-                var text = _input.Text.Trim();
+        var text = _input.Text.Trim();
         if (text.Length == 0) return;
+        var args = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (args[0] == "/monster")
+        {
+            if (args.Length > 2) { Append("请使用 /monster 选择怪物，再点击地面确认坐标"); return; }
+            _input.GrabFocus();
+            _dismissed = false;
+            RefreshInput();
+            return;
+        }
         _input.Clear();
         RefreshInput();
         if (!text.StartsWith('/')) { Append("聊天暂未开放"); return; }

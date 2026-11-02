@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "怪物配置表",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "name", "texturePath", "anchorX", "anchorY"],
+    "properties": {
+      "id": { "type": "integer", "minimum": 1, "maximum": 2147483647, "description": "怪物配置正整型主键" },
+      "name": { "type": "string", "minLength": 1, "description": "怪物名称" },
+      "texturePath": { "type": "string", "pattern": "^res://assets/.+\\.png$", "description": "静态展示贴图" },
+      "anchorX": { "type": "integer", "minimum": 0, "maximum": 2147483647, "description": "地面锚点横坐标" },
+      "anchorY": { "type": "integer", "minimum": 0, "maximum": 2147483647, "description": "地面锚点纵坐标" }
+    }
+  }
+}
