@@ -196,13 +196,17 @@ public partial class BagGmSmoke : Node
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
-    /// <summary>console-logging：通过真实 GM 控件验证默认值、点击切换、HUD 重建和输入隔离。</summary>
+    /// <summary>console-logging、client-ui：通过 GM 系统工具页验证点击切换、HUD 重建和输入隔离。</summary>
     private async Task CheckConsoleLogToggle(Node main)
     {
         var toggle = (CheckButton)main.FindChild("ConsoleLogEnabled", true, false);
         Check(!toggle.ButtonPressed && !GameServices.Env.ConsoleLogEnabled && !GameServices.Log.Enabled,
             "日志未默认关闭");
         PressTitle(main, "GM");
+        await Frames();
+        var tabs = (TabContainer)main.FindChild("GmTabs", true, false);
+        var tabBar = tabs.GetTabBar();
+        Click(tabBar.GlobalPosition + tabBar.GetTabRect(2).GetCenter());
         await Frames();
         var target = GameServices.World.RoleTarget;
         Click(toggle.GetGlobalRect().GetCenter());

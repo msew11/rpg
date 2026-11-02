@@ -48,7 +48,7 @@ public partial class MainController : Control
     private MapView? _mapView;
     /// <summary>滚轮控制的基础相机倍率，决定静态地表绘制范围。</summary>
     private float _baseZoom = 1f;
-    /// <summary>GM 额外显示倍率，不参与静态地表绘制范围。</summary>
+    /// <summary>从环境恢复的 GM 额外显示倍率，不参与静态地表绘制范围。</summary>
     private float _gmZoom = 1f;
     /// <summary>独立于 ECS 的游戏界面。</summary>
     private GameHud? _hud;
@@ -119,12 +119,13 @@ public partial class MainController : Control
             _camera.Position = IsometricProjection.ToScreen(GameServices.World.RolePosition);
     }
 
-    /// <summary>将未被 UI 消费的地图点击转为移动 Action，并在点击世界位置显示光圈。</summary>
+    /// <summary>处理已启用的滚轮缩放，将未被 UI 消费的地图点击转为移动与光圈。</summary>
     public override void _UnhandledInput(InputEvent input)
     {
         if (_servicesLifetime is null || _worldVisual is null || !GameServices.Session.CanMove || input is not InputEventMouseButton click) return;
         if (click.Pressed && click.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
         {
+            if (_hud?.MouseWheelZoomEnabled != true) return;
             _baseZoom = Mathf.Clamp(_baseZoom * (click.ButtonIndex == MouseButton.WheelUp ? 1.1f : 1f / 1.1f), 0.5f, 2f);
             ApplyCameraZoom();
             GetViewport().SetInputAsHandled();
@@ -381,7 +382,7 @@ public partial class MainController : Control
         _camera = new Camera2D { Name = "WorldCamera", Position = IsometricProjection.ToScreen(GameServices.World.RolePosition), Enabled = true };
         _worldVisual.AddChild(_camera);
         _baseZoom = 1f;
-        _gmZoom = 1f;
+        _gmZoom = (float)GameServices.Env.GmDisplayZoom;
         ApplyCameraZoom();
 
         _hudLayer = new CanvasLayer { Name = "HudLayer", Layer = 10 };
@@ -398,8 +399,11 @@ public partial class MainController : Control
         _hud.AoiHighlightChanged += mapView.SetAoiHighlight;
         _hud.RenderAreaBoundaryChanged += mapView.SetRenderAreaBoundary;
         _hud.GmZoomChanged += value => { _gmZoom = value; ApplyCameraZoom(); };
-        _actor.SetAnchorMarker(GameServices.Env.ShowEntityAnchors, Colors.Yellow);
-        _groundItems.SetAnchorMarkers(GameServices.Env.ShowEntityAnchors, Colors.Yellow);
+        _actor.SetAnchorMarker(GameServices.Env.ShowEntityAnchors, new Color(GameServices.Env.EntityAnchorColor));
+        _groundItems.SetAnchorMarkers(GameServices.Env.ShowEntityAnchors, new Color(GameServices.Env.EntityAnchorColor));
+        mapView.SetChunkBoundaries(GameServices.Env.ShowChunkBoundaries, new Color(GameServices.Env.ChunkBoundaryColor));
+        mapView.SetAoiHighlight(GameServices.Env.ShowCurrentAoi);
+        mapView.SetRenderAreaBoundary(GameServices.Env.ShowRenderAreaBoundary, new Color(GameServices.Env.RenderAreaBoundaryColor));
         _hud.ChangeRoleRequested += ReturnToRoles;
         _hud.LoginRequested += ShowLogin;
         _hud.QuitRequested += QuitGame;

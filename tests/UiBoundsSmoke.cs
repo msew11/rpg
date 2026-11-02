@@ -61,7 +61,7 @@ public partial class UiBoundsSmoke : Node
                 GameHud.HealthColor(0.5f) == new Color("d89137") &&
                 GameHud.HealthColor(0.26f) == new Color("d89137") &&
                 GameHud.HealthColor(0.25f) == new Color("c94d4d"), "生命百分比边界颜色错误");
-            // client-ui：GM 百分比仅覆盖本次 HUD 血条，角色缓存保留服务器原值。
+            // client-ui：GM 百分比预览只覆盖 HUD 血条，角色缓存保留服务器原值。
             var healthPercent = hud.GetNode<Control>("GM").FindChildren("HealthPercent", "HSlider", true, false)
                 .OfType<HSlider>().Single();
             healthPercent.Value = 50;
@@ -131,6 +131,26 @@ public partial class UiBoundsSmoke : Node
                     AssertInside(close, "关闭按钮");
                     Check(close.IsVisibleInTree(), "关闭按钮不可见");
                     var scroll = (ScrollContainer)panel.FindChild("PanelContentScroll", true, false);
+                    // client-ui：GM 各分类在小视口保留窗口边界、滚动与关闭入口。
+                    if (title == "GM")
+                    {
+                        var gmTabs = (TabContainer)panel.FindChild("GmTabs", true, false);
+                        foreach (var tab in new[] { 0, 1, 2, 0 })
+                        {
+                            gmTabs.CurrentTab = tab;
+                            await Frames();
+                            AssertInside(panel, "GM 分类窗口");
+                            AssertInside(close, "GM 分类关闭按钮");
+                            Check(gmTabs.GetCurrentTabControl().IsVisibleInTree(), "GM 当前分类不可见");
+                            if (panel.Content.GetCombinedMinimumSize().Y > scroll.Size.Y)
+                            {
+                                scroll.ScrollVertical = (int)scroll.GetVScrollBar().MaxValue;
+                                await Frames();
+                                Check(scroll.ScrollVertical > 0, "GM 分类内容无法滚动");
+                            }
+                            scroll.ScrollVertical = 0;
+                        }
+                    }
                     if (size.X == 1280)
                     {
                         Check(!scroll.GetHScrollBar().Visible && !scroll.GetVScrollBar().Visible, title + "在正常窗口出现多余滚动条");

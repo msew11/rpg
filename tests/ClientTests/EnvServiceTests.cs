@@ -14,6 +14,116 @@ public sealed class EnvServiceTests : IDisposable
     /// <summary>创建带隔离 .env 的环境，不访问系统环境变量。</summary>
     private EnvService Open() => new(_root, envFilePath: EnvPath);
 
+    /// <summary>client-ui：全部 GM 新设定跨启动恢复，修改保留旧键与注释并合并重复项。</summary>
+    [Fact]
+    public void AllGmSettingsPersistWithExistingEnvConventions()
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllLines(EnvPath, ["# 保留注释", "OTHER=keep", "RPG_GM_DISPLAY_ZOOM=2", "RPG_GM_DISPLAY_ZOOM=3"]);
+        using var env = Open();
+        env.ConsoleLogEnabled = true;
+        env.ShowEntityAnchors = true;
+        env.ServerFlushIntervalSeconds = 30;
+        env.MovementSpeed = 300;
+        env.MouseWheelZoomEnabled = true;
+        env.GmDisplayZoom = 1.25;
+        env.ShowChunkBoundaries = true;
+        env.ShowCurrentAoi = true;
+        env.ShowRenderAreaBoundary = true;
+        env.EntityAnchorColor = "ABCDEF80";
+        env.ChunkBoundaryColor = "12345678";
+        env.RenderAreaBoundaryColor = "87654321";
+        env.HealthPreviewPercent = 25;
+        using var restarted = Open();
+        Assert.Equal(GmSnapshot(env), GmSnapshot(restarted));
+        Assert.True(restarted.ConsoleLogEnabled && restarted.ShowEntityAnchors);
+        Assert.Equal(30, restarted.ServerFlushIntervalSeconds);
+        Assert.Equal(300, restarted.MovementSpeed);
+        Assert.Equal("abcdef80", restarted.EntityAnchorColor);
+        var lines = File.ReadAllLines(EnvPath);
+        Assert.Contains("# 保留注释", lines);
+        Assert.Contains("OTHER=keep", lines);
+        Assert.Single(lines.Where(line => line.StartsWith(EnvService.GmDisplayZoomVariable + "=")));
+        restarted.MouseWheelZoomEnabled = false;
+        restarted.ShowChunkBoundaries = false;
+        restarted.ShowCurrentAoi = false;
+        restarted.ShowRenderAreaBoundary = false;
+        restarted.HealthPreviewPercent = null;
+        using var disabled = Open();
+        Assert.False(disabled.MouseWheelZoomEnabled || disabled.ShowChunkBoundaries || disabled.ShowCurrentAoi || disabled.ShowRenderAreaBoundary);
+        Assert.Null(disabled.HealthPreviewPercent);
+    }
+
+    /// <summary>client-ui：旧文件、损坏值、非有限倍率与越界百分比均安全回退，读取不重写文件。</summary>
+    [Theory]
+    [InlineData("invalid")]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    [InlineData("-1")]
+    [InlineData("101")]
+    public void InvalidGmSettingsFallBackWithoutRewriting(string invalid)
+    {
+        using var defaults = Open();
+        var expected = GmSnapshot(defaults);
+        Directory.CreateDirectory(_root);
+        File.WriteAllLines(EnvPath, new[] { EnvService.MouseWheelZoomVariable, EnvService.GmDisplayZoomVariable,
+            EnvService.ShowChunkBoundariesVariable, EnvService.ShowCurrentAoiVariable, EnvService.ShowRenderAreaBoundaryVariable,
+            EnvService.EntityAnchorColorVariable, EnvService.ChunkBoundaryColorVariable, EnvService.RenderAreaBoundaryColorVariable,
+            EnvService.HealthPreviewPercentVariable }.Select(key => key + "=" + invalid));
+        var original = File.ReadAllText(EnvPath);
+        using var env = Open();
+        Assert.Equal(expected, GmSnapshot(env));
+        Assert.Equal(original, File.ReadAllText(EnvPath));
+    }
+
+    /// <summary>client-ui：任一新增 GM 设置写盘失败时，内存、原文件与其他设置均保留。</summary>
+    [Fact]
+    public void FailedGmSavesPreserveAllSettingsAndCleanTemporaryFile()
+    {
+        using var env = Open();
+        env.ConsoleLogEnabled = true;
+        var original = File.ReadAllText(EnvPath);
+        var expected = GmSnapshot(env);
+        Action[] changes = [() => env.MouseWheelZoomEnabled = true, () => env.GmDisplayZoom = 2,
+            () => env.ShowChunkBoundaries = true, () => env.ShowCurrentAoi = true,
+            () => env.ShowRenderAreaBoundary = true, () => env.EntityAnchorColor = "12345678",
+            () => env.ChunkBoundaryColor = "12345678", () => env.RenderAreaBoundaryColor = "12345678",
+            () => env.HealthPreviewPercent = 25];
+        using (var locked = new FileStream(EnvPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            foreach (var change in changes)
+                Assert.True(Record.Exception(change) is IOException or UnauthorizedAccessException);
+        Assert.Equal(expected, GmSnapshot(env));
+        Assert.Equal(original, File.ReadAllText(EnvPath));
+        Assert.False(File.Exists(EnvPath + ".tmp"));
+    }
+
+    /// <summary>client-ui：非法赋值不能落盘，数值保存不受系统小数点格式影响。</summary>
+    [Fact]
+    public void GmValuesValidateAndUseInvariantNumbers()
+    {
+        using var env = Open();
+        Assert.Throws<ArgumentOutOfRangeException>(() => env.GmDisplayZoom = double.NaN);
+        Assert.Throws<ArgumentOutOfRangeException>(() => env.GmDisplayZoom = 4.1);
+        Assert.Throws<ArgumentOutOfRangeException>(() => env.HealthPreviewPercent = -1);
+        Assert.Throws<ArgumentException>(() => env.EntityAnchorColor = "bad");
+        Assert.False(File.Exists(EnvPath));
+        var originalCulture = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new("fr-FR");
+            env.GmDisplayZoom = 1.25;
+            using var restored = Open();
+            Assert.Equal(1.25, restored.GmDisplayZoom);
+            Assert.Contains("RPG_GM_DISPLAY_ZOOM=1.25", File.ReadAllLines(EnvPath));
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = originalCulture; }
+    }
+
+    /// <summary>捕获跨启动与写盘失败必须保持一致的 GM 设定。</summary>
+    private static object?[] GmSnapshot(EnvService env) => [env.MouseWheelZoomEnabled, env.GmDisplayZoom,
+        env.ShowChunkBoundaries, env.ShowCurrentAoi, env.ShowRenderAreaBoundary,
+        env.EntityAnchorColor, env.ChunkBoundaryColor, env.RenderAreaBoundaryColor, env.HealthPreviewPercent];
+
     /// <summary>client-ecs-world：速度在合理范围内跨启动保留，其他 .env 键不被覆盖。</summary>
     [Fact]
     public void MovementSpeedPersistsAndPreservesOtherKeys()

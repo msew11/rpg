@@ -40,7 +40,7 @@ public partial class GameHud : Control
     private int _currentHealth;
     /// <summary>当前角色生命上限，供临时预览换算。</summary>
     private int _maxHealth;
-    /// <summary>仅在当前 HUD 生命周期生效的 GM 血条百分比。</summary>
+    /// <summary>从 .env 恢复的 GM 血条百分比，不改变角色缓存。</summary>
     private double? _healthPreviewPercent;
     /// <summary>GM 面板中显示当前或预览生命百分比的输入框。</summary>
     private HSlider _healthPercentInput = null!;
@@ -123,6 +123,8 @@ public partial class GameHud : Control
     public event Action<bool, Color>? RenderAreaBoundaryChanged;
     /// <summary>通知世界相机使用当前 GM 额外显示倍率。</summary>
     public event Action<float>? GmZoomChanged;
+    /// <summary>读取环境中已保存的滚轮缩放许可。</summary>
+    public bool MouseWheelZoomEnabled => GameServices.Env.MouseWheelZoomEnabled;
     /// <summary>当前世界会话的地面物品信息显示状态。</summary>
     private bool _groundItemInfoVisible;
 
@@ -132,6 +134,7 @@ public partial class GameHud : Control
         AnchorRight = 1;
         AnchorBottom = 1;
         MouseFilter = MouseFilterEnum.Ignore;
+        _healthPreviewPercent = GameServices.Env.HealthPreviewPercent;
         BuildHud();
         BuildPanels();
         _chat = new ChatControl();
@@ -452,13 +455,26 @@ public partial class GameHud : Control
         mapPanel.AddChild(_largeMap);
 
         var gm = CreatePanel("GM", new Vector2(400, 0));
+        GetNode<Control>("GM").MouseForcePassScrollEvents = false;
+        var gmTabs = new TabContainer { Name = "GmTabs" };
+        gm.AddChild(gmTabs);
+        var worldDebug = new VBoxContainer { Name = "世界调试" };
+        var roleDebug = new VBoxContainer { Name = "角色调试" };
+        var systemTools = new VBoxContainer { Name = "系统工具" };
+        gmTabs.AddChild(worldDebug);
+        gmTabs.AddChild(roleDebug);
+        gmTabs.AddChild(systemTools);
+        var wheelZoom = new CheckButton { Name = "MouseWheelZoomEnabled", Text = "启用滚轮缩放" };
+        BindGmToggle(wheelZoom, () => GameServices.Env.MouseWheelZoomEnabled,
+            value => GameServices.Env.MouseWheelZoomEnabled = value);
+        worldDebug.AddChild(wheelZoom);
         var consoleLog = new CheckButton
         {
             Name = "ConsoleLogEnabled", Text = "控制台日志",
             ButtonPressed = GameServices.Env.ConsoleLogEnabled
         };
         consoleLog.Toggled += enabled => SetConsoleLogging(consoleLog, enabled);
-        gm.AddChild(consoleLog);
+        systemTools.AddChild(consoleLog);
         var anchorRow = new HBoxContainer { Name = "EntityAnchorControls" };
         anchorRow.AddChild(new Label { Text = "显示物体锚点", SizeFlagsHorizontal = SizeFlags.ExpandFill });
         var showAnchors = new CheckButton
@@ -468,62 +484,76 @@ public partial class GameHud : Control
         };
         var anchorColor = new ColorPickerButton
         {
-            Name = "EntityAnchorColor", Color = Colors.Yellow,
+            Name = "EntityAnchorColor", Color = new Color(GameServices.Env.EntityAnchorColor),
             CustomMinimumSize = new Vector2(32, 28), TooltipText = "物体锚点颜色"
         };
         CompactColorPicker(anchorColor);
         showAnchors.Toggled += visible => SetAnchorMarkersVisible(showAnchors, visible, anchorColor.Color);
-        anchorColor.ColorChanged += color => AnchorMarkersChanged?.Invoke(showAnchors.ButtonPressed, color);
+        BindGmColor(anchorColor, () => GameServices.Env.EntityAnchorColor,
+            value => GameServices.Env.EntityAnchorColor = value,
+            color => AnchorMarkersChanged?.Invoke(showAnchors.ButtonPressed, color));
         anchorRow.AddChild(anchorColor);
         anchorRow.AddChild(showAnchors);
-        gm.AddChild(anchorRow);
+        worldDebug.AddChild(anchorRow);
         var chunkRow = new HBoxContainer { Name = "ChunkBoundaryControls" };
         chunkRow.AddChild(new Label { Text = "显示 chunk 边缘", SizeFlagsHorizontal = SizeFlags.ExpandFill });
         var chunkColor = new ColorPickerButton
         {
-            Name = "ChunkBoundaryColor", Color = Colors.Green,
+            Name = "ChunkBoundaryColor", Color = new Color(GameServices.Env.ChunkBoundaryColor),
             CustomMinimumSize = new Vector2(32, 28), TooltipText = "chunk 边缘颜色"
         };
         CompactColorPicker(chunkColor);
         var showChunks = new CheckButton { Name = "ShowChunkBoundaries", TooltipText = "显示 chunk 边缘" };
-        showChunks.Toggled += visible => ChunkBoundariesChanged?.Invoke(visible, chunkColor.Color);
-        chunkColor.ColorChanged += color => ChunkBoundariesChanged?.Invoke(showChunks.ButtonPressed, color);
+        BindGmToggle(showChunks, () => GameServices.Env.ShowChunkBoundaries,
+            value => GameServices.Env.ShowChunkBoundaries = value,
+            visible => ChunkBoundariesChanged?.Invoke(visible, chunkColor.Color));
+        BindGmColor(chunkColor, () => GameServices.Env.ChunkBoundaryColor,
+            value => GameServices.Env.ChunkBoundaryColor = value,
+            color => ChunkBoundariesChanged?.Invoke(showChunks.ButtonPressed, color));
         chunkRow.AddChild(chunkColor);
         chunkRow.AddChild(showChunks);
-        gm.AddChild(chunkRow);
+        worldDebug.AddChild(chunkRow);
         var aoiRow = new HBoxContainer { Name = "AoiHighlightControls" };
         aoiRow.AddChild(new Label { Text = "显示当前 AOI", SizeFlagsHorizontal = SizeFlags.ExpandFill });
         var showAoi = new CheckButton { Name = "ShowCurrentAoi", TooltipText = "高亮服务器下发的当前 AOI 块" };
-        showAoi.Toggled += visible => AoiHighlightChanged?.Invoke(visible);
+        BindGmToggle(showAoi, () => GameServices.Env.ShowCurrentAoi,
+            value => GameServices.Env.ShowCurrentAoi = value, visible => AoiHighlightChanged?.Invoke(visible));
         aoiRow.AddChild(showAoi);
-        gm.AddChild(aoiRow);
+        worldDebug.AddChild(aoiRow);
         var renderRow = new HBoxContainer { Name = "RenderAreaBoundaryControls" };
         renderRow.AddChild(new Label { Text = "显示绘制区域", SizeFlagsHorizontal = SizeFlags.ExpandFill });
         var renderColor = new ColorPickerButton
         {
-            Name = "RenderAreaBoundaryColor", Color = Colors.HotPink,
+            Name = "RenderAreaBoundaryColor", Color = new Color(GameServices.Env.RenderAreaBoundaryColor),
             CustomMinimumSize = new Vector2(32, 28), TooltipText = "绘制区域边缘颜色"
         };
         CompactColorPicker(renderColor);
         var showRenderArea = new CheckButton { Name = "ShowRenderAreaBoundary", TooltipText = "显示实际地表绘制范围" };
-        showRenderArea.Toggled += visible => RenderAreaBoundaryChanged?.Invoke(visible, renderColor.Color);
-        renderColor.ColorChanged += color => RenderAreaBoundaryChanged?.Invoke(showRenderArea.ButtonPressed, color);
+        BindGmToggle(showRenderArea, () => GameServices.Env.ShowRenderAreaBoundary,
+            value => GameServices.Env.ShowRenderAreaBoundary = value,
+            visible => RenderAreaBoundaryChanged?.Invoke(visible, renderColor.Color));
+        BindGmColor(renderColor, () => GameServices.Env.RenderAreaBoundaryColor,
+            value => GameServices.Env.RenderAreaBoundaryColor = value,
+            color => RenderAreaBoundaryChanged?.Invoke(showRenderArea.ButtonPressed, color));
         renderRow.AddChild(renderColor);
         renderRow.AddChild(showRenderArea);
-        gm.AddChild(renderRow);
+        worldDebug.AddChild(renderRow);
         var zoomRow = new HBoxContainer { Name = "GmZoomControls" };
         zoomRow.AddChild(new Label { Text = "GM 显示倍率" });
         var gmZoom = new HSlider
         {
-            Name = "GmDisplayZoom", MinValue = 0.1, MaxValue = 4, Step = 0.05, Value = 1,
+            Name = "GmDisplayZoom", MinValue = 0.1, MaxValue = 4, Step = 0.05, Value = GameServices.Env.GmDisplayZoom,
             CustomMinimumSize = new Vector2(150, 26), SizeFlagsHorizontal = SizeFlags.ExpandFill
         };
-        var gmZoomValue = new Label { Name = "GmDisplayZoomValue", Text = "100%",
+        var gmZoomValue = new Label { Name = "GmDisplayZoomValue", Text = $"{gmZoom.Value:P0}",
             CustomMinimumSize = new Vector2(48, 0), HorizontalAlignment = HorizontalAlignment.Right };
-        gmZoom.ValueChanged += value => { gmZoomValue.Text = $"{value:P0}"; GmZoomChanged?.Invoke((float)value); };
+        gmZoom.ValueChanged += value => SaveGmSetting(
+            () => GameServices.Env.GmDisplayZoom = value,
+            () => { gmZoomValue.Text = $"{value:P0}"; GmZoomChanged?.Invoke((float)value); },
+            () => gmZoom.SetValueNoSignal(GameServices.Env.GmDisplayZoom));
         zoomRow.AddChild(gmZoom);
         zoomRow.AddChild(gmZoomValue);
-        gm.AddChild(zoomRow);
+        worldDebug.AddChild(zoomRow);
         var flushRow = new HBoxContainer();
         flushRow.AddChild(new Label { Text = "Server 落地检测（秒，0 关闭）" });
         var flushInterval = new SpinBox
@@ -534,7 +564,7 @@ public partial class GameHud : Control
         };
         flushInterval.ValueChanged += seconds => SetServerFlushInterval(flushInterval, seconds);
         flushRow.AddChild(flushInterval);
-        gm.AddChild(flushRow);
+        systemTools.AddChild(flushRow);
         var speedRow = new HBoxContainer { Name = "MovementSpeedControls" };
         speedRow.AddChild(new Label { Text = "移动速度" });
         var speedSlider = new HSlider
@@ -549,28 +579,31 @@ public partial class GameHud : Control
         speedSlider.ValueChanged += value => SetMovementSpeed(speedSlider, speedValue, value);
         speedRow.AddChild(speedSlider);
         speedRow.AddChild(speedValue);
-        gm.AddChild(speedRow);
+        roleDebug.AddChild(speedRow);
         var healthRow = new HBoxContainer { Name = "HealthPreviewControls" };
         healthRow.AddChild(new Label { Text = "血条预览（%）" });
         _healthPercentInput = new HSlider
         {
             Name = "HealthPercent", MinValue = 0, MaxValue = 100, Step = 1,
-            Value = HealthPercent(GameServices.Session.Role.Health, GameServices.Session.Role.MaxHealth),
+            Value = _healthPreviewPercent ?? HealthPercent(GameServices.Session.Role.Health, GameServices.Session.Role.MaxHealth),
             CustomMinimumSize = new Vector2(150, 26), SizeFlagsHorizontal = SizeFlags.ExpandFill
         };
         _healthPercentText = new Label { Name = "HealthPercentText", CustomMinimumSize = new Vector2(46, 0),
             HorizontalAlignment = HorizontalAlignment.Right, Text = $"{_healthPercentInput.Value:0}%" };
-        _healthPercentInput.ValueChanged += value =>
-        {
-            _healthPreviewPercent = value;
-            _healthPercentText.Text = $"{value:0}%";
-            UpdateHealthBar(value);
-        };
+        _healthPercentInput.ValueChanged += value => SaveGmSetting(
+            () => GameServices.Env.HealthPreviewPercent = checked((int)value),
+            () =>
+            {
+                _healthPreviewPercent = value;
+                _healthPercentText.Text = $"{value:0}%";
+                UpdateHealthBar(value);
+            },
+            () => _healthPercentInput.SetValueNoSignal(_healthPreviewPercent ?? HealthPercent(_currentHealth, _maxHealth)));
         healthRow.AddChild(_healthPercentInput);
         healthRow.AddChild(_healthPercentText);
-        gm.AddChild(healthRow);
+        roleDebug.AddChild(healthRow);
         var gmActions = new HBoxContainer { Name = "GmActions" };
-        gm.AddChild(gmActions);
+        systemTools.AddChild(gmActions);
         var openUserData = new Button
         {
             Name = "OpenUserDataDirectory",
@@ -611,6 +644,30 @@ public partial class GameHud : Control
         _roleSettings.VisibilityChanged += () => { if (!_roleSettings.Visible) CancelShortcutCapture(); };
         roleTabs.TabChanged += _ => CancelShortcutCapture();
     }
+
+    /// <summary>统一执行 GM 保存，成功后才改变表现，失败恢复控件并提示。</summary>
+    private void SaveGmSetting(Action save, Action apply, Action restore)
+    {
+        try { save(); apply(); _networkError.Text = ""; }
+        catch (Exception error)
+        {
+            restore();
+            _networkError.Text = $"无法保存 GM 设置：{error.Message}";
+        }
+    }
+
+    /// <summary>将 GM 开关绑定到已保存值，失败不更新世界表现。</summary>
+    private void BindGmToggle(CheckButton input, Func<bool> read, Action<bool> save, Action<bool>? apply = null)
+    {
+        input.SetPressedNoSignal(read());
+        input.Toggled += value => SaveGmSetting(() => save(value), () => apply?.Invoke(value),
+            () => input.SetPressedNoSignal(read()));
+    }
+
+    /// <summary>保存含透明度的 GM 颜色，失败恢复色钮且不修改已绘制颜色。</summary>
+    private void BindGmColor(ColorPickerButton input, Func<string> read, Action<string> save, Action<Color> apply)
+        => input.ColorChanged += color => SaveGmSetting(() => save(color.ToHtml()), () => apply(color),
+            () => input.Color = new Color(read()));
 
     /// <summary>保存检测秒数并立即供服务端读取，失败恢复输入并显示原因。</summary>
     private void SetServerFlushInterval(SpinBox input, double seconds)

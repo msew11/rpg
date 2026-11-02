@@ -59,6 +59,7 @@ public partial class ClientSmoke : Node
             var main = new DoubleMainController();
             main.ServerDirectory = Path.Combine(temporary, "server");
             main.SettingsDirectory = temporary;
+            main.EnvFilePath = Path.Combine(temporary, ".env");
             RoleTestData.Seed(main.ServerDirectory);
             AddChild(main);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -106,12 +107,43 @@ public partial class ClientSmoke : Node
                 throw new InvalidOperationException("HUD 或基础面板未创建");
             if (!world.GetChildren().OfType<MapView>().Any())
                 throw new InvalidOperationException("地图表现未创建");
-            // client-ui、client-config-map：滚轮基础缩放与 GM 倍率相乘，边缘控件即时生效。
+            // client-ui：滚轮默认禁用，经真实 GM 开关启用；分类切换不丢失调试状态。
             var camera = world.GetNode<Camera2D>("WorldCamera");
-            using (var wheel = new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true, Position = new Vector2(500, 300) })
-                GetViewport().PushInput(wheel, true);
+            var wheelZoom = (CheckButton)hud.FindChild("MouseWheelZoomEnabled", true, false);
+            var originalTarget = GameServices.World.RoleTarget;
+            WheelAt(new Vector2(500, 300));
+            if (wheelZoom.ButtonPressed || hud.MouseWheelZoomEnabled || camera.Zoom != Vector2.One ||
+                GameServices.World.RoleTarget != originalTarget)
+                throw new InvalidOperationException("滚轮缩放未默认关闭或改变了移动目标");
+            var gmPanel = hud.GetNode<Control>("GM");
+            Click(hud.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "GM"));
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var gmTabs = (TabContainer)gmPanel.FindChild("GmTabs", true, false);
+            var tabBar = gmTabs.GetTabBar();
+            if (gmTabs.GetTabCount() != 3 || gmTabs.CurrentTab != 0 ||
+                gmTabs.GetTabTitle(0) != "世界调试" || gmTabs.GetTabTitle(1) != "角色调试" ||
+                gmTabs.GetTabTitle(2) != "系统工具" ||
+                !gmTabs.GetChild(0).IsAncestorOf(wheelZoom) ||
+                !gmTabs.GetChild(1).IsAncestorOf(hud.FindChild("HealthPercent", true, false)) ||
+                !gmTabs.GetChild(1).IsAncestorOf(hud.FindChild("MovementSpeed", true, false)) ||
+                !gmTabs.GetChild(2).IsAncestorOf(hud.FindChild("OpenItemCatalog", true, false)) ||
+                !gmTabs.GetChild(2).IsAncestorOf(hud.FindChild("ConsoleLogEnabled", true, false)))
+                throw new InvalidOperationException("GM 功能分类或默认标签页错误");
+            Click(wheelZoom);
+            foreach (var index in new[] { 1, 2, 0 })
+            {
+                ClickAt(tabBar.GlobalPosition + tabBar.GetTabRect(index).GetCenter());
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                if (gmTabs.CurrentTab != index || wheelZoom.IsVisibleInTree() != (index == 0) ||
+                    !wheelZoom.ButtonPressed || !hud.MouseWheelZoomEnabled)
+                    throw new InvalidOperationException("GM 页签切换未隔离内容或丢失开关状态");
+            }
+            Click((Control)gmPanel.FindChild("ClosePanel", true, false));
+            WheelAt(new Vector2(500, 300));
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!Mathf.IsEqualApprox(camera.Zoom.X, 1.1f)) throw new InvalidOperationException("滚轮未更新基础相机缩放");
+            // client-ui、client-config-map：滚轮基础缩放与 GM 倍率相乘，边缘控件即时生效。
             var gmZoom = (HSlider)hud.FindChild("GmDisplayZoom", true, false);
             if (gmZoom.MinValue != 0.1 || gmZoom.MaxValue != 4 || gmZoom.Value != 1)
                 throw new InvalidOperationException("GM 缩放范围或默认值错误");
@@ -121,6 +153,27 @@ public partial class ClientSmoke : Node
             if (!Mathf.IsEqualApprox(camera.Zoom.X, 0.11f)) throw new InvalidOperationException("GM 扩大观察范围下限未生效");
             gmZoom.Value = 0.5;
             if (!Mathf.IsEqualApprox(camera.Zoom.X, 0.55f)) throw new InvalidOperationException("GM 倍率未叠加基础缩放");
+            Click(hud.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "GM"));
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!wheelZoom.ButtonPressed || !hud.MouseWheelZoomEnabled || gmZoom.Value != 0.5)
+                throw new InvalidOperationException("关闭重开 GM 丢失调试状态");
+            WheelAt(wheelZoom.GetGlobalRect().GetCenter());
+            if (!Mathf.IsEqualApprox(camera.Zoom.X, 0.55f)) throw new InvalidOperationException("GM 页内滚轮穿透世界");
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            Click(wheelZoom);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            Click((Control)gmPanel.FindChild("ClosePanel", true, false));
+            if (gmPanel.Visible) throw new InvalidOperationException("停用滚轮后未点击到 GM 关闭按钮");
+            WheelAt(new Vector2(500, 300));
+            if (hud.MouseWheelZoomEnabled || !Mathf.IsEqualApprox(camera.Zoom.X, 0.55f) || gmZoom.Value != 0.5 ||
+                GameServices.World.RoleTarget != originalTarget)
+                throw new InvalidOperationException("关闭滚轮缩放未保留当前倍率或仍接收滚轮");
+            Click(hud.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "GM"));
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            Click(wheelZoom);
+            if (!hud.MouseWheelZoomEnabled) throw new InvalidOperationException("再次打开 GM 后未点击到滚轮开关");
+            Click((Control)gmPanel.FindChild("ClosePanel", true, false));
             var renderToggle = (CheckButton)hud.FindChild("ShowRenderAreaBoundary", true, false);
             var renderColor = (ColorPickerButton)hud.FindChild("RenderAreaBoundaryColor", true, false);
             var mapView = world.GetNode<MapView>("MapView");
@@ -147,7 +200,8 @@ public partial class ClientSmoke : Node
             using (var wheel = new InputEventMouseButton { ButtonIndex = MouseButton.WheelDown, Pressed = true, Position = new Vector2(500, 300) })
                 GetViewport().PushInput(wheel, true);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            if (!Mathf.IsEqualApprox(camera.Zoom.X, 1f)) throw new InvalidOperationException("滚轮与 GM 倍率没有独立恢复");
+            if (!Mathf.IsEqualApprox(camera.Zoom.X, 1f)) throw new InvalidOperationException(
+                $"滚轮与 GM 倍率没有独立恢复：倍率 {camera.Zoom.X}，开关 {hud.MouseWheelZoomEnabled}，窗口 {gmPanel.Visible}");
             var manager = GameServices.World;
             if (!manager.HasWorld || !manager.HasRole)
                 throw new InvalidOperationException("世界或角色实体未初始化");
@@ -184,7 +238,23 @@ public partial class ClientSmoke : Node
             characterButton.EmitSignal(Button.SignalName.Pressed);
             if (!hud.GetChildren().OfType<PanelContainer>().Any(panel => panel.Name == "角色" && panel.Visible))
                 throw new InvalidOperationException("角色面板无法打开");
-            // client-ui：正式菜单与角色切换；窗口布局、设置和 GM 由各专用烟测覆盖。
+            // client-ui：全部 GM 设定经控件保存，并在文件不可替换时保持控件与世界表现。
+            ConfigurePersistentGm(hud);
+            using (var locked = new FileStream(main.EnvFilePath, FileMode.Open, System.IO.FileAccess.Read, FileShare.Read))
+            {
+                wheelZoom.ButtonPressed = false;
+                gmZoom.Value = 0.75;
+                aoiToggle.ButtonPressed = false;
+                var healthPreview = (HSlider)hud.FindChild("HealthPercent", true, false);
+                healthPreview.Value = 50;
+                renderColor.Color = Colors.White;
+                renderColor.EmitSignal(ColorPickerButton.SignalName.ColorChanged, Colors.White);
+                if (!wheelZoom.ButtonPressed || gmZoom.Value != 0.5 || !aoiToggle.ButtonPressed ||
+                    healthPreview.Value != 25 || renderColor.Color != Colors.Blue ||
+                    ((Label)hud.FindChild("NetworkError", true, false)).Text == "")
+                    throw new InvalidOperationException("GM 保存失败未恢复控件或显示原因");
+            }
+            // client-ui：正式菜单与角色切换，并恢复持久化 GM 设定。
             PressMenu(hud, "返回角色选择");
             await SmokeNetwork.WaitForAccount(this);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -192,12 +262,10 @@ public partial class ClientSmoke : Node
             ((Button)main.FindChild("SelectRole1002", true, false)).EmitSignal(Button.SignalName.Pressed);
             ((Button)main.FindChild("EnterRole", true, false)).EmitSignal(Button.SignalName.Pressed);
             await WaitForHud(main);
-            if (!Mathf.IsEqualApprox(main.GetNode<Camera2D>("WorldVisual/WorldCamera").Zoom.X, 1f) ||
-                ((HSlider)main.FindChild("GmDisplayZoom", true, false)).Value != 1)
-                throw new InvalidOperationException("重新进入世界未重置相机与 GM 缩放");
-            if (((CheckButton)main.FindChild("ShowCurrentAoi", true, false)).ButtonPressed ||
-                main.GetNode<AoiHighlightView>("WorldVisual/MapView/AoiHighlight").Visible)
-                throw new InvalidOperationException("重新进入世界未关闭 GM AOI 高亮");
+            AssertPersistentGm(main);
+            WheelAt(new Vector2(500, 300));
+            if (!Mathf.IsEqualApprox(main.GetNode<Camera2D>("WorldVisual/WorldCamera").Zoom.X, 0.55f))
+                throw new InvalidOperationException("重新进入世界后滚轮未恢复启用");
             AssertBodyResource(main.GetChildren().OfType<Node2D>().Single()
                 .GetChildren().OfType<ActorView>().Single(), "female");
             PressMenu(main.GetNode<GameHud>("HudLayer/GameHud"), "返回登陆");
@@ -236,6 +304,7 @@ public partial class ClientSmoke : Node
             main = new DoubleMainController();
             main.ServerDirectory = Path.Combine(temporary, "server");
             main.SettingsDirectory = temporary;
+            main.EnvFilePath = Path.Combine(temporary, ".env");
             AddChild(main);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!GameServices.IsInitialized || ReferenceEquals(originalNet, GameServices.Net))
@@ -249,6 +318,7 @@ public partial class ClientSmoke : Node
             main.FindChild("EnterRole", true, false).EmitSignal(Button.SignalName.Pressed);
             await WaitForHud(main);
             finalHud = main.GetNode<GameHud>("HudLayer/GameHud");
+            AssertPersistentGm(main);
             Click(finalHud.FindChildren("*", "Button", true, false).OfType<Button>()
                 .Single(button => button.Text == "系统"));
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -286,9 +356,59 @@ public partial class ClientSmoke : Node
     /// <summary>通过真实视口鼠标事件点击控件中心，覆盖菜单输入路由。</summary>
     private void Click(Control control) => ClickAt(control.GetGlobalRect().GetCenter());
 
+    /// <summary>通过真实视口滚轮验收 client-ui 的世界开关和界面输入隔离。</summary>
+    private void WheelAt(Vector2 position)
+    {
+        using var motion = new InputEventMouseMotion { Position = position };
+        GetViewport().PushInput(motion, true);
+        using var input = new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true, Position = position };
+        GetViewport().PushInput(input, true);
+        input.Pressed = false;
+        GetViewport().PushInput(input, true);
+    }
+
+    /// <summary>通过 GM 控件保存各类开关、颜色、倍率和角色预览，验收 client-ui 持久化。</summary>
+    private static void ConfigurePersistentGm(GameHud hud)
+    {
+        foreach (var name in new[] { "MouseWheelZoomEnabled", "ShowEntityAnchors", "ShowChunkBoundaries", "ShowCurrentAoi", "ShowRenderAreaBoundary" })
+            ((CheckButton)hud.FindChild(name, true, false)).ButtonPressed = true;
+        foreach (var (name, color) in new[] { ("EntityAnchorColor", Colors.Cyan), ("ChunkBoundaryColor", Colors.Red), ("RenderAreaBoundaryColor", Colors.Blue) })
+        {
+            var picker = (ColorPickerButton)hud.FindChild(name, true, false);
+            picker.Color = color;
+            picker.EmitSignal(ColorPickerButton.SignalName.ColorChanged, color);
+        }
+        ((HSlider)hud.FindChild("GmDisplayZoom", true, false)).Value = 0.5;
+        ((HSlider)hud.FindChild("HealthPercent", true, false)).Value = 25;
+        ((HSlider)hud.FindChild("MovementSpeed", true, false)).Value = 300;
+        ((SpinBox)hud.FindChild("ServerFlushIntervalSeconds", true, false)).Value = 30;
+    }
+
+    /// <summary>重入与重启后，控件和实际地图、角色表现都恢复 .env 值。</summary>
+    private static void AssertPersistentGm(MainController main)
+    {
+        foreach (var name in new[] { "MouseWheelZoomEnabled", "ShowEntityAnchors", "ShowChunkBoundaries", "ShowCurrentAoi", "ShowRenderAreaBoundary" })
+            if (!((CheckButton)main.FindChild(name, true, false)).ButtonPressed)
+                throw new InvalidOperationException("重入或重启未恢复 GM 开关：" + name);
+        var actorAnchor = main.GetNode<EntityAnchorView>("WorldVisual/ActorView/EntityAnchor");
+        var chunks = main.GetNode<ChunkBoundaryView>("WorldVisual/MapView/ChunkBoundaries");
+        var render = main.GetNode<RenderAreaBoundaryView>("WorldVisual/MapView/RenderAreaBoundary");
+        if (!Mathf.IsEqualApprox(main.GetNode<Camera2D>("WorldVisual/WorldCamera").Zoom.X, 0.5f) ||
+            ((HSlider)main.FindChild("GmDisplayZoom", true, false)).Value != 0.5 ||
+            ((HSlider)main.FindChild("HealthPercent", true, false)).Value != 25 ||
+            ((ProgressBar)main.FindChild("HealthBar", true, false)).Value != 25 ||
+            ((HSlider)main.FindChild("MovementSpeed", true, false)).Value != 300 ||
+            ((SpinBox)main.FindChild("ServerFlushIntervalSeconds", true, false)).Value != 30 ||
+            !actorAnchor.Visible || actorAnchor.MarkerColor != Colors.Cyan ||
+            !chunks.Visible || chunks.LineColor != Colors.Red || !render.Visible || render.LineColor != Colors.Blue ||
+            !main.GetNode<AoiHighlightView>("WorldVisual/MapView/AoiHighlight").Visible)
+            throw new InvalidOperationException("重入或重启未恢复 GM 数值、颜色或世界表现");
+    }
+
     /// <summary>发送完整鼠标点击，验证 UI 消费事件且不会触发地图移动。</summary>
     private void ClickAt(Vector2 position)
     {
+        GetViewport().PushInput(new InputEventMouseMotion { Position = position }, true);
         GetViewport().PushInput(new InputEventMouseButton
             { ButtonIndex = MouseButton.Left, Pressed = true, Position = position }, true);
         GetViewport().PushInput(new InputEventMouseButton

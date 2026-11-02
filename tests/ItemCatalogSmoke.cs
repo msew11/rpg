@@ -51,6 +51,7 @@ public partial class ItemCatalogSmoke : Node
             var hud = main.FindChildren("*", "Control", true, false).OfType<GameHud>().Single();
             hud.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "GM")
                 .EmitSignal(Button.SignalName.Pressed);
+            ((TabContainer)hud.FindChild("GmTabs", true, false)).CurrentTab = 2;
             Press(hud, "OpenItemCatalog");
             await Frames();
             var catalog = (ItemCatalogControl)hud.FindChild("ItemCatalog", true, false);

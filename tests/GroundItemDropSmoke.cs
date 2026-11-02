@@ -141,19 +141,19 @@ public partial class GroundItemDropSmoke : Node
             var anchorToggle = (CheckButton)gmPanel.FindChild("ShowEntityAnchors", true, false);
             var anchorColor = (ColorPickerButton)gmPanel.FindChild("EntityAnchorColor", true, false);
             // client-ui/client-config-map：GM 逻辑 chunk 边界与锚点同行布局，并即时切换颜色。
-            var consoleToggle = (CheckButton)gmPanel.FindChild("ConsoleLogEnabled", true, false);
+            var wheelToggle = (CheckButton)gmPanel.FindChild("MouseWheelZoomEnabled", true, false);
             var chunkToggle = (CheckButton)gmPanel.FindChild("ShowChunkBoundaries", true, false);
             var chunkColor = (ColorPickerButton)gmPanel.FindChild("ChunkBoundaryColor", true, false);
             var boundaries = (ChunkBoundaryView)main.FindChild("ChunkBoundaries", true, false);
             Check(!chunkToggle.ButtonPressed && !boundaries.Visible && chunkColor.Color == Colors.Green,
                 "GM chunk 边界默认状态错误");
             Check(Mathf.Abs(anchorToggle.GlobalPosition.X + anchorToggle.Size.X -
-                (consoleToggle.GlobalPosition.X + consoleToggle.Size.X)) < 2 &&
+                (wheelToggle.GlobalPosition.X + wheelToggle.Size.X)) < 2 &&
                 Mathf.Abs(chunkToggle.GlobalPosition.X + chunkToggle.Size.X -
-                (consoleToggle.GlobalPosition.X + consoleToggle.Size.X)) < 2 &&
+                (wheelToggle.GlobalPosition.X + wheelToggle.Size.X)) < 2 &&
                 anchorColor.GlobalPosition.X < anchorToggle.GlobalPosition.X &&
                 chunkColor.GlobalPosition.X < chunkToggle.GlobalPosition.X,
-                "GM 颜色按钮或开关没有按控制台行右侧对齐");
+                "GM 颜色按钮或开关没有在世界调试页右侧对齐");
             chunkToggle.ButtonPressed = true; await Frames();
             Check(boundaries.Visible && boundaries.LineColor == Colors.Green, "GM 未显示绿色 chunk 边界");
             chunkColor.Color = Colors.Cyan;

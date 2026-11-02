@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
+using System.Linq;
 using Godot;
 using Rpg.Services;
 
@@ -17,6 +19,121 @@ public sealed class EnvService : Service
     public const string ServerFlushIntervalVariable = "RPG_SERVER_FLUSH_INTERVAL_SECONDS";
     /// <summary>.env 中保存角色每秒移动的逻辑单位数。</summary>
     public const string MovementSpeedVariable = "RPG_MOVEMENT_SPEED";
+    /// <summary>GM 滚轮缩放开关的持久化键。</summary>
+    public const string MouseWheelZoomVariable = "RPG_MOUSE_WHEEL_ZOOM_ENABLED";
+    /// <summary>GM 额外显示倍率的持久化键。</summary>
+    public const string GmDisplayZoomVariable = "RPG_GM_DISPLAY_ZOOM";
+    /// <summary>逻辑 chunk 边缘开关的持久化键。</summary>
+    public const string ShowChunkBoundariesVariable = "RPG_SHOW_CHUNK_BOUNDARIES";
+    /// <summary>当前 AOI 高亮开关的持久化键。</summary>
+    public const string ShowCurrentAoiVariable = "RPG_SHOW_CURRENT_AOI";
+    /// <summary>地表绘制区域边缘开关的持久化键。</summary>
+    public const string ShowRenderAreaBoundaryVariable = "RPG_SHOW_RENDER_AREA_BOUNDARY";
+    /// <summary>实体锚点颜色的持久化键，使用八位 RGBA 十六进制。</summary>
+    public const string EntityAnchorColorVariable = "RPG_ENTITY_ANCHOR_COLOR";
+    /// <summary>逻辑 chunk 边缘颜色的持久化键。</summary>
+    public const string ChunkBoundaryColorVariable = "RPG_CHUNK_BOUNDARY_COLOR";
+    /// <summary>地表绘制区域边缘颜色的持久化键。</summary>
+    public const string RenderAreaBoundaryColorVariable = "RPG_RENDER_AREA_BOUNDARY_COLOR";
+    /// <summary>血条预览百分比的持久化键，none 表示使用实际生命值。</summary>
+    public const string HealthPreviewPercentVariable = "RPG_HEALTH_PREVIEW_PERCENT";
+    /// <summary>新增 GM 配置的默认值及当前原始值，读取时按对应类型验证。</summary>
+    private readonly Dictionary<string, string> _gmSettings = new()
+    {
+        [MouseWheelZoomVariable] = "false", [GmDisplayZoomVariable] = "1",
+        [ShowChunkBoundariesVariable] = "false", [ShowCurrentAoiVariable] = "false",
+        [ShowRenderAreaBoundaryVariable] = "false", [EntityAnchorColorVariable] = "ffff00ff",
+        [ChunkBoundaryColorVariable] = "00ff00ff", [RenderAreaBoundaryColorVariable] = "ff69b4ff",
+        [HealthPreviewPercentVariable] = "none"
+    };
+
+    /// <summary>允许滚轮调整世界基础倍率，缺失时关闭。</summary>
+    public bool MouseWheelZoomEnabled
+    {
+        get => ReadBoolean(_gmSettings[MouseWheelZoomVariable]);
+        set => SaveGmValue(MouseWheelZoomVariable, value ? "true" : "false");
+    }
+    /// <summary>额外显示倍率，缺失或非法时使用一倍。</summary>
+    public double GmDisplayZoom
+    {
+        get => double.TryParse(_gmSettings[GmDisplayZoomVariable], NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            && double.IsFinite(value) && value >= 0.1 && value <= 4 ? value : 1;
+        set
+        {
+            if (!double.IsFinite(value) || value < 0.1 || value > 4) throw new ArgumentOutOfRangeException(nameof(value));
+            SaveGmValue(GmDisplayZoomVariable, value.ToString("R", CultureInfo.InvariantCulture));
+        }
+    }
+    /// <summary>是否显示逻辑 chunk 边缘，缺失时关闭。</summary>
+    public bool ShowChunkBoundaries
+    {
+        get => ReadBoolean(_gmSettings[ShowChunkBoundariesVariable]);
+        set => SaveGmValue(ShowChunkBoundariesVariable, value ? "true" : "false");
+    }
+    /// <summary>是否高亮当前 AOI，缺失时关闭。</summary>
+    public bool ShowCurrentAoi
+    {
+        get => ReadBoolean(_gmSettings[ShowCurrentAoiVariable]);
+        set => SaveGmValue(ShowCurrentAoiVariable, value ? "true" : "false");
+    }
+    /// <summary>是否显示地表绘制区域边缘，缺失时关闭。</summary>
+    public bool ShowRenderAreaBoundary
+    {
+        get => ReadBoolean(_gmSettings[ShowRenderAreaBoundaryVariable]);
+        set => SaveGmValue(ShowRenderAreaBoundaryVariable, value ? "true" : "false");
+    }
+    /// <summary>锚点颜色，非法时回退黄色。</summary>
+    public string EntityAnchorColor
+    {
+        get => ReadGmColor(EntityAnchorColorVariable, "ffff00ff");
+        set => SaveGmColor(EntityAnchorColorVariable, value);
+    }
+    /// <summary>逻辑 chunk 边缘颜色，非法时回退绿色。</summary>
+    public string ChunkBoundaryColor
+    {
+        get => ReadGmColor(ChunkBoundaryColorVariable, "00ff00ff");
+        set => SaveGmColor(ChunkBoundaryColorVariable, value);
+    }
+    /// <summary>地表绘制区域边缘颜色，非法时回退粉色。</summary>
+    public string RenderAreaBoundaryColor
+    {
+        get => ReadGmColor(RenderAreaBoundaryColorVariable, "ff69b4ff");
+        set => SaveGmColor(RenderAreaBoundaryColorVariable, value);
+    }
+    /// <summary>保存的血条预览百分比，空值使用实际生命值且不改变角色数据。</summary>
+    public int? HealthPreviewPercent
+    {
+        get => int.TryParse(_gmSettings[HealthPreviewPercentVariable], NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+            && value >= 0 && value <= 100 ? value : null;
+        set
+        {
+            if (value is < 0 or > 100) throw new ArgumentOutOfRangeException(nameof(value));
+            SaveGmValue(HealthPreviewPercentVariable, value?.ToString(CultureInfo.InvariantCulture) ?? "none");
+        }
+    }
+
+    /// <summary>复用现有原子写入，成功后才接纳 GM 配置值。</summary>
+    private void SaveGmValue(string key, string value)
+    {
+        ThrowIfDisposed();
+        SaveVariable(key, value);
+        _gmSettings[key] = value;
+    }
+
+    /// <summary>按八位 RGBA 格式读取颜色，不依赖 Godot 原生运行时。</summary>
+    private string ReadGmColor(string key, string fallback)
+        => IsGmColor(_gmSettings[key]) ? _gmSettings[key].ToLowerInvariant() : fallback;
+
+    /// <summary>颜色只接受八位 RGBA 十六进制，避免保存后无法恢复。</summary>
+    private static bool IsGmColor(string? value)
+        => value is { Length: 8 } && value.All(Uri.IsHexDigit);
+
+    /// <summary>校验并规范颜色值，再通过相同的 .env 流程保存。</summary>
+    private void SaveGmColor(string key, string value)
+    {
+        if (!IsGmColor(value)) throw new ArgumentException("颜色必须为八位 RGBA 十六进制", nameof(value));
+        SaveGmValue(key, value.ToLowerInvariant());
+    }
     /// <summary>GM 可调移动速度的下限、上限和默认值。</summary>
     public const int MinimumMovementSpeed = 60, MaximumMovementSpeed = 360, DefaultMovementSpeed = 180;
     /// <summary>当前移动速度，写入成功后才更新内存。</summary>
@@ -113,6 +230,8 @@ public sealed class EnvService : Service
                     _movementSpeed = int.TryParse(speedText, out var speed) &&
                         speed >= MinimumMovementSpeed && speed <= MaximumMovementSpeed && speed % 10 == 0
                         ? speed : DefaultMovementSpeed;
+                foreach (var key in _gmSettings.Keys.ToArray())
+                    if (TryReadVariable(line, key, out var setting)) _gmSettings[key] = setting;
             }
         }
         SettingsDirectory = settingsDirectory;
