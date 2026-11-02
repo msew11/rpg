@@ -19,18 +19,5 @@
     "frames": 6,
     "frame_seconds": 0.1
   },
-  "cursor": {
-    "source": "res/uires/cursor/AttackH.gsa",
-    "sha256": "f49ff8078bd45afee01cf1b4c62db7c1edb5890402b4113641d03d573def1574",
-    "output": "sword.png",
-    "width": 40,
-    "height": 40,
-    "frames": 1,
-    "hotspot": [
-      2,
-      2
-    ],
-    "display_scale": 1.25
-  },
-  "note": "圆环保留原始公共锚点；0.1 秒帧时长为项目表现参数。剑形热点来自 res/uires/uiroot.lua。"
+  "note": "圆环保留原始公共锚点；0.1 秒帧时长为项目表现参数。鼠标素材由 assets/pointer/source.json 记录。"
 }

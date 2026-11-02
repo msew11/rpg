@@ -60,7 +60,7 @@ public partial class MonsterSelectionSmoke : Node
             Check(view.HoveredObjectId == firstId && cursor.IsMonsterHovering, "怪物悬停没有红色剑");
             var sword = cursor.CurrentTexture;
             Check(sword.GetSize() == new Vector2(50, 50) && cursor.CurrentHotspot == new Vector2(2.5f, 2.5f), "红剑尺寸或热点不符");
-            using (var expected = (Image)GD.Load<Texture2D>("res://assets/monsters/selection/sword.png").GetImage().Duplicate())
+            using (var expected = (Image)GD.Load<Texture2D>("res://assets/pointer/sword.png").GetImage().Duplicate())
             {
                 expected.Resize(50, 50, Image.Interpolation.Nearest);
                 using var actual = (Image)sword.GetImage().Duplicate();
@@ -159,7 +159,9 @@ public partial class MonsterSelectionSmoke : Node
             await Frames();
             camera.ForceUpdateScroll();
             var fourth = await CreateMonster(view, new Vector2(750, 310));
-            point = PixelPoint(fourth, true); Motion(point); await Frames(); Click(point);
+            point = PixelPoint(fourth, true); Motion(point); await Frames();
+            // 图形后端在等待帧内仍可能完成相机更新，点击使用事件当帧的实际可见像素。
+            point = PixelPoint(fourth, true); Click(point);
             Check(view.SelectedObjectId is not null, "移动后无法重新选择怪物");
             if (OS.GetCmdlineUserArgs().Contains("--capture-monster-selection") && DisplayServer.GetName() != "headless")
             {

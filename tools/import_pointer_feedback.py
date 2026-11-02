@@ -1,4 +1,4 @@
-"""将指定 IANI 鼠标素材与地面光圈拼成完整画布，保留原始来源证据。"""
+"""将指定 IANI 鼠标素材（含 AttackH 红剑）与地面光圈拼成完整画布，保留来源。"""
 
 import argparse
 import hashlib
@@ -7,6 +7,7 @@ import struct
 from pathlib import Path
 
 from PIL import Image
+from decode_actor_heads import preserve_source_pixels
 
 
 def decode_iani(path):
@@ -52,7 +53,7 @@ def main():
     records = []
     for source, name in [('res/uires/cursor/Normal.gsa', 'normal'), ('res/effect/circle.gsa', 'circle'),
                          ('res/uires/cursor/Click.gsa', 'click'), ('res/uires/cursor/Fetch.gsa', 'fetch'),
-                         ('res/uires/cursor/Edit.gsa', 'edit')]:
+                         ('res/uires/cursor/Edit.gsa', 'edit'), ('res/uires/cursor/AttackH.gsa', 'sword')]:
         path = args.source / 'raw' / source
         frames = decode_iani(path)
         outputs = [f'{name}_{index}.png' for index in range(len(frames))] if name in ('click', 'fetch') else [f'{name}.png']
@@ -65,11 +66,14 @@ def main():
             records[-1]['hotspot'] = [6, 6]
         if name == 'edit':
             records[-1]['hotspot'] = [5, 8]
+        if name == 'sword':
+            records[-1]['hotspot'] = [2, 2]
+            preserve_source_pixels(target / 'sword.png')
     config = args.source / 'raw/res/uires/uiroot.lua'
     manifest = dict(resources=records, cursor_config=dict(source='res/uires/uiroot.lua',
                     sha256=hashlib.sha256(config.read_bytes()).hexdigest(), hotspot=[2, 2], holdframe=1),
                     circle_fade_seconds=0.5, cursor_display_scale=1.25, text_cursor_display_height=32, click_frame_seconds=0.08,
-                    note='circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal；Fetch 第一帧悬停，第二帧握住拖动，热点 (6,6)；Edit 首帧用于文本输入 I 形鼠标，热点 (5,8)。')
+                    note='circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal；Fetch 第一帧悬停，第二帧握住拖动，热点 (6,6)；Edit 首帧用于文本输入 I 形鼠标，热点 (5,8)；AttackH 红剑用于怪物悬停，热点 (2,2)。')
     (target / 'source.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 

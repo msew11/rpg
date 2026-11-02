@@ -33,7 +33,7 @@ public partial class MonstersView : Node2D
     public bool CanInteract => InteractionEnabled && _focused && IsVisibleInTree() &&
         GetViewport().GuiGetHoveredControl() is null && GetLastExclusiveWindow() == GetWindow();
 
-    /// <summary>注册指针查询入口，并建立保留原始锚点的六帧循环动画。</summary>
+    /// <summary>注册指针查询入口，保留六帧原像素与锚点，并以平滑过滤缓和放大台阶。</summary>
     public override void _Ready()
     {
         AddToGroup("MonsterViews");
@@ -44,7 +44,7 @@ public partial class MonstersView : Node2D
             frames.AddFrame("default", GD.Load<Texture2D>($"res://assets/monsters/selection/ring_{index}.png"));
         _selection = new AnimatedSprite2D { Name = "MonsterSelectionRing", SpriteFrames = frames,
             Centered = false, Offset = new Vector2(-34, -20), ShowBehindParent = true,
-            TextureFilter = TextureFilterEnum.Nearest, Visible = false };
+            TextureFilter = TextureFilterEnum.Linear, Visible = false };
         AddChild(_selection);
     }
 

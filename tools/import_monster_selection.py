@@ -1,4 +1,4 @@
-"""导入怪物选中的原始六帧红色圆环与红色剑鼠标，保留来源和定位证据。"""
+"""导入怪物选中的原始六帧红色圆环，保留来源和定位证据。"""
 
 import argparse
 import hashlib
@@ -8,7 +8,6 @@ import struct
 
 from PIL import Image
 
-from import_pointer_feedback import decode_iani
 from decode_actor_heads import preserve_source_pixels
 
 
@@ -55,19 +54,11 @@ def main():
         frame.save(target / name)
         preserve_source_pixels(target / name)
         outputs.append(name)
-    sword_path = args.source / 'raw/res/uires/cursor/AttackH.gsa'
-    sword, = decode_iani(sword_path)
-    sword.save(target / 'sword.png')
-    preserve_source_pixels(target / 'sword.png')
     evidence = dict(ring=dict(source='magic/magic/magic9002.gso',
                              sha256=hashlib.sha256(ring_path.read_bytes()).hexdigest(),
                              outputs=outputs, width=frames[0].width, height=frames[0].height,
                              anchor=anchor, frames=len(frames), frame_seconds=0.1),
-                    cursor=dict(source='res/uires/cursor/AttackH.gsa',
-                                sha256=hashlib.sha256(sword_path.read_bytes()).hexdigest(),
-                                output='sword.png', width=sword.width, height=sword.height,
-                                frames=1, hotspot=[2, 2], display_scale=1.25),
-                    note='圆环保留原始公共锚点；0.1 秒帧时长为项目表现参数。剑形热点来自 res/uires/uiroot.lua。')
+                    note='圆环保留原始公共锚点；0.1 秒帧时长为项目表现参数。鼠标素材由 assets/pointer/source.json 记录。')
     (target / 'source.json').write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 

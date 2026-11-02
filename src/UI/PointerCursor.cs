@@ -54,7 +54,7 @@ public partial class PointerCursor : Node
         _normal = LoadFrame("normal");
         _pressed = [LoadFrame("click_0"), LoadFrame("click_1")];
         _fetch = [LoadFrame("fetch_0"), LoadFrame("fetch_1")];
-        _sword = LoadFrame("sword", directory: "res://assets/monsters/selection");
+        _sword = LoadFrame("sword");
         Input.SetCustomMouseCursor(LoadFrame("edit", EditDisplayScale), Input.CursorShape.Ibeam, new Vector2(5, 8) * EditDisplayScale);
         Present(_normal);
     }
@@ -187,9 +187,9 @@ public partial class PointerCursor : Node
     }
 
     /// <summary>按最近邻缩放完整画布，保留现有像素素材边缘。</summary>
-    private static Texture2D LoadFrame(string name, float scale = DisplayScale, string directory = "res://assets/pointer")
+    private static Texture2D LoadFrame(string name, float scale = DisplayScale)
     {
-        using var image = (Image)GD.Load<Texture2D>($"{directory}/{name}.png").GetImage().Duplicate();
+        using var image = (Image)GD.Load<Texture2D>($"res://assets/pointer/{name}.png").GetImage().Duplicate();
         image.Resize(Mathf.RoundToInt(image.GetWidth() * scale), Mathf.RoundToInt(image.GetHeight() * scale), Image.Interpolation.Nearest);
         return ImageTexture.CreateFromImage(image);
     }

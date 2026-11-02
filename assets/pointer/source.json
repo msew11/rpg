@@ -58,6 +58,19 @@
         5,
         8
       ]
+    },
+    {
+      "source": "res/uires/cursor/AttackH.gsa",
+      "sha256": "f49ff8078bd45afee01cf1b4c62db7c1edb5890402b4113641d03d573def1574",
+      "frames": 1,
+      "width": 40,
+      "height": 40,
+      "output": "sword.png",
+      "selected_frame": 0,
+      "hotspot": [
+        2,
+        2
+      ]
     }
   ],
   "cursor_config": {
@@ -73,5 +86,5 @@
   "cursor_display_scale": 1.25,
   "text_cursor_display_height": 32,
   "click_frame_seconds": 0.08,
-  "note": "circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal；Fetch 第一帧悬停，第二帧握住拖动，热点 (6,6)；Edit 首帧用于文本输入 I 形鼠标，热点 (5,8)。"
+  "note": "circle 为单帧完整画布；淡出由客户端实现，原版用途未确认。Click 按下播放两帧，释放恢复 Normal；Fetch 第一帧悬停，第二帧握住拖动，热点 (6,6)；Edit 首帧用于文本输入 I 形鼠标，热点 (5,8)；AttackH 红剑用于怪物悬停，热点 (2,2)。"
 }
