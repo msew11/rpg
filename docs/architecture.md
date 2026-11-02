@@ -2,7 +2,7 @@
 
 ## 怪物本地选择表现
 
-`MonstersView` 按稳定 GUID 持有当前世界的单一选中身份，依据贴图可见像素和实际相机变换命中；按 Y 排序和同位节点次序选择靠前怪物，CPU 图像按纹理复用。`MainController` 在放置之后、拾取与移动之前处理怪物左键；右键空地取消，普通左键空地移动并保留目标。GUI、模态和 GM 放置优先，失焦取消悬停；AOI 移除与离开世界同步清理选中和圆环。该状态只属于表现，不进入 ECS、服务器或存档。
+`MonstersView` 按稳定 GUID 持有当前世界的单一选中身份，依据贴图可见像素和实际相机变换命中；按 Y 排序和同位节点次序选择靠前怪物，CPU 图像按纹理复用。`MainController` 在放置之后、拾取与移动之前处理怪物点击：左键选中并启动 WorldService 自动走近攻击，右键仅选中，右键空地取消，普通左键空地移动并保留选择但停止攻击。GUI、模态和 GM 放置优先，失焦取消悬停；AOI 移除与离开世界同步清理选中和圆环。选中圆环只属于表现；攻击意图由 WorldService 管理，权威阶段由 Role Actor 管理，攻击阶段不保存。
 
 选中使用 `assets/monsters/selection/ring_0.png` 至 `ring_5.png` 的完整 69×43 画布，以原始 (34,20) 公共锚点附在目标脚底、位于贴图之后；按目标贴图宽度等比放大（最小原尺寸），避免树根遮住整个圆环，每帧 0.1 秒循环为本项目参数。圆环独立使用线性过滤缓和放大锯齿，原始 PNG 不重采样，怪物贴图保持最近邻。`PointerCursor` 在 HUD/窗口拖动之后优先呈现 `assets/pointer/sword.png` 的 `AttackH` 红剑，采用 1.25 倍最近邻与热点 (2,2) 同比缩放。`tools/import_monster_selection.py --source <art_export目录>` 只从原始 DIMG 导入圆环，红剑由 `tools/import_pointer_feedback.py` 统一导入；各自目录记录来源哈希。正式运行只读取项目内资源。`tests/monster_selection_smoke.tscn` 验证真实键鼠、六帧循环、切换与取消、像素及变换命中、UI/放置隔离、地面移动、AOI 清理和重入。
 
@@ -131,7 +131,7 @@ internal sealed class DataPositionComponent
 
 `ActorView.Present` 读取快照并投影位置和朝向，表现层 `AnimationService` 按性别和动作缓存 `DataActorAnimation`，按性别和头型编号缓存 `DataActorHead`。男女共用各自身体动作集，148 套头部与身体分别存储，换头不复制身体图集，不生成头身组合资源。每个身体动作包含五方向 `SpriteFrames`、原始世界定位点和方向/帧顺序的 `HeadAttachments`；每个头型包含五方向纹理与各自脖颈连接点。`ActorView` 在同一个镜像容器下放置身体 `AnimatedSprite2D` 与头部 `Sprite2D`，身体帧变化时按“身体挂接点 − 身体世界锚点 − 头部连接点”更新头部位置。两层共用朝向、镜像和身体时钟，改向保持帧进度，动作播放不改变世界逻辑。
 
-`tools/import_actor_animations.ps1 -SourcePath <解码帧目录> -RawPath <原始目录>` 调用 `import_actor_layers.py` 重建全部 26 个身体动作、605 帧头部及双手挂接点与 148 套独立头部，再调用 `import_actor_weapon.py` 导入七件测试装备；`decode_actor_heads.py` 只解码原始像素及定位点。稳定编号按原始数字文件名排序，男女各 74，来源及哈希记录在 `assets/characters/head_composition.json`。创角只提供编号 9–72，对应原始 `head1101` 至 `head8801` 及配套 DT 头像；旧角色的 1–8、73–74 仍可加载并以头部正面帧作头像。运行与导出只依赖项目资源。当前头部包含配套头发，未拆分染色或独立发型；后续衣服、装备属性及战斗规则待定。
+`tools/import_actor_animations.ps1 -SourcePath <解码帧目录> -RawPath <原始目录>` 调用 `import_actor_layers.py` 重建全部 26 个身体动作、605 帧头部及双手挂接点与 148 套独立头部，再调用 `import_actor_weapon.py` 导入七件测试装备；`decode_actor_heads.py` 只解码原始像素及定位点。稳定编号按原始数字文件名排序，男女各 74，来源及哈希记录在 `assets/characters/head_composition.json`。创角只提供编号 9–72，对应原始 `head1101` 至 `head8801` 及配套 DT 头像；旧角色的 1–8、73–74 仍可加载并以头部正面帧作头像。运行与导出只依赖项目资源。当前头部包含配套头发，未拆分染色或独立发型；后续衣服与技能规则待定；武器基础数值和普通攻击见下文。
 
 装备表现由独立公开装备快照驱动，普通空槽隐藏图层，拳刃/暗器的空副手槽由主手派生左手外观。`WorldService` 在固定帧发现已验证 `RoleWorldEquipmentPbData` 引用变化时提交 `SyncEquipmentAction`，ECS 按装备版本更新主副手道具编号，`DataActorState` 输出只读编号。`ActorView` 通过道具 `RelatedId` 取得装备 `AppearanceId`，`AnimationService.GetWeapon` 按外观、性别和动作缓存 `DataActorWeapon`；实际身体动作类别不变时切换装备保留身体时钟，卸下清除对应纹理和可见性。
 
@@ -333,8 +333,21 @@ Net 默认使用 TCP，借用 GameServices 已装配的非空 MockServerService�
 
 ## 通用属性与实体公开更新
 
-`proto/attribute.proto` 定义玩家和怪物共用的稳定属性编号，`AttributesPb.values` 使用 `map<int32, double>` 保存实际值，不引入倍率和属性 revision。服务器按精确等级读取 `config/role_level.json` 的完整六项基础属性；只有一级正式投放，缺少等级明确报错，不插值或累计。`config/attribute.json` 定义范围、生效精度及显示位数。JSON map 使用规范正整数字符串键，例如 `{"1":180.125,"2":100,"3":60,"4":0,"5":0,"6":0}`；共享转换器拒绝重复键和非法浮点，启动拒绝缺项、未知编号、超精度与无法支持指定精度的数值范围。汇总结果统一舍入（中点远离零）并裁剪，生命和魔力上限保持公开 int32 约束；当前值仅在上限下降时裁剪，不自动补满。double 并非精确定点，权威计算只在服务器执行，客户端负责显示与移动预测。
+`proto/attribute.proto` 定义玩家和怪物共用的稳定属性编号，`AttributesPb.values` 使用 `map<int32, double>` 保存实际值，不引入倍率和属性 revision。服务器按精确等级读取 `config/role_level.json` 的完整九项基础属性；只有一级正式投放，缺少等级明确报错，不插值或累计。`config/attribute.json` 定义范围、生效精度及显示位数。JSON map 使用规范正整数字符串键，例如 `{"1":180.125,"2":100,"3":60,"5":0,"6":0,"7":1,"8":3,"9":48,"10":1}`；共享转换器拒绝重复键和非法浮点，启动拒绝缺项、未知编号、超精度与无法支持指定精度的数值范围。汇总结果统一舍入（中点远离零）并裁剪，生命和魔力上限保持公开 int32 约束；当前值仅在上限下降时裁剪，不自动补满。double 并非精确定点，权威计算只在服务器执行，客户端负责显示与移动预测。
 
 进入响应 `EnterWorldRt.role.attributes` 提供本人完整正常属性；后续 `RoleAttributesChangedNotice` 独立通知完整 map。世界重同步只修复公开状态和 AOI，不修改私有属性。`RoleWorldUpdatePb` 将同一实体的资料、状态、位置及装备变化合并到一条 `updated_roles`，缺失组保持、出现组完整替换，空装备消息表示清空。`WorldFramePb.self` 复用相同结构，每帧完整位置，变化时附资料和状态；本人装备仍由物品原子通知维护。快照和增量保持 oneof，按观察者 10Hz 合并，不按每个实体变化单独发帧。客户端整帧校验后一次提交。
 
 GM 面板增加移速启用勾选；关闭时使用正常属性移速，开启时由 `movespeed <有限非负数>` 覆盖当前角色执行速度，`movespeed off` 关闭且保留最近数值。速度使用 double，不受滑条 60–360/步长10、正常属性范围或小数位限制，不增加额外 GM 权限；原有认证和控制身份校验继续有效。每次成功回复前通过共用保存屏障落地到 `user://server/<roleId>.role.json` 的 `gmMovementSpeedOverrideEnabled`、`gmMovementSpeed`，包括关闭周期保存的情况。IO 失败只回复错误，已接纳候选保留待写以便重试。进入响应与 GmRt 携带保存状态，客户端按结构化数据恢复开关和精确数值；协议不增加专用设置请求或 EnterWorld 请求字段。改变执行速度先推进旧速度至当前时间，再接纳新速度；GM 不修改正常属性 map。预测与远端外推先限制步长到目标距离，再转 Godot 坐标，避免高速越界。
+
+
+## 武器属性与普通攻击
+
+旧物理点伤编号4保留不用，7/8为整数点伤下限/上限，9为地图逻辑像素攻击范围，10为每秒攻击次数。`RoleAttributes` 按等级和主手物品重算：点伤分别相加，范围及攻速使用主手基础值；空手和仅盾使用等级值。换装与等级变化通过既有本人属性完整通知更新面板。怪物复用九项通用配置，生成生命取生命上限，其他属性本次不参与战斗。
+
+`WorldService.Combat` 将左键怪物转换为直线走近和每刀独立请求，右键仅选择；预测与权威位置均入范围才起手。取消及攻击期间移动立即提交，不受普通移动合并窗口延迟。换装停止循环和未命中动作，保留已登记下一次攻击时间，再次左键才重新攻击。UI、模态与放置仍优先。`ActorView` 按权威起手时间与完整时长同步身体、头部和武器，动作缩放到1000/攻速毫秒；共用性别/原生动作命中比例以原速第300ms为初值。法杖使用攻击2和64近战范围，飞刀直接结算，不增加弹道。
+
+`proto/combat.proto` 提供攻击、取消请求/响应及起手、取消、命中通知。Role邮箱验证控制身份、输入顺序和冷却，并固定每刀伤害、范围、时序；20Hz推进命中。Role只向World调用，World邮箱在命中时复查地图、九块AOI、存活身份和距离，闭区间随机整数扣血，生命裁至零并原子移除。前摇取消无伤害，后摇取消和换装均不能提前下刀。地图战斗事件队列捕获AOI观察者，WorldCoordinator即时排送，不等待10Hz世界帧。
+
+`CombatCache` 按服务器起手时间与攻击编号处理动作及取消，按角色命中时间/编号去重。`MapCache` 保留原世界增量基线，另以对象revision覆盖层合成即时血量和死亡墓碑，避免旧全量或增量恢复已死对象。`DamageNumberView` 只消费验证后的命中，独立保留地面位置，因此死亡移除后最后跳字继续显示。生命和死亡移除沿既有地图保存屏障落盘，旧记录缺少血量时按配置补满并标脏；攻击阶段不落盘。
+
+实现参数、验收入口及边界见[普通攻击说明](combat.md)。

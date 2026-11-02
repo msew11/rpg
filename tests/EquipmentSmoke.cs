@@ -67,7 +67,10 @@ public partial class EquipmentSmoke : Node
             var leftInset = feet.GlobalPosition.X - character.GlobalPosition.X;
             var rightSlot = (Control)character.FindChild("EquipmentFace", true, false);
             var rightInset = character.GetGlobalRect().End.X - rightSlot.GetGlobalRect().End.X;
-            Check(rightInset <= leftInset + 5 && character.Size.X < 340, "角色窗口右侧仍有多余固定留白");
+            // 九项属性可能使内容出现纵向滚动条；滚动条占位不属于装备区固定留白。
+            var characterScroll = (ScrollContainer)character.FindChild("PanelContentScroll", true, false);
+            var scrollWidth = characterScroll.GetVScrollBar().Visible ? characterScroll.GetVScrollBar().Size.X : 0;
+            Check(rightInset - scrollWidth <= leftInset + 5 && character.Size.X < 340, "角色窗口右侧仍有多余固定留白");
             foreach (var slotControl in character.FindChildren("Equipment*", "PanelContainer", true, false).OfType<EquipmentSlotControl>())
             {
                 var name = slotControl.GetNode<Label>("SlotName");

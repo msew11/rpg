@@ -1,4 +1,6 @@
 using Rpg.Config.Cache;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Rpg.Config.Data;
 
@@ -16,4 +18,7 @@ public sealed class MonsterCfg
     public int AnchorX { get; init; }
     /// <summary>原始画布中地面锚点的纵坐标。</summary>
     public int AnchorY { get; init; }
+    /// <summary>怪物完整基础属性，生命上限决定生成血量。</summary>
+    [JsonConverter(typeof(AttributeMapJsonConverter))]
+    public IReadOnlyDictionary<int, double> Attributes { get; init; } = new Dictionary<int, double>();
 }

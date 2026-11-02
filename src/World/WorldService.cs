@@ -17,7 +17,7 @@ using Rpg.World.Utils;
 namespace Rpg.World;
 
 /// <summary>内聚地图、ECS、输入意图和权威同步，节点仅负责呈现。</summary>
-public sealed class WorldService : Service
+public sealed partial class WorldService : Service
 {
     /// <summary>本次启动的账号服务。</summary>
     private readonly SessionService _session;
@@ -56,7 +56,7 @@ public sealed class WorldService : Service
     /// <summary>远端角色有限插值缓冲。</summary>
     private readonly RemoteRoleBuffer _remotes = new();
     /// <summary>远端 ECS 呈现状态。</summary>
-    public IReadOnlyList<DataActorState> RemoteActors => _world?.RemoteActors ?? Array.Empty<DataActorState>();
+    public IReadOnlyList<DataActorState> RemoteActors => _world?.RemoteActors.Select(CombatPose).ToArray() ?? Array.Empty<DataActorState>();
     /// <summary>地图世界是否就绪。</summary>
     public bool HasWorld => _world?.HasWorld == true;
     /// <summary>角色实体是否就绪。</summary>
@@ -66,7 +66,7 @@ public sealed class WorldService : Service
     /// <summary>当前移动目标的只读快照。</summary>
     internal Vector2? RoleTarget => _world?.RoleTarget;
     /// <summary>角色动作与朝向的不可变快照。</summary>
-    public DataActorState? ActorState => _world?.ActorState;
+    public DataActorState? ActorState => _world?.ActorState is { } state ? CombatPose(state) : null;
 
     /// <summary>显式绑定同次启动服务，世界操作由 UI 协调调用。</summary>
     public WorldService(EnvService env, ConfigService config, SettingService setting, SessionService session)
@@ -90,9 +90,11 @@ public sealed class WorldService : Service
     {
         ThrowIfDisposed();
         if (!_session.CanMove || _world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
+        var wasAttacking = _attackTarget is not null || _predictedAttack is not null;
+        CancelAttack(stopMovement: false);
         var action = new MoveAction(++_nextActionId, MapUtils.Clamp(RequireMap(), logicalPosition));
         _pendingMove = action; _intentions.Clear(); _intentions[action.ActionId] = action;
-        SendPendingMove();
+        SendPendingMove(force: wasAttacking);
         _world.Enqueue(action);
         return true;
     }
@@ -103,6 +105,7 @@ public sealed class WorldService : Service
         ThrowIfDisposed();
         if (_world is null || MapObjects is not { } map || !map.Objects.TryGetValue(objectId, out var item) || item.MonsterTypeId is not null)
             throw new InvalidOperationException("地面物品已不存在");
+        CancelAttack(stopMovement: false);
         var action = new MoveAction(++_nextActionId, new Vector2(item.X, item.Y));
         _pendingMove = action; _intentions.Clear(); _intentions[action.ActionId] = action;
         SendPendingMove(force: true);
@@ -199,6 +202,7 @@ public sealed class WorldService : Service
         }
         SyncEquipment(_world);
         _world.Tick(delta);
+        TickCombat(delta);
     }
 
     /// <summary>每50ms最多发送最新目标，预测在点击时已经执行。</summary>
@@ -209,7 +213,7 @@ public sealed class WorldService : Service
     }
     /// <summary>切角清除旧意图、动作序号和远端样本。</summary>
     private void ResetMovement()
-    { _nextActionId = 0; _intentions.Clear(); _pendingMove = null; _sendCooldown = 0; _worldSequence = 0; _sinceFrame = 0; _remotes.Clear(); }
+    { ResetCombat(); _nextActionId = 0; _intentions.Clear(); _pendingMove = null; _sendCooldown = 0; _worldSequence = 0; _sinceFrame = 0; _remotes.Clear(); }
 
     /// <summary>计算视口覆盖的地图格范围。</summary>
     public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area) => MapUtils.VisibleTiles(RequireMap(), area);
@@ -273,6 +277,7 @@ public sealed class WorldService : Service
         var unchanged = _lastEquipmentSnapshot?.HasSameItems(equipment) == true;
         _lastEquipmentSnapshot = equipment;
         if (unchanged) return;
+        if (_lastEquipmentSnapshot is not null) CancelAttack();
         world.Enqueue(new SyncEquipmentAction(_session.RoleId, equipment.Revision,
             equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
             equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0));

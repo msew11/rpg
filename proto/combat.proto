@@ -1,0 +1,60 @@
+syntax = "proto3";
+package rpg;
+option csharp_namespace = "Rpg.Protocol";
+import "map.proto";
+
+// 当前角色独立起手；编号与移动输入共用递增序列。
+message Attack {
+  uint64 attack_id = 1;
+  string target_id = 2;
+}
+
+// 明确拒绝也回复编号，使预测可以安全撤销。
+message AttackRt {
+  uint64 attack_id = 1;
+  bool accepted = 2;
+  string reason = 3;
+  AttackStartedNotice started = 4;
+}
+
+// 取消当前循环，保留已经登记的下一次可攻击时间。
+message CancelAttack {
+  uint64 action_id = 1;
+}
+
+message CancelAttackRt {
+  uint64 action_id = 1;
+}
+
+// 完整单次动作快照，远端不依赖私有属性。
+message AttackStartedNotice {
+  int32 map_id = 1;
+  int64 role_id = 2;
+  uint64 attack_id = 3;
+  string target_id = 4;
+  int64 start_time_ms = 5;
+  double duration_ms = 6;
+  double hit_time_ms = 7;
+  int32 motion = 8;
+  float target_x = 9;
+  float target_y = 10;
+}
+
+// 已登记动作被取消，旧通知不得覆盖较新的攻击。
+message AttackCancelledNotice {
+  int32 map_id = 1;
+  int64 role_id = 2;
+  uint64 attack_id = 3;
+  int64 start_time_ms = 4;
+}
+
+// 权威命中，目标死亡后仍携带位置以显示最后一次伤害。
+message AttackHitNotice {
+  int32 map_id = 1;
+  int64 role_id = 2;
+  uint64 attack_id = 3;
+  MapObjectPb target = 4;
+  int32 damage = 5;
+  bool dead = 6;
+  int64 server_time_ms = 7;
+}

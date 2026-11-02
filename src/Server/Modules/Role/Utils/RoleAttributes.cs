@@ -7,17 +7,27 @@ using Rpg.Protocol;
 
 namespace Rpg.Server.Modules.Role.Utils;
 
-/// <summary>等级基础属性与 GM 执行速度的独立计算入口。</summary>
+/// <summary>等级和武器正常属性与 GM 执行速度的独立计算入口。</summary>
 internal static class RoleAttributes
 {
-    /// <summary>等级改变时重算正常属性，上限下降裁剪当前值。</summary>
+    /// <summary>等级或主手改变时重算正常属性，上限下降裁剪当前值。</summary>
     internal static void Refresh(RoleContext context)
     {
         var cache = context.Cache; var role = cache.Role.Value;
-        if (cache.AttributeLevel == role.Level) return;
+        var equipped = cache.Items.Value.FirstOrDefault(item => item.Equipped && item.EquipmentSlot == Rpg.Const.EquipmentSlot.MainHand);
+        var weaponId = equipped?.ItemId ?? 0;
+        if (cache.AttributeLevel == role.Level && cache.AttributeWeapon == weaponId) return;
         if (!context.Config.RoleLevel.Items.TryGetValue(role.Level, out var row)) throw new InvalidDataException($"缺少等级 {role.Level} 的基础属性");
-        var values = row.Attributes.ToDictionary(pair => pair.Key, pair => context.Config.Attribute.Items[pair.Key].Normalize(pair.Value));
-        cache.Attributes = new ReadOnlyDictionary<int, double>(values); cache.AttributeLevel = role.Level; cache.AttributesPending = true;
+        var values = row.Attributes.ToDictionary(pair => pair.Key, pair => pair.Value);
+        if (weaponId != 0)
+        {
+            var weapon = context.Config.Equipment.Items[context.Config.Item.Items[weaponId].RelatedId];
+            values[7] += weapon.BaseDamageMin; values[8] += weapon.BaseDamageMax;
+            values[9] = weapon.BaseAttackRange; values[10] = weapon.BaseAttackSpeed;
+        }
+        foreach (var id in values.Keys.ToArray()) values[id] = context.Config.Attribute.Items[id].Normalize(values[id]);
+        cache.Attributes = new ReadOnlyDictionary<int, double>(values); cache.AttributeLevel = role.Level;
+        cache.AttributeWeapon = weaponId; cache.AttributesPending = true;
         var health = checked((int)values[2]); var mana = checked((int)values[3]);
         var next = role with { MaxHealth = health, MaxMana = mana, Health = Math.Min(role.Health, health), Mana = Math.Min(role.Mana, mana) };
         cache.Role.Commit(next); cache.Projection.Changed();

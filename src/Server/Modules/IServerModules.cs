@@ -11,7 +11,9 @@ internal interface IServerModules : IActorLocator, IAsyncDisposable
 {
     /// <summary>全部模块借用的所属配置。</summary>
     ConfigService Config { get; }
-    /// <summary>模块是否提供完整多人调度处理器。</summary>
+    /// <summary>模块是否提供即时战斗协议与事件处理器。</summary>
+    bool SupportsCombat => false;
+    /// <summary>是否装配多人移动调度。</summary>
     bool SupportsMovement { get; }
     /// <summary>所有分片共用的运行时身份校验目录。</summary>
     ActorCallRegistry Calls { get; }

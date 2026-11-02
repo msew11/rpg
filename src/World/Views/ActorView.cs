@@ -91,6 +91,16 @@ public partial class ActorView : Node2D
             _body.SetFrameAndProgress(frame, progress);
             if (playing) _body.Play();
         }
+        if (state.AttackDurationMs > 0)
+        {
+            var frames = _body.SpriteFrames;
+            var count = frames.GetFrameCount(name);
+            var originalMs = count / frames.GetAnimationSpeed(name) * 1000d;
+            _body.SpeedScale = (float)(originalMs / state.AttackDurationMs);
+            var progress = System.Math.Clamp(state.AttackElapsedMs / state.AttackDurationMs * count, 0, count - 0.00001);
+            _body.SetFrameAndProgress((int)progress, (float)(progress - System.Math.Truncate(progress)));
+        }
+        else _body.SpeedScale = 1;
         _motion = motion;
         _previous = state;
         UpdateAttachments();

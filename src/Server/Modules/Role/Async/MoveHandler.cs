@@ -16,7 +16,9 @@ internal sealed class MoveHandler : IActorHandler<RoleContext, Move, MoveRt>
         if (request.ActionId == 0 || request.Target is not { } target || !float.IsFinite(target.X) || !float.IsFinite(target.Y) ||
             target.X < 0 || target.Y < 0 || target.X >= (long)map.Width * map.TileSize || target.Y >= (long)map.Height * map.TileSize)
             throw new ServerRequestException(ErrorCodePb.InvalidRequest, "移动目标或动作编号无效");
-        if (request.ActionId > cache.Movement.Value.AcknowledgedAction) cache.Pickup = null;
+        if (request.ActionId <= cache.CombatInput) return new MoveRt { ActionId = request.ActionId };
+        if (request.ActionId > cache.Movement.Value.AcknowledgedAction)
+        { cache.Pickup = null; await Rpg.Server.Modules.Common.Utils.RoleCombat.CancelAsync(context).ConfigureAwait(false); }
         cache.Movement.Advance(cache.Role, context.Call!.ServerTimeMs, Rpg.Server.Modules.Role.Utils.RoleAttributes.Speed(context));
         cache.Movement.Move(cache.Role, request.ActionId, target.X, target.Y);
         await RoleProjectionSync.ProjectAsync(context).ConfigureAwait(false);

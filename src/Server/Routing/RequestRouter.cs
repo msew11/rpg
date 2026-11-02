@@ -53,6 +53,12 @@ internal sealed class RequestRouter
             var items = await _modules.Role(session.RoleId).Ask<ActorProtocol.GetRoleItemsRt>(new ActorProtocol.GetRoleItems()).ConfigureAwait(false);
             return new(reply, null, ItemNotice: new() { RoleId = items.RoleId, Bag = items.Bag, Equipment = items.Equipment });
         }
+        if (request is Attack or CancelAttack)
+        {
+            if (session.Username is null || session.RoleId <= 0) throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "尚未进入角色");
+            return new(request is Attack attack ? await _modules.Role(session.RoleId).Ask<AttackRt>(attack, call).ConfigureAwait(false) :
+                await _modules.Role(session.RoleId).Ask<CancelAttackRt>((CancelAttack)request, call).ConfigureAwait(false), null);
+        }
         if (request is Move move)
         {
             if (session.Username is null || session.RoleId <= 0) throw new ServerRequestException(ErrorCodePb.NotAuthenticated, "尚未进入角色");

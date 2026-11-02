@@ -41,7 +41,7 @@ internal static class WorldEntrySnapshot
                 throw new InvalidDataException("地图对象载荷无效");
             if (!chunks.TryGetValue(((int)(data.X / size), (int)(data.Y / size)), out var chunk)) continue;
             var message = new MapObjectPb { ObjectId = data.ObjectId.ToString("N"), Revision = data.Revision, X = data.X, Y = data.Y };
-            if (monster) message.Monster = new() { MonsterTypeId = data.MonsterTypeId };
+            if (monster) message.Monster = new() { MonsterTypeId = data.MonsterTypeId, Health = data.Health ?? 0, MaxHealth = data.MaxHealth ?? 0 };
             else message.GroundItem = new() { ItemId = data.ItemId, Count = data.Count };
             chunk.Objects.Add(message);
         }

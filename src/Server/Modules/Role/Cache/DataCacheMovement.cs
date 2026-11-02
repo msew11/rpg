@@ -41,6 +41,8 @@ public sealed class DataCacheMovement : DataCache<DataRoleMovement>
         _projection.Changed();
         Commit(Value with { TargetX = stopped ? null : x, TargetY = stopped ? null : y, AcknowledgedAction = action });
     }
+    /// <summary>停止当前移动但保留输入确认，供原地攻击使用。</summary>
+    internal void Halt() { Commit(Value with { TargetX = null, TargetY = null }); _projection.Changed(); }
     /// <summary>控制屏障先推进旧目标，再停止并重置新控制者动作序号。</summary>
     internal void Stop(DataCacheRole role, long now, double speed)
     {

@@ -21,6 +21,8 @@ internal sealed class ServerModules : IServerModules
 {
     /// <summary>正式固定装配始终包含完整多人调度处理器。</summary>
     public bool SupportsMovement => true;
+    /// <summary>正式模块始终装配即时战斗事件。</summary>
+    public bool SupportsCombat => true;
     /// <summary>各分片共用本实例的运行时身份校验目录。</summary>
     public ActorCallRegistry Calls { get; } = new();
     /// <summary>装配入口确定的统一配置，所有分片必须借用此实例。</summary>
@@ -62,6 +64,8 @@ internal sealed class ServerModules : IServerModules
         Func<long, ActorHandlers<RoleContext>> role = static _ => new ActorHandlers<RoleContext>().Register(new GetRoleWorldObjectCountHandler())
             .Register(new PrepareRoleHandler())
             .Register(new MoveHandler())
+            .Register(new AttackHandler())
+            .Register(new CancelAttackHandler())
             .Register(new AdvanceRoleHandler())
             .Register(new DropItemHandler())
             .Register(new EquipItemHandler())
@@ -78,6 +82,10 @@ internal sealed class ServerModules : IServerModules
             .Register(new GetWorldSnapshotHandler())
             .Register(new CreateGroundItemHandler())
             .Register(new CreateMonsterHandler())
+            .Register(new GetCombatTargetHandler())
+            .Register(new HitMonsterHandler())
+            .Register(new QueueCombatEventHandler())
+            .Register(new DrainCombatEventsHandler())
             .Register(new GetGroundItemHandler())
             .Register(new RemoveGroundItemHandler())
             ;

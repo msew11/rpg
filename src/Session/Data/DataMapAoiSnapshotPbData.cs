@@ -82,6 +82,18 @@ public sealed class DataMapAoiSnapshotPbData
         return new(MapId, RoleId, sequence, Layout, center, nextChunks, objects);
     }
 
+    /// <summary>在已验证世界快照上合并即时血量和死亡墓碑，不影响原始增量基线。</summary>
+    internal DataMapAoiSnapshotPbData WithCombat(System.Collections.Generic.IReadOnlyDictionary<Guid, DataMapObjectPbData> changes)
+    {
+        var values = Objects.ToDictionary(pair => pair.Key, pair => pair.Value);
+        foreach (var (id, value) in changes)
+        {
+            if (!values.TryGetValue(id, out var before) || before.Revision > value.Revision) continue;
+            if (value.Health == 0) values.Remove(id); else values[id] = value;
+        }
+        return new(MapId, RoleId, Sequence, Layout, Center, Chunks, values);
+    }
+
     /// <summary>检查 块与对象归属及唯一性。</summary>
     private static void ReadChunk(global::Rpg.Protocol.MapChunkPb chunk, DataMapLayoutPbData layout, HashSet<(int X, int Y)> expected,
         HashSet<(int X, int Y)> seen, Dictionary<Guid, DataMapObjectPbData> objects)

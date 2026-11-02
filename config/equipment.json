@@ -1,30 +1,58 @@
 [
   {
     "id": 1012,
-    "appearanceId": 1012
+    "appearanceId": 1012,
+    "baseDamageMin": 4,
+    "baseDamageMax": 7,
+    "baseAttackRange": 64,
+    "baseAttackSpeed": 1.25
   },
   {
     "id": 1013,
-    "appearanceId": 1013
+    "appearanceId": 1013,
+    "baseDamageMin": 6,
+    "baseDamageMax": 10,
+    "baseAttackRange": 72,
+    "baseAttackSpeed": 1
   },
   {
     "id": 1014,
-    "appearanceId": 1014
+    "appearanceId": 1014,
+    "baseDamageMin": 0,
+    "baseDamageMax": 0,
+    "baseAttackRange": 0,
+    "baseAttackSpeed": 0
   },
   {
     "id": 1015,
-    "appearanceId": 1015
+    "appearanceId": 1015,
+    "baseDamageMin": 3,
+    "baseDamageMax": 6,
+    "baseAttackRange": 64,
+    "baseAttackSpeed": 1
   },
   {
     "id": 1016,
-    "appearanceId": 1016
+    "appearanceId": 1016,
+    "baseDamageMin": 4,
+    "baseDamageMax": 8,
+    "baseAttackRange": 96,
+    "baseAttackSpeed": 1
   },
   {
     "id": 1017,
-    "appearanceId": 1017
+    "appearanceId": 1017,
+    "baseDamageMin": 3,
+    "baseDamageMax": 5,
+    "baseAttackRange": 48,
+    "baseAttackSpeed": 1.5
   },
   {
     "id": 1018,
-    "appearanceId": 1018
+    "appearanceId": 1018,
+    "baseDamageMin": 3,
+    "baseDamageMax": 6,
+    "baseAttackRange": 192,
+    "baseAttackSpeed": 1.5
   }
 ]

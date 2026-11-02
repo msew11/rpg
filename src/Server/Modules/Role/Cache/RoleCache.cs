@@ -8,6 +8,12 @@ public sealed class RoleCache
 {
     /// <summary>当前待完成的拾取，新的移动或控制屏障静默清除。</summary>
     internal DataRolePickup? Pickup { get; set; }
+    /// <summary>当前攻击快照，不保存到角色三表。</summary>
+    internal DataRoleAttack? Attack { get; set; }
+    /// <summary>取消动作也保留的下次可攻击时刻。</summary>
+    internal double NextAttackMs { get; set; }
+    /// <summary>最近接纳的战斗输入编号，与移动比较防止乱序。</summary>
+    internal ulong CombatInput { get; set; }
     /// <summary>临时移动领域，不参与三表落盘。</summary>
     public DataCacheMovement Movement { get; }
     /// <summary>位置与装备共同维护的公开投影状态。</summary>
@@ -28,6 +34,8 @@ public sealed class RoleCache
     private DataCacheEquipment? _equipments;
     /// <summary>已计算的等级，零表示尚未加载正常属性。</summary>
     internal int AttributeLevel { get; set; }
+    /// <summary>参与上次属性计算的主手道具编号。</summary>
+    internal int AttributeWeapon { get; set; } = -1;
     /// <summary>只读正常属性，不包含 GM 执行覆盖。</summary>
     internal System.Collections.Generic.IReadOnlyDictionary<int, double> Attributes { get; set; } = new System.Collections.Generic.Dictionary<int, double>();
     /// <summary>正常属性发生变化后需要独立通知。</summary>

@@ -21,8 +21,11 @@ public sealed record AttributesPbData
         if (message is null) throw new InvalidDataException("缺少正常属性");
         foreach (var pair in message.Values)
             if (pair.Key <= 0 || !double.IsFinite(pair.Value)) throw new InvalidDataException("属性编号或数值无效");
-        for (var id = 1; id <= 6; id++)
+        foreach (var id in Rpg.Config.Data.AttributeRules.Ids)
             if (!message.Values.ContainsKey(id)) throw new InvalidDataException("正常属性不完整");
+        if (message.Values[7] != System.Math.Truncate(message.Values[7]) || message.Values[8] != System.Math.Truncate(message.Values[8]) ||
+            message.Values[7] < 0 || message.Values[7] > message.Values[8] || message.Values[8] > int.MaxValue || message.Values[9] <= 0 || message.Values[10] <= 0)
+            throw new InvalidDataException("点伤或攻击属性无效");
         return new(message.Values.ToFrozenDictionary());
     }
     /// <summary>生成独立的完整协议对象。</summary>

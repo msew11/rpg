@@ -42,7 +42,7 @@ public sealed class AttributeValueTests
     [Fact]
     public void ProtocolMapAndOptionalGroupsRemainIndependent()
     {
-        var attributes = new AttributesPb { Values = { { 1, 180.125 }, { 2, 100 }, { 3, 60 }, { 4, 0.001 }, { 5, 0 }, { 6, 0 } } };
+        var attributes = new AttributesPb { Values = { { 1, 180.125 }, { 2, 100 }, { 3, 60 }, { 5, 0 }, { 6, 0 }, { 7, 1 }, { 8, 3 }, { 9, 48 }, { 10, 1 } } };
         var parsed = AttributesPb.Parser.ParseFrom(attributes.ToByteArray());
         var snapshot = AttributesPbData.FromPb(parsed);
         parsed.Values[1] = 999;

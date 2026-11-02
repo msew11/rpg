@@ -14,15 +14,21 @@ namespace Rpg.Session.Data;
 /// <param name="Count">地面数量，怪物时为零。</param>
 public sealed record DataMapObjectPbData(Guid ObjectId, long Revision, float X, float Y, string? MonsterTypeId, int ItemId, int Count)
 {
+    /// <summary>怪物当前血量，地面物品为零。</summary>
+    public int Health { get; init; }
+    /// <summary>怪物生命上限，地面物品为零。</summary>
+    public int MaxHealth { get; init; }
     /// <summary>直接校验并复制 地图结构。</summary>
     public static DataMapObjectPbData FromPb(global::Rpg.Protocol.MapObjectPb value)
     {
         if (!Guid.TryParseExact(value.ObjectId, "N", out var id) || id == Guid.Empty || value.Revision <= 0 ||
             !float.IsFinite(value.X) || !float.IsFinite(value.Y)) throw new InvalidDataException("地图对象身份、版本或位置无效");
+        if (value.Monster is { } monster && (monster.Health < 0 || monster.MaxHealth < 0 || monster.Health > monster.MaxHealth))
+            throw new InvalidDataException("怪物血量无效");
         return value.PayloadCase switch
         {
             global::Rpg.Protocol.MapObjectPb.PayloadOneofCase.Monster when !string.IsNullOrWhiteSpace(value.Monster.MonsterTypeId) =>
-                new(id, value.Revision, value.X, value.Y, value.Monster.MonsterTypeId, 0, 0),
+                new(id, value.Revision, value.X, value.Y, value.Monster.MonsterTypeId, 0, 0) { Health = value.Monster.Health, MaxHealth = value.Monster.MaxHealth },
             global::Rpg.Protocol.MapObjectPb.PayloadOneofCase.GroundItem when value.GroundItem.ItemId > 0 && value.GroundItem.Count > 0 =>
                 new(id, value.Revision, value.X, value.Y, null, value.GroundItem.ItemId, value.GroundItem.Count),
             _ => throw new InvalidDataException("地图对象载荷无效")

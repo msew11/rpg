@@ -107,6 +107,12 @@ public partial class MainController : Control
         if (_servicesLifetime is null) return;
         GameServices.Net.Tick(delta);
         GameServices.World.Tick(delta);
+        foreach (var hit in GameServices.World.TakeDamageNumbers())
+        {
+            if (_worldVisual is null) continue;
+            var number = new DamageNumberView { Name = "DamageNumber", Position = IsometricProjection.ToScreen(hit.Position), ZIndex = 50 };
+            _worldVisual.AddChild(number); number.ShowDamage(hit.Damage);
+        }
         if (_monsters is not null) _monsters.InteractionEnabled = _monsterPlacement?.Selected is null;
         if (_actor is not null && GameServices.World.ActorState is { } state) _actor.Present(state);
         if (_worldVisual is not null)
@@ -156,15 +162,24 @@ public partial class MainController : Control
             return;
         }
         var monsterId = _monsters?.MonsterAt(click.Position);
-        if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && monsterId is { } selectedId)
+        if (click is { ButtonIndex: MouseButton.Left, Pressed: true } && monsterId is { } attackedId)
         {
-            _monsters!.Select(selectedId);
+            _monsters!.Select(attackedId);
+            GameServices.World.AttackMonster(attackedId);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (click is { ButtonIndex: MouseButton.Right, Pressed: true } && monsterId is { } selectedId)
+        {
+            if (_monsters!.SelectedObjectId != selectedId) GameServices.World.CancelAttack();
+            _monsters.Select(selectedId);
             GetViewport().SetInputAsHandled();
             return;
         }
         if (click is { ButtonIndex: MouseButton.Right, Pressed: true } && _monsters?.CanInteract == true && monsterId is null &&
             _groundOverlay?.ItemAt(click.Position) is null)
         {
+            GameServices.World.CancelAttack();
             _monsters?.Select(null);
             GetViewport().SetInputAsHandled();
             return;

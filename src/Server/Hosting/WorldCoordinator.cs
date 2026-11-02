@@ -26,6 +26,8 @@ internal sealed class WorldCoordinator
     private readonly SemaphoreSlim _items;
     /// <summary>只串行控制变更，不围住普通移动。</summary>
     private readonly SemaphoreSlim _control = new(1, 1);
+    /// <summary>即时事件按地图邮箱顺序投递，独立于世界批量截止。</summary>
+    private readonly SemaphoreSlim _combatOutput = new(1, 1);
     /// <summary>权威轮次与保存屏障。</summary>
     private readonly SemaphoreSlim _step = new(1, 1);
     /// <summary>角色当前唯一控制者。</summary>
@@ -162,6 +164,7 @@ internal sealed class WorldCoordinator
                 catch (OperationCanceledException) { }
                 catch (Exception error) { _report(error); }
             })).ConfigureAwait(false);
+            await PublishCombatAsync().ConfigureAwait(false);
             if (now < _publishAt) return; _publishAt = now + 100;
             var routes = new List<(DataControlBinding Binding, DataSessionSnapshot Expected)>();
             foreach (var binding in _bindings.Values)
@@ -182,6 +185,30 @@ internal sealed class WorldCoordinator
             })).ConfigureAwait(false);
         }
         finally { RoundMilliseconds.Enqueue(Stopwatch.GetElapsedTime(started).TotalMilliseconds); if (RoundMilliseconds.Count > 10000) RoundMilliseconds.TryDequeue(out _); _step.Release(); }
+    }
+    /// <summary>捕获观察者原身份后排空即时事件，不占用世界帧序号。</summary>
+    internal async Task PublishCombatAsync()
+    {
+        if (!_modules.SupportsCombat) return;
+        await _combatOutput.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var routes = _bindings.Values.Select(binding => (Binding: binding, Expected: binding.Connection.Snapshot())).ToArray();
+            foreach (var group in routes.GroupBy(route => route.Binding.MapId))
+            {
+                var captured = group.ToDictionary(route => route.Binding.RoleId);
+                var reply = await _modules.World(group.Key).Ask<DrainCombatEventsRt>(new DrainCombatEvents()).ConfigureAwait(false);
+                foreach (var delivery in reply.Deliveries)
+                foreach (var id in delivery.ObserverRoleIds)
+                {
+                    if (!captured.TryGetValue(id, out var route) || !_bindings.TryGetValue(id, out var active) || active != route.Binding ||
+                        !route.Binding.Connection.IsCurrent(route.Expected, true)) continue;
+                    IMessage message = delivery.Event.Started is { } start ? start : delivery.Event.Cancelled is { } cancel ? cancel : delivery.Event.Hit;
+                    route.Binding.Connection.Complete(route.Expected, MessageCodec.Encode(message, route.Expected.Generation, 0, false));
+                }
+            }
+        }
+        finally { _combatOutput.Release(); }
     }
     /// <summary>推进回合结束后进入串行物品入口，按原控制身份输出最终结果。</summary>
     private async Task CompletePickupAsync(DataControlBinding binding)

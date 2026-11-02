@@ -8,4 +8,10 @@ namespace Rpg.World;
 /// <param name="MainHandId">主手道具编号，零表示空手。</param>
 /// <param name="OffHandId">副手道具编号，零表示空手。</param>
 public sealed record DataActorState(long RoleId, RoleGender Gender, Vector2 Position,
-    RoleMotion Motion, Vector2 Facing, long MotionVersion, int HeadId = 0, int MainHandId = 0, int OffHandId = 0);
+    RoleMotion Motion, Vector2 Facing, long MotionVersion, int HeadId = 0, int MainHandId = 0, int OffHandId = 0)
+{
+    /// <summary>完整攻击动作时长，零表示原速非战斗动作。</summary>
+    public double AttackDurationMs { get; init; }
+    /// <summary>动作在统一攻击时钟中的已过毫秒数。</summary>
+    public double AttackElapsedMs { get; init; }
+}

@@ -1,5 +1,43 @@
 {
   "bagColumns": 8,
   "bagRows": 5,
-  "initialMapId": 1
+  "initialMapId": 1,
+  "attackTimings": [
+    {
+      "gender": 0,
+      "motion": 4,
+      "sourceDurationMs": 900,
+      "hitRatio": 0.3333333333333333
+    },
+    {
+      "gender": 0,
+      "motion": 5,
+      "sourceDurationMs": 800,
+      "hitRatio": 0.375
+    },
+    {
+      "gender": 0,
+      "motion": 6,
+      "sourceDurationMs": 900,
+      "hitRatio": 0.3333333333333333
+    },
+    {
+      "gender": 1,
+      "motion": 4,
+      "sourceDurationMs": 800,
+      "hitRatio": 0.375
+    },
+    {
+      "gender": 1,
+      "motion": 5,
+      "sourceDurationMs": 700,
+      "hitRatio": 0.42857142857142855
+    },
+    {
+      "gender": 1,
+      "motion": 6,
+      "sourceDurationMs": 800,
+      "hitRatio": 0.375
+    }
+  ]
 }

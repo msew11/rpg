@@ -59,6 +59,35 @@ public sealed class ServerMonsterTests : IDisposable
         Assert.Equal(monster, Assert.Single(restored.Map.Chunks.SelectMany(chunk => chunk.Objects)));
     }
 
+    /// <summary>对应basic-monster-combat：即时起手对双方可见，移动取消不产生伤害，其他玩家可独立命中。</summary>
+    [Fact]
+    public async Task CombatEventsReachBothObserversAndMovementCancelsWindup()
+    {
+        using var env = ConfigTestFixture.CreateEnv(serverDirectory:_root); using var config = new ConfigService(env);
+        await using var server = MockServerService.CreateInProcess(env,config);
+        var one=server.OpenConnection();var two=server.OpenConnection();
+        var entry=await Enter(server,one,"demo1");await Enter(server,two,"demo2");
+        var position=entry.State.Position;
+        await Exchange(server,one,new Gm { Command=FormattableString.Invariant($"monster 1001 {position.X+20:R} {position.Y:R}") });
+        var map=Assert.IsType<ResyncWorldRt>((await Exchange(server,one,new ResyncWorld())).Last()).Frame.Snapshot.Map;
+        var target=Assert.Single(map.Chunks.SelectMany(chunk=>chunk.Objects)); ReadAll(server,two);
+        var first=await Exchange(server,one,new Attack { AttackId=1,TargetId=target.ObjectId });
+        Assert.True(Assert.IsType<AttackRt>(first.Last()).Accepted);
+        Assert.Contains(first,value=>value is AttackStartedNotice);
+        Assert.Contains(ReadAll(server,two),value=>value is AttackStartedNotice);
+        await Exchange(server,one,new Move { ActionId=2,Target=new() { X=position.X,Y=position.Y } });
+        Assert.Contains(ReadAll(server,two),value=>value is AttackCancelledNotice);
+        await Task.Delay(380);await server.Server!.AdvanceAsync();
+        Assert.DoesNotContain(ReadAll(server,one),value=>value is AttackHitNotice);
+        var unchanged=Assert.IsType<ResyncWorldRt>((await Exchange(server,one,new ResyncWorld())).Last()).Frame.Snapshot.Map;
+        Assert.Equal(100,Assert.Single(unchanged.Chunks.SelectMany(chunk=>chunk.Objects)).Monster.Health);
+        var other=await Exchange(server,two,new Attack { AttackId=1,TargetId=target.ObjectId });
+        Assert.True(Assert.IsType<AttackRt>(other.Last()).Accepted);ReadAll(server,one);
+        await Task.Delay(380);await server.Server.AdvanceAsync();
+        Assert.Single(ReadAll(server,one).OfType<AttackHitNotice>());
+        Assert.Single(ReadAll(server,two).OfType<AttackHitNotice>());
+    }
+
     /// <summary>真实账号请求创建并进入一个角色。</summary>
     private async Task<EnterWorldRt> Enter(MockServerService server, DataConnectionId connection, string username)
     {

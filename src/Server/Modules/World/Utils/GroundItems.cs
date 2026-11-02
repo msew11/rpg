@@ -21,7 +21,7 @@ internal static class GroundItems
     internal static MapObjectPb ToPb(DataWorldObject item)
     {
         var value = new MapObjectPb { ObjectId = item.ObjectId.ToString("N"), Revision = item.Revision, X = item.X, Y = item.Y };
-        if (item.MonsterTypeId is { } type) value.Monster = new() { MonsterTypeId = type };
+        if (item.MonsterTypeId is { } type) value.Monster = new() { MonsterTypeId = type, Health = item.Health ?? 0, MaxHealth = item.MaxHealth ?? 0 };
         else value.GroundItem = new() { ItemId = item.ItemId, Count = item.Count };
         return value;
     }

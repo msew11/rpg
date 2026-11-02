@@ -40,7 +40,7 @@ internal sealed class RoleActor : ModuleActor<RoleContext>
             return true;
         }
         if (message is DataRoleControl control)
-        { context.Cache.Pickup = null; context.Cache.Movement.Stop(context.Cache.Role, control.ServerTimeMs, Utils.RoleAttributes.Speed(context)); return true; }
+        { await Common.Utils.RoleCombat.CancelAsync(context).ConfigureAwait(false); context.Cache.CombatInput = 0; context.Cache.Pickup = null; context.Cache.Movement.Stop(context.Cache.Role, control.ServerTimeMs, Utils.RoleAttributes.Speed(context)); return true; }
         if (message is ActorProtocol.PrepareRole prepare)
         {
             context.Cache.Prepare(prepare.Summary, context.Config);

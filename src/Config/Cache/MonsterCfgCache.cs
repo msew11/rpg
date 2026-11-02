@@ -11,6 +11,12 @@ public sealed class MonsterCfgCache : MultiCfgCache<int, MonsterCfg>
     /// <summary>由配置服务统一拥有和释放。</summary>
     internal MonsterCfgCache() { }
 
+    /// <summary>怪物与角色使用同一套完整属性规则。</summary>
+    protected override void Validate(ConfigService config)
+    {
+        foreach (var row in Items.Values) AttributeRules.Validate(row.Attributes, config);
+    }
+
     /// <summary>禁止缺图及画布外锚点进入可放置列表。</summary>
     protected override void Validate(MonsterCfg value)
     {

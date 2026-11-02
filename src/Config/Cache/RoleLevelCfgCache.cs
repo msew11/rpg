@@ -20,13 +20,7 @@ public sealed class RoleLevelCfgCache : MultiCfgCache<int, RoleLevelCfg>
         if (!Items.ContainsKey(1)) throw new InvalidDataException("缺少 1 级基础属性");
         foreach (var row in Items.Values)
         {
-            if (row.Attributes is null || row.Attributes.Count != config.Attribute.Items.Count)
-                throw new InvalidDataException($"等级 {row.Level} 必须投放完整属性");
-            foreach (var pair in row.Attributes)
-            {
-                if (!config.Attribute.Items.TryGetValue(pair.Key, out var definition)) throw new InvalidDataException($"等级 {row.Level} 引用未知属性 {pair.Key}");
-                definition.ValidateValue(pair.Value);
-            }
+            AttributeRules.Validate(row.Attributes, config);
         }
     }
 }

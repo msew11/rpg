@@ -14,6 +14,8 @@ internal sealed class EquipItemHandler : IActorHandler<RoleContext, EquipItem, E
     {
         context.Cache.Commit(RoleItemRules.Create(context).Equip(context.Cache.Snapshot(), request.InstanceId, (Rpg.Const.EquipmentSlot)request.Slot,
             request.HasTargetBagSlot ? request.TargetBagSlot : null));
+        await RoleCombat.CancelAsync(context).ConfigureAwait(false);
+        RoleAttributes.Refresh(context);
         context.Cache.Projection.Changed();
         await RoleProjectionSync.ProjectAsync(context).ConfigureAwait(false);
         return new EquipItemRt { RoleId = context.Cache.RoleId, Slot = request.Slot };

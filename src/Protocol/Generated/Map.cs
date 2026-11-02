@@ -36,14 +36,15 @@ namespace Rpg.Protocol {
             "Y3RfaWQYASABKAkSEAoIcmV2aXNpb24YAiABKAMSCQoBeBgDIAEoAhIJCgF5",
             "GAQgASgCEiQKB21vbnN0ZXIYBSABKAsyES5ycGcuTWFwTW9uc3RlclBiSAAS",
             "KwoLZ3JvdW5kX2l0ZW0YBiABKAsyFC5ycGcuTWFwR3JvdW5kSXRlbVBiSABC",
-            "CQoHcGF5bG9hZCInCgxNYXBNb25zdGVyUGISFwoPbW9uc3Rlcl90eXBlX2lk",
-            "GAEgASgJIjEKD01hcEdyb3VuZEl0ZW1QYhIPCgdpdGVtX2lkGAEgASgFEg0K",
-            "BWNvdW50GAIgASgFItEBCg1NYXBBb2lEZWx0YVBiEiQKBmNlbnRlchgBIAEo",
-            "CzIULnJwZy5NYXBDaHVua0Nvb3JkUGISJwoOZW50ZXJlZF9jaHVua3MYAiAD",
-            "KAsyDy5ycGcuTWFwQ2h1bmtQYhIpCgtsZWZ0X2NodW5rcxgDIAMoCzIULnJw",
-            "Zy5NYXBDaHVua0Nvb3JkUGISKgoQdXBzZXJ0ZWRfb2JqZWN0cxgEIAMoCzIQ",
-            "LnJwZy5NYXBPYmplY3RQYhIaChJyZW1vdmVkX29iamVjdF9pZHMYBSADKAlC",
-            "D6oCDFJwZy5Qcm90b2NvbGIGcHJvdG8z"));
+            "CQoHcGF5bG9hZCJLCgxNYXBNb25zdGVyUGISFwoPbW9uc3Rlcl90eXBlX2lk",
+            "GAEgASgJEg4KBmhlYWx0aBgCIAEoBRISCgptYXhfaGVhbHRoGAMgASgFIjEK",
+            "D01hcEdyb3VuZEl0ZW1QYhIPCgdpdGVtX2lkGAEgASgFEg0KBWNvdW50GAIg",
+            "ASgFItEBCg1NYXBBb2lEZWx0YVBiEiQKBmNlbnRlchgBIAEoCzIULnJwZy5N",
+            "YXBDaHVua0Nvb3JkUGISJwoOZW50ZXJlZF9jaHVua3MYAiADKAsyDy5ycGcu",
+            "TWFwQ2h1bmtQYhIpCgtsZWZ0X2NodW5rcxgDIAMoCzIULnJwZy5NYXBDaHVu",
+            "a0Nvb3JkUGISKgoQdXBzZXJ0ZWRfb2JqZWN0cxgEIAMoCzIQLnJwZy5NYXBP",
+            "YmplY3RQYhIaChJyZW1vdmVkX29iamVjdF9pZHMYBSADKAlCD6oCDFJwZy5Q",
+            "cm90b2NvbGIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -52,7 +53,7 @@ namespace Rpg.Protocol {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.MapChunkPb), global::Rpg.Protocol.MapChunkPb.Parser, new[]{ "Coordinate", "Objects" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.MapChunkCoordPb), global::Rpg.Protocol.MapChunkCoordPb.Parser, new[]{ "X", "Y" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.MapObjectPb), global::Rpg.Protocol.MapObjectPb.Parser, new[]{ "ObjectId", "Revision", "X", "Y", "Monster", "GroundItem" }, new[]{ "Payload" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.MapMonsterPb), global::Rpg.Protocol.MapMonsterPb.Parser, new[]{ "MonsterTypeId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.MapMonsterPb), global::Rpg.Protocol.MapMonsterPb.Parser, new[]{ "MonsterTypeId", "Health", "MaxHealth" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.MapGroundItemPb), global::Rpg.Protocol.MapGroundItemPb.Parser, new[]{ "ItemId", "Count" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rpg.Protocol.MapAoiDeltaPb), global::Rpg.Protocol.MapAoiDeltaPb.Parser, new[]{ "Center", "EnteredChunks", "LeftChunks", "UpsertedObjects", "RemovedObjectIds" }, null, null, null, null)
           }));
@@ -1698,6 +1699,8 @@ namespace Rpg.Protocol {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public MapMonsterPb(MapMonsterPb other) : this() {
       monsterTypeId_ = other.monsterTypeId_;
+      health_ = other.health_;
+      maxHealth_ = other.maxHealth_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -1722,6 +1725,33 @@ namespace Rpg.Protocol {
       }
     }
 
+    /// <summary>Field number for the "health" field.</summary>
+    public const int HealthFieldNumber = 2;
+    private int health_;
+    /// <summary>
+    /// 运行中当前生命与配置上限。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Health {
+      get { return health_; }
+      set {
+        health_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "max_health" field.</summary>
+    public const int MaxHealthFieldNumber = 3;
+    private int maxHealth_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int MaxHealth {
+      get { return maxHealth_; }
+      set {
+        maxHealth_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -1738,6 +1768,8 @@ namespace Rpg.Protocol {
         return true;
       }
       if (MonsterTypeId != other.MonsterTypeId) return false;
+      if (Health != other.Health) return false;
+      if (MaxHealth != other.MaxHealth) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1746,6 +1778,8 @@ namespace Rpg.Protocol {
     public override int GetHashCode() {
       int hash = 1;
       if (MonsterTypeId.Length != 0) hash ^= MonsterTypeId.GetHashCode();
+      if (Health != 0) hash ^= Health.GetHashCode();
+      if (MaxHealth != 0) hash ^= MaxHealth.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1768,6 +1802,14 @@ namespace Rpg.Protocol {
         output.WriteRawTag(10);
         output.WriteString(MonsterTypeId);
       }
+      if (Health != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(Health);
+      }
+      if (MaxHealth != 0) {
+        output.WriteRawTag(24);
+        output.WriteInt32(MaxHealth);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1782,6 +1824,14 @@ namespace Rpg.Protocol {
         output.WriteRawTag(10);
         output.WriteString(MonsterTypeId);
       }
+      if (Health != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(Health);
+      }
+      if (MaxHealth != 0) {
+        output.WriteRawTag(24);
+        output.WriteInt32(MaxHealth);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1794,6 +1844,12 @@ namespace Rpg.Protocol {
       int size = 0;
       if (MonsterTypeId.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(MonsterTypeId);
+      }
+      if (Health != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Health);
+      }
+      if (MaxHealth != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(MaxHealth);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1809,6 +1865,12 @@ namespace Rpg.Protocol {
       }
       if (other.MonsterTypeId.Length != 0) {
         MonsterTypeId = other.MonsterTypeId;
+      }
+      if (other.Health != 0) {
+        Health = other.Health;
+      }
+      if (other.MaxHealth != 0) {
+        MaxHealth = other.MaxHealth;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1833,6 +1895,14 @@ namespace Rpg.Protocol {
             MonsterTypeId = input.ReadString();
             break;
           }
+          case 16: {
+            Health = input.ReadInt32();
+            break;
+          }
+          case 24: {
+            MaxHealth = input.ReadInt32();
+            break;
+          }
         }
       }
     #endif
@@ -1854,6 +1924,14 @@ namespace Rpg.Protocol {
             break;
           case 10: {
             MonsterTypeId = input.ReadString();
+            break;
+          }
+          case 16: {
+            Health = input.ReadInt32();
+            break;
+          }
+          case 24: {
+            MaxHealth = input.ReadInt32();
             break;
           }
         }

@@ -26,14 +26,17 @@ namespace Rpg.Protocol {
           string.Concat(
             "Cg9hdHRyaWJ1dGUucHJvdG8SA3JwZyJsCgxBdHRyaWJ1dGVzUGISLQoGdmFs",
             "dWVzGAEgAygLMh0ucnBnLkF0dHJpYnV0ZXNQYi5WYWx1ZXNFbnRyeRotCgtW",
-            "YWx1ZXNFbnRyeRILCgNrZXkYASABKAUSDQoFdmFsdWUYAiABKAE6AjgBKvsB",
+            "YWx1ZXNFbnRyeRILCgNrZXkYASABKAUSDQoFdmFsdWUYAiABKAE6AjgBKokD",
             "Cg9BdHRyaWJ1dGVUeXBlUGISIQodQVRUUklCVVRFX1RZUEVfUEJfVU5TUEVD",
             "SUZJRUQQABIgChxBVFRSSUJVVEVfVFlQRV9QQl9NT1ZFX1NQRUVEEAESIAoc",
             "QVRUUklCVVRFX1RZUEVfUEJfTUFYX0hFQUxUSBACEh4KGkFUVFJJQlVURV9U",
-            "WVBFX1BCX01BWF9NQU5BEAMSJQohQVRUUklCVVRFX1RZUEVfUEJfUEhZU0lD",
-            "QUxfREFNQUdFEAQSGwoXQVRUUklCVVRFX1RZUEVfUEJfQVJNT1IQBRIdChlB",
-            "VFRSSUJVVEVfVFlQRV9QQl9FVkFTSU9OEAZCD6oCDFJwZy5Qcm90b2NvbGIG",
-            "cHJvdG8z"));
+            "WVBFX1BCX01BWF9NQU5BEAMSGwoXQVRUUklCVVRFX1RZUEVfUEJfQVJNT1IQ",
+            "BRIdChlBVFRSSUJVVEVfVFlQRV9QQl9FVkFTSU9OEAYSIAocQVRUUklCVVRF",
+            "X1RZUEVfUEJfREFNQUdFX01JThAHEiAKHEFUVFJJQlVURV9UWVBFX1BCX0RB",
+            "TUFHRV9NQVgQCBIiCh5BVFRSSUJVVEVfVFlQRV9QQl9BVFRBQ0tfUkFOR0UQ",
+            "CRIiCh5BVFRSSUJVVEVfVFlQRV9QQl9BVFRBQ0tfU1BFRUQQCiIECAQQBCoh",
+            "QVRUUklCVVRFX1RZUEVfUEJfUEhZU0lDQUxfREFNQUdFQg+qAgxScGcuUHJv",
+            "dG9jb2xiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rpg.Protocol.AttributeTypePb), }, null, new pbr::GeneratedClrTypeInfo[] {
@@ -65,10 +68,6 @@ namespace Rpg.Protocol {
     /// </summary>
     [pbr::OriginalName("ATTRIBUTE_TYPE_PB_MAX_MANA")] MaxMana = 3,
     /// <summary>
-    /// 物理点伤。
-    /// </summary>
-    [pbr::OriginalName("ATTRIBUTE_TYPE_PB_PHYSICAL_DAMAGE")] PhysicalDamage = 4,
-    /// <summary>
     /// 护甲值。
     /// </summary>
     [pbr::OriginalName("ATTRIBUTE_TYPE_PB_ARMOR")] Armor = 5,
@@ -76,6 +75,22 @@ namespace Rpg.Protocol {
     /// 闪避值，不等于闪避概率。
     /// </summary>
     [pbr::OriginalName("ATTRIBUTE_TYPE_PB_EVASION")] Evasion = 6,
+    /// <summary>
+    /// 整数点伤下限。
+    /// </summary>
+    [pbr::OriginalName("ATTRIBUTE_TYPE_PB_DAMAGE_MIN")] DamageMin = 7,
+    /// <summary>
+    /// 整数点伤上限。
+    /// </summary>
+    [pbr::OriginalName("ATTRIBUTE_TYPE_PB_DAMAGE_MAX")] DamageMax = 8,
+    /// <summary>
+    /// 逻辑像素攻击范围。
+    /// </summary>
+    [pbr::OriginalName("ATTRIBUTE_TYPE_PB_ATTACK_RANGE")] AttackRange = 9,
+    /// <summary>
+    /// 每秒攻击次数。
+    /// </summary>
+    [pbr::OriginalName("ATTRIBUTE_TYPE_PB_ATTACK_SPEED")] AttackSpeed = 10,
   }
 
   #endregion

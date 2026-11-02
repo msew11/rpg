@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using Rpg.Const;
 
 namespace Rpg.Config.Data;
 
@@ -12,6 +14,11 @@ public sealed class BasicCfg
     public int BagColumns { get; init; }
     /// <summary>背包基础行数。</summary>
     public int BagRows { get; init; }
+    /// <summary>全部性别与原生攻击动作的公共时序。</summary>
+    public AttackTimingCfg[] AttackTimings { get; init; } = [];
+    /// <summary>读取唯一配置，不隐式回退攻击类别。</summary>
+    public AttackTimingCfg AttackTiming(RoleGender gender, RoleMotion motion) =>
+        AttackTimings.Single(row => row.Gender == gender && row.Motion == motion);
 
     /// <summary>校验基础值和角色扩容，拒绝容量溢出。</summary>
     public int GetBagCapacity(int extraRows)

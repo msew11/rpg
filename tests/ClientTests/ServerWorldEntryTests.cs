@@ -118,7 +118,7 @@ public sealed class ServerWorldEntryTests : IDisposable
         var layout = new Rpg.Server.Modules.World.Data.DataWorldLayout(map.Id, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles);
         var itemObject = new Rpg.Server.Modules.World.Data.DataWorldObject { ObjectId = Guid.NewGuid(), Revision = 3,
             X = saved.Role.X, Y = saved.Role.Y, ItemId = equipment.Id, Count = 1 };
-        var monster = itemObject with { ObjectId = Guid.NewGuid(), Revision = 8, ItemId = 0, Count = 0, MonsterTypeId = "演示怪物" };
+        var monster = itemObject with { ObjectId = Guid.NewGuid(), Revision = 8, ItemId = 0, Count = 0, MonsterTypeId = "1001", Health = 100, MaxHealth = 100 };
         await new WorldStorage(Root).SaveAsync(layout, new([itemObject, monster]), ImmutableHashSet.Create(layout.ChunkAt(itemObject)));
         var files = Directory.GetFiles(Root, "*", SearchOption.AllDirectories).Where(path => !path.EndsWith("role_summary.json"))
             .ToDictionary(path => path, File.ReadAllBytes);
@@ -133,7 +133,7 @@ public sealed class ServerWorldEntryTests : IDisposable
             var objects = reply.Map.Chunks.SelectMany(chunk => chunk.Objects).ToArray();
             Assert.Equal(2, objects.Length);
             Assert.Equal(3, objects.Single(value => value.ObjectId == itemObject.ObjectId.ToString("N")).Revision);
-            Assert.Equal("演示怪物", objects.Single(value => value.Monster is not null).Monster.MonsterTypeId);
+            Assert.Equal("1001", objects.Single(value => value.Monster is not null).Monster.MonsterTypeId);
             await server.FlushAsync();
             var summary = (await new LoginStorage(Root).LoadAsync("demo1")).Single();
             Assert.Equal(7, summary.Level); Assert.Equal(new[] { equipment.Id }, summary.EquippedItems);

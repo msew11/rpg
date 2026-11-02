@@ -68,7 +68,7 @@ public partial class MonsterSelectionSmoke : Node
             }
             Click(point);
             Check(view.SelectedObjectId == firstId && ring.Visible && ring.GetParent() == first && cursor.CurrentTexture == sword,
-                "左键没有立即选择或普通点击覆盖了红剑");
+                "右键没有立即选择或普通点击覆盖了红剑");
             Check(ring.Scale.IsEqualApprox(Vector2.One * (first.Texture.GetWidth() / 69f)), "圆环没有按目标宽度等比放大，可能被树根完全遮挡");
             await Frames();
             Check(GameServices.World.RoleTarget == target && GameServices.World.RolePosition == origin && !Circles(main), "选择同时触发移动或地面涟漪");
@@ -84,8 +84,7 @@ public partial class MonsterSelectionSmoke : Node
             var frameBefore = ring.Frame;
             Click(point);
             Check(ring.Frame == frameBefore, "重复点击重置圆环动画");
-            Click(point, MouseButton.Right);
-            Check(view.SelectedObjectId == firstId, "右键怪物错误取消选择");
+            // 左键攻击由 basic_combat_smoke 验收；本场景使用右键验证纯选择。
             Motion(PixelPoint(second, true)); await Frames(); Click(PixelPoint(second, true));
             Check(view.SelectedObjectId == secondId && ring.GetParent() == second &&
                 view.FindChildren("MonsterSelectionRing", "AnimatedSprite2D", true, false).Count == 1, "没有切换唯一目标圆环");
@@ -144,7 +143,7 @@ public partial class MonsterSelectionSmoke : Node
             Check(placement.Selected is null && view.SelectedObjectId == thirdId && replies.Count == replyCount, "放置右键同时取消目标或发送了 GM");
             Motion(new Vector2(550, 160)); await Frames();
             Check(!cursor.IsMonsterHovering && cursor.CurrentTexture == normal, "移出怪物未恢复普通鼠标");
-            Click(new Vector2(550, 160)); await Frames();
+            Click(new Vector2(550, 160), MouseButton.Left); await Frames();
             Check(GameServices.World.RoleTarget != target && view.SelectedObjectId == thirdId, "左键空地未移动或错误取消目标");
 
             // 快速移到其他 AOI 块，通过正式服务端变化验证移出清理。
@@ -232,7 +231,7 @@ public partial class MonsterSelectionSmoke : Node
     }
 
     /// <summary>使用完整的按下和松开事件验收世界输入。</summary>
-    private void Click(Vector2 point, MouseButton button = MouseButton.Left)
+    private void Click(Vector2 point, MouseButton button = MouseButton.Right)
     {
         Motion(point);
         using var press = new InputEventMouseButton { Position = point, GlobalPosition = point, ButtonIndex = button, Pressed = true };

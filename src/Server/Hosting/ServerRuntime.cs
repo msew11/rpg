@@ -148,7 +148,7 @@ internal sealed class ServerRuntime : IAsyncDisposable
             { await _items.WaitAsync().ConfigureAwait(false); itemGate = true; }
             if (request is EnterWorld && _modules.GroundItemsPending) await _modules.FlushAsync().ConfigureAwait(false);
             itemRequest = request is Gm or MoveItem or EquipItem or DropItem or PickupItem;
-            var call = World?.Call(snapshot, request is Move || itemRequest) ?? new DataActorCall(snapshot.ConnectionId.Value, snapshot.Generation, snapshot.AuthEpoch);
+            var call = World?.Call(snapshot, request is Move or Attack or CancelAttack || itemRequest) ?? new DataActorCall(snapshot.ConnectionId.Value, snapshot.Generation, snapshot.AuthEpoch);
             if (itemRequest) call = call with { PreserveResult = true };
             var result = await Router.RouteAsync(snapshot, request, call).ConfigureAwait(false);
             if (request is DropItem) _modules.GroundItemsPending = true;
@@ -167,7 +167,8 @@ internal sealed class ServerRuntime : IAsyncDisposable
                 entered = await World.EnterAsync(session, snapshot, entry).ConfigureAwait(false);
                 if (entered is null) return;
             }
-            if (World is not null && request is Move) World.Moved(snapshot);
+            if (World is not null && request is Move or Attack or CancelAttack) World.Moved(snapshot);
+            if (World is not null) await World.PublishCombatAsync().ConfigureAwait(false);
             if (World is not null && request is DeleteRole deleted) await World.DeletedAsync(deleted.RoleId, session).ConfigureAwait(false);
             if (session.Complete(snapshot, Codec.Encode(response, snapshot.Generation, envelope.RequestId, false), bindUsername, bindRoleId) && entered is { } ready)
                 World!.Initial(ready.Binding, snapshot with { RoleId = ready.Binding.RoleId }, ready.Initial);

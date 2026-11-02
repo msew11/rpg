@@ -67,6 +67,8 @@ public sealed class DataCacheWorldRoles : DataCache<ImmutableDictionary<long, Da
     }
     /// <summary>对象变化通过现有块索引标记静止观察者。</summary>
     internal void ObjectsChanged(float x, float y) => MarkObservers(Chunk(x, y));
+    /// <summary>捕获当前实际订阅指定位置的观察者。</summary>
+    internal long[] Observers(float x, float y) => _observerChunks.TryGetValue(Chunk(x, y), out var ids) ? System.Linq.Enumerable.ToArray(ids) : [];
     /// <summary>本轮是否需要发布；重同步可强制全量。</summary>
     internal bool NeedsUpdate(long roleId) => _dirty.Contains(roleId);
     /// <summary>按块收集可见角色，交集状态用于增量比较。</summary>

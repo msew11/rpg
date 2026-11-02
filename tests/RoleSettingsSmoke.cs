@@ -49,6 +49,7 @@ public partial class RoleSettingsSmoke : Node
                 var panel = hud.GetNode<Control>(title);
                 Check(panel.Visible, "默认快捷键没有打开 " + title);
                 var header = panel.FindChildren("PanelHeader", "Control", true, false).OfType<Control>().Single();
+                // 新增属性后角色窗口可能接近视口高度，横向拖动仍完整验收保存而不触发边界裁剪。
                 var before = panel.Position;
                 var start = header.GetGlobalRect().Position + new Vector2(18, header.Size.Y / 2);
                 // client-settings：真实命中标题才显示 Fetch，拖离标题仍保持握手。
@@ -59,18 +60,18 @@ public partial class RoleSettingsSmoke : Node
                 Mouse(start, true);
                 await Frames();
                 Check(cursor.IsWindowDragging && cursor.CurrentTexture != openHand, "按下未显示窗口握手 " + title);
-                Motion(start + new Vector2(-70, 45));
+                Motion(start + new Vector2(-70, 0));
                 await Frames();
                 // 移动标题随鼠标同步移动；视口边缘裁剪使鼠标实际离开标题。
                 Motion(new Vector2(-30, -30)); await Frames();
                 Check(cursor.IsWindowDragging && !cursor.IsWindowHovering && cursor.CurrentTexture != openHand,
                     "拖离标题丢失握手 " + title);
-                Motion(start + new Vector2(-70, 45));
-                Mouse(start + new Vector2(-70, 45), false);
+                Motion(start + new Vector2(-70, 0));
+                Mouse(start + new Vector2(-70, 0), false);
                 await Frames();
                 Check(!cursor.IsWindowDragging && cursor.IsWindowHovering && cursor.CurrentTexture == openHand,
                     "释放后未恢复标题开手 " + title);
-                Check(panel.Position.DistanceTo(before + new Vector2(-70, 45)) < 1, "拖动位置未保持 " + title);
+                Check(panel.Position.DistanceTo(before + new Vector2(-70, 0)) < 1, "拖动位置未保持 " + title);
                 var saved = GameServices.Setting.GetWindowPosition(action);
                 Check(saved is not null, "拖动未保存 " + title);
                 SendKey(key);
@@ -78,7 +79,7 @@ public partial class RoleSettingsSmoke : Node
                 Check(!panel.Visible, "快捷键没有关闭 " + title);
                 SendKey(key);
                 await Frames();
-                Check(panel.Position.DistanceTo(before + new Vector2(-70, 45)) < 1, "重开位置丢失 " + title);
+                Check(panel.Position.DistanceTo(before + new Vector2(-70, 0)) < 1, "重开位置丢失 " + title);
                 var close = header.FindChildren("*", "Button", true, false).OfType<Button>().Single();
                 Motion(close.GetGlobalRect().GetCenter()); await Frames();
                 Check(!cursor.IsWindowHovering, "关闭按钮误显示拖动开手 " + title);

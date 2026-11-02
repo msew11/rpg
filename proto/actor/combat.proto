@@ -1,0 +1,61 @@
+syntax = "proto3";
+package rpg.actor;
+option csharp_namespace = "Rpg.Server.ActorProtocol";
+import "combat.proto";
+import "map.proto";
+import "role.proto";
+
+// 查询实际存在且处于攻击范围内的怪物。
+message GetCombatTarget {
+  string target_id = 1;
+  rpg.RoleWorldPositionPb position = 2;
+  double range = 3;
+}
+
+message GetCombatTargetRt {
+  rpg.MapObjectPb target = 1;
+}
+
+// Role固定的可信伤害区间，由World串行随机扣血。
+message HitMonster {
+  int64 role_id = 1;
+  uint64 attack_id = 2;
+  string target_id = 3;
+  rpg.RoleWorldPositionPb position = 4;
+  double range = 5;
+  int32 damage_min = 6;
+  int32 damage_max = 7;
+  int64 server_time_ms = 8;
+}
+
+message HitMonsterRt {
+  bool hit = 1;
+}
+
+// 地图暂存即时事件，投递身份由宿主捕获。
+message QueueCombatEvent {
+  CombatEventPb event = 1;
+}
+
+message QueueCombatEventRt {
+}
+
+message CombatEventPb {
+  oneof event {
+    rpg.AttackStartedNotice started = 1;
+    rpg.AttackCancelledNotice cancelled = 2;
+    rpg.AttackHitNotice hit = 3;
+  }
+}
+
+message DrainCombatEvents {
+}
+
+message DrainCombatEventsRt {
+  repeated CombatDeliveryPb deliveries = 1;
+}
+
+message CombatDeliveryPb {
+  repeated int64 observer_role_ids = 1;
+  CombatEventPb event = 2;
+}

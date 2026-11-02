@@ -19,4 +19,8 @@ public sealed record DataWorldObject
     public int ItemId { get; init; }
     /// <summary>对象承载数量，存储层不限制数值。</summary>
     public int Count { get; init; }
+    /// <summary>怪物当前生命；null表示旧存档尚未初始化。</summary>
+    public int? Health { get; init; }
+    /// <summary>怪物创建或恢复时的生命上限。</summary>
+    public int? MaxHealth { get; init; }
 }

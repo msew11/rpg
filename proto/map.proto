@@ -63,6 +63,9 @@ message MapObjectPb {
 message MapMonsterPb {
   // 怪物类型标识。
   string monster_type_id = 1;
+  // 运行中当前生命与配置上限。
+  int32 health = 2;
+  int32 max_health = 3;
 }
 
 // 地面物品基础展示。

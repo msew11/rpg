@@ -19,7 +19,9 @@ internal sealed class CreateMonsterHandler : IActorHandler<WorldContext, CreateM
         if (!GroundDrop.Contains(context.Cache.Layout, request.X, request.Y))
             throw new ArgumentException("怪物坐标必须为地图内的有限坐标");
         var value = new DataWorldObject { ObjectId = Guid.NewGuid(), Revision = 1,
-            X = request.X, Y = request.Y, MonsterTypeId = request.MonsterTypeId.ToString(CultureInfo.InvariantCulture) };
+            X = request.X, Y = request.Y, MonsterTypeId = request.MonsterTypeId.ToString(CultureInfo.InvariantCulture),
+            Health = (int)context.Config.Monster.Items[request.MonsterTypeId].Attributes[2],
+            MaxHealth = (int)context.Config.Monster.Items[request.MonsterTypeId].Attributes[2] };
         context.Cache.Objects.Commit(context.Cache.Objects.Value.Add(value));
         GroundItems.Mark(context, value);
         return ValueTask.FromResult(new CreateMonsterRt { Object = GroundItems.ToPb(value) });

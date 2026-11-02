@@ -13,11 +13,12 @@ internal sealed class AdvanceRoleHandler : IActorHandler<RoleContext, AdvanceRol
     public async ValueTask<AdvanceRoleRt> HandleAsync(RoleContext context, AdvanceRole request)
     {
         context.Cache.Movement.Advance(context.Cache.Role, request.ServerTimeMs, RoleAttributes.Speed(context));
+        await RoleCombat.AdvanceAsync(context, request.ServerTimeMs).ConfigureAwait(false);
         await RoleProjectionSync.ProjectAsync(context).ConfigureAwait(false);
         var attributes = context.Cache.AttributesPending ? RoleAttributes.Snapshot(context) : null;
         context.Cache.AttributesPending = false;
         var value = context.Cache.Movement.Value;
-        return new AdvanceRoleRt { Attributes = attributes, Moving = value.TargetX.HasValue || context.Cache.Projection.Value.Pending || context.Cache.Pickup is not null,
+        return new AdvanceRoleRt { Attributes = attributes, Moving = value.TargetX.HasValue || context.Cache.Projection.Value.Pending || context.Cache.Pickup is not null || context.Cache.Attack is not null,
             PickupReady = PickupIntent.Ready(context) };
     }
 }

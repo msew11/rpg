@@ -7,6 +7,9 @@ namespace Rpg.Server.Modules.World.Cache;
 /// <summary>地图邮箱独占工作区，组织固定规格与动态对象缓存。</summary>
 public sealed class WorldCache
 {
+    /// <summary>等待即时投递的战斗事件及原观察者角色集合。</summary>
+    internal System.Collections.Generic.Queue<Rpg.Server.ActorProtocol.CombatDeliveryPb> CombatEvents { get; } = new();
+
     /// <summary>固定地图身份。</summary>
     public int MapId => Layout.MapId;
     /// <summary>从宿主配置复制的不可变规格。</summary>

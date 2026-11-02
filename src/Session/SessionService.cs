@@ -29,6 +29,18 @@ public sealed class SessionService : Service
     private WorldSyncCache? _sync;
     /// <summary>账号内物品组合接纳入口。</summary>
     private RoleItemsCache? _items;
+    /// <summary>账号内即时战斗数据。</summary>
+    private CombatCache? _combat;
+    /// <summary>当前可见玩家的攻击快照。</summary>
+    internal IReadOnlyDictionary<long, DataAttack> Attacks => _combat?.Attacks ?? new Dictionary<long, DataAttack>();
+    /// <summary>最近起手回复。</summary>
+    internal DataAttackReply? AttackReply => _combat?.Reply;
+    /// <summary>取走服务器确认的伤害表现。</summary>
+    internal DataCombatHit[] TakeCombatHits() => _combat?.TakeHits() ?? [];
+    /// <summary>提交单次起手，编号只属于当前控制会话。</summary>
+    internal void Attack(ulong id, Guid target) { EnsureActive(); _net.Send(new Attack { AttackId = id, TargetId = target.ToString("N") }); }
+    /// <summary>立即提交取消，不经过移动合并窗口。</summary>
+    internal void CancelAttack(ulong id) { EnsureActive(); _net.Send(new CancelAttack { ActionId = id }); }
     /// <summary>首帧后才可提交移动。</summary>
     public bool CanMove => HasRole && (_sync?.Sequence > 0);
     /// <summary>当前公开远端角色。</summary>
@@ -55,7 +67,7 @@ public sealed class SessionService : Service
     /// <summary>独立于私有背包的当前公开装备。</summary>
     public RoleWorldEquipmentPbData Equipment => HasRole ? RoleCache.Equipment : throw new InvalidOperationException("尚未进入角色");
     /// <summary>当前地图的不可变对象快照，首次快照到达前为空。</summary>
-    public DataMapAoiSnapshotPbData? Map => HasRole ? _map?.Snapshot : null;
+    public DataMapAoiSnapshotPbData? Map => HasRole ? _map?.VisibleSnapshot : null;
     /// <summary>当前地图是否已经收到完整快照。</summary>
     public bool HasMap => Map is not null;
     /// <summary>账号缓存供缓存契约验证，节点通过 Roles 和 IsLoggedIn 读取。</summary>
@@ -85,12 +97,13 @@ public sealed class SessionService : Service
             _role = new RoleCache();
             _map = new MapCache();
             _login = login;
-            _entry = new WorldEntryCache(login, _role, _map); _sync = new WorldSyncCache(_role, _map); _items = new RoleItemsCache(login, _role);
+            _entry = new WorldEntryCache(login, _role, _map); _sync = new WorldSyncCache(_role, _map); _items = new RoleItemsCache(login, _role); _combat = new CombatCache(_role, _map);
             login.BeginRequest<global::Rpg.Protocol.LoginRt>();
             _net.Send(new global::Rpg.Protocol.Login { Username = username, Password = password });
         }
         catch
         {
+            _combat?.Dispose(); _combat = null;
             _items?.Dispose();
             _sync?.Dispose();
             _entry?.Dispose();
@@ -116,6 +129,7 @@ public sealed class SessionService : Service
         if (roleId <= 0) throw new ArgumentOutOfRangeException(nameof(roleId));
         ResetNetwork();
         _login!.BeginRequest<global::Rpg.Protocol.EnterWorldRt>();
+        _combat?.Reset();
         _sync!.Reset();
         _entry!.Begin(roleId);
         try { _net.Send(new global::Rpg.Protocol.EnterWorld { RoleId = roleId }); }
@@ -127,6 +141,7 @@ public sealed class SessionService : Service
     {
         EnsureActive();
         if (_role is not null && RoleId == 0) return;
+        _combat?.Reset();
         _sync?.Reset();
         _entry?.Cancel();
         _login?.CancelRequest();
@@ -228,6 +243,7 @@ public sealed class SessionService : Service
     {
         EnsureActive();
         ResetNetwork();
+        _combat?.Dispose(); _combat = null;
         _items?.Dispose();
         _sync?.Dispose();
         _entry?.Dispose();
@@ -257,6 +273,7 @@ public sealed class SessionService : Service
     {
         if (IsDisposed) return;
         IsDisposed = true;
+        _combat?.Dispose(); _combat = null;
         _items?.Dispose();
         _sync?.Dispose();
         _entry?.Dispose();

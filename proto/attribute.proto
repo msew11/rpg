@@ -13,11 +13,20 @@ enum AttributeTypePb {
   // 魔力上限。
   ATTRIBUTE_TYPE_PB_MAX_MANA = 3;
   // 物理点伤。
-  ATTRIBUTE_TYPE_PB_PHYSICAL_DAMAGE = 4;
+  reserved 4;
+  reserved "ATTRIBUTE_TYPE_PB_PHYSICAL_DAMAGE";
   // 护甲值。
   ATTRIBUTE_TYPE_PB_ARMOR = 5;
   // 闪避值，不等于闪避概率。
   ATTRIBUTE_TYPE_PB_EVASION = 6;
+  // 整数点伤下限。
+  ATTRIBUTE_TYPE_PB_DAMAGE_MIN = 7;
+  // 整数点伤上限。
+  ATTRIBUTE_TYPE_PB_DAMAGE_MAX = 8;
+  // 逻辑像素攻击范围。
+  ATTRIBUTE_TYPE_PB_ATTACK_RANGE = 9;
+  // 每秒攻击次数。
+  ATTRIBUTE_TYPE_PB_ATTACK_SPEED = 10;
 }
 
 // 单个实体的完整正常属性，身份归外层消息。

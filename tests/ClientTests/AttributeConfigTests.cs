@@ -50,6 +50,30 @@ public sealed class AttributeConfigTests : IDisposable
         File.WriteAllText(file, rows.ToJsonString());
         Assert.Contains("attribute.json", Assert.Throws<InvalidDataException>(Load).Message);
     }
+    /// <summary>对应basic-monster-combat：武器必须完整投放整数点伤和正范围攻速，怪物血量遵循公共属性约束。</summary>
+    [Theory]
+    [InlineData("fraction")]
+    [InlineData("range")]
+    [InlineData("speed")]
+    [InlineData("reversed")]
+    [InlineData("missing")]
+    [InlineData("monster-health")]
+    [InlineData("monster-missing")]
+    public void InvalidCombatConfigurationRejectsStartup(string kind)
+    {
+        var name = kind.StartsWith("monster") ? "monster.json" : "equipment.json";
+        var file = Path.Combine(_root,name); var rows = JsonNode.Parse(File.ReadAllText(file))!.AsArray();
+        var row = rows[0]!.AsObject();
+        if (kind == "fraction") row["baseDamageMin"] = 1.5;
+        if (kind == "range") row["baseAttackRange"] = 0;
+        if (kind == "speed") row["baseAttackSpeed"] = 0;
+        if (kind == "reversed") row["baseDamageMin"] = 99;
+        if (kind == "missing") row.Remove("baseDamageMin");
+        if (kind == "monster-health") row["attributes"]!["2"] = 1.5;
+        if (kind == "monster-missing") row["attributes"]!.AsObject().Remove("10");
+        File.WriteAllText(file,rows.ToJsonString());
+        Assert.Contains(name,Assert.Throws<InvalidDataException>(Load).Message);
+    }
     /// <summary>回收测试配置目录。</summary>
     public void Dispose() => Directory.Delete(_root, true);
 }

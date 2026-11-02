@@ -11,11 +11,11 @@ namespace Rpg.Server.Protocol;
 public static class MessageCodec
 {
     /// <summary>显式请求协议表；摘要数据类型不作为可投递消息。</summary>
-    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Requests = Registry(Login.Descriptor, CreateRole.Descriptor, DeleteRole.Descriptor, EnterWorld.Descriptor, LeaveWorld.Descriptor, Move.Descriptor, ResyncWorld.Descriptor, Gm.Descriptor, MoveItem.Descriptor, EquipItem.Descriptor, DropItem.Descriptor, PickupItem.Descriptor);
+    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Requests = Registry(Attack.Descriptor, CancelAttack.Descriptor, Login.Descriptor, CreateRole.Descriptor, DeleteRole.Descriptor, EnterWorld.Descriptor, LeaveWorld.Descriptor, Move.Descriptor, ResyncWorld.Descriptor, Gm.Descriptor, MoveItem.Descriptor, EquipItem.Descriptor, DropItem.Descriptor, PickupItem.Descriptor);
     /// <summary>显式响应协议表。</summary>
-    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Responses = Registry(LoginRt.Descriptor, CreateRoleRt.Descriptor, DeleteRoleRt.Descriptor, EnterWorldRt.Descriptor, LeaveWorldRt.Descriptor, ErrorRt.Descriptor, MoveRt.Descriptor, ResyncWorldRt.Descriptor, GmRt.Descriptor, MoveItemRt.Descriptor, EquipItemRt.Descriptor, DropItemRt.Descriptor, PickupItemRt.Descriptor);
+    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Responses = Registry(AttackRt.Descriptor, CancelAttackRt.Descriptor, LoginRt.Descriptor, CreateRoleRt.Descriptor, DeleteRoleRt.Descriptor, EnterWorldRt.Descriptor, LeaveWorldRt.Descriptor, ErrorRt.Descriptor, MoveRt.Descriptor, ResyncWorldRt.Descriptor, GmRt.Descriptor, MoveItemRt.Descriptor, EquipItemRt.Descriptor, DropItemRt.Descriptor, PickupItemRt.Descriptor);
     /// <summary>主动通知协议表，本版尚无游戏通知。</summary>
-    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Notices = Registry(RoleAttributesChangedNotice.Descriptor, WorldUpdateNotice.Descriptor, SessionKickedNotice.Descriptor, RoleItemsChangedNotice.Descriptor, PickupItemResultNotice.Descriptor);
+    private static readonly IReadOnlyDictionary<string, MessageDescriptor> Notices = Registry(AttackStartedNotice.Descriptor, AttackCancelledNotice.Descriptor, AttackHitNotice.Descriptor, RoleAttributesChangedNotice.Descriptor, WorldUpdateNotice.Descriptor, SessionKickedNotice.Descriptor, RoleItemsChangedNotice.Descriptor, PickupItemResultNotice.Descriptor);
 
     /// <summary>解析信封基础结构；业务载荷在代次检查后才解析。</summary>
     public static EnvelopePb ReadEnvelope(byte[] bytes)

@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using System;
 using System.IO;
+using System.Linq;
 using Rpg.Config;
 using Rpg.Server.Modules.Common;
 using Rpg.Server.Modules.Common.Data;
@@ -30,7 +31,21 @@ internal sealed class WorldActor : ModuleActor<WorldContext>
         if (!_config.Map.Items.TryGetValue(_mapId, out var map)) throw new InvalidDataException($"地图配置不存在：{_mapId}");
         var layout = new DataWorldLayout(_mapId, map.Width, map.Height, map.TileSize, map.ChunkSizeTiles);
         var snapshot = await _storage.LoadAsync(layout).ConfigureAwait(false);
-        return new(_config, _actors, layout, snapshot);
+        var context = new WorldContext(_config, _actors, layout, snapshot);
+        var objects = context.Cache.Objects.Value;
+        for (var index = 0; index < objects.Length; index++)
+        {
+            var item = objects[index];
+            if (item.MonsterTypeId is not { } type) continue;
+            if (!int.TryParse(type, out var id) || !_config.Monster.Items.TryGetValue(id, out var cfg))
+                throw new InvalidDataException($"怪物配置不存在：{type}");
+            if (item.Health is null)
+                objects = objects.SetItem(index, item with { Health = (int)cfg.Attributes[2], MaxHealth = (int)cfg.Attributes[2], Revision = checked(item.Revision + 1) });
+            else if (item.Health <= 0 || item.MaxHealth is null || item.Health > item.MaxHealth)
+                throw new InvalidDataException("怪物存档血量无效");
+        }
+        context.Cache.Objects.Commit(objects);
+        return context;
     }
     /// <summary>邮箱内直接保存，成功才接受基线；失败保留对象和待写块。</summary>
     protected override async ValueTask<object?> DispatchAsync(WorldContext context, object message)

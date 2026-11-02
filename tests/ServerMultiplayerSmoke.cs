@@ -12,7 +12,7 @@ using Rpg.UI;
 
 namespace Rpg.Tests;
 
-/// <summary>server-movement 和 server-world-entry 双进程验收：互见移动、返回选角移除及重新进入。</summary>
+/// <summary>server-movement、server-world-entry 和 basic-monster-combat 双进程验收：互见移动、返回选角移除及重新进入。</summary>
 public partial class ServerMultiplayerSmoke : MainController
 {
     /// <summary>协调目录，和真实用户目录隔离。</summary>
@@ -80,6 +80,8 @@ public partial class ServerMultiplayerSmoke : MainController
                 await Until(() => GameServices.Session.Bag.Items.Count == 1 && GameServices.Session.Map!.Objects.Count == 0);
                 File.WriteAllText(Path.Combine(Root, "client-picked-up"), "跨进程拾取已完成");
             }
+            // basic-monster-combat：真实TCP双方同时看到起手动作、即时血量和伤害数字。
+            await VerifyCombat();
             var remoteId = GameServices.World.RemoteActors.Single().RoleId;
             if (FindChild("RemoteRole" + remoteId, true, false) is null) throw new InvalidOperationException("远端ActorView未呈现");
             var name = Host ? "host" : "client"; var other = Host ? "client" : "host";
@@ -115,6 +117,38 @@ public partial class ServerMultiplayerSmoke : MainController
             GD.Print(name + " multiplayer process passed"); GetTree().Quit();
         }
         catch (Exception error) { GD.PushError(error.ToString()); GetTree().Quit(1); }
+    }
+    /// <summary>通过跨进程屏障确保观察者就绪，再验证远端动作与服务器跳字。</summary>
+    private async Task VerifyCombat()
+    {
+        var remoteMotion = false; var hit = false;
+        using var hitListener = GameServices.EventBus.Subscribe<Rpg.Protocol.AttackHitNotice>(_ => hit = true);
+        if (Host)
+        {
+            var position = GameServices.World.RolePosition;
+            GameServices.Session.SendGm(FormattableString.Invariant($"monster 1001 {position.X+30:R} {position.Y:R}"));
+        }
+        await Until(() => GameServices.Session.Map!.Objects.Values.Any(item => item.MonsterTypeId is not null));
+        var target = GameServices.Session.Map!.Objects.Values.Single(item => item.MonsterTypeId is not null);
+        if (Host)
+        {
+            await Until(() => File.Exists(Path.Combine(Root,"client-combat-ready")));
+            GameServices.World.AttackMonster(target.ObjectId);
+        }
+        else File.WriteAllText(Path.Combine(Root,"client-combat-ready"),"观察者就绪");
+        await Until(() =>
+        {
+            remoteMotion |= GameServices.World.RemoteActors.Any(actor => actor.AttackDurationMs > 0);
+            return hit && FindChildren("DamageNumber","Node",true,false).OfType<Rpg.World.Views.DamageNumberView>().Any();
+        });
+        if (!Host && !remoteMotion) throw new InvalidOperationException("TCP观察者未播放远端攻击动作");
+        if (GameServices.Session.Map!.Objects[target.ObjectId].Health >= 100) throw new InvalidOperationException("TCP命中未即时更新血量");
+        if (Host)
+        {
+            GameServices.World.CancelAttack();
+            await Until(() => File.Exists(Path.Combine(Root,"client-combat-hit")));
+        }
+        else File.WriteAllText(Path.Combine(Root,"client-combat-hit"),"远端动作、血量、跳字通过");
     }
     /// <summary>调用当前可见且唯一的菜单按钮，走正式页面返回流程。</summary>
     private void PressTextButton(string text) => FindChildren("*", "Button", true, false).OfType<Button>()

@@ -253,7 +253,7 @@ public sealed class ServerSessionTests : IDisposable
     {
         State = new() { RoleId = roleId, Profile = new() { Name = "实际名称", Level = 1, Gender = RoleGenderPb.Male, HeadId = 9 },
             Status = new() { Health = 100, MaxHealth = 100, Mana = 60, MaxMana = 60 }, Position = new() { MapId = 1 }, Equipment = new() },
-        Role = new() { NextExperience = 500, GmMovementSpeed = new() { Speed = 180 }, Attributes = new() { Values = { { 1, 180 }, { 2, 100 }, { 3, 60 }, { 4, 0 }, { 5, 0 }, { 6, 0 } } } }, Bag = new(),
+        Role = new() { NextExperience = 500, GmMovementSpeed = new() { Speed = 180 }, Attributes = new() { Values = { { 1, 180 }, { 2, 100 }, { 3, 60 }, { 5, 0 }, { 6, 0 }, { 7, 1 }, { 8, 3 }, { 9, 48 }, { 10, 1 } } } }, Bag = new(),
         Map = new() { MapId = 1, Layout = new() { Width = 1000, Height = 1000, TileSize = 32, ChunkSizeTiles = 32 }, Center = new(),
             Chunks = { new MapChunkPb { Coordinate = new() }, new MapChunkPb { Coordinate = new() { X = 1 } },
                 new MapChunkPb { Coordinate = new() { Y = 1 } }, new MapChunkPb { Coordinate = new() { X = 1, Y = 1 } } } }
