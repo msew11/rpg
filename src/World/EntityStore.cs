@@ -27,6 +27,13 @@ internal sealed class EntityStore
     /// <summary>读取已存在实体的指定组件。</summary>
     public T Get<T>(int entityId) where T : class => (T)_entities[entityId][typeof(T)];
 
+    /// <summary>为已存在实体添加或替换纯数据组件。</summary>
+    public void Set<T>(int entityId, T component) where T : class => _entities[entityId][typeof(T)] = component;
+
+    /// <summary>尝试读取可选组件，不要求所有地图对象都具有生命。</summary>
+    public T? Find<T>(int entityId) where T : class
+        => _entities[entityId].TryGetValue(typeof(T), out var component) ? (T)component : null;
+
     /// <summary>移除已离开世界的动态实体。</summary>
     public void Remove(int entityId) => _entities.Remove(entityId);
 }

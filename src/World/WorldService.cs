@@ -40,8 +40,6 @@ public sealed partial class WorldService : Service
     private RoleWorldEquipmentPbData? _lastEquipmentSnapshot;
     /// <summary>活动角色的 ECS 实例。</summary>
     private WorldManager? _world;
-    /// <summary>当前启动内递增的移动意图序号。</summary>
-    private long _nextActionId;
 
     /// <summary>最多保留尚未确认的发送意图，后一个目标替代前一个。</summary>
     private readonly SortedDictionary<long, MoveAction> _intentions = new();
@@ -56,7 +54,7 @@ public sealed partial class WorldService : Service
     /// <summary>远端角色有限插值缓冲。</summary>
     private readonly RemoteRoleBuffer _remotes = new();
     /// <summary>远端 ECS 呈现状态。</summary>
-    public IReadOnlyList<DataActorState> RemoteActors => _world?.RemoteActors.Select(CombatPose).ToArray() ?? Array.Empty<DataActorState>();
+    public IReadOnlyList<DataActorState> RemoteActors => _world?.RemoteActors ?? Array.Empty<DataActorState>();
     /// <summary>地图世界是否就绪。</summary>
     public bool HasWorld => _world?.HasWorld == true;
     /// <summary>角色实体是否就绪。</summary>
@@ -66,7 +64,7 @@ public sealed partial class WorldService : Service
     /// <summary>当前移动目标的只读快照。</summary>
     internal Vector2? RoleTarget => _world?.RoleTarget;
     /// <summary>角色动作与朝向的不可变快照。</summary>
-    public DataActorState? ActorState => _world?.ActorState is { } state ? CombatPose(state) : null;
+    public DataActorState? ActorState => _world?.ActorState;
 
     /// <summary>显式绑定同次启动服务，世界操作由 UI 协调调用。</summary>
     public WorldService(EnvService env, ConfigService config, SettingService setting, SessionService session)
@@ -90,9 +88,9 @@ public sealed partial class WorldService : Service
     {
         ThrowIfDisposed();
         if (!_session.CanMove || _world is null || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return false;
-        var wasAttacking = _attackTarget is not null || _predictedAttack is not null;
+        var wasAttacking = _world.HasCombat;
         CancelAttack(stopMovement: false);
-        var action = new MoveAction(++_nextActionId, MapUtils.Clamp(RequireMap(), logicalPosition));
+        var action = new MoveAction(_world.NextActionId(), MapUtils.Clamp(RequireMap(), logicalPosition));
         _pendingMove = action; _intentions.Clear(); _intentions[action.ActionId] = action;
         SendPendingMove(force: wasAttacking);
         _world.Enqueue(action);
@@ -106,7 +104,7 @@ public sealed partial class WorldService : Service
         if (_world is null || MapObjects is not { } map || !map.Objects.TryGetValue(objectId, out var item) || item.MonsterTypeId is not null)
             throw new InvalidOperationException("地面物品已不存在");
         CancelAttack(stopMovement: false);
-        var action = new MoveAction(++_nextActionId, new Vector2(item.X, item.Y));
+        var action = new MoveAction(_world.NextActionId(), new Vector2(item.X, item.Y));
         _pendingMove = action; _intentions.Clear(); _intentions[action.ActionId] = action;
         SendPendingMove(force: true);
         _world.Enqueue(action);
@@ -201,8 +199,9 @@ public sealed partial class WorldService : Service
             _world.Enqueue(new SyncMapObjectsAction(snapshot));
         }
         SyncEquipment(_world);
+        SyncCombat(_world);
         _world.Tick(delta);
-        TickCombat(delta);
+        DispatchWorldEvents(_world);
     }
 
     /// <summary>每50ms最多发送最新目标，预测在点击时已经执行。</summary>
@@ -211,9 +210,9 @@ public sealed partial class WorldService : Service
         if (_pendingMove is not { } move || (!force && _sendCooldown > 0) || !_session.CanMove) return;
         _session.SubmitMove(move.ActionId, move.Destination); _pendingMove = null; _sendCooldown = .05;
     }
-    /// <summary>切角清除旧意图、动作序号和远端样本。</summary>
+    /// <summary>切角清除移动发送状态与远端样本，实体状态随世界释放。</summary>
     private void ResetMovement()
-    { ResetCombat(); _nextActionId = 0; _intentions.Clear(); _pendingMove = null; _sendCooldown = 0; _worldSequence = 0; _sinceFrame = 0; _remotes.Clear(); }
+    { _intentions.Clear(); _pendingMove = null; _sendCooldown = 0; _worldSequence = 0; _sinceFrame = 0; _remotes.Clear(); }
 
     /// <summary>计算视口覆盖的地图格范围。</summary>
     public (int Left, int Top, int Right, int Bottom) VisibleTiles(Rect2 area) => MapUtils.VisibleTiles(RequireMap(), area);
@@ -251,13 +250,14 @@ public sealed partial class WorldService : Service
         _setting.SelectRole(_session.RoleId);
         _map = map;
         ResetMovement();
-        var world = new WorldManager(() => _session.Role.Speed);
+        var world = new WorldManager();
         world.Enqueue(new InitializeWorldAction(_map!));
         world.Enqueue(new InitializeRoleAction(_session.Role));
         _lastMapSnapshot = _session.Map;
         if (_lastMapSnapshot is not null) world.Enqueue(new SyncMapObjectsAction(_lastMapSnapshot));
         _lastEquipmentSnapshot = null;
         SyncEquipment(world);
+        SyncCombat(world);
         world.Tick(0);
         _world = world;
     }
@@ -277,7 +277,6 @@ public sealed partial class WorldService : Service
         var unchanged = _lastEquipmentSnapshot?.HasSameItems(equipment) == true;
         _lastEquipmentSnapshot = equipment;
         if (unchanged) return;
-        if (_lastEquipmentSnapshot is not null) CancelAttack();
         world.Enqueue(new SyncEquipmentAction(_session.RoleId, equipment.Revision,
             equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.MainHand)?.ItemId ?? 0,
             equipment.Items.FirstOrDefault(item => item.Slot == EquipmentSlot.OffHand)?.ItemId ?? 0));

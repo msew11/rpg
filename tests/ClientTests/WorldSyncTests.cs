@@ -109,12 +109,15 @@ public sealed class WorldSyncTests : IDisposable
         session.CreateRole("小数预测", RoleGender.Male, 1); Pump(() => !session.AccountRequestPending);
         session.SelectRole(session.Roles.Single().RoleId); Pump(() => session.CanMove);
         var speed = 180.125;
-        var world = new WorldManager(() => speed);
+        var world = new WorldManager();
         world.Enqueue(new InitializeWorldAction(MapUtils.CreateMap(GameServices.Config.Map.Items[session.Role.MapId])));
         world.Enqueue(new InitializeRoleAction(session.Role)); world.Tick(0);
+        world.Enqueue(new SyncCombatContextAction(0, session.Role.Position, false, speed, 0, 0, RoleMotion.Attack1, 0));
         var origin = world.RolePosition; world.Enqueue(new MoveAction(1, origin + new Vector2(1000, 0))); world.Tick(1);
         Assert.Equal(origin.X + 180.125f, world.RolePosition.X);
-        speed = double.MaxValue; world.Tick(1);
+        speed = double.MaxValue;
+        world.Enqueue(new SyncCombatContextAction(0, session.Role.Position, false, speed, 0, 0, RoleMotion.Attack1, 0));
+        world.Tick(1);
         Assert.Equal(origin + new Vector2(1000, 0), world.RolePosition);
     }
 

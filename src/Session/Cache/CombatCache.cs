@@ -21,10 +21,8 @@ internal sealed class CombatCache : CacheBase
     private readonly Dictionary<long, (long Start, ulong Id)> _versions = new();
     /// <summary>已经接纳的命中身份，避免重复跳字。</summary>
     private readonly Dictionary<long, (long Time, ulong Id)> _hits = new();
-    /// <summary>尚未被世界表现取走的伤害。</summary>
-    private readonly Queue<DataCombatHit> _pending = new();
-    /// <summary>本人最近起手响应。</summary>
-    internal DataAttackReply? Reply { get; private set; }
+    /// <summary>按网络接纳顺序交给世界的不可变通知。</summary>
+    private readonly Queue<DataCombatUpdate> _updates = new();
     /// <summary>注册缓存阶段监听，节点只消费验证后的数据。</summary>
     internal CombatCache(RoleCache role, MapCache map)
     {
@@ -33,13 +31,15 @@ internal sealed class CombatCache : CacheBase
         Subscribe<AttackRt>(reply => {
             if (!_role.IsInitialized) return;
             var attack = reply.Accepted ? Parse(reply.Started) : null;
-            Reply = new(reply.AttackId, reply.Accepted, reply.Reason, attack);
+            var response = new DataAttackReply(reply.AttackId, reply.Accepted, reply.Reason, attack);
             if (reply.Accepted) AcceptStart(reply.Started);
+            _updates.Enqueue(new DataAttackReplyUpdate(response));
         });
         Subscribe<AttackCancelledNotice>(notice => {
             if (!Current(notice.MapId) || notice.AttackId == 0 || notice.RoleId <= 0) return;
             if (_versions.TryGetValue(notice.RoleId, out var version) && (version.Start > notice.StartTimeMs || version.Start == notice.StartTimeMs && version.Id > notice.AttackId)) return;
             _versions[notice.RoleId] = (notice.StartTimeMs, notice.AttackId); Attacks.Remove(notice.RoleId);
+            _updates.Enqueue(new DataAttackCancelledUpdate(notice.RoleId, notice.AttackId, notice.StartTimeMs));
         });
         Subscribe<AttackHitNotice>(AcceptHit);
         Subscribe<SessionKickedNotice>(_ => Reset());
@@ -63,6 +63,7 @@ internal sealed class CombatCache : CacheBase
         var attack = Parse(value);
         if (_versions.TryGetValue(attack.RoleId, out var version) && (version.Start > attack.StartMs || version.Start == attack.StartMs && version.Id >= attack.AttackId)) return;
         _versions[attack.RoleId] = (attack.StartMs, attack.AttackId); Attacks[attack.RoleId] = attack;
+        _updates.Enqueue(new DataAttackStartedUpdate(attack));
     }
     /// <summary>先验证完整目标再原子更新覆盖层和跳字队列。</summary>
     private void AcceptHit(AttackHitNotice value)
@@ -74,12 +75,18 @@ internal sealed class CombatCache : CacheBase
         if (_hits.TryGetValue(value.RoleId, out var last) && (last.Time > value.ServerTimeMs || last.Time == value.ServerTimeMs && last.Id >= value.AttackId)) return;
         _hits[value.RoleId] = (value.ServerTimeMs, value.AttackId);
         _map.AcceptHit(target);
-        _pending.Enqueue(new(value.RoleId, value.AttackId, value.Damage, new(target.X, target.Y), value.Dead));
+        var hit = new DataCombatHit(value.RoleId, value.AttackId, value.Damage, new(target.X, target.Y), value.Dead);
+        _updates.Enqueue(new DataCombatHitUpdate(hit, target, value.ServerTimeMs));
     }
-    /// <summary>世界表现一次取走已确认的伤害。</summary>
-    internal DataCombatHit[] TakeHits() { var result = _pending.ToArray(); _pending.Clear(); return result; }
+    /// <summary>世界一次取走全部已验证通知，缓存不推进动作或保存待显示伤害。</summary>
+    internal DataCombatUpdate[] TakeUpdates()
+    {
+        var result = _updates.ToArray();
+        _updates.Clear();
+        return result;
+    }
     /// <summary>切角和离开时清除所有短期状态。</summary>
-    internal void Reset() { Attacks.Clear(); _versions.Clear(); _hits.Clear(); _pending.Clear(); Reply = null; }
+    internal void Reset() { Attacks.Clear(); _versions.Clear(); _hits.Clear(); _updates.Clear(); }
     /// <summary>释放不影响其他会话的缓存。</summary>
     protected override void OnDispose() => Reset();
 }

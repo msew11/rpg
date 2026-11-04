@@ -33,10 +33,8 @@ public sealed class SessionService : Service
     private CombatCache? _combat;
     /// <summary>当前可见玩家的攻击快照。</summary>
     internal IReadOnlyDictionary<long, DataAttack> Attacks => _combat?.Attacks ?? new Dictionary<long, DataAttack>();
-    /// <summary>最近起手回复。</summary>
-    internal DataAttackReply? AttackReply => _combat?.Reply;
-    /// <summary>取走服务器确认的伤害表现。</summary>
-    internal DataCombatHit[] TakeCombatHits() => _combat?.TakeHits() ?? [];
+    /// <summary>取走按接纳顺序排列的战斗通知，供世界转换为 Action。</summary>
+    internal DataCombatUpdate[] TakeCombatUpdates() => _combat?.TakeUpdates() ?? [];
     /// <summary>提交单次起手，编号只属于当前控制会话。</summary>
     internal void Attack(ulong id, Guid target) { EnsureActive(); _net.Send(new Attack { AttackId = id, TargetId = target.ToString("N") }); }
     /// <summary>立即提交取消，不经过移动合并窗口。</summary>

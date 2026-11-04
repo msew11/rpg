@@ -1,6 +1,7 @@
 using Rpg.Const;
 using Rpg.Protocol;
 using Rpg.Services;
+using Rpg.Session.Data;
 using Rpg.Tests;
 
 namespace ClientTests;
@@ -39,12 +40,12 @@ public sealed class CombatCacheTests : IDisposable
         var wounded=monster.Clone();wounded.Revision=2;wounded.Monster.Health=80;
         var hit=new AttackHitNotice { MapId=1,RoleId=session.RoleId,AttackId=1,Target=wounded,Damage=20,ServerTimeMs=frame.ServerTimeMs+1 };
         GameServices.EventBus.Publish(hit);GameServices.EventBus.Publish(hit);
-        Assert.Single(session.TakeCombatHits());Assert.Equal(80,Assert.Single(session.Map!.Objects).Value.Health);
+        Assert.Single(session.TakeCombatUpdates().OfType<DataCombatHitUpdate>());Assert.Equal(80,Assert.Single(session.Map!.Objects).Value.Health);
         frame.Sequence=3;frame.ServerTimeMs++;GameServices.EventBus.Publish(new WorldUpdateNotice { Frame=frame });
         Assert.Equal(80,Assert.Single(session.Map!.Objects).Value.Health);
         var dead=wounded.Clone();dead.Revision=3;dead.Monster.Health=0;
         GameServices.EventBus.Publish(new AttackHitNotice { MapId=1,RoleId=session.RoleId,AttackId=2,Target=dead,Damage=80,Dead=true,ServerTimeMs=frame.ServerTimeMs+1 });
-        Assert.Empty(session.Map!.Objects);Assert.True(Assert.Single(session.TakeCombatHits()).Dead);
+        Assert.Empty(session.Map!.Objects);Assert.True(Assert.Single(session.TakeCombatUpdates().OfType<DataCombatHitUpdate>()).Hit.Dead);
         frame.Sequence=4;frame.ServerTimeMs++;GameServices.EventBus.Publish(new ResyncWorldRt { Frame=frame });
         Assert.Empty(session.Map!.Objects);
     }
